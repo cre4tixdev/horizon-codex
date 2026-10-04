@@ -63,6 +63,7 @@ Les versions directes sont fixées dans `package.json` et les résolutions trans
 | React / React DOM | 19.3.0 |
 | React Router | 8.4.0 |
 | TanStack Query | 5.104.1 |
+| TanStack Table | 8.21.3 |
 | Vite / plugin React | 8.3.2 / 6.1.1 |
 | TypeScript | 6.0.3 |
 | Tailwind / plugin Vite | 4.3.3 |
@@ -86,7 +87,7 @@ Le lot UI F06 ajoute les icônes Lucide et les premiers composants adaptés des 
 
 Ces dépendances constituent le socle des patterns shadcn/ui, sans générateur requis à l'exécution. Les primitives Radix évitent de réimplémenter la gestion accessible des dialogues. Les versions installées sont fixées dans le manifeste et le lockfile.
 
-Le socle de connexion ajoute le SDK officiel PocketBase 0.28.1 (adapter et auth), React Hook Form 7.89.0 (formulaire) et Zod 4.6.5 (validation des entrées et réponses serveur). Ces dépendances appartiennent à la stack prévue et sont fixées dans le lockfile. Les dépendances restantes, notamment TanStack Table et Tiptap, seront ajoutées avec les fonctionnalités qui les utilisent. Aucune nouvelle technologie majeure n'est introduite.
+Le socle de connexion ajoute le SDK officiel PocketBase 0.28.1 (adapter et auth), React Hook Form 7.89.0 (formulaire) et Zod 4.6.5 (validation des entrées et réponses serveur). Ces dépendances appartiennent à la stack prévue et sont fixées dans le lockfile. Contacts ajoute TanStack Table 8.21.3 pour le composant dense HDataTable, son tri et sa pagination serveur ; API v8 documentée et version exacte conservée. Tiptap sera ajouté avec les fonctionnalités qui l’utilisent. Aucune nouvelle technologie majeure n'est introduite.
 
 ---
 

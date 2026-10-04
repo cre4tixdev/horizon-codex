@@ -28,7 +28,7 @@ export function AppFrame() {
   const [collapsed, setCollapsed] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
   const { pathname } = useLocation()
-  const currentItem = navigationItems.find((item) => item.href === pathname)
+  const currentItem = navigationItems.find((item) => item.href === pathname || (item.href !== '/' && pathname.startsWith(item.href + '/')))
   const currentTitle = currentItem?.label ?? 'Page introuvable'
 
   return (

@@ -1582,3 +1582,14 @@ Microsoft fournit l’identité d’authentification.
 Microsoft ne décide jamais des permissions métier Horizon.
 
 Un compte Microsoft ne crée pas automatiquement un utilisateur Horizon autorisé sans règle explicite d’administration.
+
+
+## Contacts V1 — implémentation
+
+`src/modules/contacts` possède composants, pages, hooks Query, schémas Zod, service, repository, types et routes publiques via `index.ts`. UI → ContactsService → ContactsRepository → PocketBase. Les formulaires sauvegardent une fiche, un rôle ou une adresse explicitement ; il n'existe pas de création implicite multi-records.
+
+Le client PocketBase est partagé par URL entre authentification et repositories, pour utiliser le même authStore après renouvellement / déconnexion. Tri, recherche et pagination des fiches sont serveur, valeurs filtrées par allowlist et paramètres échappés par le SDK. Les erreurs ne propagent pas l'objet SDK. HDataTable repose sur TanStack Table v8 sans React Compiler (règle de compatibilité désactivée uniquement sur l'appel du hook).
+
+Les fichiers Contacts sont protégés. Le repository produit les URLs avec token de fichier court ; les composants demandent ces URLs par service / Query, renouvelées chaque minute, et n'appellent jamais le SDK. L'avatar et le logo société restent deux sources distinctes. Les données se réactualisent au focus ou via le bouton Actualiser ; aucun abonnement realtime Contacts n'est déclaré livré.
+
+Les hooks Contacts utilisent un writer d'audit serveur partagé dans `pocketbase/pb_hooks/lib/audit.js`. Sauvegarde et audit sont atomiques ; actor `core_users` issu de la requête, acteur vide pour superuser / traitement interne. `core_audit` est verrouillé et n'est pas utilisé comme Activity Feed.

@@ -18,13 +18,14 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
-    "test:backend": "python3 tests/pocketbase/check_auth.py",
+    "test:backend": "python3 tests/pocketbase/check_auth.py && python3 tests/pocketbase/check_contacts.py",
     "test:e2e:auth": "playwright test --config=playwright.auth.config.ts"
   },
   "dependencies": {
     "@fontsource/inter": "5.3.0",
     "@fontsource/montserrat": "5.3.0",
     "@tanstack/react-query": "5.104.1",
+    "@tanstack/react-table": "8.21.3",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
     "lucide-react": "1.51.0",

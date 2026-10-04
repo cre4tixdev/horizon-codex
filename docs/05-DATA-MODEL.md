@@ -654,6 +654,19 @@ state_region
 ```
 
 Le logo de la société peut être utilisé visuellement comme badge sur l’avatar du contact.
+
+### Contrat exécutable Contacts V1
+
+Les quatre collections sont de type Base et possèdent `created` / `updated` automatiques. Aucun effacement applicatif : sociétés et personnes utilisent `active`, les rôles sont désactivés et les adresses restent conservées. Les sociétés archivées restent accessibles aux lecteurs autorisés.
+
+- Société : `name` obligatoire (160), `legal_name` (200), `vat_number` / `fiscal_identifier` (80), langues (12), devises optionnelles sur trois lettres majuscules, site HTTP(S), téléphone (40), email optionnel valide, notes texte brut (10000). Logo unique et galerie jusqu'à dix fichiers, JPEG / PNG / WebP, 2 Mio chacun, protégés.
+- Rôle : société obligatoire sans cascade, select unique `customer / prospect / supplier / partner / other`, `active`. Index unique `(company, role)` : réactiver un rôle existant plutôt que dupliquer.
+- Personne : société optionnelle sans cascade, prénom / nom (80) avec au moins un des deux non vide côté serveur, fonction (120), email, téléphone / mobile (40), notes (10000), avatar unique protégé selon les mêmes formats / taille.
+- Adresse : société obligatoire sans cascade ; type `registered / billing / shipping / other`, ligne 1 obligatoire (200), ligne 2 (200), code postal (20), ville obligatoire (100), pays obligatoire sur deux lettres majuscules, région (100). Pas d'unicité sur société / type : plusieurs adresses sont possibles.
+- Rattacher une personne, un rôle ou une nouvelle adresse à une société archivée est refusé côté serveur. Les rattachements historiques restent lisibles et ne sont pas supprimés lors d'un archivage.
+- Lecture : compte / rôle actifs avec `contacts.read`. Création / modification : mêmes conditions et `contacts.write`. Suppression REST verrouillée. Changements Contacts audités côté serveur dans `core_audit`, au sein de la transaction de sauvegarde ; l'audit n'alimente pas le fil d'activité.
+- Chaque fiche et chaque rôle / adresse se sauvegarde explicitement comme un objet distinct. Aucun assemblage multi-records partiellement sauvegardé en arrière-plan lors d'une création de société.
+
 ---
 
 # 11. CRM

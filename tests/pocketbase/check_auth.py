@@ -33,7 +33,7 @@ class LocalPocketBase:
         self.args = [self.binary, f'--dir={self.data}',
                      f'--migrationsDir={ROOT / "pocketbase/pb_migrations"}',
                      f'--hooksDir={ROOT / "pocketbase/pb_hooks"}', '--automigrate=false']
-        self.admin_password = secrets.token_urlsafe(32)
+        self.admin_password = 'Local-' + secrets.token_urlsafe(32)
         self.admin_token = ''
         self.process = None
         self.log = open(Path(self.temp.name) / 'server.log', 'w+')
@@ -313,6 +313,8 @@ if __name__ == '__main__':
         pb = LocalPocketBase(port=18090)
         try:
             pb.start()
+            writer_role = pb.create('core_roles', {'name': 'contacts_writer', 'label': 'Contacts', 'active': True, 'permissions': ['contacts.read', 'contacts.write']})
+            pb.create_user('writer@local.invalid', writer_role['id'])
             print('Local PocketBase auth fixture ready on 127.0.0.1:18090', flush=True)
             pb.process.wait()
         except KeyboardInterrupt:

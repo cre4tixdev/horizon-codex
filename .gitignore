@@ -10,3 +10,5 @@ playwright-report/
 *.tsbuildinfo
 .DS_Store
 pocketbase/pb_data/
+__pycache__/
+*.py[cod]

@@ -1267,14 +1267,14 @@ Dernière mise à jour : **4 octobre 2026**.
 
 | Phase | Lots | Terminés | En cours | À vérifier | Bloqués | À faire |
 |---|---:|---:|---:|---:|---:|---:|
-| 1 — Fondation | 8 | 2 | 1 | 3 | 0 | 2 |
-| 2 — Référentiel | 10 | 0 | 0 | 0 | 0 | 10 |
+| 1 — Fondation | 8 | 2 | 2 | 3 | 0 | 1 |
+| 2 — Référentiel | 10 | 0 | 0 | 1 | 0 | 9 |
 | 3 — Commercial | 5 | 0 | 0 | 0 | 0 | 5 |
 | 4 — Opérations | 8 | 0 | 0 | 0 | 0 | 8 |
 | 5 — Ressources / RH interne | 4 | 0 | 0 | 0 | 0 | 4 |
 | 6 — Finance | 6 | 0 | 0 | 0 | 0 | 6 |
 | 7 — Consolidation | 5 | 0 | 0 | 0 | 0 | 5 |
-| **Total** | **46** | **2** | **1** | **3** | **0** | **40** |
+| **Total** | **46** | **2** | **2** | **4** | **0** | **38** |
 
 **Progression de livraison : 2 / 46 lots terminés (4,3 %).** Calcul : lots terminés / lots du périmètre suivi. Cet indicateur mesure les lots livrés, sans pondérer leur taille ; il ne représente ni une estimation de charge ni le temps restant. La documentation existante est un acquis de cadrage, hors de ce compteur d'implémentation.
 
@@ -1292,14 +1292,14 @@ La roadmap reste organisée en sept phases. Certains prérequis transverses doiv
 | F04 | Migrations et socle de données | F01 | Migrations versionnées, reconstruction sur base neuve et compatibilité avec l'existant vérifiées sans modification manuelle de production | À vérifier |
 | F05 | Authentification et permissions | F03, F04 | Login natif, comptes désactivés refusés, rôles et API Rules testés avec accès autorisés et refusés | À vérifier |
 | F06 | Layout et Design System | F02, charte V13 | Sidebar, logo, navigation, HBreadcrumb et composants denses réutilisables vérifiés visuellement | Terminé |
-| F07 | Audit et logs | F04, F05 | Actions sensibles auditées, erreurs compréhensibles et logs techniques sans secrets | À faire |
+| F07 | Audit et logs | F04, F05 | Actions sensibles auditées, erreurs compréhensibles et logs techniques sans secrets | En cours |
 | F08 | CI et environnement reproductible | F02–F07 | CI lint / typecheck / tests / build, configuration Docker adaptée à l'instance existante et parcours de connexion vérifiés | À faire |
 
 ### Phase 2 — Référentiel
 
 | ID | Lot | Dépendances | Résultat attendu pour clôture | Statut |
 |---|---|---|---|---|
-| R01 | Contacts : sociétés et personnes | Fondation | Fiches, rôles, adresses, logo société et avatar contact ; CRUD autorisé et archivage vérifiés | À faire |
+| R01 | Contacts : sociétés et personnes | Fondation | Fiches, rôles, adresses, logo société et avatar contact ; CRUD autorisé et archivage vérifiés | À vérifier |
 | R02 | Paramètres et organisation | Fondation | Référentiels, équipes, politiques et administration protégée ; constantes métier paramétrables centralisées | À faire |
 | R03 | Catalogue produits | R01, R02 | Catégories, unités, images, kind, stock / replenishment policies, tracking et composition distincts ; cycles interdits | À faire |
 | R04 | Fournisseurs et tarifs produits | R03 | Plusieurs fournisseurs, références, devises, conditionnements, validité et historique des prix préservés | À faire |
@@ -1415,15 +1415,16 @@ Ces points ne bloquent pas tous les travaux : la préparation du frontend et du 
 
 | Lot | Responsable | Échéance | Prochaine action | Résultat / obstacle actuel |
 |---|---|---|---|---|
-| F01 | Agent de développement | Non fixée | Après confirmation, vérifier version, volumes persistants, hooks / migrations, sauvegardes et déploiement | Environnement de développement confirmé ; accès technique, schéma et paramètres vérifiés ; inventaire incomplet |
+| F01 | Agent de développement | Non fixée | Vérifier digest de l’image, historique des migrations et restauration de sauvegarde | Préproduction, projet Synology, chemins / flags et hook auth confirmés ; restauration non vérifiée |
 | F02 | Agent de développement | Livré le 2026-10-04 | Lot clôturé ; préparer la suite après confirmation utilisateur | Socle modulaire, scripts et contrôles opérationnels ; preuves dans le journal |
 | F06 | Agent de développement | Livré le 2026-10-04 | Lot clôturé ; étendre les composants au besoin des modules | Sidebar, pictogramme officiel, navigation, breadcrumb, recherche des espaces et composants communs vérifiés ; pages métier temporaires À venir |
-| F03 | Agent de développement | Non fixée | Raccorder l'URL après application du socle ; poursuivre le realtime avec les repositories métier | Adapter et auth repository / service disponibles ; erreurs sanitizées et cache purgé à déconnexion |
-| F04 | Agent de développement | Non fixée | Faire valider puis installer deux migrations et un hook via Container Manager | Reconstruction, réapplication, conservation d'un compte standard et rollback à vide vérifiés sur PocketBase 0.40.4 local |
-| F05 | Agent de développement | Non fixée | Provisionner explicitement un compte Horizon et effectuer la recette Synology après autorisation | Login, guard, déconnexion, rôle / compte actifs et refus d'accès testés localement ; aucun compte applicatif créé sur le NAS |
-| R01 | À affecter au démarrage | Non fixée | Livrer sociétés / contacts après le socle | Dépend de la fondation |
+| F03 | Agent de développement | Non fixée | Poursuivre le realtime avec les repositories métier | Client partagé auth / Contacts, erreurs sans objets SDK, URL raccordée et cache purgé à déconnexion |
+| F04 | Agent de développement | Non fixée | Confirmer l’historique sur NAS ; installer Contacts après accord | Reconstruction / adoption et rollback protecteur testés localement ; fichiers / flags auth et hook vérifiés sur NAS |
+| F05 | Agent de développement | Non fixée | Recetter les permissions Contacts sur préproduction après installation | Login, déconnexion / reconnexion, rechargement et révocation du compte de test confirmés par l’utilisateur ; comptes créés par lui dans le dashboard |
+| R01 | Agent de développement | Non fixée | Recette CRUD / images / archive / audit et permissions sur NAS | Installation, cinq collections et accès aux onglets / création confirmés par l’utilisateur ; tests complets locaux réussis |
+| F07 | Agent de développement | Non fixée | Étendre / recetter le socle audit au-delà des changements Contacts | Writer transactionnel et collection verrouillée préparés comme prérequis Contacts |
 
-Ce tableau expose la file de travail immédiate. F01 reste `En cours` ; F02 et F06 sont `Terminé`. F03 / F04 / F05 sont `À vérifier` après préparation locale autorisée et tests : déploiement / recette Synology et realtime des futurs repositories restent à compléter. Les autres lots restent `À faire`. Les phases suivantes seront détaillées progressivement avec leurs tâches, responsables et échéances. Les autorisations de F02 / F06 ne valent pas autorisation de modifier PocketBase ou de démarrer un nouveau lot.
+Ce tableau expose la file de travail immédiate. F01 reste `En cours` ; F02 et F06 sont `Terminé`. F03 / F04 / F05 sont `À vérifier` après préparation locale autorisée et tests : déploiement / recette Synology et realtime des futurs repositories restent à compléter. R01 est `À vérifier` après livraison locale Contacts et F07 `En cours` pour son prérequis audit ; les autres lots restent `À faire`. Les phases suivantes seront détaillées progressivement avec leurs tâches, responsables et échéances. Les autorisations de F02 / F06 ne valent pas autorisation de modifier PocketBase ou de démarrer un nouveau lot.
 
 ## Journal d'avancement et preuves
 
@@ -1518,8 +1519,24 @@ Prochaine action à confirmer : installation assistée du socle sur le Synology 
 - `pnpm check` réussi : lint, TypeScript, 30 tests Vitest et build. Cinq parcours auth Chromium réussis sur PocketBase local éphémère : rechargement, attente de validation, refus serveur, purge et nouvel onglet indépendant ; sept parcours layout Chromium réussis. Aucun changement sur le schéma ou les comptes du NAS.
 - Documents 06 / 09 actualisés ; recette du rechargement avec le compte utilisateur sur préproduction encore à confirmer. Statuts et compteurs inchangés.
 
-### Rechargement confirmé et première publication Git préparée
+### Rechargement confirmé et première publication Git
 
 - L'utilisateur confirme que sa connexion est conservée après actualisation avec la nouvelle gestion de session. Recette utilisateur réussie sur le frontend raccordé à la préproduction.
-- Publication du workspace demandée explicitement vers `https://github.com/cre4tixdev/horizon-codex.git`. Dépôt distant sans références lors du contrôle ; initialisation locale sur `main`. Le premier commit inclut le code, la documentation canonique, les assets de référence, les migrations / hook et les tests.
+- Publication du workspace demandée explicitement vers `https://github.com/cre4tixdev/horizon-codex.git`. Dépôt distant sans références lors du contrôle ; initialisation locale sur `main`. Le premier commit `17743ec` publié sur `main` inclut le code, la documentation canonique, les assets de référence, les migrations / hook et les tests.
 - `.env.local`, données PocketBase, dépendances, build et traces de tests exclus par `.gitignore`. Les vérifications précédentes restent applicables ; cette étape ne modifie pas le code applicatif ni la préproduction.
+
+
+### Contacts V1 — livraison locale autorisée
+
+- Accord utilisateur explicite pour démarrer Contacts. Module complet en couches UI / hooks / schemas / service / repository / types / routes ; listes serveur et fiches sociétés / personnes, rôles multiples, adresses, logos / galerie / avatars protégés, archivage / réactivation.
+- Migration `1791072002_contacts.js`, hook `contacts.pb.js` et writer partagé `lib/audit.js` prêts. Audit transactionnel constitue le prérequis de F07 ; ce lot global n'est pas déclaré terminé. Client PocketBase partagé par URL avec auth ; aucune élévation de privilège ni appel SDK depuis UI.
+- TanStack Table 8.21.3 ajouté dans la stack prévue pour HDataTable. Lint / types / 37 tests Vitest / build, 20 tests backend, 8 parcours auth + Contacts et 7 parcours layout réussis. Captures inspectées ; archive de déploiement préparée. Realtime, Activity Feed, documents et historique intermodules ne sont pas simulés.
+- Aucun changement de schéma ou de données sur le NAS par l'agent, aucune publication automatique de ce nouveau lot sur GitHub. Prochaine action : installation guidée / permissions et recette de préproduction selon 06. R01 À vérifier, F07 En cours ; total 2 terminés, 2 en cours, 4 à vérifier, 38 à faire ; progression livrée 4,3 %.
+
+
+### Contacts installé et reprise planifiée
+
+- L'utilisateur confirme sauvegarde / archive, dépôt des fichiers, redémarrage et présence de `contacts_companies`, `contacts_company_roles`, `contacts_people`, `contacts_addresses`, `core_audit`. Journal à 23:20 sans erreur visible ; rechargement des fichiers de hooks observé.
+- Attribution guidée des permissions Contacts au rôle de développement puis reconnexion : onglets Sociétés / Personnes et bouton Nouvelle société confirmés par l'utilisateur. Aucun changement direct des données / règles du NAS par l'agent.
+- R01 reste À vérifier : recette sur NAS des créations / modifications, rôles / adresses, fichiers protégés, archive / réactivation, audit et rôles restreints à compléter. F07 reste En cours. Compteurs inchangés : 2 terminés, 2 en cours, 4 à vérifier, 38 à faire.
+- L'utilisateur demande commit et push du module vers le dépôt existant puis arrêt du travail pour reprise le lendemain. Point de reprise : recette Contacts sur préproduction, avant ouverture d'un autre module. Les contrôles locaux déjà réussis restent applicables ; aucune nouvelle modification de code depuis leur exécution.

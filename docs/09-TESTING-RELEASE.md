@@ -894,3 +894,15 @@ La suite backend compte désormais 13 tests. Une fixture de schéma relue par AP
 Après adaptation : `pnpm check` réussi (26 tests Vitest, lint, typecheck, build), `POCKETBASE_BINARY=/private/tmp/horizon-pb-bin/pocketbase pnpm test:backend` réussi (13 tests), `pnpm test:e2e:auth` réussi (3 parcours Chromium avec backend temporaire). La suite layout n'a pas été relancée : aucune modification de son code dans ce lot. La recette sur le NAS et la restauration de sa sauvegarde restent distinctes de ces preuves locales.
 
 Le test historique de rollback à vide est remplacé par un test de refus du rollback d'une collection adoptée : même une collection vide peut appartenir à l'installation préexistante et ne doit pas être supprimée automatiquement.
+
+
+## Vérifications Contacts V1
+
+`pnpm check` : 37 tests Vitest, lint, TypeScript strict et build. Le service est testé sur refus de lecture / écriture avant requête, lecture obligatoire pour écrire, normalisation, taille d'image, archivage et validation des noms / URLs.
+
+`POCKETBASE_BINARY=/chemin/pocketbase pnpm test:backend` exécute les 13 tests auth / migrations puis les 7 tests Contacts de `tests/pocketbase/check_contacts.py`. Couverture : refus anonymes et sans permission, lecteur seul, noms exacts de permissions et rôle désactivé, rôles uniques / adresses / noms, relations archivées conservées, suppression interdite, acteur et snapshots d'audit, rollback de sauvegarde sur échec d'audit, logo protégé pour lecteur / anonyme / compte sans permission. Migration et réapplication sur base neuve incluses dans chaque fixture. Aucun contact du NAS.
+
+La suite auth Chromium comporte désormais 8 tests : 5 auth et 3 Contacts (parcours complet société + logo + deux rôles + adresse + personne / avatar / modification / archive / réactivation ; accès lecteur / refus ; validation / recherche / mobile). Suite layout : 7 tests. Captures `/private/tmp/horizon-company.png`, `horizon-people.png`, `horizon-contacts-mobile.png` inspectées. Les parcours locaux ne constituent pas la recette sur préproduction.
+
+
+Installation Contacts sur préproduction confirmée par l'utilisateur : cinq collections présentes et accès aux onglets / bouton de création après permissions et reconnexion. Recette métier complète NAS (CRUD, images, audit, archive et accès restreints) à effectuer lors de la reprise ; ne pas assimiler l'accès à la page à cette recette complète.

@@ -1,4 +1,5 @@
 import { createBrowserRouter } from 'react-router'
+import { contactsRoutes } from '../modules/contacts'
 import { dashboardRoutes } from '../modules/dashboard'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { RouteErrorPage } from './pages/RouteErrorPage'
@@ -16,7 +17,8 @@ export const router = createBrowserRouter([
     errorElement: <RouteErrorPage />,
     children: [
       ...dashboardRoutes,
-      ...navigationItems.filter((item) => item.href !== '/').map((item) => ({ path: item.href, element: <WorkspacePage item={item} /> })),
+      ...contactsRoutes,
+      ...navigationItems.filter((item) => item.href !== '/' && item.href !== '/contacts').map((item) => ({ path: item.href, element: <WorkspacePage item={item} /> })),
       { path: '*', element: <NotFoundPage /> },
     ],
     }],

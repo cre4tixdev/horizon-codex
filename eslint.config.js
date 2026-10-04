@@ -12,8 +12,8 @@ export default defineConfig([
     languageOptions: { globals: { migrate: 'readonly', Collection: 'readonly' } },
   },
   {
-    files: ['pocketbase/pb_hooks/*.js'],
-    languageOptions: { globals: { onRecordValidate: 'readonly', BadRequestError: 'readonly' } },
+    files: ['pocketbase/pb_hooks/**/*.js'],
+    languageOptions: { globals: { onRecordValidate: 'readonly', BadRequestError: 'readonly', onRecordCreateRequest: 'readonly', onRecordUpdateRequest: 'readonly', onRecordCreate: 'readonly', onRecordUpdate: 'readonly', require: 'readonly', __hooks: 'readonly', Record: 'readonly' } },
   },
   {
     files: ['**/*.{js,ts,tsx}'],
