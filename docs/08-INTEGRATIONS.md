@@ -560,3 +560,32 @@ Si ajoutés :
 - idempotence ;
 - historique ;
 - désactivation par endpoint.
+
+# Recherche d’entreprises publique — décision du 5 octobre 2026
+
+Pappers est remplacé par l’[API Recherche d’entreprises de l’État](https://recherche-entreprises.api.gouv.fr/docs/). Architecture retenue avec l’utilisateur : UI Contacts → CompanyLookupService → CompanyLookupRepository → API publique, directement depuis le navigateur. Aucun relais PocketBase, clé API, configuration serveur ni déploiement NAS nécessaire à cette recherche.
+
+Le bouton « Recherche informations » est placé dans la barre d’actions en haut de la fiche, en création et sur une société existante. Aucun onglet Enrichissement. La fenêtre recherche par nom, SIREN ou SIRET, propose au maximum dix résultats puis les informations disponibles à sélectionner. « Remplir le formulaire » modifie seulement le brouillon local. Seul « Enregistrer » persiste société et adresse via le parcours Contacts habituel, ses validations, permissions et audit.
+
+Les requêtes anonymes utilisent `GET https://recherche-entreprises.api.gouv.fr/search?q=…&per_page=10`, `credentials: omit` et un délai maximal de dix secondes. Aucun token Horizon n’est transmis au fournisseur. Les erreurs réseau, quota HTTP 429, réponse invalide et absence de résultat sont présentées sans perdre le formulaire. La saisie manuelle reste possible.
+
+Mapping : nom complet → nom usuel ; raison sociale → raison sociale ; SIREN ; SIRET du siège pour une recherche par nom / SIREN, ou de l’établissement exact pour une recherche par SIRET. Un SIRET introuvable ne se rabat pas sur le siège. L’adresse française est construite depuis les champs structurés de l’établissement ; les adresses restreintes, étrangères ou insuffisamment structurées ne sont pas proposées. Les entreprises en diffusion restreinte sont exclues.
+
+Les valeurs absentes ne remplacent pas les valeurs locales. Aucun calcul de TVA, import de dirigeants, logo ou coordonnées supposées. La sélection explicite peut remplacer les champs disponibles choisis ; téléphone, e-mail et TVA déjà saisis restent conservés lorsqu’ils ne sont pas fournis.
+
+Les routes serveur de recherche / aperçu / application ont été retirées du code local. La route historique protégée `/api/horizon/company-lookup/status` conserve uniquement le contrôle de version du schéma Contacts utilisé par les sauvegardes ordinaires ; elle ne contacte aucun fournisseur. Les anciens champs et collections techniques ne sont pas supprimés pour préserver les migrations et données existantes ; ils ne sont pas utilisés par ce parcours.
+
+
+TVA — mise à jour du 5 octobre 2026 : appel direct `search?q=…&per_page=10&minimal=true&include=siege,matching_etablissements,tva`. Le [contrat OpenAPI officiel](https://recherche-entreprises.api.gouv.fr/openapi.json) décrit tva comme une liste de numéros intracommunautaires français actifs, source DGFiP. Réponse réelle vérifiée pour SIREN 552081317 : FR03552081317. Les doublons sont retirés ; une seule valeur est proposée, plusieurs valeurs nécessitent un choix explicite. Pas de numéro construit à partir du SIREN, ni de contrôle VIES prétendu. Aucune propriété RCS dans ce contrat : le numéro RCS reste renseigné manuellement.
+
+Préparation facturation électronique : les champs du destinataire sont stockés dans la fiche. La [DGFiP](https://www.impots.gouv.fr/facturation-electronique-et-plateformes-agreees) distingue la plateforme agréée et le routage ; l’adresse électronique est un identifiant de facturation, pas nécessairement un e-mail. SUPER PDP reste le provider sélectionné pour Horizon dans la spécification, mais aucune transmission / réception ou consultation d’annuaire n’est livrée dans ce lot. Un nom de plateforme saisi n’est pas une preuve d’agrément. Les contrats provider, formats structurés, données de pièce, statuts, webhooks et vérification d’annuaire restent au lot Facturation électronique.
+
+
+LEI : saisie manuelle dans le formulaire, sans nouvel appel réseau. L’API Recherche d’entreprises utilisée ici ne fournit pas ce champ. Aucun calcul ni assimilation au RCS. Le format s’appuie sur la définition GLEIF (code alphanumérique de 20 caractères), sans validation de registre ou de statut : https://www.gleif.org/fr/organizational-identity/lei-vlei/the-legal-entity-identifier-lei .
+
+
+### Recherche de logos — Wikimedia Commons
+
+Provider initial public sans secret : MediaWiki Action API `https://commons.wikimedia.org/w/api.php`, query + generator=search, namespace fichier 6, 24 résultats, mots-clés explicites, origin=* (CORS), prop=imageinfo et iiprop=url|mime|size|thumbmime, iiurlwidth=500. Filtres optionnels filemime:image/png, image/jpeg ou image/webp. Les résultats sont triés par index de recherche ; les formats non JPEG/PNG/WebP sont écartés. Un SVG peut être sélectionné sous son rendu PNG fourni par Wikimedia. Hosts images autorisés : upload.wikimedia.org et thumb.wikimedia.org ; source liée commons.wikimedia.org. Téléchargement CORS avec credentials omit, timeout 15 s, préparation d’un File local ; sauvegarde ultérieure via le circuit Contacts existant. Pas de scraping HTML Google ni d’API payante activée. Couverture limitée au catalogue Commons ; pas de garantie de résultat pour toute société. Le lien de source permet de consulter les conditions d’utilisation de chaque image.
+
+Documentation primaire : https://www.mediawiki.org/wiki/API:Search ; https://www.mediawiki.org/wiki/API:Imageinfo ; https://www.mediawiki.org/wiki/API:Cross-site_requests . Une recherche web Brave nécessite une clé (https://api-dashboard.search.brave.com/documentation/guides/authentication) et donc une décision d’intégration distincte, avec secret serveur ; elle n’est pas activée par ce lot.

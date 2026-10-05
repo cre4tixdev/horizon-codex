@@ -1,5 +1,7 @@
 # Horizon — UX & Design System
 
+Finition du 5 octobre 2026 — largeur des fiches : les sociétés et contacts utilisent toute la largeur disponible du contenu, au lieu d’un bloc centré plafonné à 1080 px. La barre d’actions, les onglets, les sections et le fil d’activité restent alignés. Seules les marges du layout sont conservées : 25 px par côté sur desktop et 12 px sur mobile. Les grilles adaptatives et les dimensions des logos restent inchangées.
+
 ## Statut
 
 ```text
@@ -1450,12 +1452,12 @@ Exemple de socle :
 ```css
 :root {
   --hz-navy: #091C3A;
-  --hz-magenta: #F52F96;
+  --hz-magenta: #E90072;
   --hz-pink: #FF5AAE;
   --hz-violet: #7B3FC7;
   --hz-violet-light: #A56BEA;
 
-  --hz-bg: #F4F5F7;
+  --hz-bg: #F5F8FD;
   --hz-surface: #FFFFFF;
   --hz-text: #091C3A;
   --hz-text-muted: #7B8794;
@@ -1566,3 +1568,144 @@ Le layout se réorganise sur écrans étroits : navigation en icônes, indicateu
 ## Réalisation Contacts V1
 
 HDataTable partagé : lignes 36 px, en-tête gris clair, tri serveur, bord fin, fond blanc, aucune zebra, scroll horizontal contenu au tableau. Contacts utilise Sociétés / Personnes, barre recherche / état / actualisation, pagination sous tableau, fiche à trois colonnes desktop et une colonne mobile. Les rôles et adresses restent sous les informations générales. Archive / réactivation nécessite une confirmation. Le layout fournit HBreadcrumb sur les sous-routes Contacts ; logo société / avatar personne utilisent des fichiers distincts et protégés.
+
+## Évolution des fiches Contacts — 5 octobre 2026 (livraison locale)
+
+En-tête compact avec avatar de 48 px et cadre logo carré de 128 × 128 px visible dès la création, aperçu de l’image sélectionnée avant sauvegarde, remplacement et retrait explicites ; respecter les proportions avec `object-fit: contain` pour le logo. Nom et statut dans l’en-tête, actions Enregistrer / Archiver dans la barre supérieure. Relation commerciale à côté de l’identité sur desktop, puis bandeau métier ; ces deux zones précèdent les champs. Le logo reste secondaire, sans grande zone descriptive. La société utilise deux colonnes : identité / coordonnées / informations légales à gauche, adresse du siège / langue et devise à droite. La personne utilise deux cartes côte à côte pour identité et coordonnées. Notes et enrichissement Pappers disposent de leur onglet dédié. Contacts associés et adresses complémentaires sous le formulaire. La galerie est retirée de la fiche pour conserver un seul emplacement visuel de logo.
+
+Les personnes associées sont présentées avec avatar, nom cliquable, fonction et coordonnées ; bouton de création pré-rattachée si autorisé. Cartes blanches à bordure fine, titres avec icônes, champs regroupés par sens, code postal et ville côte à côte. Mobile : blocs empilés, sans débordement horizontal. Respecter les dimensions et styles denses des composants existants.
+
+Combobox commune : libellé + code, recherche, navigation clavier, focus visible, sélection unique et messages chargement / vide / erreur. Les boutons métier affichent les vrais totaux autorisés ; aucun accès sans permission, aucune valeur zéro pour un module non livré. Un filtre société actif doit être visible dans la liste destination et supprimable par l’utilisateur.
+
+
+### Répertoire Contacts : Cartes / Liste
+
+Cartes par défaut pour identifier sociétés et personnes rapidement : logo / avatar carré de 64 px à gauche, bloc nom / fonction et coordonnées à droite, badges de relation commerciale en pied. Grille adaptative ; aucune donnée fictive pour remplir une carte. Liste tabulaire pour comparaison et tri : lignes de 40 px, relations colorées, statut et survol discret. Barre commune recherche / état / actualisation / nombre de résultats / tri et sélecteur Cartes / Liste avec `aria-pressed`. La préférence est portée par `?view=cards|list`, sans nouvelle préférence stockée côté serveur. Même pagination serveur dans les deux modes, une colonne de cartes sur mobile et défilement du tableau contenu à son cadre.
+
+
+### Révision visuelle autorisée depuis la référence utilisateur — 5 octobre 2026
+
+L’utilisateur demande explicitement une évolution de charte : surfaces blanc / bleu très clair (`#F5F8FD`), sidebar bleu profond (`#031C2C` à `#0B1832`), accent principal magenta `#E90072`, bordures froides, badges arrondis et icônes de section magenta. Le pictogramme Horizon et la typographie Montserrat / Inter restent en place. Le gradient de marque magenta / violet reste disponible ; la navigation sélectionnée utilise un magenta plus sombre pour améliorer sa lisibilité.
+
+Le répertoire propose une synthèse de quatre vrais totaux actifs : contacts, sociétés, sociétés clientes et fournisseurs. Pas de pourcentage d’évolution sans historique de référence. Ces totaux concernent tout le répertoire accessible, indépendamment de la recherche ou de la page courante. Cartes identifiables, lignes compactes de 40 px, en-tête bleu clair et alternance de fond très discrète sur Contacts. Barre de recherche / état / tri / présentation commune. Les couleurs de relation sont sémantiques : client violet, fournisseur orange, prospect bleu, partenaire vert bleuté.
+
+La fiche comporte une identité compacte, relations commerciales en haut, bandeau de coordonnées cliquables, raccourcis métier, puis de vrais onglets Informations / Relations / Notes / Enrichissement. Les personnes disposent d’Informations / Notes ; les relations commerciales et raccourcis affichés en tête concernent leur société. Les panneaux restent montés pour préserver les saisies lors de la navigation, mais seuls les contenus de l’onglet sélectionné sont visibles. Navigation clavier par flèches, Home / End ; `tablist`, `tab`, `tabpanel` et états sélectionnés explicites. Aucun onglet Activité / Documents fictif.
+
+Les logos utilisent `object-fit: contain` dans toutes les présentations, avec centrage, fond blanc et marge intérieure : un logo horizontal ou vertical reste entier, les zones restantes sont blanches ; les portraits seuls utilisent `cover`. Cadres carrés de 128 × 128 px en fiche, 64 × 64 px en carte et 36 × 36 px en tableau ; le petit badge société sur un avatar conserve aussi le logo entier. Pas de transformation ni recadrage des fichiers enregistrés.
+
+Champs organisés en panneaux légers, libellés de 10,5 px, contrôles de 33 px, bordures `#DCE6F4`, texte de saisie de 12 px, code postal / ville côte à côte. Sur mobile : synthèse sur deux colonnes, titres et création sur deux lignes, cartes sur une colonne, formulaires empilés et tableau contenu à son défilement horizontal. Cette révision prévaut sur les descriptions historiques V1 ci-dessus.
+
+
+### Disposition des cartes retenue par l’utilisateur — 5 octobre 2026
+
+Carte horizontale blanche aux angles arrondis : logo / avatar 64 × 64 px à gauche, nom cliquable sur plusieurs lignes à droite, puis e-mail, localisation du siège et téléphone si renseignés. Pour une personne, fonction et société associée restent visibles ; la localisation est celle du siège de sa société. Pas de séparateur horizontal entre identité et coordonnées. Badges des relations commerciales en bas du bloc texte et raccourci de consultation à droite. Grille de cartes de 350 px minimum lorsque l’espace le permet, une colonne sur mobile, texte long retourné à la ligne. Les liens image et titre ouvrent la fiche ; mail et téléphone déclenchent les actions correspondantes.
+
+La recherche des espaces est centrée géométriquement dans la top bar, avec des zones latérales de même largeur pour la commande de navigation et le compte utilisateur. Largeur maximale 480 px, adaptation à la largeur disponible ; sur mobile, recherche sur la largeur disponible. Le libellé du compte peut être tronqué pour préserver les actions et éviter les chevauchements.
+
+
+### Combobox et espace Paramètres — 5 octobre 2026
+
+Combobox : libellé du choix sur une seule ligne avec ellipse si nécessaire ; chevron dans un emplacement fixe de 20 × 20 px, centré verticalement et retourné à l’ouverture. Menu aligné sur le champ, bordure bleu clair, coins de 9 px, ombre légère, recherche intégrée avec icône, codes dans une petite étiquette à droite et coche réservée à la sélection. Survol bleu clair, sélection violette légère ; scroll clavier de l’option active, recherche sans accents, Enter pour choisir et Escape pour fermer. Le même composant remplace les sélecteurs de filtres, tri, société et type d’adresse ; les codes techniques de ces choix ne sont pas affichés.
+
+Le pied de page global « Horizon · CVS Engineering / Documents » est supprimé. Documents reste accessible par la navigation métier. Une marge inférieure protège le contenu sans ajouter de texte de marque sous les écrans.
+
+Paramètres : navigation locale à gauche, groupée en Socle commun / Modules métier / Connexions, vue d’ensemble en cartes avec recherche et état Disponible / Prévu, zone de contenu à droite. Référentiels dans une page dédiée avec onglets Pays / Langues / Devises et actions d’administration selon permissions. Les domaines futurs présentent leur périmètre ; aucune fausse saisie de réglages. Mobile : navigation locale horizontale, cartes sur une colonne et tableaux avec défilement interne.
+
+
+### Top bar persistante, recherche contextuelle et menu utilisateur — 5 octobre 2026
+
+La top bar de 52 px reste ancrée en haut pendant le défilement, au-dessus du contenu. Les ancres des fiches et la navigation Paramètres tiennent compte de sa hauteur. Recherche toujours centrée ; sur mobile le compte reste accessible par son avatar à droite.
+
+Sur `/contacts` et `/contacts/people`, un unique champ dans la top bar filtre le répertoire courant via les services Contacts existants. Plus de champ de recherche dupliqué dans la barre de filtres. Le terme `q` est conservé dans l’URL et lors du passage cartes / liste ou du rechargement ; un nouveau terme remet la pagination à la première page. Le changement d’onglet sociétés / personnes ouvre le nouveau répertoire sans reprendre le terme précédent. Bouton d’effacement et ⌘ K / Ctrl K pour focaliser le champ. Sur les autres pages, la recherche des espaces conserve son dialogue et son raccourci clavier.
+
+Le clic sur le compte ouvre un menu accessible au clavier : Mon compte, Paramètres, puis Se déconnecter. Nom et rôle visibles sur grand écran, avatar compact sur les petits écrans. `/account` présente le nom, l’e-mail et le rôle de la session en lecture seule ; les changements de profil ou d’accès restent du ressort de l’administrateur.
+
+Le contexte reste visible dans une petite étiquette à l’intérieur de la recherche, même après saisie : « Sociétés », « Personnes » ou « Espaces Horizon ». Le lecteur d’écran annonce également le contexte du champ Contacts.
+
+Champs composés (top bar et dialogue de recherche) : un seul cadre extérieur porte le focus ; le champ interne reste sans bordure ni contour, avec une marge de saisie de 6 px. Les champs simples et combobox utilisent une bordure bleue et un halo léger au focus, sans second contour magenta.
+
+Le contexte est sélectionné automatiquement à chaque changement de page : Sociétés, Personnes, ou Paramètres (vue d’ensemble). Son étiquette ouvre un menu pour passer en recherche globale des espaces Horizon ou revenir au contexte local. Le filtre local reste conservé lorsque le mode global est activé. La vue d’ensemble Paramètres utilise désormais cette recherche commune et retire son champ local dupliqué. Les pages sans recherche métier disponible conservent la recherche des espaces.
+
+Répertoire Contacts : toute la surface d’une carte et d’une ligne ouvre la fiche. Les liens e-mail, téléphone et société associée restent prioritaires et gardent leur destination. Liens natifs pour conserver navigation clavier et ouverture dans un nouvel onglet ; focus visible sur la surface concernée. Le tableau partagé accepte une destination de ligne optionnelle.
+
+Révision de densité : flèche de consultation retirée des cartes entièrement cliquables ; panneaux des fiches à 12 × 14 px, espaces entre panneaux de 10 px, champs espacés de 9 px, contrôles conservés à 33 px. À partir de 1200 px, coordonnées des sociétés sur trois colonnes et identifiants légaux sur quatre colonnes. Cette première présentation par interrupteurs a été refusée par l’utilisateur ; elle est remplacée par la révision ci-dessous.
+
+### Harmonisation des fiches et relations validées — 5 octobre 2026
+
+En-tête blanc unifié avec logo / avatar, identité et relation commerciale. Deux cases à cocher indépendantes Client / Fournisseur dans un bloc commun discret, sans interrupteurs ni pastilles violettes ; cumul admis. Identité et coordonnées réunies dans un panneau avec séparation légère, informations légales sans étirement artificiel. Adresse et préférences dans la seconde colonne. Pays et région côte à côte sur grand écran ; empilement lisible sur mobile. Les formats des logos 128 / 64 / 36 px restent ceux demandés.
+
+Le même bloc de choix Client / Fournisseur est affiché dès Nouvelle société et dans les fiches enregistrées. À la création, cocher prépare les relations de la sauvegarde ; sur une fiche existante, le changement est également préparé pour Enregistrer (règle finale clarifiée ci-dessous).
+
+### Fiche intégrée — révision après retour utilisateur du 5 octobre 2026
+
+L’utilisateur souhaite une composition mieux intégrée et moderne. Une seule surface blanche contient en-tête, onglets et formulaire, largeur limitée à 1180 px. Le logo conserve son cadre 128 px ; Client / Fournisseur sont placés sous le nom avec cases compactes, sans bloc segmenté distant. Sections sans cartes imbriquées, séparateurs fins, icônes neutres, champs légèrement teintés et alignés. Identité / coordonnées / informations légales à gauche, adresse / préférences à droite ; séparation verticale légère sur desktop, empilement sur mobile. Coordonnées sur trois colonnes et informations légales sur quatre lorsque la largeur le permet. Sur mobile, le nom et les relations restent près du logo, et les champs s’empilent sans débordement. Création et fiches enregistrées partagent cette composition, sans changement des sauvegardes ou permissions.
+
+### Gabarits inspirés de la référence utilisateur — 5 octobre 2026
+
+La composition en surface blanche unique a été refusée. La référence fournie distingue un formulaire de création en blocs compacts et une fiche enregistrée avec résumé et onglets. Cette révision prévaut sur la précédente.
+
+Création société / contact : titre et actions Annuler / Enregistrer en haut, blocs blancs sur le fond bleu très clair, icônes de section magenta et contrôles de 34 px. Identité avec logo / photo intégré à droite et choix Client / Fournisseur dès création ; coordonnées dans un bloc séparé. Pour une société : adresse sur deux lignes sur grand écran, informations légales et préférences côte à côte, notes accessibles directement sans onglet. Largeur maximale de 1080 px. Ordre DOM et ordre visuel concordants pour la navigation clavier. Le logo société reste entier sur fond blanc dans son cadre de 128 px, y compris à la création.
+
+Fiche enregistrée : identité compacte, relations près du nom, bandeau de coordonnées, raccourcis métier puis onglets ; panneaux de saisie blancs organisés en deux colonnes sur desktop. Sur mobile, blocs et champs s’empilent, les relations se replient pour éviter tout débordement et les actions restent accessibles. Aucun faux compteur, champ ou bouton fonctionnel ajouté depuis la maquette ; les données, permissions et sauvegardes existantes restent utilisées.
+
+Association société d’un contact : Fonction et Société sont alignées sur une même ligne sur desktop. La recherche de sociétés est intégrée au menu de sélection et interroge le service Contacts ; aucun champ de recherche externe redondant. Le nom choisi reste affiché après fermeture du menu et retour à la liste initiale.
+
+### Même gabarit en création et consultation — clarification du 5 octobre 2026
+
+La référence fournie indiquait le style attendu et ne prescrivait pas deux compositions distinctes. Cette clarification remplace la distinction de gabarits décrite précédemment. Création et fiche enregistrée utilisent désormais les mêmes blocs et placements : titre / actions, Identité avec logo à droite et Client / Fournisseur sous les champs, Coordonnées, Adresse du siège, Informations légales / Préférences côte à côte sur desktop, Notes internes ouvertes. Largeur commune maximale 1080 px et mêmes règles responsive. Les fiches personnes reprennent également ce gabarit commun.
+
+Sur une fiche enregistrée s’ajoutent le statut, l’archivage, les raccourcis métier et les onglets Relations / Notes / Enrichissement. Les actions e-mail, téléphone, site et ouverture de la société associée se trouvent dans l’en-tête des coordonnées, sans répéter les valeurs dans un second bandeau. Les relations sont préparées pour la sauvegarde explicite, en création comme sur une fiche existante. Aucun changement de données, permissions ou migration.
+
+### État des boutons de sauvegarde et logo société associé — 5 octobre 2026
+
+Règle transversale Horizon : Enregistrer est neutre et désactivé en l’absence de changements à sauvegarder, et prend la couleur primaire lorsqu’une sauvegarde est nécessaire. Pendant la sauvegarde, le bouton est désactivé et neutre. Le composant partagé `HSaveButton` porte cette convention et doit être réutilisé dans les futurs formulaires. Elle est appliquée aux fiches société / personne, aux adresses supplémentaires et aux référentiels. Une création vide est neutre ; les saisies, choix préparés ou images à enregistrer activent le bouton.
+
+Le retour aux valeurs initiales désactive de nouveau Enregistrer. Les changements Client / Fournisseur rendent le formulaire modifié ; revenir aux choix enregistrés remet le bouton au repos. Une sauvegarde partielle reste à reprendre et conserve un bouton actif. Le logo de société superposé à la photo d’un contact mesure désormais 26 px dans les cartes (photo 64 px), 16 px dans les listes et 20 px dans les petites identités de détail ; fond blanc, bordure blanche et image entière.
+
+### États de chargement discrets — 5 octobre 2026
+
+Les opérations automatiques Contacts ne rajoutent plus de paragraphes visibles « Chargement des contacts… » / « Enregistrement du rôle… ». La relation commerciale n’a plus de sauvegarde automatique ni d’indicateur propre ; elle suit la sauvegarde de la fiche. Les contacts associés affichent des emplacements de chargement dans la grille. Les états restent annoncés par les attributs ARIA ; les erreurs et la possibilité de réessayer restent visibles.
+
+### Sauvegarde explicite commune à Horizon — clarification du 5 octobre 2026
+
+Changer un champ, une case ou une sélection prépare le formulaire et ne modifie pas la base. Seul Enregistrer sauvegarde les changements de la fiche. Cette règle prévaut sur les anciennes descriptions de sauvegarde automatique : Client / Fournisseur sont désormais préparés localement en création comme en édition, inclus dans le bouton principal et conservés après sauvegarde. Revenir aux valeurs enregistrées désactive le bouton ; recharger sans sauvegarder abandonne les changements. La fiche personne montre les relations de sa société en lecture seule ; elles se modifient dans la fiche société.
+
+Pappers : Reporter dans la fiche remplit les champs et l’adresse du formulaire puis revient aux Informations. L’utilisateur peut encore les modifier ; seul Enregistrer les persiste. Les référentiels et formulaires d’adresse possèdent déjà une sauvegarde explicite. Archivage / réactivation restent des actions métier explicites confirmées.
+
+Dans une fiche contact, la sélection Société reste éditable et son changement active Enregistrer. La mention de lecture seule des relations désigne exclusivement Client / Fournisseur, qui qualifient la société. Le rattachement d’un contact peut être changé ou supprimé depuis sa propre fiche avec sauvegarde explicite.
+
+### Confirmation d’archivage — 5 octobre 2026
+
+Règle commune Horizon : Archiver ouvre une fenêtre modale nommant la pièce / fiche concernée. L’utilisateur doit saisir exactement ARCHIVER (majuscules, sans espace supplémentaire) pour activer la validation. Le composant partagé `HArchiveButton` remplace la confirmation native des sociétés et contacts et doit être réutilisé pour les prochains objets archivables. Champ focalisé à l’ouverture, clavier contenu dans la fenêtre, Annuler / Échap disponibles et retour du focus au déclencheur. Chaque ouverture remet la saisie à vide.
+
+Pendant la requête, les actions sont désactivées et la fenêtre reste ouverte ; en cas de refus, l’erreur est affichée et une nouvelle tentative reste possible. Les données et relations sont conservées selon l’archivage existant. La réactivation garde sa confirmation explicite habituelle.
+
+Finition visuelle retenue après retour utilisateur : fenêtre centrée et blanche, bordures neutres et icône d’archive magenta Horizon sur un petit fond gris. La couleur est limitée à cette icône et au bouton magenta de confirmation. Titre et mot ARCHIVER restent bleu foncé, champ blanc avec focus bleu discret, pied blanc et séparateur léger. Overlay standard sans flou. L’en-tête rosé, le liseré, les accents roses multiples et les ombres colorées ont été refusés comme excessifs. Le mécanisme de validation et les permissions restent inchangés.
+
+
+Recherche société — règle finale : bouton « Recherche informations » discret dans la barre d’actions en haut de la fiche, disponible en création et sur une fiche existante. L’onglet Enrichissement est retiré. Fenêtre blanche compacte, sélection des informations puis « Remplir le formulaire » ; seul Enregistrer sauvegarde. Requête directement depuis le navigateur, aucune étape de configuration serveur.
+
+
+Actions complémentaires — règle finale du 5 octobre 2026 : utiliser HRecordActions (menu engrenage à droite d’Enregistrer) pour Dupliquer, Archiver / Réactiver et Supprimer. L’archivage ne figure plus comme bouton isolé en haut des fiches Contacts. Menu blanc discret ; Archiver orange, Supprimer rouge. La fenêtre partagée HRecordConfirmation reste blanche, avec seulement une icône sur fond légèrement teinté et le bouton de confirmation coloré : orange pour ARCHIVER, rouge pour SUPPRIMER. Cette décision remplace la confirmation d’archivage magenta décrite plus haut. Validation exacte, focus initial dans le champ, Annuler / Échap et retour au bouton engrenage ; pendant la requête, annulation et seconde validation sont bloquées. Une erreur conserve le dialogue pour correction ou nouvelle tentative. HArchiveButton réutilise cette confirmation pour les futurs déclencheurs hors menu.
+
+
+Profil comptable société : tabs Informations / Relations / Comptabilité / Notes, avec Relations disponible après création. En création : Informations / Comptabilité / Notes. Le logo et les Informations ne sont pas répétés dans Comptabilité. Deux blocs blancs compacts, comptes tiers puis facturation électronique, champs en deux colonnes et une colonne sur mobile. Le bouton Enregistrer commun garde son état basé sur les modifications et fonctionne depuis tous les onglets. Le changement d’onglet conserve le brouillon.
+
+Français et Euro sont sélectionnés par défaut à la création, et restent modifiables. Numéro RCS dans le bloc légal à la place de l’identifiant fiscal. Recherche informations : la TVA disponible fait partie des cases de reprise ; si plusieurs numéros sont fournis, une combobox demande lequel reprendre. Les identifiants légaux, comptes et adresses de facturation électronique sont remis à vide lors d’une duplication pour éviter de recopier l’identité comptable du tiers.
+
+
+Informations légales société : LEI remplace désormais le champ visible Numéro RCS, dans la même grille compacte. Le champ est facultatif avec indication « 20 caractères alphanumériques ». La saisie est normalisée en majuscules lors de la sauvegarde explicite. Aucun remplissage à partir du SIREN, du RCS ou de la TVA.
+
+
+Cloche : bouton navy compact, avant le profil, compteur rouge réservé aux non lus. Panneau blanc avec bord fin et accent magenta discret sur les notifications non lues, aucun gradient décoratif. Compteur masqué à zéro, état « Vous êtes à jour » si aucun message. Présentation compatible desktop/mobile, lecture explicite par coche.
+
+Logo société : petite loupe sous le cadre, à côté du libellé « Charger », accès clavier ; clic sur le logo et libellé pour importer un fichier. La loupe ne se superpose plus à l’image. Popup blanc à largeur maximale 720 px, marges intérieures 20 px, mots-clés et format sur la première ligne, vignettes entières sur blanc, contour magenta sur l’image sélectionnée, aperçu et source sous la grille, validation en pied. Les dimensions société 128 / 64 / 36 px et object-fit contain restent celles convenues. Sur mobile, recherche et actions se répartissent sans déborder.
+
+
+### Fil d’activité — design livré
+
+Fil ouvert sous la fiche, directement sur le fond de page : aucun cadre extérieur, fond blanc ou coins de carte. Largeur alignée à la fiche, séparation de 36 px et trait supérieur discret, avec un retrait latéral supplémentaire de 20 px sur ordinateur. En-tête compact « Fil d’activité », icône History sur fond violet très léger, sous-titre et actualisation discrète. Seul le rédacteur conserve sa surface blanche délimitée : avatar, zone texte sans double encadrement, actions Joindre / Mentionner / Tâche dans une barre basse claire et bouton Publier magenta uniquement lorsqu’un contenu existe. Une publication reste distincte du bouton Enregistrer de la fiche.
+
+Chronologie sans empilement de cartes : chaque événement commence par sa date et son heure centrées entre deux traits horizontaux fins. Le contenu vient dessous, avec un avatar de 30 px à initiales à côté du nom, y compris pour les modifications faites par un utilisateur ; les événements système gardent une icône neutre. Aucun trait vertical ni date repoussée à droite. Texte aéré. Modifications repliables, diff en colonnes avec flèche ancien→nouveau, libellés français. Les fichiers ont un encart compact cliquable ; mentions en petites étiquettes violettes. Tâche intégrée avec responsable, échéance et état, priorité orange uniquement si haute ; tâche terminée avec coche verte. Filtres soulignés, pas de toggles colorés partout. L’état vide guide sans données fictives et le chargement initial utilise un squelette discret.
+
+Sur mobile : marges du layout de 12 px, retrait supplémentaire de 6 px dans le fil, séparation de 24 px, filtres défilables dans leur zone, date et heure centrées au-dessus de chaque événement, champs de tâche empilés, diff sur deux colonnes avec libellé au-dessus, aucune extension de la largeur de page. Le fil reste présent sur Informations / Relations / Comptabilité / Notes. Les notifications métier disposent d’un lien « Voir la fiche » vers #activity, avec défilement après montage.

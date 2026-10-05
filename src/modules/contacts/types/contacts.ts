@@ -8,6 +8,6 @@ export type CompanyInput = z.infer<typeof companyInputSchema>
 export type PersonInput = z.infer<typeof personInputSchema>
 export type AddressInput = z.infer<typeof addressInputSchema>
 export type ContactKind = 'companies' | 'people'
-export type ListOptions = { search: string; archived: boolean; page: number; sort?: string | undefined; descending?: boolean | undefined }
+export type ListOptions = { search: string; archived: boolean; page: number; sort?: string | undefined; company?: string | undefined; descending?: boolean | undefined }
 export type ContactFiles = { image?: File | undefined; removeImage?: boolean; gallery?: File[] }
 export type Paged<T> = { items: T[]; totalPages: number; totalItems: number }

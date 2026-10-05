@@ -1593,3 +1593,12 @@ Le client PocketBase est partagé par URL entre authentification et repositories
 Les fichiers Contacts sont protégés. Le repository produit les URLs avec token de fichier court ; les composants demandent ces URLs par service / Query, renouvelées chaque minute, et n'appellent jamais le SDK. L'avatar et le logo société restent deux sources distinctes. Les données se réactualisent au focus ou via le bouton Actualiser ; aucun abonnement realtime Contacts n'est déclaré livré.
 
 Les hooks Contacts utilisent un writer d'audit serveur partagé dans `pocketbase/pb_hooks/lib/audit.js`. Sauvegarde et audit sont atomiques ; actor `core_users` issu de la requête, acteur vide pour superuser / traitement interne. `core_audit` est verrouillé et n'est pas utilisé comme Activity Feed.
+
+
+### Activity Feed livré — Contacts (5 octobre 2026)
+
+Le composant partagé `shared/activity/ActivityPanel` passe par `core/activity/services/ActivityService` et son repository. Les modules transmettent uniquement la source (collection autorisée + identifiant) et leur capacité d’édition. Les sources initiales autorisées sont contacts_companies / contacts_people ; les futurs modules devront déclarer leur policy serveur avant raccordement. Aucun composant ne lit core_audit.
+
+Les hooks métiers continuent à écrire core_audit. Le writer d’audit appelle ensuite le projecteur core ActivityService (`pb_hooks/lib/activity.js`) dans la même transaction : diff limité aux champs métier connus et libellés français, auteur issu de la requête, données de présentation sans secrets. Les sous-enregistrements d’adresse/rôle/compte alimentent la société. Une sauvegarde explicite de société partage un UUID d’opération entre ses requêtes ; un événement de même source/auteur/opération peut être enrichi pendant une minute, sans altérer les audits individuels. L’UUID ne vaut ni preuve ni autorisation. Une reprise après erreur constitue une nouvelle opération et ne journalise que les écritures effectivement réussies ; pas de prétendue transaction atomique entre toutes les requêtes du formulaire.
+
+Commentaires/tâches : publication explicite par l’API standard des événements, avec hook serveur qui impose provenance, auteur, date et metadata. Publication, audit, mentions, notification et éventuelle tâche sont transactionnels. Les notifications internes sont créées par le writer core NotificationService, sans e-mail. Les changements de tâche produisent à leur tour un événement et un audit. Les événements automatiques et publications sont immuables pour les utilisateurs.

@@ -1,79 +1,179 @@
 import { useState, useSyncExternalStore } from 'react'
-import { useForm } from 'react-hook-form'
+import { Controller, useForm, useWatch } from 'react-hook-form'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link, useNavigate, useParams } from 'react-router'
-import { ArrowLeft, Archive, RotateCcw } from 'lucide-react'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
+import { ArrowLeft, Building2, UserRound, Phone, MapPin, Fingerprint, SlidersHorizontal, StickyNote, ChevronDown, Save, Mail, Globe } from 'lucide-react'
 import { sessionService } from '../../../core/auth/services/session'
 import { hasPermission } from '../../../core/auth/types/session'
-import { HPageHeader } from '../../../shared/ui/HPageHeader'
+import { ActivityPanel } from '../../../shared/activity/ActivityPanel'
 import { HButton } from '../../../shared/ui/HButton'
+import { HSaveButton } from '../../../shared/ui/HSaveButton'
+import { HRecordActions } from '../../../shared/ui/HRecordActions'
+import { companyDuplicate, personDuplicate } from '../schemas/contactDuplication'
+import { HCombobox } from '../../../shared/ui/HCombobox'
 import { HInput } from '../../../shared/ui/HInput'
 import { HBadge } from '../../../shared/ui/HBadge'
-import { contactsService } from '../services/ContactsService'
-import { companyInputSchema, personInputSchema } from '../schemas/contacts'
-import { ContactIdentity, GalleryImage } from '../components/ContactIdentity'
-import { CompanyRelations } from '../components/CompanyRelations'
-import type { Company, CompanyInput, Person, PersonInput, ContactKind, ContactFiles } from '../types/contacts'
+import { contactsService, CompanyAddressSaveError, CompanyRolesSaveError, CompanyAccountingSaveError } from '../services/ContactsService'
+import { addressInputSchema, companyInputSchema, personInputSchema, roleValues } from '../schemas/contacts'
+import { CompanyLookup } from '../components/CompanyLookup'
+import { CompanyBusinessLinks } from '../components/CompanyBusinessLinks'
+import { ReferencePicker } from '../components/ReferencePicker'
+import { CompanyPeople } from '../components/CompanyPeople'
+import { ContactImageEditor } from '../components/ContactImageEditor'
+import { CompanyAddresses, CompanyRoleChoices } from '../components/CompanyRelations'
+import { AddressFields } from '../components/AddressFields'
+import type { Address, AddressInput, Company, CompanyInput, Person, PersonInput, ContactKind, ContactFiles } from '../types/contacts'
 
-type FormValues = CompanyInput & PersonInput
-const companyFields: { name: keyof FormValues; label: string; type?: string }[] = [
-  { name: 'name', label: 'Nom usuel *' }, { name: 'legal_name', label: 'Raison sociale' }, { name: 'email', label: 'E-mail', type: 'email' }, { name: 'phone', label: 'Téléphone' },
-  { name: 'website', label: 'Site web', type: 'url' }, { name: 'vat_number', label: 'Numéro de TVA' }, { name: 'fiscal_identifier', label: 'Identifiant fiscal' },
-  { name: 'preferred_language', label: 'Langue préférée' }, { name: 'preferred_currency', label: 'Devise préférée' }, { name: 'default_currency', label: 'Devise par défaut' },
-]
-const personFields: typeof companyFields = [ { name: 'first_name', label: 'Prénom' }, { name: 'last_name', label: 'Nom' }, { name: 'job_title', label: 'Fonction' }, { name: 'email', label: 'E-mail', type: 'email' }, { name: 'phone', label: 'Téléphone' }, { name: 'mobile', label: 'Mobile' } ]
-function ContactEditor({ kind, record, canWrite }: { kind: ContactKind; record?: Company | Person | undefined; canWrite: boolean }) {
+import { accountDraftSchema, type AccountDraft } from '../../accounting/schemas/thirdPartyAccounts'
+
+type FormValues = CompanyInput & PersonInput & AccountDraft
+const fields = {
+  name: { label: 'Nom usuel *', placeholder: 'Nom de la société' }, legal_name: { label: 'Raison sociale', placeholder: 'Dénomination légale' },
+  first_name: { label: 'Prénom', placeholder: 'Prénom' }, last_name: { label: 'Nom', placeholder: 'Nom' }, job_title: { label: 'Fonction', placeholder: 'Responsable, directeur…' },
+  email: { label: 'E-mail', placeholder: 'contact@societe.fr', type: 'email' }, phone: { label: 'Téléphone', placeholder: '+33 …', type: 'tel' }, mobile: { label: 'Mobile', placeholder: '+33 …', type: 'tel' },
+  website: { label: 'Site web', placeholder: 'https://…', type: 'url' }, vat_number: { label: 'Numéro de TVA', placeholder: 'FR…' }, lei: { label: 'LEI', placeholder: '20 caractères alphanumériques' },
+  customer_account: { label: 'Compte client', placeholder: '411100' }, supplier_account: { label: 'Compte fournisseur', placeholder: '401100' },
+  billing_email: { label: 'E-mail de facturation', placeholder: 'facturation@societe.fr', type: 'email' }, einvoice_routing_address: { label: 'Adresse électronique de facturation', placeholder: 'Adresse inscrite dans l’annuaire' }, einvoice_platform: { label: 'Plateforme agréée du tiers', placeholder: 'Nom de la plateforme' }, einvoice_service_code: { label: 'Code service destinataire', placeholder: 'Si nécessaire, notamment Chorus Pro' },
+  siren: { label: 'SIREN', placeholder: '9 chiffres' }, siret: { label: 'SIRET', placeholder: '14 chiffres' },
+}
+
+function ContactEditor({ kind, record, addresses, accounts, canWrite, duplicateSource, duplicateAddress }: { accounts: AccountDraft; duplicateSource?: Company | Person | undefined; duplicateAddress?: Address | undefined; kind: ContactKind; record?: Company | Person | undefined; addresses: Address[]; canWrite: boolean }) {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const client = useQueryClient()
+  const [section, setSection] = useState('information')
   const [companySearch, setCompanySearch] = useState('')
+  const [chosenCompany, setChosenCompany] = useState<Company>()
   const [files, setFiles] = useState<ContactFiles>({})
-  const editable = canWrite && (!record || record.active)
-  const form = useForm<FormValues>({ defaultValues: { name: '', legal_name: '', vat_number: '', fiscal_identifier: '', preferred_language: '', preferred_currency: '', default_currency: '', website: '', phone: '', email: '', notes: '', company: '', first_name: '', last_name: '', job_title: '', mobile: '', ...record } })
-  const companies = useQuery({ queryKey: ['contacts', 'company-options', companySearch], queryFn: () => contactsService.companies({ search: companySearch, page: 1, archived: false }), enabled: kind === 'people' && editable, retry: false })
+  const source = record ?? duplicateSource
+  const initialRoles = source && 'name' in source ? source.expand?.contacts_company_roles_via_company?.filter((role) => role.active).map((role) => role.role) ?? [] : []
+  const [draftRoles, setDraftRoles] = useState<(typeof roleValues[number])[]>(initialRoles)
+  const rolesChanged = kind === 'companies' && roleValues.some((role) => initialRoles.includes(role) !== draftRoles.includes(role))
+  const [stagedCompany, setStagedCompany] = useState<Company>()
+  const readiness = useQuery({ queryKey: ['contacts', 'revision'], queryFn: () => contactsService.ready(), retry: false })
+  const editable = readiness.isSuccess && canWrite && (!record || record.active)
   const company = record && 'name' in record ? record : undefined
   const person = record && 'first_name' in record ? record : undefined
+  const relatedCompany = company ?? person?.expand?.company
+  const registered = addresses.filter((address) => address.type === 'registered')
+  const primaryAddress = registered.find((address) => address.is_primary) ?? (registered.length === 1 ? registered[0] : undefined)
+  const form = useForm<FormValues>({ defaultValues: { name: '', legal_name: '', vat_number: '', lei: '', billing_email: '', einvoice_routing_address: '', einvoice_platform: '', einvoice_service_code: '', einvoice_status: 'unknown', ...accounts, preferred_language: 'fr', siren: '', siret: '', default_currency: 'EUR', website: '', phone: '', email: '', notes: '', company: searchParams.get('company') ?? '', first_name: '', last_name: '', job_title: '', mobile: '', ...(duplicateSource ? 'name' in duplicateSource ? companyDuplicate(duplicateSource) : personDuplicate(duplicateSource) : record) } })
+  const companyName = useWatch({ control: form.control, name: 'name' })
+  const addressForm = useForm<AddressInput>({ defaultValues: { type: 'registered', line1: '', line2: '', postal_code: '', city: '', country: '', state_region: '', ...(primaryAddress ?? (duplicateAddress ? addressInputSchema.parse(duplicateAddress) : undefined)), company: company?.id ?? 'pending', is_primary: true } })
+  const companies = useQuery({ queryKey: ['contacts', 'company-options', companySearch], queryFn: () => contactsService.companies({ search: companySearch, page: 1, archived: false }), enabled: kind === 'people' && editable, retry: false })
+  const preselectedCompany = useQuery({ queryKey: ['contacts', 'companies', searchParams.get('company')], queryFn: () => contactsService.company(searchParams.get('company')!), enabled: kind === 'people' && !record && Boolean(searchParams.get('company')), retry: false })
+  const selectedCompany = chosenCompany ?? person?.expand?.company ?? (duplicateSource && 'first_name' in duplicateSource ? duplicateSource.expand?.company : undefined) ?? preselectedCompany.data
   const companyOptions = companies.data?.items ?? []
-  const selectedCompany = person?.expand?.company
-  const save = useMutation({ mutationFn: async (input: FormValues) => kind === 'companies' ? contactsService.saveCompany(companyInputSchema.parse(input), files, record?.id) : contactsService.savePerson(personInputSchema.parse(input), files, record?.id), onSuccess: async (saved) => { setFiles({}); await client.invalidateQueries({ queryKey: ['contacts'] }); navigate(`/contacts/${kind}/${saved.id}`, { replace: true }) } })
-  const archive = useMutation({ mutationFn: (active: boolean) => contactsService.setActive(kind, record!.id, active), onSuccess: () => client.invalidateQueries({ queryKey: ['contacts'] }) })
-  const removeImage = useMutation({ mutationFn: (filename: string) => contactsService.removeGallery(company!.id, filename), onSuccess: () => client.invalidateQueries({ queryKey: ['contacts'] }) })
-  const title = record ? company ? company.name : [person?.first_name, person?.last_name].filter(Boolean).join(' ') : kind === 'companies' ? 'Nouvelle société' : 'Nouveau contact'
+  const save = useMutation({
+    mutationFn: async ({ input, address }: { input: FormValues; address?: AddressInput | undefined }) => kind === 'companies'
+      ? contactsService.saveCompanyDetails(companyInputSchema.parse(input), files, address, record?.id ?? stagedCompany?.id, primaryAddress?.id, draftRoles, accountDraftSchema.parse(input))
+      : contactsService.savePerson(personInputSchema.parse(input), files, record?.id),
+    onSuccess: async (saved) => { setFiles({}); await client.cancelQueries({ queryKey: ['contacts'] }); await client.invalidateQueries({ queryKey: ['contacts'] }); await client.invalidateQueries({ queryKey: ['activity'] }); navigate(`/contacts/${kind}/${saved.id}`, { replace: true }) },
+    onError: (error) => { if (error instanceof CompanyAddressSaveError || error instanceof CompanyRolesSaveError || error instanceof CompanyAccountingSaveError) { setStagedCompany(error.company); setFiles({}) } },
+  })
+  const archive = useMutation({ mutationFn: (active: boolean) => contactsService.setActive(kind, record!.id, active), onSuccess: async () => { await client.invalidateQueries({ queryKey: ['contacts'] }); await client.invalidateQueries({ queryKey: ['activity'] }) } })
+  const deletion = useMutation({ mutationFn: () => contactsService.deleteRecord(kind, record!.id), onSuccess: async () => { await client.cancelQueries({ queryKey: ['contacts'] }); client.removeQueries({ queryKey: ['contacts', kind, record!.id] }); navigate(kind === 'companies' ? '/contacts' : '/contacts/people', { replace: true }); await client.invalidateQueries({ queryKey: ['contacts'] }) } })
+  const busy = save.isPending || archive.isPending || deletion.isPending
+  const hasChanges = form.formState.isDirty || (kind === 'companies' && addressForm.formState.isDirty) || Boolean(files.image || files.removeImage) || rolesChanged || Boolean(stagedCompany) || Boolean(duplicateSource)
+  const title = record ? company ? company.name : [person?.first_name, person?.last_name].filter(Boolean).join(' ') : stagedCompany?.name ?? (kind === 'companies' ? 'Nouvelle société' : 'Nouveau contact')
+
   async function submit(input: FormValues) {
+    if (!hasChanges || busy) return
+    form.clearErrors()
+    addressForm.clearErrors()
     const parsed = (kind === 'companies' ? companyInputSchema : personInputSchema).safeParse(input)
-    if (!parsed.success) { for (const issue of parsed.error.issues) { const field = [...companyFields, ...personFields].find((item) => item.name === issue.path[0]); if (issue.path[0] === 'notes') form.setError('notes', { message: issue.message }); if (field) form.setError(field.name, { message: issue.message }, { shouldFocus: true }) }; return }
-    await save.mutateAsync(input).catch(() => {})
+    const parsedAccounts = accountDraftSchema.safeParse(input)
+    if (kind === 'companies' && !parsedAccounts.success) { setSection('accounting'); for (const issue of parsedAccounts.error.issues) { const name = issue.path[0]; if (name === 'customer_account' || name === 'supplier_account') form.setError(name, { message: issue.message }, { shouldFocus: true }) }; return }
+    if (!parsed.success) { setSection(parsed.error.issues.some((issue) => String(issue.path[0]).startsWith('einvoice_') || issue.path[0] === 'billing_email') ? 'accounting' : 'information'); for (const issue of parsed.error.issues) { const name = issue.path[0]; if (name === 'notes' || (typeof name === 'string' && name in fields)) form.setError(name as keyof FormValues, { message: issue.message }, { shouldFocus: true }) }; return }
+    let address: AddressInput | undefined
+    if (kind === 'companies') {
+      const values = addressForm.getValues()
+      const hasAddress = Boolean(primaryAddress || values.line1 || values.line2 || values.postal_code || values.city || values.country || values.state_region)
+      if (hasAddress) {
+        const parsedAddress = addressInputSchema.safeParse(values)
+        if (!parsedAddress.success) { for (const issue of parsedAddress.error.issues) { const name = issue.path[0]; if (name === 'line1' || name === 'line2' || name === 'postal_code' || name === 'city' || name === 'country' || name === 'state_region') addressForm.setError(name, { message: issue.message }, { shouldFocus: true }) }; return }
+        if (!primaryAddress || addressForm.formState.isDirty || !primaryAddress.is_primary) address = parsedAddress.data
+      }
+    }
+    await save.mutateAsync({ input, address }).catch(() => {})
   }
-  const busy = save.isPending || archive.isPending || removeImage.isPending
-  return <>
-    <HButton asChild variant="ghost" size="small"><Link to={kind === 'companies' ? '/contacts' : '/contacts/people'}><ArrowLeft size={14} />Retour au répertoire</Link></HButton>
-    <HPageHeader title={title} description={kind === 'companies' ? 'Identité, coordonnées et relations de la société.' : 'Coordonnées et rattachement du contact.'} actions={record && <HBadge tone={record.active ? 'success' : 'neutral'}>{record.active ? 'Actif' : 'Archivé'}</HBadge>} />
-    {record && <div className="contact-detail-identity"><ContactIdentity kind={kind === 'companies' ? 'company' : 'person'} {...record} filename={company?.logo ?? person?.avatar ?? ''} name={title} company={person?.expand?.company} /></div>}
-    <form className="contact-card" onSubmit={form.handleSubmit(submit)} noValidate>
-      <fieldset disabled={!editable || busy}><legend>Informations générales</legend><div className="contact-form-grid">{(kind === 'companies' ? companyFields : personFields).map((field) => <label key={field.name} htmlFor={`contact-${field.name}`}>{field.label}<HInput id={`contact-${field.name}`} type={field.type} {...form.register(field.name)} aria-invalid={Boolean(form.formState.errors[field.name])} aria-describedby={form.formState.errors[field.name] ? `error-${field.name}` : undefined} />{form.formState.errors[field.name] && <span className="field-error" id={`error-${field.name}`}>{form.formState.errors[field.name]?.message}</span>}</label>)}
-        {kind === 'people' && <div className="contact-company-picker"><label htmlFor="company-search">Rechercher une société<HInput id="company-search" value={companySearch} onChange={(event) => setCompanySearch(event.target.value)} /></label><label htmlFor="company-select">Société<select aria-label="Société" id="company-select" className="h-input" {...form.register('company')}><option value="">Sans société</option>{selectedCompany && !companyOptions.some((item) => item.id === selectedCompany.id) && <option value={selectedCompany.id}>{selectedCompany.name}{!selectedCompany.active && ' (archivée)'}</option>}{companyOptions.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>{companies.error && <p role="alert" className="field-error">{companies.error.message}</p>}</div>}
-        <label className="contact-wide" htmlFor="contact-notes">Notes<textarea id="contact-notes" className="h-input" rows={4} {...form.register('notes')} />{form.formState.errors.notes && <span className="field-error">{form.formState.errors.notes.message}</span>}</label>
-        <label className="contact-wide">{kind === 'companies' ? 'Logo' : 'Avatar'}<input aria-label={kind === 'companies' ? 'Logo' : 'Avatar'} type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => setFiles({ ...files, image: event.target.files?.[0], removeImage: false })} /><small>JPEG, PNG ou WebP · 2 Mio maximum</small></label>
-        {(company?.logo || person?.avatar) && <label className="contact-wide contact-checkbox"><input type="checkbox" checked={Boolean(files.removeImage)} onChange={(event) => setFiles({ ...files, image: undefined, removeImage: event.target.checked })} />Retirer l’image actuelle</label>}
-        {kind === 'companies' && <label className="contact-wide">Ajouter des images à la galerie<input type="file" multiple accept="image/jpeg,image/png,image/webp" onChange={(event) => setFiles({ ...files, gallery: Array.from(event.target.files ?? []) })} /><small>Dix images maximum au total · 2 Mio par image</small></label>}
-      </div></fieldset>
-      {save.error && <p role="alert" className="field-error">{save.error.message}</p>}
-      <div className="contact-form-actions">{editable && <HButton type="submit" variant="primary" disabled={busy}>{save.isPending ? 'Enregistrement…' : 'Enregistrer'}</HButton>}{canWrite && record && <HButton disabled={busy} onClick={() => { if (window.confirm(record.active ? 'Archiver cette fiche ? Ses données et relations seront conservées.' : 'Réactiver cette fiche ?')) archive.mutate(!record.active) }}>{record.active ? <Archive size={14} /> : <RotateCcw size={14} />}{record.active ? 'Archiver' : 'Réactiver'}</HButton>}{!canWrite && <p className="contact-muted">Fiche en lecture seule.</p>}</div>
-      {archive.error && <p role="alert" className="field-error">{archive.error.message}</p>}
+
+  function renderField(name: keyof typeof fields) {
+    const field = fields[name]
+    return <label key={name} htmlFor={`contact-${name}`}>{field.label}<HInput id={`contact-${name}`} type={'type' in field ? field.type : 'text'} placeholder={field.placeholder} {...form.register(name)} aria-invalid={Boolean(form.formState.errors[name])} aria-describedby={form.formState.errors[name] ? `error-${name}` : undefined} />{form.formState.errors[name] && <span className="field-error" id={`error-${name}`}>{form.formState.errors[name]?.message}</span>}</label>
+  }
+
+  const addressPanel = kind === 'companies' ? <section className="contact-panel contact-primary-address"><div className="contact-panel-heading"><MapPin size={16} /><h2>Adresse du siège</h2></div><p className="contact-section-description">{primaryAddress ? 'Adresse principale de la société.' : 'Renseignez l’adresse principale de la société.'}</p><AddressFields form={addressForm} prefix="primary-address" disabled={!editable || busy} /></section> : null
+  const preferencesPanel = kind === 'companies' ? <section className="contact-panel contact-preferences-panel"><div className="contact-panel-heading"><SlidersHorizontal size={16} /><h2>Préférences</h2></div><div className="contact-fields">{(['preferred_language', 'default_currency'] as const).map((name) => <label key={name} htmlFor={`contact-${name}`}>{name === 'preferred_language' ? 'Langue' : 'Devise'}<Controller name={name} control={form.control} render={({ field }) => <ReferencePicker id={`contact-${name}`} label={name === 'preferred_language' ? 'Langue' : 'Devise'} catalog={name === 'preferred_language' ? 'settings_languages' : 'accounting_currencies'} value={field.value} onChange={field.onChange} disabled={!editable || busy} invalid={Boolean(form.formState.errors[name])} />} /></label>)}</div></section> : null
+
+  return <div className={`contact-record contact-record--form-layout${!record ? ' contact-record--creating' : ''}`} data-section={section}>
+    <div className="contact-record-toolbar"><div className="contact-title-group"><HButton asChild variant="ghost" size="small"><Link to={kind === 'companies' ? '/contacts' : '/contacts/people'}><ArrowLeft size={14} />Répertoire</Link></HButton><div className="contact-page-heading"><h1>{title}</h1>{record && <HBadge tone={record.active ? 'success' : 'neutral'}>{record.active ? 'Actif' : 'Archivé'}</HBadge>}</div></div><div className="contact-record-actions">
+      {kind === 'companies' && canWrite && <CompanyLookup getInitialQuery={() => form.getValues('siret') || form.getValues('siren') || form.getValues('legal_name') || form.getValues('name')} disabled={!editable || busy} onApply={(proposal, selectedFields, includeAddress) => { setSection('information'); for (const field of selectedFields) { const value = proposal.fields[field]; if (value !== undefined) form.setValue(field, value, { shouldDirty: true }) }; if (includeAddress && proposal.address) for (const field of ['line1', 'line2', 'postal_code', 'city', 'country'] as const) addressForm.setValue(field, proposal.address[field], { shouldDirty: true }) }} />}
+
+      {!record && <HButton asChild><Link to={kind === 'companies' ? '/contacts' : '/contacts/people'}>Annuler</Link></HButton>}
+      {editable && <HSaveButton form="contact-record-form" hasChanges={hasChanges} pending={save.isPending} disabled={busy}><Save size={14} />{save.isPending ? 'Enregistrement…' : 'Enregistrer'}</HSaveButton>}
+      {canWrite && record && <HRecordActions itemName={title} active={record.active} disabled={busy || (hasChanges && record.active)} onArchive={() => archive.mutateAsync(false)} onRestore={() => { if (window.confirm('Réactiver cette fiche ?')) archive.mutate(true) }} onDuplicate={() => navigate(`/contacts/${kind}/new?duplicate=${record.id}`)} onDelete={() => deletion.mutateAsync()} />}
+    </div></div>
+    <div className="contact-record-sheet">
+    {relatedCompany && <CompanyBusinessLinks person={Boolean(person)} companyName={relatedCompany.name} />}
+    {readiness.isPending && <p role="status">Vérification du module Contacts…</p>}
+    {readiness.error && <p role="alert" className="field-error">{readiness.error.message}<HButton onClick={() => { void readiness.refetch() }}>Réessayer</HButton></p>}
+    {archive.error && record && !record.active && <p role="alert" className="field-error">{archive.error.message}</p>}
+    {save.error && <div role="alert" className="contact-save-error">{save.error.message}</div>}
+    {(record || kind === 'companies') && <div className="contact-record-navigation" role="tablist" aria-label="Sections de la fiche">{[{ value: 'information', label: 'Informations', panel: 'contact-record-form' }, ...(company ? [{ value: 'relations', label: 'Relations', panel: 'contact-record-relations' }] : []), ...(kind === 'companies' ? [{ value: 'accounting', label: 'Comptabilité', panel: 'contact-record-form' }] : []), { value: 'notes', label: 'Notes', panel: 'contact-record-form' }].map(({ value, label, panel }) => <button key={value} id={`contact-tab-${value}`} type="button" role="tab" aria-selected={section === value} aria-controls={panel} tabIndex={section === value ? 0 : -1} onKeyDown={(event) => { if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return; event.preventDefault(); const tabs = Array.from(event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role=tab]') ?? []); const index = tabs.indexOf(event.currentTarget); const next = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : (index + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length; tabs[next]?.click(); tabs[next]?.focus() }} onClick={() => { setSection(value); if (value === 'notes') document.getElementById('contact-record-notes')?.setAttribute('open', '') }}>{label}</button>)}</div>}
+    <form id="contact-record-form" role={record || kind === 'companies' ? 'tabpanel' : undefined} aria-labelledby={record || kind === 'companies' ? `contact-tab-${section}` : undefined} hidden={section === 'relations'} className="contact-record-form" onSubmit={form.handleSubmit(submit)} noValidate>
+      <fieldset hidden={section === 'accounting'} disabled={!editable || busy} className={`contact-record-layout${kind === 'people' ? ' contact-person-layout' : ''}`}>
+        <div className="contact-main-column">
+          <section className="contact-panel contact-identity-panel"><div className="contact-identity-layout"><div className="contact-identity-details"><div className="contact-section-heading"><div className="contact-panel-heading">{kind === 'companies' ? <Building2 size={16} /> : <UserRound size={16} />}<h2>Identité</h2></div></div><div className="contact-fields">{(kind === 'companies' ? ['name', 'legal_name'] as const : ['first_name', 'last_name'] as const).map(renderField)}</div>
+            {kind === 'people' && <div className="contact-company-assignment">{renderField('job_title')}<label htmlFor="company-select">Société<Controller name="company" control={form.control} render={({ field }) => <HCombobox label="Société" id="company-select" value={field.value} onChange={(value) => { setChosenCompany(companyOptions.find((item) => item.id === value) ?? (selectedCompany?.id === value ? selectedCompany : undefined)); field.onChange(value) }} onSearchChange={setCompanySearch} disabled={!editable || busy} showCodes={false} emptyLabel="Sans société" options={[...(selectedCompany && !companyOptions.some((item) => item.id === selectedCompany.id) ? [{ value: selectedCompany.id, label: `${selectedCompany.name}${!selectedCompany.active ? ' (archivée)' : ''}`, disabled: !selectedCompany.active }] : []), ...companyOptions.map((item) => ({ value: item.id, label: item.name }))]} />} /></label>{companies.error && <p role="alert" className="field-error">{companies.error.message}</p>}</div>}
+          {person && relatedCompany && <CompanyRoleChoices name={relatedCompany.name} selected={relatedCompany.expand?.contacts_company_roles_via_company?.filter((role) => role.active).map((role) => role.role) ?? []} disabled onChange={() => {}} />}
+          {kind === 'companies' && <CompanyRoleChoices name={title} selected={draftRoles} disabled={!editable || busy} onChange={(value, checked) => setDraftRoles((current) => checked ? [...current, value] : current.filter((role) => role !== value))} />}
+          </div>
+          <div className="contact-identity-photo"><ContactImageEditor searchQuery={companyName} kind={kind} record={record ?? stagedCompany} files={files} onChange={setFiles} disabled={!editable || busy} /></div>
+          </div></section>
+          <section className="contact-panel contact-coordinates-panel"><div className="contact-section-heading"><div className="contact-panel-heading"><Phone size={16} /><h2>Coordonnées</h2></div>{record && <nav className="contact-coordinate-actions" aria-label="Actions de contact">{record.email && <a href={`mailto:${record.email}`} aria-label="Envoyer un e-mail" title={record.email}><Mail size={15} /></a>}{record.phone && <a href={`tel:${record.phone}`} aria-label="Appeler" title={record.phone}><Phone size={15} /></a>}{company?.website && <a href={company.website} target="_blank" rel="noreferrer" aria-label="Ouvrir le site web" title={company.website}><Globe size={15} /></a>}{person?.expand?.company && <Link to={`/contacts/companies/${person.company}`} aria-label={`Ouvrir la société ${person.expand.company.name}`}><Building2 size={15} /></Link>}</nav>}</div><div className="contact-fields">{(kind === 'companies' ? ['email', 'phone', 'website'] as const : ['email', 'phone', 'mobile'] as const).map(renderField)}</div></section>
+          {addressPanel}
+          {kind === 'companies' && <details className="contact-panel contact-legal-panel" open><summary><span className="contact-panel-heading"><Fingerprint size={16} /><h2>Informations légales</h2></span><ChevronDown size={15} /></summary><div className="contact-fields">{(['siren', 'siret', 'vat_number', 'lei'] as const).map(renderField)}</div></details>}
+
+          {preferencesPanel}
+          <details id="contact-record-notes" open className="contact-panel contact-notes-panel"><summary><span className="contact-panel-heading"><StickyNote size={16} /><h2>Notes internes</h2></span><span className="contact-summary-hint">{record?.notes ? 'Note enregistrée' : 'Facultatif'}<ChevronDown size={15} /></span></summary><label className="contact-notes-label" htmlFor="contact-notes">Notes<textarea id="contact-notes" className="h-input" rows={3} placeholder="Informations utiles pour votre équipe…" {...form.register('notes')} />{form.formState.errors.notes && <span className="field-error">{form.formState.errors.notes.message}</span>}</label></details>
+        </div>
+      </fieldset>
+      {kind === 'companies' && <fieldset disabled={!editable || busy} hidden={section !== 'accounting'} className="contact-accounting-layout">
+        <section className="contact-panel"><div className="contact-panel-heading"><SlidersHorizontal size={16} /><h2>Comptes tiers</h2></div><p className="contact-muted">Comptes utilisés pour les échanges comptables. Renseignez ceux qui concernent cette société.</p><div className="contact-fields">{(['customer_account', 'supplier_account'] as const).map(renderField)}</div></section>
+        <section className="contact-panel"><div className="contact-panel-heading"><Mail size={16} /><h2>Facturation électronique</h2></div><p className="contact-muted">Préparez les informations du destinataire. Le routage reste à vérifier dans l’annuaire avant tout envoi.</p><div className="contact-fields">
+          <label htmlFor="einvoice-status">Préparation<Controller name="einvoice_status" control={form.control} render={({ field }) => <HCombobox id="einvoice-status" label="Préparation" value={field.value} onChange={field.onChange} required showCodes={false} options={[{ value: 'unknown', label: 'À vérifier' }, { value: 'to_configure', label: 'À compléter' }, { value: 'ready', label: 'Informations renseignées' }, { value: 'not_applicable', label: 'Non concerné' }]} />} /></label>
+          {(['einvoice_platform', 'einvoice_routing_address', 'billing_email', 'einvoice_service_code'] as const).map(renderField)}
+        </div></section>
+      </fieldset>}
+      {!canWrite && <p className="contact-muted">Fiche en lecture seule.</p>}
     </form>
-    {company && <CompanyRelations company={company} editable={editable && !busy} />}
-    {company && company.images.length > 0 && <section className="contact-related"><h2>Galerie</h2><div className="contact-gallery">{company.images.map((filename) => <div key={filename}><GalleryImage company={company} filename={filename} />{editable && <HButton size="small" disabled={busy} onClick={() => { if (window.confirm('Retirer cette image de la galerie ?')) removeImage.mutate(filename) }}>Retirer l’image</HButton>}</div>)}</div>{removeImage.error && <p role="alert" className="field-error">{removeImage.error.message}</p>}</section>}
-  </>
+    {company && <div id="contact-record-relations" role="tabpanel" aria-labelledby="contact-tab-relations" hidden={section !== 'relations'}><CompanyPeople company={company.id} editable={editable && !busy} /><CompanyAddresses company={company.id} addresses={addresses} primaryId={primaryAddress?.id} editable={editable && !busy && !form.formState.isDirty && !addressForm.formState.isDirty} /></div>}
+
+    </div>
+    {record && <ActivityPanel source={{ entity: kind === 'companies' ? 'contacts_companies' : 'contacts_people', id: record.id }} editable={editable && !busy} />}
+  </div>
 }
+
 export function ContactPage({ kind }: { kind: ContactKind }) {
   const { id = '' } = useParams()
+  const [searchParams] = useSearchParams()
+  const duplicateId = id === 'new' ? searchParams.get('duplicate') ?? '' : ''
+  const sourceId = duplicateId || id
   const session = useSyncExternalStore(sessionService.subscribe, sessionService.getSnapshot)
   const canRead = session.status === 'authenticated' && hasPermission(session.user, 'contacts.read')
   const canWrite = canRead && session.status === 'authenticated' && hasPermission(session.user, 'contacts.write')
-  const record = useQuery({ queryKey: ['contacts', kind, id], queryFn: async () => kind === 'companies' ? contactsService.company(id) : contactsService.person(id), enabled: canRead && id !== 'new', retry: false })
+  const record = useQuery({ queryKey: ['contacts', kind, sourceId], queryFn: async () => kind === 'companies' ? contactsService.company(sourceId) : contactsService.person(sourceId), enabled: canRead && sourceId !== 'new', retry: false })
+  const addresses = useQuery({ queryKey: ['contacts', 'addresses', sourceId], queryFn: () => contactsService.addresses(sourceId), enabled: canRead && kind === 'companies' && sourceId !== 'new', retry: false })
+  const accounts = useQuery({ queryKey: ['contacts', 'accounts', sourceId], queryFn: () => contactsService.accounts(sourceId), enabled: canRead && kind === 'companies' && id !== 'new', retry: false })
   if (!canRead || (id === 'new' && !canWrite)) return <p role="alert">Vous ne disposez pas des permissions nécessaires.</p>
-  if (id !== 'new' && record.isPending) return <p role="status">Chargement de la fiche…</p>
-  if (record.error) return <div className="contact-error" role="alert">{record.error.message}<HButton onClick={() => { void record.refetch() }}>Réessayer</HButton></div>
-  return <ContactEditor key={`${id}-${record.data?.updated ?? 'new'}`} kind={kind} record={record.data} canWrite={canWrite} />
+  if (sourceId !== 'new' && (record.isPending || (kind === 'companies' && (addresses.isPending || (id !== 'new' && accounts.isPending))))) return <p role="status">Chargement de la fiche…</p>
+  const error = record.error ?? addresses.error ?? accounts.error
+  if (error) return <div className="contact-error" role="alert">{error.message}<HButton onClick={() => { void record.refetch(); if (kind === 'companies') void addresses.refetch(); void accounts.refetch() }}>Réessayer</HButton></div>
+  const registered = addresses.data?.filter((address) => address.type === 'registered') ?? []
+  const primary = registered.find((address) => address.is_primary) ?? (registered.length === 1 ? registered[0] : undefined)
+  const addressKey = primary ? `${primary.id}-${primary.updated}` : ''
+  return <ContactEditor key={`${id}-${record.data?.updated ?? 'new'}-${addressKey}-${accounts.data?.map((item) => `${item.id}:${item.account_code}:${item.active}`).join(',') ?? ''}`} kind={kind} record={duplicateId ? undefined : record.data} duplicateSource={duplicateId ? record.data : undefined} duplicateAddress={duplicateId ? primary : undefined} addresses={duplicateId ? [] : addresses.data ?? []} accounts={{ customer_account: accounts.data?.find((item) => item.type === 'customer' && item.active)?.account_code ?? '', supplier_account: accounts.data?.find((item) => item.type === 'supplier' && item.active)?.account_code ?? '' }} canWrite={canWrite} />
 }
 export function CompanyPage() { return <ContactPage kind="companies" /> }
 export function PersonPage() { return <ContactPage kind="people" /> }

@@ -1,0 +1,19 @@
+import { useState, useSyncExternalStore } from 'react'
+import { sessionService } from '../../../core/auth/services/session'
+import { hasPermission } from '../../../core/auth/types/session'
+import { useSearchParams } from 'react-router'
+import { HButton } from '../../../shared/ui/HButton'
+import { catalogNames, catalogLabels } from '../schemas/references'
+import type { CatalogName, Reference } from '../types/references'
+import { useReferences } from '../hooks/useReferences'
+import { ReferenceEditor } from '../components/ReferenceEditor'
+export function ReferencesPage() {
+  const session = useSyncExternalStore(sessionService.subscribe, sessionService.getSnapshot)
+  const editable = session.status === 'authenticated' && hasPermission(session.user, 'settings.references')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const requested = searchParams.get('catalog')
+  const catalog: CatalogName = catalogNames.find((name) => name === requested) ?? 'settings_countries'
+  const [editor, setEditor] = useState<Reference | 'new'>()
+  const query = useReferences(catalog)
+  return <><div className="settings-reference-heading"><h2>Référentiels</h2><p>Pays, langues et devises partagés par tous les modules.</p></div><div className="settings-reference-toolbar">{catalogNames.map((name) => <HButton key={name} aria-pressed={catalog === name} variant={catalog === name ? 'primary' : 'ghost'} onClick={() => { setSearchParams({ catalog: name }, { replace: true }); setEditor(undefined) }}>{catalogLabels[name]}</HButton>)}{editable && <HButton onClick={() => setEditor('new')}>Ajouter une valeur</HButton>}</div>{!editable && <p className="contact-muted">Consultation des référentiels. Contactez votre administrateur pour les modifier.</p>}{query.isPending && <p role="status">Chargement…</p>}{query.error && <p role="alert">{query.error.message} <HButton onClick={() => { void query.refetch() }}>Réessayer</HButton></p>}{editor && <ReferenceEditor key={`${catalog}-${editor === 'new' ? 'new' : editor.id}`} catalog={catalog} {...(editor === 'new' ? {} : { record: editor })} onClose={() => setEditor(undefined)} />}<div className="settings-reference-table"><table className="reference-table"><thead><tr><th>Code</th><th>Libellé</th><th>État</th><th>Ordre</th>{editable && <th>Action</th>}</tr></thead><tbody>{query.data?.map((item) => <tr key={item.id}><td>{item.code}</td><td>{item.label}</td><td>{item.active ? 'Actif' : 'Inactif'}</td><td>{item.sort_order}</td>{editable && <td><HButton size="small" onClick={() => setEditor(item)}>Modifier {item.code}</HButton></td>}</tr>)}</tbody></table></div></>
+}

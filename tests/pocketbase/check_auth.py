@@ -19,6 +19,8 @@ TEST_PASSWORD = 'Local-Horizon-test-only-2026!'
 
 class LocalPocketBase:
     def __init__(self, port=None):
+        self.environment = dict(os.environ)
+        self.environment.pop('PAPPERS_API_KEY', None)
         self.binary = os.environ.get('POCKETBASE_BINARY', 'pocketbase')
         version = subprocess.check_output([self.binary, '--version'], text=True)
         if '0.40.4' not in version:
@@ -38,10 +40,12 @@ class LocalPocketBase:
         self.process = None
         self.log = open(Path(self.temp.name) / 'server.log', 'w+')
 
-    def request(self, method, path, data=None, token=''):
+    def request(self, method, path, data=None, token='', extra_headers=None):
         headers = {'Content-Type': 'application/json'}
         if token:
             headers['Authorization'] = token
+        if extra_headers:
+            headers.update(extra_headers)
         req = Request(self.url + '/api/' + path, headers=headers, method=method,
                       data=json.dumps(data).encode() if data is not None else None)
         try:
@@ -53,7 +57,7 @@ class LocalPocketBase:
 
     def launch_and_authenticate(self, args):
         self.process = subprocess.Popen(args + ['serve', f'--http=127.0.0.1:{self.url.rsplit(":", 1)[1]}'],
-                                        stdout=self.log, stderr=self.log)
+                                        stdout=self.log, stderr=self.log, env=self.environment)
         for _ in range(100):
             if self.process.poll() is not None:
                 raise RuntimeError('Local PocketBase exited before becoming ready.')
@@ -314,7 +318,12 @@ if __name__ == '__main__':
         try:
             pb.start()
             writer_role = pb.create('core_roles', {'name': 'contacts_writer', 'label': 'Contacts', 'active': True, 'permissions': ['contacts.read', 'contacts.write']})
-            pb.create_user('writer@local.invalid', writer_role['id'])
+            writer = pb.create_user('writer@local.invalid', writer_role['id'])
+            pb.create('core_notifications', {'user': writer['id'], 'title': 'Notification de recette', 'body': 'Un message réservé à ce compte.'})
+            references_role = pb.create('core_roles', {'name': 'references_editor', 'label': 'Référentiels', 'active': True, 'permissions': ['contacts.read', 'contacts.write', 'settings.references']})
+            pb.create_user('references@local.invalid', references_role['id'])
+            colleague = pb.create_user('activity@local.invalid', pb.role['id'])
+            pb.request('PATCH', f'collections/core_users/records/{colleague["id"]}', {'name': 'Alice Martin'}, pb.admin_token)
             print('Local PocketBase auth fixture ready on 127.0.0.1:18090', flush=True)
             pb.process.wait()
         except KeyboardInterrupt:

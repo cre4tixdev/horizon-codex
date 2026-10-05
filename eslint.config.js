@@ -9,11 +9,11 @@ export default defineConfig([
   globalIgnores(['dist', 'coverage', 'playwright-report', 'test-results', 'node_modules']),
   {
     files: ['pocketbase/pb_migrations/*.js'],
-    languageOptions: { globals: { migrate: 'readonly', Collection: 'readonly' } },
+    languageOptions: { globals: { migrate: 'readonly', Collection: 'readonly', Record: 'readonly', TextField: 'readonly', JSONField: 'readonly', BoolField: 'readonly', EmailField: 'readonly', SelectField: 'readonly', RelationField: 'readonly' } },
   },
   {
     files: ['pocketbase/pb_hooks/**/*.js'],
-    languageOptions: { globals: { onRecordValidate: 'readonly', BadRequestError: 'readonly', onRecordCreateRequest: 'readonly', onRecordUpdateRequest: 'readonly', onRecordCreate: 'readonly', onRecordUpdate: 'readonly', require: 'readonly', __hooks: 'readonly', Record: 'readonly' } },
+    languageOptions: { globals: { onRecordValidate: 'readonly', BadRequestError: 'readonly', onRecordCreateRequest: 'readonly', onRecordUpdateRequest: 'readonly', onRecordCreate: 'readonly', onRecordUpdate: 'readonly', onRecordDelete: 'readonly', onRecordDeleteRequest: 'readonly', require: 'readonly', __hooks: 'readonly', Record: 'readonly', ForbiddenError: 'readonly', ApiError: 'readonly', $os: 'readonly', $http: 'readonly', $security: 'readonly', $apis: 'readonly', routerAdd: 'readonly' } },
   },
   {
     files: ['**/*.{js,ts,tsx}'],

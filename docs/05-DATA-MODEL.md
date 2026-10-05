@@ -590,10 +590,19 @@ Optionnel en V1.
 name
 legal_name
 vat_number
-fiscal_identifier
+lei (texte optionnel, 20 caractères alphanumériques majuscules)
+rcs_number (historique, masqué)
+fiscal_identifier (historique, masqué)
+billing_email
+einvoice_routing_address
+einvoice_platform
+einvoice_service_code
+einvoice_status
 preferred_language
-preferred_currency
 default_currency
+siren
+siret
+enrichment
 website
 phone
 email
@@ -617,10 +626,7 @@ active
 
 ```text
 customer
-prospect
 supplier
-partner
-other
 ```
 
 Une société peut posséder plusieurs rôles.
@@ -651,16 +657,27 @@ postal_code
 city
 country
 state_region
+is_primary
 ```
 
 Le logo de la société peut être utilisé visuellement comme badge sur l’avatar du contact.
+
+### Contrat cible Contacts — 5 octobre 2026
+
+Contrat implémenté par `1791158400_contact_references.js`, testé localement ; non installé sur NAS à cette étape.
+
+- Ajouter `siren` (texte optionnel, 9 chiffres) et `siret` (texte optionnel, 14 chiffres, établissement principal). Normaliser les espaces ; lorsqu’ils sont tous deux renseignés, le SIRET commence par le SIREN. Validation client et serveur ; ne pas imposer ces identifiants aux entreprises étrangères. Les autres établissements pourront porter leur SIRET sur les adresses, sans dupliquer une société par rôle.
+- Conserver `default_currency` comme seule devise société et retirer `preferred_currency` dans la migration d’évolution. Si seul l’ancien champ est rempli, transférer sa valeur ; valeurs identiques : conserver ; valeurs différentes : signaler le conflit et bloquer la suppression jusqu’à résolution explicite. Ne pas modifier la migration V1 déjà installée.
+- `preferred_language` accepte jusqu’à 35 caractères pour les codes BCP 47. `preferred_language`, `default_currency` et `contacts_addresses.country` conservent des codes stables référencés respectivement à `settings_languages`, `accounting_currencies` et `settings_countries`. Validation serveur d’un code actif pour un nouveau choix ; une valeur inactive existante peut être conservée lors d’une autre modification. Pas de duplication du catalogue devise sous `settings`.
+- Ajouter `is_primary` aux adresses : au plus une adresse principale par société / type, invariant serveur transactionnel. Pour l’existant, sélectionner automatiquement uniquement lorsqu’une seule adresse du type existe ; ambiguïtés à résoudre explicitement. Le siège reste dans `contacts_addresses`, sans recopier les champs d’adresse dans la société.
+- Logo : un seul fichier protégé, déjà garanti par V1 ; `images` reste une galerie distincte. Les compteurs et la liste des personnes sont calculés depuis les collections propriétaires, sans colonnes de total dénormalisées dans Contacts.
 
 ### Contrat exécutable Contacts V1
 
 Les quatre collections sont de type Base et possèdent `created` / `updated` automatiques. Aucun effacement applicatif : sociétés et personnes utilisent `active`, les rôles sont désactivés et les adresses restent conservées. Les sociétés archivées restent accessibles aux lecteurs autorisés.
 
 - Société : `name` obligatoire (160), `legal_name` (200), `vat_number` / `fiscal_identifier` (80), langues (12), devises optionnelles sur trois lettres majuscules, site HTTP(S), téléphone (40), email optionnel valide, notes texte brut (10000). Logo unique et galerie jusqu'à dix fichiers, JPEG / PNG / WebP, 2 Mio chacun, protégés.
-- Rôle : société obligatoire sans cascade, select unique `customer / prospect / supplier / partner / other`, `active`. Index unique `(company, role)` : réactiver un rôle existant plutôt que dupliquer.
+- Rôle : société obligatoire sans cascade, select unique `customer / supplier`, `active`. Index unique `(company, role)` : réactiver un rôle existant plutôt que dupliquer.
 - Personne : société optionnelle sans cascade, prénom / nom (80) avec au moins un des deux non vide côté serveur, fonction (120), email, téléphone / mobile (40), notes (10000), avatar unique protégé selon les mêmes formats / taille.
 - Adresse : société obligatoire sans cascade ; type `registered / billing / shipping / other`, ligne 1 obligatoire (200), ligne 2 (200), code postal (20), ville obligatoire (100), pays obligatoire sur deux lettres majuscules, région (100). Pas d'unicité sur société / type : plusieurs adresses sont possibles.
 - Rattacher une personne, un rôle ou une nouvelle adresse à une société archivée est refusé côté serveur. Les rattachements historiques restent lisibles et ne sont pas supprimés lors d'un archivage.
@@ -2561,6 +2578,7 @@ locked_at
 ```text
 code
 label
+sort_order
 minor_unit_digits
 active
 ```
@@ -3252,8 +3270,20 @@ active
 ```text
 code
 label
+sort_order
 active
 ```
+
+## `settings_countries`
+
+```text
+code             ISO 3166-1 alpha-2, unique
+label
+sort_order
+active
+```
+
+Référentiel transversal, administré dans Paramètres. `sort_order` est livré dans `settings_languages` et `accounting_currencies` ; codes uniques et stables, langues au format BCP 47, devises au format ISO 4217. Désactivation sans suppression des références historiques. Les paramètres globaux et préférences des sociétés sont des choix dans ces catalogues, pas de nouveaux catalogues.
 
 ## `settings_archive_policies`
 
@@ -3601,3 +3631,60 @@ expiré
 ```
 
 Les prix obsolètes restent historisés mais ne sont plus proposés comme prix courant.
+
+## `core_company_lookup_limits`
+
+Collection technique verrouillée (aucune API CRUD applicative), mise à jour exclusivement par les routes de recherche société. Identifiant de record = utilisateur Horizon ; champs `count` et `reset_at` (millisecondes UTC). Limite locale de 20 requêtes recherche / aperçu / application par utilisateur sur 60 secondes, stockée transactionnellement. Aucun secret ou résultat fournisseur dans cette collection. Les paramètres globaux de limitation PocketBase restent inchangés.
+
+`contacts_companies.enrichment` contient uniquement fournisseur, date serveur, identifiant recherché, champs appliqués et présence d’une application d’adresse. Champ JSON géré par la route serveur ; modification REST directe interdite. La preuve temporaire d’aperçu est liée à l’utilisateur en mémoire serveur, expire après dix minutes et est invalidée après succès. Un redémarrage impose de relancer l’aperçu.
+
+
+### Présentation Contacts — reprise du 5 octobre 2026
+
+La refonte de fiche utilise les collections et champs existants. L’adresse du siège se sauvegarde dans `contacts_addresses` avec type `registered` et `is_primary`; elle est disponible dès la création. Le champ historique `contacts_companies.images` et ses fichiers sont conservés malgré le retrait de la galerie de l’interface. Aucun changement de schéma ni migration supplémentaire pour cette refonte.
+
+Les vues Cartes / Liste et le déplacement des relations commerciales dans l’en-tête réutilisent `contacts_company_roles` et l’expansion société existante des personnes. Un contact affiche les relations de sa société, pas une copie de rôles dans sa propre collection. Aucun changement de schéma pour ce lot de finition.
+
+La synthèse du répertoire est calculée sans collection supplémentaire : `totalItems` des personnes / sociétés actives et des relations commerciales actives customer / supplier liées à une société active. L’unicité existante société + rôle rend ces derniers totaux équivalents au nombre de sociétés par catégorie. Aucun pourcentage historique, compteur persistant ou champ de charte ajouté.
+
+Localisation des cartes : expansion de la relation inverse existante `contacts_addresses_via_company`, typée dans les réponses société et imbriquée dans les réponses personne. Aucune adresse dénormalisée sur la société ou la personne, aucune collection ni migration ajoutée. Les lectures restent soumises aux règles Contacts existantes.
+
+Organisation Paramètres par domaine : navigation et catalogue sélectionné gérés dans les routes frontend, sans collection ni migration supplémentaire. Les rubriques « Prévu » ne lisent ni n’écrivent de nouveaux réglages. Les référentiels continuent d’utiliser leurs collections, API Rules, validation et audit existants.
+
+Relations sociétés — décision utilisateur du 5 octobre 2026 : seuls `customer` (Client) et `supplier` (Fournisseur) sont admis, cumul possible via deux enregistrements distincts. Migration `1791158401_company_roles.js` restreignant le select, hooks et schéma frontend concordants. Aucun effacement / conversion implicite : la migration refuse de démarrer si un rôle ancien existe, ce qui doit être résolu explicitement. L’utilisateur indique que sa base ne contient aucun rôle à reprendre.
+
+
+Recherche publique d’entreprises : aucun changement de schéma. Les champs existants reçoivent les données sélectionnées seulement lors de la sauvegarde explicite de la fiche. Les champs historiques de provenance et la collection technique de limites du fournisseur précédent sont conservés pour compatibilité des migrations ; ce parcours direct ne les utilise pas.
+
+
+Suppression des fiches Contacts — évolution autorisée du 5 octobre 2026 : migration `1791158402_contact_deletion.js` reprend les règles update comme deleteRule pour contacts_companies / contacts_people (`contacts.read` et `contacts.write`, compte et rôle actifs). Les deleteRule des rôles et adresses restent verrouillées.
+
+La suppression contrôlée inspecte les champs relation de toutes les collections de données : une référence réelle au record interdit sa suppression, sans filtre active ni permissions de lecture du module lié. Le filtre sur `<relation>.id ?= id` couvre relations simples et multiples. Les modèles des futurs devis, factures, commandes et livraisons doivent référencer la société par une relation PocketBase réelle ; des identifiants libres dans du texte / JSON ne sont pas contrôlés par ce mécanisme. Les vues ne sont pas parcourues car leurs tables sources sont contrôlées.
+
+Exception de propriété : contacts_company_roles.company et contacts_addresses.company sont supprimés avec leur société seulement après absence de toute autre relation. Société, lignes propres et audits de suppression sont transactionnels ; un échec rétablit tous les enregistrements. Les personnes associées sont conservées et bloquent la suppression. core_audit garde before et after=null pour delete ; aucun historique d’audit n’est purgé.
+
+
+Migration `1791158403_company_accounting.js` — champs sociétés ajoutés : rcs_number (texte 120), billing_email (e-mail), einvoice_routing_address (texte 120), einvoice_platform (texte 120), einvoice_service_code (texte 100), einvoice_status (select unknown / to_configure / ready / not_applicable). fiscal_identifier reste un champ historique masqué dans l’UI ; ne pas convertir ses valeurs en RCS. Les valeurs vides historiques du statut sont présentées comme unknown. Les valeurs par défaut fr / EUR / unknown s’appliquent à la création sur le schéma installé, sans modifier rétroactivement les fiches existantes.
+
+accounting_third_party_accounts est livré comme première partie du modèle prévu : company (relation obligatoire), type customer / supplier, account_code (32, lettres / chiffres / point / tiret / underscore), active, dates. Unicité (company, type). Un code vide désactive le profil ; actif exige un code. general_account et le référentiel accounting_accounts restent à réaliser avec le plan comptable, sans deuxième source de vérité créée dans Contacts. Le propriétaire des profils est accounting ; Contacts orchestre le service comptable.
+
+Lecture avec contacts.read ; création / modification avec contacts.read + contacts.write pour ce profil préparatoire, compte et rôle actifs. Suppression REST verrouillée. Audit dans le module accounting. Les profils tiers sont des données propres à une société : nettoyés avec une société inutilisée, mais une référence à un de ses comptes ou adresses (même indirecte, archivée ou invisible) bloque la suppression de la société. Aucun mouvement ou historique comptable ne peut être supprimé par cette opération.
+
+
+Migration `1791158404_company_lei.js` : ajout de `contacts_companies.lei`, texte facultatif, max 20, pattern `^[A-Z0-9]{20}$`. Le RCS reste conservé et masqué, sans renommage ni conversion. Un champ créé manuellement avec exactement cette définition est accepté sans doublon ni perte de valeurs ; une définition différente fait échouer la migration pour permettre une correction explicite. Le rollback est refusé pour préserver les identifiants. La duplication efface le LEI du nouveau brouillon.
+
+
+Notifications livrées par `1791158405_notifications.js` : `core_notifications`, propriété core, champs conformes au contrat user / type / title / body / source_module / source_entity / source_record_id / read_at / created. user obligatoire, relation unique core_users sans cascade ; title obligatoire (160), body texte (4000), type et module/entity (80), record_id (15), read_at date facultative, created autodate serveur. Index (user, read_at, created). Aucun second compteur stocké : le nombre non lu est calculé côté serveur par les API Rules. Aucun changement de données société pour rechercher les logos : fichier logo existant, unique, protégé, 2 Mio maximum.
+
+
+### Schéma Activity Feed livré par 1791158406_activity.js
+
+core_activity_events conserve le contrat source_module/source_entity/source_record_id/type/author/body/metadata/created et ajoute operation_id (texte 64, regroupement sans valeur d’autorisation), mentions (relation core_users, max 10), attachments (fichiers protégés, max 5, 10 Mio chacun ; PDF, PNG, JPEG, WebP, texte). body max 10000 ; metadata JSON max 100000, auteur affiché snapshot, changes sous forme label/before/after, mentions nom/id et origine de conversion. Indices source+created et operation+author+source. Les sources sont polymorphes textuelles pour préserver l’historique sans créer de blocage automatique à la suppression de société/personne ; les API Rules contrôlent l’existence de la source autorisée.
+
+core_activity_mentions : event obligatoire (relation événement), user obligatoire (core_users), notified_at/read_at ; unique event+user. Lecture et écriture REST verrouillées ; seul le serveur les manipule. Le fil expose les mentions à travers les métadonnées contrôlées.
+
+core_tasks : contrat title/description/source/created_by/assigned_to/due_date/priority/status/activity_event/completed_at, plus assigned_name (snapshot contrôlé serveur), created/updated. Title 160 obligatoire, description 10000, responsable et auteur obligatoires. États todo/in_progress/blocked/done/cancelled ; priorité low/normal/high. Une tâche par événement de création (index unique activity_event). Source polymorphe textuelle, mêmes droits de lecture que le fil ; création REST verrouillée, création par publication serveur, mise à jour restreinte.
+
+core_notifications reçoit activity_event (relation facultative, sans cascade). Le lien permet de synchroniser read_at d’une mention avec la notification. Les notifications de type activity sont visibles uniquement au destinataire encore autorisé à lire Contacts et dont la fiche source existe ; les autres notifications gardent leur policy privée de destinataire.
+
+Le backfill de migration projette les audits existants par groupes de 100, liste fermée de champs métier, skip des sources supprimées et valeurs techniques. Pas de modification des audits ni des fiches, pas de doublon au second migrate up. Date created d’origine conservée par requête SQL liée dans la migration car le champ autodate protège son horodatage pendant un save ordinaire.

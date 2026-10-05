@@ -1,0 +1,12 @@
+import { useState } from 'react'
+import { Link } from 'react-router'
+import { useQuery } from '@tanstack/react-query'
+import { HButton } from '../../../shared/ui/HButton'
+import { contactsService } from '../services/ContactsService'
+import { ContactIdentity } from './ContactIdentity'
+export function CompanyPeople({ company, editable }: { company: string; editable: boolean }) {
+  const [page, setPage] = useState(1)
+  const [archived, setArchived] = useState(false)
+  const query = useQuery({ queryKey: ['contacts', 'company-people', company, page, archived], queryFn: () => contactsService.people({ company, search: '', page, archived }), retry: false })
+  return <section className="contact-related" aria-busy={query.isFetching}><div className="contact-section-heading"><h2>Contacts associés {query.data && <small>({query.data.totalItems})</small>}</h2>{editable && <HButton asChild size="small"><Link to={`/contacts/people/new?company=${encodeURIComponent(company)}`}>Ajouter un contact</Link></HButton>}</div><label className="contact-checkbox"><input type="checkbox" checked={archived} onChange={(event) => { setArchived(event.target.checked); setPage(1) }} /> Afficher les contacts archivés</label>{query.error && <p role="alert">{query.error.message}<HButton onClick={() => { void query.refetch() }}>Réessayer</HButton></p>}<div className="company-people-grid">{query.isPending && <div className="company-people-loading" role="status" aria-label="Chargement des contacts associés"><span aria-hidden="true" /><span aria-hidden="true" /></div>}{query.data?.items.map((person) => <article className="company-person" key={person.id}><Link to={`/contacts/people/${person.id}`}><ContactIdentity kind="person" collectionId={person.collectionId} id={person.id} filename={person.avatar} name={[person.first_name, person.last_name].filter(Boolean).join(' ')} /></Link><p>{person.job_title || 'Fonction non renseignée'}</p>{person.email && <a href={`mailto:${person.email}`}>{person.email}</a>}{(person.phone || person.mobile) && <p>{person.phone || person.mobile}</p>}</article>)}</div>{query.data?.totalItems === 0 && <p className="contact-muted">Aucun contact {archived ? 'archivé' : 'actif'} associé.</p>}{query.data && query.data.totalPages > 1 && <div className="contact-form-actions"><HButton disabled={page === 1} onClick={() => setPage(page - 1)}>Précédent</HButton><span>Page {page} / {query.data.totalPages}</span><HButton disabled={page >= query.data.totalPages} onClick={() => setPage(page + 1)}>Suivant</HButton></div>}</section>
+}

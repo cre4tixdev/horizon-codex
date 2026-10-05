@@ -824,3 +824,108 @@ Archive temporaire préparée : `/private/tmp/horizon-pocketbase-contacts.zip` ;
 L'utilisateur confirme la sauvegarde / récupération de l'archive, le dépôt des trois fichiers puis le redémarrage. Le journal fourni à 23:20 montre le rechargement des hooks Contacts / audit et le démarrage du serveur, sans erreur visible. Les quatre collections Contacts et `core_audit` sont présentes selon son contrôle du dashboard.
 
 Après attribution guidée de `contacts.read` et `contacts.write` au rôle de développement et reconnexion, l'utilisateur confirme l'accès aux onglets Sociétés / Personnes et au bouton Nouvelle société. Ces preuves sont une recette utilisateur déclarée ; elles ne remplacent pas les tests CRUD / images / audit avec ses données sur NAS. Reprise prévue : créer une société de test avec rôles et adresse, puis une personne avec avatar ; vérifier modification, archive / réactivation et audit, puis lecteur / compte sans permission. Les tests automatisés de ces comportements passent localement.
+
+## Évolutions Contacts et référentiels — sécurité cible, 5 octobre 2026
+
+Livré localement avec la migration d’évolution : lecture des catalogues pays / langues / devises pour utilisateurs Horizon actifs ; administration avec `settings.references`, validations serveur, audit et absence de suppression d’un code utilisé. Permission explicite à provisionner, sans élévation automatique des rôles existants.
+
+Les totaux liés à une société appliquent les mêmes permissions et filtres métier que les listes destination. Ne pas utiliser un superuser pour agréger les compteurs ; ne pas révéler l’existence d’objets interdits. Les routes destination valident les filtres reçus. Pappers exige `contacts.read` pour rechercher et `contacts.write` pour appliquer ; secret et appels fournisseur exclusivement côté serveur. Logo / avatar et galerie conservent la protection des fichiers V1.
+
+### Installation NAS de l’évolution Contacts / Référentiels
+
+Livraison locale, non déployée par l’agent. Avant installation, conserver une sauvegarde restaurable de `/pb_data` et une copie des hooks / migrations actuels. Ne pas modifier la migration Contacts V1 déjà appliquée.
+
+1. Vérifier les sociétés ayant `preferred_currency` et `default_currency` différents : résoudre le choix métier explicitement avant installation. La migration refuse tout conflit et conserve les données V1. Toute collection référentiel préexistante avec le même nom provoque aussi un refus pour revue préalable.
+2. Archive préparée : `/private/tmp/horizon-contacts-references.zip`. Elle contient la nouvelle migration `1791158400_contact_references.js` et les hooks : `contacts.pb.js`, `references.pb.js`, `company-lookup.pb.js`, `lib/audit.js`, `lib/company-lookup.js`. Inspecter son contenu, déposer ces fichiers dans les montages existants `/volume1/docker/horizon/pb_migrations` et `/volume1/docker/horizon/pb_hooks`, préserver tous les autres fichiers.
+3. Redémarrer selon la procédure existante et vérifier le journal de migration. Si le démarrage refuse un conflit, arrêter et résoudre à partir de la sauvegarde / des anciens fichiers ; ne pas forcer la suppression d’un champ ou d’une collection. Le rollback destructeur est interdit par la migration.
+4. Vérifier les collections `settings_countries`, `settings_languages`, `accounting_currencies`, `core_company_lookup_limits` ; les champs société `siren`, `siret`, `default_currency`, `enrichment` (absence de `preferred_currency`) ; le champ adresse `is_primary`. Les codes historiques sont préservés ; compléter les libellés si nécessaire. Les valeurs inconnues ne sont pas acceptées par le hook.
+5. Attribuer `settings.references` uniquement au rôle autorisé à administrer ces référentiels, puis reconnecter ce compte. Aucun rôle n’est modifié automatiquement par la migration ; les lecteurs Contacts peuvent utiliser les choix sans cette permission.
+6. Facultatif : configurer `PAPPERS_API_KEY` comme secret d’environnement du conteneur, puis redémarrer. Ne pas fournir cette clé au frontend, à Git ou au chat. Sans clé, Contacts fonctionne manuellement et affiche l’état non configuré.
+7. Recetter combobox, valeur inactive historique, SIRET, image protégée / remplacement, adresse principale, personne pré-rattachée et permissions. Pour Pappers, tester comparaison / sélection explicite et audit sur une société de recette. Les boutons des modules non livrés restent « À venir ».
+
+La version serveur est contrôlée avant les écritures société / adresse et avant l’édition des fiches : sans nouveaux hooks / schéma, le frontend indique la mise à jour requise. Aucune modification directe du NAS n’a été effectuée à cette étape.
+
+### Installation / redémarrage confirmés — 5 octobre 2026
+
+L’utilisateur confirme avoir installé l’archive et redémarré PocketBase sur le NAS. Vérifications anonymes en lecture seule : `/api/health` répond HTTP 200 ; `/api/horizon/company-lookup/status` répond HTTP 401 avec exigence de token, ce qui confirme la présence de la nouvelle route protégée. Cette réponse ne prouve pas encore l’application complète du schéma ni la configuration de Pappers.
+
+Recette restante : actualiser / reconnecter Horizon, vérifier les choix Pays / Langues / Devises, la sauvegarde SIREN / SIRET et les personnes associées. Administration des référentiels après attribution explicite de `settings.references` au rôle concerné. Aucun secret ni token demandé à l’utilisateur.
+
+
+### Reprise visuelle Contacts — 5 octobre 2026
+
+Aucune nouvelle installation PocketBase sur le NAS pour cette refonte frontend. Les sauvegardes société et adresse réutilisent les API protégées et auditées existantes ; ce sont deux écritures successives, pas une transaction commune. La validation du formulaire précède les écritures. Une erreur d’adresse après création est signalée, conserve la saisie et permet de réessayer avec le même identifiant société. Les fichiers historiques de galerie restent conservés.
+
+La révision de charte et les onglets Contacts ne nécessitent aucune nouvelle migration ou installation NAS. Les compteurs utilisent des requêtes de lecture limitées à une ligne et au champ id via service / repository, sous les API Rules Contacts existantes. Aucun superuser, modification des images originales ni nouvelle route backend.
+
+La navigation Paramètres par module, le menu partagé des combobox et le retrait du pied de page sont des changements frontend. Aucune nouvelle installation PocketBase pour ce lot. L’accès aux référentiels reste une lecture utilisateur actif ; les écritures restent limitées à `settings.references` et contrôlées par les hooks existants. Les pages de périmètre des futurs modules n’exposent pas de secrets ni de contrôles d’administration non raccordés.
+
+
+### Installation NAS des deux relations sociétés — 5 octobre 2026
+
+La décision métier admet uniquement Client (`customer`) et Fournisseur (`supplier`), cumulables. Migration `1791158401_company_roles.js` et validation dans `contacts.pb.js`, permissions / audit inchangés. L’utilisateur indique une base sans relations historiques ; la migration refuse néanmoins les anciens rôles inattendus et ne supprime aucun enregistrement.
+
+Archive complémentaire : `/private/tmp/horizon-company-roles.zip`, SHA-256 `b94a35740559734f7650e35dd8b905f3330e3073d0fa064653496745ed04740c`. Elle contient uniquement `pb_migrations/1791158401_company_roles.js` et `pb_hooks/contacts.pb.js`. Après sauvegarde et arrêt selon la procédure NAS existante, copier la migration dans `/volume1/docker/horizon/pb_migrations` et remplacer le hook correspondant dans `/volume1/docker/horizon/pb_hooks`, préserver les autres fichiers, puis redémarrer PocketBase. Vérifier le journal et les deux valeurs du champ `contacts_company_roles.role`, puis recetter le cumul Client / Fournisseur. En cas de rôle historique inattendu, la migration s’arrête pour résolution explicite ; ne pas forcer la suppression. Cette archive complète l’installation des référentiels déjà effectuée ; aucun déploiement distant n’a été réalisé par l’agent.
+
+Création avec relations commerciales : orchestration par le service Contacts via les API existantes et leurs permissions / audit. Écritures successives société, relations puis adresse, sans transaction commune. En cas d’échec des relations ou de l’adresse, reprise avec le même identifiant société ; relecture des relations et mise à jour différentielle pour éviter les doublons. Aucun nouveau schéma ou hook pour l’affichage des choix à la création ; l’archive des deux rôles décrite ci-dessus reste la version backend requise.
+
+
+Recherche d’entreprises — décision finale : appel anonyme direct du navigateur à l’API publique de l’État, sans cookies ni token Horizon (`credentials: omit`), délai dix secondes et validation Zod. Aucun relais, secret ou mise à jour NAS nécessaire pour ce parcours. La sauvegarde ordinaire conserve les permissions et validations PocketBase. Le statut historique ne sert plus qu’à vérifier la révision du schéma Contacts ; les anciennes routes fournisseur ne sont plus utilisées et sont retirées du code local. Cette décision remplace les contraintes Pappers ci-dessus.
+
+
+Suppression Contacts — le contrôle de relations est effectué côté PocketBase avant les cascades natives dans onRecordDeleteRequest et dans une transaction. Il concerne aussi les suppressions HTTP administrateur. Les comptes et rôles actifs doivent avoir contacts.read + contacts.write avant le contrôle, sans révéler de détail d’une pièce inaccessible. Les hooks modèle contrôlent également les suppressions internes ordinaires ; tout futur code serveur supprimant des contacts doit réutiliser le contrôle avant un app.delete susceptible de déclencher des cascades. Ne pas supprimer un contact référencé par un document via une cascade métier.
+
+Installer ensemble `pb_migrations/1791158402_contact_deletion.js`, `pb_hooks/contacts.pb.js`, `pb_hooks/lib/contact-deletion.js` et `pb_hooks/lib/audit.js`. Sauvegarder, arrêter le service NAS, copier ces fichiers aux chemins correspondants sous /volume1/docker/horizon, préserver tous les autres hooks / migrations et pb_data, puis redémarrer et vérifier les journaux. Ne pas installer la migration seule, car elle ouvre les deleteRule et exige les contrôles du hook. L’ancienne instance sans migration refuse la suppression ; la recherche publique directe reste indépendante de cette évolution. Aucun déploiement NAS n’a été effectué par l’agent.
+
+
+Archive NAS préparée : `/private/tmp/horizon-contact-actions.zip`, SHA-256 `31947dcd1e3d7fe726de8d8d3f115f0f52cf30341a6356aa4f859ed953d051e6`. Contient exactement les quatre fichiers de suppression indiqués ci-dessus, avec les chemins pb_hooks / pb_migrations. À installer ensemble sur l’instance Contacts / Référentiels existante, après sauvegarde et arrêt du service. L’archive ne contient ni base, secret, configuration ni fichier de recherche publique.
+
+
+Comptabilité société — installation de la migration 1791158403 et des hooks associés requise avant édition. La route historique de révision retourne désormais contacts_revision=3 lorsque RCS et profils tiers sont installés ; le frontend refuse l’écriture sur un ancien schéma pour éviter la perte silencieuse des nouveaux champs. La recherche TVA reste un appel public direct, sans clé ni nouveau relais PocketBase.
+
+L’audit des comptes tiers et les validations sont serveur ; les comptes n’autorisent aucun accès aux écritures d’un futur module Comptabilité. L’état de préparation de facturation électronique et l’adresse sont des données saisies, pas une certification fiscale ni une vérification d’annuaire. Aucun secret ou token de plateforme n’est stocké dans ces champs. La suppression contrôlée vérifie aussi les références aux comptes / adresses propres avant leur nettoyage transactionnel.
+
+
+Archive NAS de ce lot : `/private/tmp/horizon-company-accounting.zip`, SHA-256 `9b264ace2400bd9cc330b047c2e6485369e05530d2991364d1a399f6abca4593`. Elle regroupe migrations 1791158401 (rôles), 1791158402 (suppression) et 1791158403 (profil comptable), hook Contacts, bibliothèques audit / suppression / statut de révision. Elle remplace l’archive complémentaire des seules actions de fiche pour une instance ayant déjà les référentiels Contacts 1791158400. Installer les sept fichiers ensemble après sauvegarde et arrêt du service, en conservant pb_data et tous les autres hooks / migrations ; redémarrer, vérifier le journal des migrations et la révision 3, puis recetter. Les migrations déjà appliquées ne se rejouent pas. Aucun déploiement NAS effectué par l’agent.
+
+
+### LEI — ajout automatique ou manuel autorisé (5 octobre 2026)
+
+Prérequis : lot Comptabilité société `1791158403` installé. Le frontend exige maintenant `contacts_revision=4` ; le statut 4 requiert le champ LEI et la collection des comptes tiers.
+
+Option manuelle pour ce petit ajout, explicitement autorisée par l’utilisateur :
+1. Dans l’administration PocketBase, collection `contacts_companies`, ajouter un nouveau champ **Text** nommé `lei` (ne pas renommer `rcs_number`).
+2. Facultatif, longueur maximale **20**, expression régulière **`^[A-Z0-9]{20}$`**. Laisser les autres réglages par défaut. Enregistrer la collection.
+3. Mettre à jour `pb_hooks/lib/company-lookup.js` depuis le lot LEI et redémarrer PocketBase : cette petite bibliothèque permet au contrôle de compatibilité de reconnaître la nouvelle révision. Ce n’est pas un relais de recherche entreprises.
+4. Conserver également `pb_migrations/1791158404_company_lei.js` dans les migrations : elle reconnaît un champ ajouté manuellement avec cette définition exacte sans doublon et sans effacer de données. Une définition différente bloque la migration, à corriger explicitement.
+
+Option automatique : arrêter PocketBase, copier les deux fichiers du lot LEI dans leurs dossiers respectifs, puis redémarrer selon la procédure NAS habituelle. Préserver `pb_data` et les autres hooks. Ne pas supprimer les anciennes colonnes RCS/fiscales.
+
+Archive delta `/private/tmp/horizon-company-lei.zip` (2 fichiers), SHA-256 `2de074f2253e87bf07a02386ba88be1204b3f58182431961a338c74bbacb520d`.
+Si le lot Comptabilité précédent n’est pas installé, utiliser le lot combiné `/private/tmp/horizon-company-accounting-lei.zip` (8 fichiers), SHA-256 `06c816681507f249ae01feaadc45c4f9a0d747ad1c76f1c9744299c323f1a06b`, avec les prérequis contacts/référentiels déjà documentés. Il contient les migrations rôles, suppression, comptabilité et LEI et leurs bibliothèques mises à jour. La collection comptable complète relève d’une migration, pas de ce simple ajout manuel.
+
+Aucun fichier ni donnée du NAS n’a été modifié pendant les vérifications : bases de tests locales jetables uniquement.
+
+
+### Installation Notifications et recherche de logos — 5 octobre 2026
+
+Lot NAS `/private/tmp/horizon-notifications.zip` : `pb_migrations/1791158405_notifications.js` et `pb_hooks/notifications.pb.js`. Arrêter PocketBase, copier ces fichiers dans les dossiers correspondants sans remplacer les autres fichiers ni pb_data, redémarrer : la migration crée automatiquement la collection. Aucun ajout manuel nécessaire. Prérequis : core_users/core_roles déjà installés. Une collection homonyme préexistante entraîne un refus explicite, sans écrasement.
+
+Notifications : List/View uniquement au destinataire core_users actif avec rôle actif ; Create/Delete verrouillés pour les utilisateurs. Update réservé au destinataire et interdit toute modification du destinataire, du contenu, de l’origine ou de created. Le hook impose read_at côté serveur et conserve la première lecture. Une mise à jour ne peut donc ni antidater la lecture ni rendre une notification non lue. Production des messages réservée aux futurs workflows serveur via NotificationService ; aucun endpoint public de création ajouté.
+
+Recherche logos : appels directs du navigateur à commons.wikimedia.org (recherche) et upload.wikimedia.org / thumb.wikimedia.org (images), sans cookies ni token PocketBase. Pas de relais serveur ni URL arbitraire de téléchargement, ni secret ni nouvelle permission métier. Le droit de sauvegarder le logo reste contacts.write via les règles existantes. Filtrage JPEG / PNG / WebP, maximum 2 Mio, contrôle de décodage avant ajout au brouillon ; SVG jamais envoyé en base, rendu PNG Wikimedia utilisé. Une image bloquée ou un service indisponible donne un message explicite et conserve l’import local. Les fichiers protégés existants restent protégés après sauvegarde.
+
+SHA-256 du lot Notifications (2 fichiers) : `c0da2928734a5c45cd3b423c5b2cfa15554ae433ea6b52aca3303f3448d9dc2d`.
+
+
+### Lot Activité — installation NAS
+
+Installer le lot complet `/private/tmp/horizon-activity.zip` (9 fichiers) : migrations 1791158405 Notifications et 1791158406 Activity ; hooks activity.pb.js, contacts.pb.js, notifications.pb.js ; bibliothèques audit.js, activity.js, activity-request.js, notification-service.js. Prérequis : dernier lot Contacts/Comptabilité/LEI déjà installé. Arrêter PocketBase, copier les fichiers dans leurs dossiers respectifs en préservant tous les autres hooks/migrations et pb_data, puis redémarrer. Les collections et le champ de liaison de notification sont créés automatiquement ; rien à ajouter à la main. Notifications déjà installées : sa migration est ignorée normalement. La migration refuse des collections Activity homonymes au lieu d’écraser un schéma existant. Le backfill conserve les dates/auteurs des anciens audits et ne modifie aucune fiche.
+
+Activity Rules : compte core_users actif et rôle actif avec contacts.read ; source contacts autorisée réellement existante. Écriture de publications et changements de tâches : contacts.write en plus et source active vérifiée serveur. Messages et événements ne peuvent être modifiés ni supprimés via REST ; changements automatiques non publiables par un utilisateur. Le hook écrase auteur/date/metadata : aucun faux diff, auteur arbitraire ou horodatage historique accepté. Pièces jointes protégées via token fichier et View Rule ; refus des fichiers HTML/SVG/exécutables. L’UI ne rend pas du HTML des commentaires. Téléchargement limité aux fichiers protégés Horizon, jamais à une URL utilisateur arbitraire.
+
+Annuaire de mentions : route authentifiée dédiée, contacts.write, projection id/nom/initiales de 15 collègues actifs autorisés à lire Contacts, aucun e-mail/password/token/rôle privé exposé. Validation serveur des destinataires à la publication. Transactions garantissent rollback de publication/audit/mentions si une notification ou tâche échoue. Le regroupement accepte un identifiant d’opération fourni par le client mais lie toujours source et auteur côté serveur ; core_audit conserve chaque écriture et ne dépend pas de ce regroupement. Fenêtre de regroupement d’une minute.
+
+La disparition d’une source rend ses événements, tâches et fichiers inaccessibles aux utilisateurs ; les traces sont conservées pour l’administration. Les champs source polymorphes ne sont pas des pièces métier qui bloquent une suppression. La garde de suppression existante continue à protéger les vraies pièces liées. Aucun déploiement ni écriture sur NAS effectué durant les tests.
+
+Lot Activité : 9 fichiers, SHA-256 `1e233c0dd017d72fe81489218fcd915aae45e0640d5eaca07131c051953f0c72`.

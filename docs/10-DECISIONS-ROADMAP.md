@@ -1263,18 +1263,18 @@ Un lot terminé n'est rouvert que si ses critères ne sont plus satisfaits. Une 
 
 ## Tableau de bord global
 
-Dernière mise à jour : **4 octobre 2026**.
+Dernière mise à jour : **5 octobre 2026**.
 
 | Phase | Lots | Terminés | En cours | À vérifier | Bloqués | À faire |
 |---|---:|---:|---:|---:|---:|---:|
 | 1 — Fondation | 8 | 2 | 2 | 3 | 0 | 1 |
-| 2 — Référentiel | 10 | 0 | 0 | 1 | 0 | 9 |
+| 2 — Référentiel | 10 | 0 | 1 | 1 | 0 | 8 |
 | 3 — Commercial | 5 | 0 | 0 | 0 | 0 | 5 |
 | 4 — Opérations | 8 | 0 | 0 | 0 | 0 | 8 |
 | 5 — Ressources / RH interne | 4 | 0 | 0 | 0 | 0 | 4 |
 | 6 — Finance | 6 | 0 | 0 | 0 | 0 | 6 |
 | 7 — Consolidation | 5 | 0 | 0 | 0 | 0 | 5 |
-| **Total** | **46** | **2** | **2** | **4** | **0** | **38** |
+| **Total** | **46** | **2** | **3** | **4** | **0** | **37** |
 
 **Progression de livraison : 2 / 46 lots terminés (4,3 %).** Calcul : lots terminés / lots du périmètre suivi. Cet indicateur mesure les lots livrés, sans pondérer leur taille ; il ne représente ni une estimation de charge ni le temps restant. La documentation existante est un acquis de cadrage, hors de ce compteur d'implémentation.
 
@@ -1300,7 +1300,7 @@ La roadmap reste organisée en sept phases. Certains prérequis transverses doiv
 | ID | Lot | Dépendances | Résultat attendu pour clôture | Statut |
 |---|---|---|---|---|
 | R01 | Contacts : sociétés et personnes | Fondation | Fiches, rôles, adresses, logo société et avatar contact ; CRUD autorisé et archivage vérifiés | À vérifier |
-| R02 | Paramètres et organisation | Fondation | Référentiels, équipes, politiques et administration protégée ; constantes métier paramétrables centralisées | À faire |
+| R02 | Paramètres et organisation | Fondation | Référentiels, équipes, politiques et administration protégée ; constantes métier paramétrables centralisées | En cours |
 | R03 | Catalogue produits | R01, R02 | Catégories, unités, images, kind, stock / replenishment policies, tracking et composition distincts ; cycles interdits | À faire |
 | R04 | Fournisseurs et tarifs produits | R03 | Plusieurs fournisseurs, références, devises, conditionnements, validité et historique des prix préservés | À faire |
 | R05 | Imports Excel / Odoo | R01–R04 | Parsing, normalisation, matching, dry run, conflits et apply explicite ; rejeu sans doublons via références externes | À faire |
@@ -1411,7 +1411,7 @@ Ces points ne bloquent pas tous les travaux : la préparation du frontend et du 
 
 ## Travaux actifs et prochaine livraison
 
-**Prochaine livraison proposée : socle local Horizon avec connexion native et interface conforme à la charte, puis Contacts comme premier parcours métier complet.**
+**Prochaine recette : valider les fiches Contacts / Référentiels avec l’utilisateur. La recherche d’entreprises utilise désormais l’API publique de l’État directement depuis le navigateur ; aucun raccordement Pappers ou déploiement NAS supplémentaire pour cette fonction.**
 
 | Lot | Responsable | Échéance | Prochaine action | Résultat / obstacle actuel |
 |---|---|---|---|---|
@@ -1419,9 +1419,10 @@ Ces points ne bloquent pas tous les travaux : la préparation du frontend et du 
 | F02 | Agent de développement | Livré le 2026-10-04 | Lot clôturé ; préparer la suite après confirmation utilisateur | Socle modulaire, scripts et contrôles opérationnels ; preuves dans le journal |
 | F06 | Agent de développement | Livré le 2026-10-04 | Lot clôturé ; étendre les composants au besoin des modules | Sidebar, pictogramme officiel, navigation, breadcrumb, recherche des espaces et composants communs vérifiés ; pages métier temporaires À venir |
 | F03 | Agent de développement | Non fixée | Poursuivre le realtime avec les repositories métier | Client partagé auth / Contacts, erreurs sans objets SDK, URL raccordée et cache purgé à déconnexion |
-| F04 | Agent de développement | Non fixée | Confirmer l’historique sur NAS ; installer Contacts après accord | Reconstruction / adoption et rollback protecteur testés localement ; fichiers / flags auth et hook vérifiés sur NAS |
+| F04 | Agent de développement | Non fixée | Installer la migration d’évolution Contacts / Référentiels selon 06 et vérifier l’historique NAS | Reconstruction, reprise des codes / devises et refus de conflits testés localement ; archive prête |
 | F05 | Agent de développement | Non fixée | Recetter les permissions Contacts sur préproduction après installation | Login, déconnexion / reconnexion, rechargement et révocation du compte de test confirmés par l’utilisateur ; comptes créés par lui dans le dashboard |
-| R01 | Agent de développement | Non fixée | Recette CRUD / images / archive / audit et permissions sur NAS | Installation, cinq collections et accès aux onglets / création confirmés par l’utilisateur ; tests complets locaux réussis |
+| R01 | Agent de développement | Non fixée | Installer et recetter les nouvelles fiches, adresses / personnes associées et permissions sur NAS | V1 installée ; évolution frontend / backend locale testée, recherche publique directe validée ; compteurs des futurs modules restant à raccorder |
+| R02 | Agent de développement | Non fixée | Installer les référentiels, attribuer la permission administrateur et recetter ; organisation / autres paramètres ensuite | Pays / Langues / Devises et combobox partagée livrés localement ; tests des permissions et codes immuables réussis |
 | F07 | Agent de développement | Non fixée | Étendre / recetter le socle audit au-delà des changements Contacts | Writer transactionnel et collection verrouillée préparés comme prérequis Contacts |
 
 Ce tableau expose la file de travail immédiate. F01 reste `En cours` ; F02 et F06 sont `Terminé`. F03 / F04 / F05 sont `À vérifier` après préparation locale autorisée et tests : déploiement / recette Synology et realtime des futurs repositories restent à compléter. R01 est `À vérifier` après livraison locale Contacts et F07 `En cours` pour son prérequis audit ; les autres lots restent `À faire`. Les phases suivantes seront détaillées progressivement avec leurs tâches, responsables et échéances. Les autorisations de F02 / F06 ne valent pas autorisation de modifier PocketBase ou de démarrer un nouveau lot.
@@ -1540,3 +1541,130 @@ Prochaine action à confirmer : installation assistée du socle sur le Synology 
 - Attribution guidée des permissions Contacts au rôle de développement puis reconnexion : onglets Sociétés / Personnes et bouton Nouvelle société confirmés par l'utilisateur. Aucun changement direct des données / règles du NAS par l'agent.
 - R01 reste À vérifier : recette sur NAS des créations / modifications, rôles / adresses, fichiers protégés, archive / réactivation, audit et rôles restreints à compléter. F07 reste En cours. Compteurs inchangés : 2 terminés, 2 en cours, 4 à vérifier, 38 à faire.
 - L'utilisateur demande commit et push du module vers le dépôt existant puis arrêt du travail pour reprise le lendemain. Point de reprise : recette Contacts sur préproduction, avant ouverture d'un autre module. Les contrôles locaux déjà réussis restent applicables ; aucune nouvelle modification de code depuis leur exécution.
+
+### Reprise sur un autre Mac — 5 octobre 2026
+
+- Dépôt cloné sur `main` au commit `826f750`. Environnement préparé avec Node 24.7.0, pnpm 12.9.1, dépendances du lockfile et Chromium Playwright. `.env.local` créé depuis `.env.example`, ignoré par Git ; endpoint de santé du NAS accessible (HTTP 200).
+- PocketBase 0.40.4 installé dans `node_modules/.bin` pour les bases temporaires de test. `pnpm check`, 20 tests backend et 15 parcours Chromium (7 layout, 8 auth / Contacts) réussis sur ce Mac.
+- Frontend démarré sur `http://127.0.0.1:5173/`. Recette Contacts sur NAS toujours à compléter ; aucun changement des données ou du schéma du NAS. Statuts des lots inchangés.
+
+### Consolidation des retours Contacts — 5 octobre 2026
+
+- Demande utilisateur consolidée dans 04 (parcours et recette), 05 (contrat cible / migration), 06 (permissions), 07 (fiche visuelle) et 08 (Pappers). Cette étape est documentaire ; aucun changement applicatif, schéma ou NAS.
+- Ordre de réalisation : socle R02 pays / langues / devises et combobox partagée ; évolution R01 (devise unique, SIREN / SIRET, adresse principale, logo en haut et aperçu, fiches visuelles et personnes associées) ; enrichissement Pappers ; raccordement progressif des compteurs aux modules CRM / Ventes / Facturation / Livraison.
+- Réutiliser `accounting_currencies` pour éviter un deuxième catalogue. Migration de devise sans perte et résolution explicite des conflits ; toute évolution sur NAS suit sauvegarde et installation guidée.
+- Pappers dépend de la configuration serveur et du compte API. Les compteurs dépendent des modules propriétaires ; ne pas simuler leurs données. Le logo est déjà limité à un fichier en V1, mais la zone d’aperçu / placement doit évoluer.
+- R01 reste À vérifier, R02 À faire ; aucun lot clôturé par ce cadrage. Prochaine réalisation : référentiels transverses nécessaires à Contacts.
+
+### Livraison locale Contacts / Référentiels / Pappers — 5 octobre 2026
+
+- Accord utilisateur pour réaliser le cadrage en tenant PocketBase à jour. Référentiels Pays / Langues / Devises livrés dans Paramètres avec combobox commune, codes stables, activation et administration `settings.references`. Réutilisation de `accounting_currencies` ; catalogue initial extensible.
+- Fiches : devise unique, SIREN / SIRET, image unique avec aperçu en haut, adresse principale par type, personnes associées paginées et création pré-rattachée. Bandeau métier présent avec états « À venir », raccordement aux vrais compteurs différé aux modules propriétaires.
+- Nouvelle migration `1791158400_contact_references.js` : reprise des valeurs et codes historiques, refus sur conflit de devises sans perte, suppression du doublon de devise, champs Contacts et trois catalogues. Hooks mis à jour : validation des référentiels / identifiants, audit transactionnel partagé et routes Pappers protégées. Limiteur Pappers dédié, sans activation des limites globales PocketBase.
+- Pappers : recherche, aperçu et application explicite sur société enregistrée ; clé uniquement serveur, preuve temporaire, audit / provenance, gestion des doublons et restrictions de diffusion. Connexion réelle dépend de la clé API et de la recette NAS.
+- Vérifications locales : lint / TypeScript / 37 tests Vitest / build ; 28 tests backend ; 11 parcours auth / Contacts / Paramètres et 7 parcours layout. Captures de fiche société et listes inspectées. Correction avec test de régression d’une requête ancienne qui pouvait masquer un contact nouvellement créé.
+- Archive de transfert `/private/tmp/horizon-contacts-references.zip` et procédure d’installation dans 06. Aucun déploiement, changement de schéma / données sur NAS, commit ou push dans cette étape. R01 reste À vérifier ; R02 passe En cours (socle référentiels livré, organisation / autres paramètres restant à réaliser). Compteurs : 2 terminés, 3 en cours, 4 à vérifier, 37 à faire ; progression livrée inchangée (4,3 %).
+- Point de reprise : sauvegarde NAS, vérification des conflits de devise, installation de l’archive, permission administrateur des référentiels et recette utilisateur ; configuration Pappers facultative ensuite.
+
+### Installation NAS de l’évolution confirmée — 5 octobre 2026
+
+- L’utilisateur confirme installation et redémarrage du NAS. Contrôles anonymes par l’agent : santé HTTP 200, nouvel endpoint `company-lookup/status` présent et protégé (HTTP 401).
+- Chargement de la route confirmé ; schéma complet, permissions d’administration des référentiels et parcours utilisateur à vérifier après reconnexion. Pappers réel toujours conditionné à la configuration de la clé serveur.
+- R01 À vérifier, R02 En cours ; compteurs inchangés. Prochaine action : recette frontend des combobox, identifiants / logo et personnes associées.
+
+
+### Reprise de la présentation Contacts — 5 octobre 2026
+
+- Retour utilisateur : champs sans hiérarchie, adresse peu visible et doublons de galerie. Fiches reprises en cartes par fonction avec en-tête visuel unique, actions en haut, adresse du siège disponible dès création, coordonnées regroupées, préférences séparées, notes / Pappers repliables. Personne : identité et coordonnées côte à côte sur desktop, empilées sur mobile.
+- Galerie retirée de la fiche sans supprimer les fichiers historiques. Aucun changement de schéma ou hook PocketBase ; aucune nouvelle installation backend requise. Sauvegarde adresse avec contrôle des erreurs partielles et reprise sans société dupliquée.
+- Documentation fonctionnelle, données, exploitation, design et recette mise à jour. R01 reste À vérifier et R02 En cours ; compteurs de roadmap inchangés.
+- Vérifications réussies : lint / types / 39 tests Vitest / build et 19 parcours Chromium. Captures desktop / mobile inspectées ; recette de présentation sur le NAS à confirmer par l’utilisateur.
+
+
+### Finition du répertoire et des en-têtes Contacts — 5 octobre 2026
+
+- Demande utilisateur : ajouter vues Cartes et Liste aux sociétés / personnes, remonter les relations commerciales et les raccourcis métier, réduire la place du logo. Cartes par défaut, sélection portée par l’URL, recherche / état / tri / pagination communs, tableaux mieux espacés.
+- En-tête compact avec logo / avatar de 48 px, relations commerciales au même niveau et raccourcis au-dessus des champs. La fiche personne affiche les relations de sa société et indique le périmètre société des raccourcis. Les modules non livrés restent « À venir ».
+- Aucun changement de schéma / hooks / données NAS ; aucune réinstallation PocketBase. Documentation et parcours de recette adaptés. R01 reste À vérifier, R02 En cours ; compteurs inchangés.
+- Vérifications réussies : lint / TypeScript / 39 tests Vitest / build et 13 parcours auth / Contacts / Paramètres Chromium. Captures desktop et mobile inspectées. Recherche par prénom + nom corrigée ; expansion des rôles société chargée sur les fiches personnes.
+
+
+### Révision de charte à partir de la référence utilisateur — 5 octobre 2026
+
+- Autorisation explicite de revoir la charte après retour sur logos tronqués et finition insuffisante. Surfaces froides, sidebar bleu profond, magenta renforcé, badges sémantiques, tableaux Contacts compacts, synthèse avec vrais totaux.
+- Correction des logos : containment distinct des portraits dans fiches, cartes, listes et badge société. Navigation par vrais onglets dans les fiches ; coordonnées résumées et contenus regroupés. Saisie conservée entre onglets.
+- Aucun changement de schéma / hook / NAS ; totaux via les API de lecture existantes. Documentation canonique mise à jour. R01 reste À vérifier et R02 En cours ; compteurs de roadmap inchangés.
+
+Vérifications finales de la révision : lint / TypeScript / build et 41 tests Vitest réussis ; 14 parcours auth / Contacts / Paramètres et 7 parcours layout Chromium réussis. Captures desktop / mobile et logo horizontal inspectés. Recette utilisateur NAS à compléter ; aucune nouvelle installation PocketBase requise.
+
+### Précision utilisateur sur les logos — 5 octobre 2026
+
+Cadre toujours carré, logo entier et proportionnel centré sur blanc, quelle que soit la forme du fichier client. Fiches, cartes et listes harmonisées ; aucun traitement du fichier ni changement PocketBase. Test navigateur existant étendu pour vérifier dimensions carrées et fond blanc dans les trois vues.
+
+
+### Combobox et organisation Paramètres — 5 octobre 2026
+
+- Demande utilisateur : menus mieux intégrés à la charte, chevrons centrés, suppression du footer global et organisation des Paramètres à l’échelle des modules.
+- Combobox partagée harmonisée, footer retiré, espace Paramètres structuré en socle commun / modules métier / connexions. Vue d’ensemble avec recherche, page référentiels dédiée et périmètres des futures rubriques explicitement signalés « Prévu ».
+- Aucun changement de schéma / hook / NAS ; permissions des référentiels préservées. R02 reste En cours (structure livrée, administration métier des autres domaines restant à réaliser). Compteurs inchangés.
+- Réalisation finale : menus partagés aussi pour filtres, tri, société et type d’adresse. Vérifications : lint / types / 41 tests unitaires / build, 15 parcours auth / Contacts / Paramètres et 7 parcours layout réussis ; captures inspectées.
+
+
+### Top bar, recherche et compte — 5 octobre 2026
+
+- Top bar persistante ; recherche des Contacts centralisée dans le header et contextualisée sociétés / personnes, filtre conservé via `q` lors des changements de présentation et rechargements.
+- Menu utilisateur accessible sur mobile : Mon compte (consultation), Paramètres et déconnexion. Les fonctions d’édition du profil restent à réaliser.
+- Aucun changement PocketBase : informations issues de la session existante, recherche via les services et API déjà autorisés. Aucune installation supplémentaire sur le NAS. R01 et R02 conservent leurs statuts, compteurs inchangés.
+
+- Vérifications : lint / types / build et 41 tests unitaires, 8 parcours layout et 17 parcours authentifiés réussis.
+
+- Précision utilisateur : contexte de recherche affiché en permanence dans le champ (Sociétés / Personnes / Espaces Horizon), y compris après saisie. Aucun changement PocketBase.
+
+- Correction visuelle demandée : suppression du double contour de focus dans les recherches composées, marge intérieure du texte et harmonisation du focus des champs simples / combobox. Aucun changement de données ni de backend.
+
+- Recherche locale par défaut avec sélecteur de contexte / recherche globale, retour automatique au contexte lors de la navigation. Vue d’ensemble Paramètres raccordée à la top bar. Le mode global recherche les espaces, pas encore les données de tous les modules métier. Aucun changement PocketBase.
+
+- Contacts : cartes et lignes entièrement cliquables pour ouvrir la fiche, coordonnées et société associée conservant leurs actions dédiées. Liens natifs et clavier préservés. Aucun changement PocketBase.
+
+- Demande utilisateur : retirer la flèche redondante des cartes, condenser les fiches et limiter les relations commerciales à Client / Fournisseur. Flèche retirée et densité / présentation améliorées. Cumul des deux relations et gestion des rôles historiques soumis à clarification utilisateur avant modification métier / PocketBase. Aucun rôle existant supprimé.
+
+### Décision relations sociétés et harmonie de fiche — 5 octobre 2026
+
+L’utilisateur confirme Client et Fournisseur cumulables, exclut les autres rôles et indique une base sans données à reprendre. Interrupteurs refusés : remplacés par deux cases à cocher dans un bloc commun intégré à l’en-tête blanc. Identité / coordonnées regroupées, grilles compactes et panneaux alignés. Schéma frontend, service, hook et migration PocketBase cohérents ; migration refusant les valeurs historiques inattendues sans suppression. Archive NAS dédiée préparée ; installation restant à effectuer par l’utilisateur. Statuts et compteurs globaux inchangés.
+
+- Correction signalée par l’utilisateur : Client / Fournisseur absents de Nouvelle société. Bloc désormais visible dès création, sélection conservée jusqu’à Enregistrer ; sauvegarde des relations et reprise des écritures partielles sans recréer la société ou les rôles déjà enregistrés. API PocketBase existantes réutilisées, aucun nouvel artefact backend requis.
+
+- Retour utilisateur : la fiche reste dispersée et peu intégrée. Composition reprise sur une surface blanche continue, Client / Fournisseur sous le nom, sections sans encadrés imbriqués, largeur contenue et adaptation mobile. Trois parcours ciblés validés et captures création desktop / mobile inspectées. Aucun changement de schéma ou hooks PocketBase ; archive backend précédente inchangée. Compteurs globaux inchangés.
+
+- L’utilisateur refuse la composition en surface unique et redonne la référence visuelle. Gabarit de création repris : titre et actions, logo dans l’identité, blocs compacts, adresse sur deux lignes, notes directement visibles ; gabarit de fiche enregistrée avec résumé / onglets. Ordre de saisie cohérent et adaptation mobile. Archive PocketBase inchangée ; aucun schéma ou hook supplémentaire.
+
+Clarification utilisateur — 5 octobre 2026 : la référence Contacts concerne le style, pas une séparation de compositions création / consultation. Gabarit commun appliqué aux sociétés et personnes ; logo et relation commerciale restent au même endroit après sauvegarde. Fonctions des fiches enregistrées conservées et coordonnées sans bandeau redondant. Aucun changement PocketBase pour cette correction.
+
+Décision utilisateur — 5 octobre 2026 : Enregistrer ne doit être coloré que lorsqu’une sauvegarde est nécessaire. Convention commune `HSaveButton` appliquée à tous les formulaires de sauvegarde actuellement implémentés (Contacts, adresses, référentiels), avec garde contre les soumissions inchangées. Logo société associé agrandi sur les avatars contacts, sans modification des fichiers ou du schéma PocketBase.
+
+Finition Contacts — 5 octobre 2026 : remplacer les paragraphes de statut des relations et contacts associés par des indicateurs discrets, avec place réservée et annonces accessibles. Aucun changement des sauvegardes automatiques ou du backend.
+
+Décision finale utilisateur — 5 octobre 2026 : aucun changement de champ / case / sélection ne sauvegarde automatiquement. Enregistrer est la validation explicite commune à Horizon. Édition des rôles intégrée à la sauvegarde société ; lecture seule depuis une personne ; Pappers prépare le formulaire au lieu d’écrire directement. Formulaires de référentiels et adresses déjà explicites. Anciennes mentions de sauvegarde automatique des rôles remplacées. Backend et schéma inchangés.
+
+Décision utilisateur — 5 octobre 2026 : exiger la saisie ARCHIVER dans une fenêtre avant toute validation d’archivage. Composant partagé livré et utilisé pour les sociétés / contacts ; futurs modules réutilisent cette convention. Aucun changement du schéma ou des hooks PocketBase.
+
+
+Décision utilisateur — recherche d’entreprises : remplacer Pappers par l’API publique de l’État, appelée directement depuis le navigateur pour remplir le formulaire, puis sauvegarde explicite Contacts. Aucun relais PocketBase ni déploiement NAS pour cette recherche. Consulter l’utilisateur avant d’ajouter une couche serveur ou de modifier ce parcours de sauvegarde ; ne pas élargir spontanément l’architecture.
+
+
+Recherche société — ajustement UX : libellé « Recherche informations », action secondaire dans la barre supérieure près d’Enregistrer, en création et sur fiche existante. Le report revient aux Informations ; la sauvegarde reste explicite.
+
+
+Actions de fiches — livraison locale du 5 octobre 2026 : menu engrenage à droite d’Enregistrer avec Dupliquer, Archiver / Réactiver, Supprimer. Confirmation saisie exacte ARCHIVER orange / SUPPRIMER rouge. Duplication comme brouillon puis Enregistrer. Migration 1791158402 et protection PocketBase des références, y compris pièces archivées et invisibles ; nettoyage atomique des adresses / rôles propres à une société inutilisée, audit conservé. Déploiement NAS restant à réaliser avec migration et hooks ensemble. Les modules Devis / Factures / Livraison ne sont pas encore livrés ; protection testée avec une collection de documents temporaire en relations simples / multiples.
+
+
+Profil société / Comptabilité — livraison locale : TVA réelle proposée par API publique, gestion du choix de plusieurs numéros, EUR / Français par défaut à la création, RCS remplaçant le champ fiscal visible. Onglet Comptabilité après Relations, comptes client / fournisseur simples et préparation facturation électronique. Nouveau socle accounting_third_party_accounts dans son module propriétaire ; migration 1791158403, révision Contacts 3, sauvegarde explicite et reprise des erreurs. Les anciens identifiants fiscaux sont conservés. Aucun envoi électronique, annuaire, plan comptable complet ou compte général / auxiliaire livré. Choix de la saisie simple annoncé faute de réponse à la question métier ; distinction auxiliaire à confirmer ultérieurement. Documentation canonique mise à jour ; installation NAS encore nécessaire.
+
+
+5 octobre 2026 — LEI à la place du RCS dans l’UI, à la demande de l’utilisateur. Conservation des anciennes données RCS et fiscales. L’utilisateur autorise les petites modifications PocketBase manuelles : fournir la définition exacte et garder une migration compatible pour les autres installations et la reconstruction. Aucun déploiement sur le NAS effectué par Codex.
+
+
+5 octobre 2026 — cloche de notifications et recherche de logos demandées par l’utilisateur. Implémentation de la boîte de réception privée core_notifications, compteur réel et marquage lu serveur. Les futurs modules devront publier des événements et passer par NotificationService pour produire leurs alertes ; aucun déclencheur métier fictif ajouté. Recherche logos initiale Wikimedia Commons, navigateur direct, sans clé et sans modification BDD avant Enregistrer. Question facultative présentée sur une recherche web plus large avec clé : réponse non reçue à cette livraison, choix initial Wikimedia annoncé pendant le travail. Import local conservé. Lot NAS limité à la collection/hook Notifications ; aucune installation NAS faite par Codex.
+
+
+5 octobre 2026 — utilisateur demande le fil complet immédiatement et insiste sur le design. Livraison sur les fiches Sociétés/Contacts : historique projeté serveur, regroupement par sauvegarde, reprise des anciens audits, commentaires, pièces jointes protégées, mentions et notifications, tâches directes ou issues d’une note, suivi d’état, filtres et pagination. Composant partagé et socle core réutilisables ; seuls Contacts et ses sous-objets actuellement implémentés sont raccordés, les futurs modules devront fournir leur policy source et leurs événements. Fil métier distinct de core_audit. Aucun HTML riche ni moteur d’approbation introduit ; commentaires en texte avec @ et documents. Titre/description des tâches publiées restent immuables, état suivi dans le fil. Archive = lecture seule, suppression = traces conservées hors accès métier. Lot NAS livré, déploiement restant à faire par l’utilisateur.

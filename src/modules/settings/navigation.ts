@@ -1,0 +1,19 @@
+import { Globe, Building2, ShieldCheck, UsersRound, Target, Package, ShoppingCart, Truck, Warehouse, Receipt, Landmark, FolderKanban, CalendarDays, Plug } from 'lucide-react'
+export const settingsSections = [
+  { slug: 'references', title: 'Référentiels', group: 'Socle commun', icon: Globe, description: 'Pays, langues et devises partagés par Horizon.', topics: ['Pays', 'Langues', 'Devises'], available: true },
+  { slug: 'organisation', title: 'Organisation', group: 'Socle commun', icon: Building2, description: 'Identité de votre entreprise et préférences générales.', topics: ['Identité et logo', 'Coordonnées', 'Fuseau horaire et formats'], available: false },
+  { slug: 'securite', title: 'Utilisateurs et accès', group: 'Socle commun', icon: ShieldCheck, description: 'Utilisateurs, rôles et permissions par domaine.', topics: ['Utilisateurs', 'Rôles et permissions', 'Authentification'], available: false },
+  { slug: 'contacts', title: 'Contacts', group: 'Modules métier', icon: UsersRound, description: 'Qualification des contacts et relations commerciales.', topics: ['Sources des contacts', 'Tags et qualification', 'Préférences de relation'], available: false },
+  { slug: 'crm', title: 'CRM', group: 'Modules métier', icon: Target, description: 'Organisation du suivi commercial et des opportunités.', topics: ['Pipelines', 'Étapes commerciales', 'Motifs de clôture'], available: false },
+  { slug: 'catalogue', title: 'Catalogue', group: 'Modules métier', icon: Package, description: 'Structuration des produits, services et tarifs.', topics: ['Catégories et unités', 'Taxes', 'Tarification'], available: false },
+  { slug: 'ventes', title: 'Ventes', group: 'Modules métier', icon: ShoppingCart, description: 'Paramètres des devis, commandes et livraisons.', topics: ['Numérotation', 'Conditions commerciales', 'Modèles de documents'], available: false },
+  { slug: 'achats', title: 'Achats', group: 'Modules métier', icon: Truck, description: 'Règles de préparation et suivi des achats.', topics: ['Numérotation des commandes', 'Conditions fournisseurs', 'Approvisionnement'], available: false },
+  { slug: 'stock', title: 'Stock', group: 'Modules métier', icon: Warehouse, description: 'Entrepôts, emplacements et suivi des mouvements.', topics: ['Entrepôts et emplacements', 'Types de mouvements', 'Inventaires'], available: false },
+  { slug: 'facturation', title: 'Facturation', group: 'Modules métier', icon: Receipt, description: 'Factures, règlements et documents de facturation.', topics: ['Numérotation', 'Conditions de paiement', 'Modèles et mentions'], available: false },
+  { slug: 'comptabilite', title: 'Comptabilité', group: 'Modules métier', icon: Landmark, description: 'Référentiels comptables et suivi analytique.', topics: ['Journaux et comptes', 'Axes analytiques', 'Devises et exports'], available: false },
+  { slug: 'projets', title: 'Projets', group: 'Modules métier', icon: FolderKanban, description: 'Organisation des affaires et du suivi opérationnel.', topics: ['Types de projets', 'Étapes et modèles', 'Budgets'], available: false },
+  { slug: 'planning', title: 'Planning et temps', group: 'Modules métier', icon: CalendarDays, description: 'Calendriers de travail et catégories de temps.', topics: ['Calendriers', 'Types d’affectation', 'Profils de coût'], available: false },
+  { slug: 'integrations', title: 'Intégrations', group: 'Connexions', icon: Plug, description: 'Services externes et connexions à Horizon.', topics: ['Recherche d’entreprises (État)', 'Sage et SUPER PDP', 'Messagerie et génération PDF'], available: false },
+] as const
+export const settingsGroups = ['Socle commun', 'Modules métier', 'Connexions'] as const
+export const settingsSectionPath = (slug: string) => slug === 'references' ? '/settings/references' : `/settings/modules/${slug}`

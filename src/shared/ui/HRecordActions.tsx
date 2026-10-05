@@ -1,0 +1,22 @@
+import { useRef, useState } from 'react'
+import { DropdownMenu } from 'radix-ui'
+import { Archive, Copy, RotateCcw, Settings, Trash2 } from 'lucide-react'
+import { HButton } from './HButton'
+import { HRecordConfirmation } from './HRecordConfirmation'
+
+export function HRecordActions({ itemName, active, disabled, onArchive, onRestore, onDuplicate, onDelete }: { itemName: string; active: boolean; disabled: boolean; onArchive: () => Promise<unknown>; onRestore: () => void; onDuplicate: () => void; onDelete: () => Promise<unknown> }) {
+  const trigger = useRef<HTMLButtonElement>(null)
+  const [confirmation, setConfirmation] = useState<'archive' | 'delete'>()
+  return <>
+    <DropdownMenu.Root>
+      <DropdownMenu.Trigger asChild><HButton ref={trigger} size="icon" disabled={disabled} aria-label="Actions de la fiche" title="Actions de la fiche"><Settings size={17} /></HButton></DropdownMenu.Trigger>
+      <DropdownMenu.Portal><DropdownMenu.Content className="user-menu-content record-actions-menu" align="end" sideOffset={6} collisionPadding={12} onCloseAutoFocus={(event) => { if (confirmation) event.preventDefault() }}>
+        <DropdownMenu.Item onSelect={onDuplicate}><Copy size={15} />Dupliquer</DropdownMenu.Item>
+        {active ? <DropdownMenu.Item className="record-action-archive" onSelect={() => setConfirmation('archive')}><Archive size={15} />Archiver</DropdownMenu.Item> : <DropdownMenu.Item onSelect={onRestore}><RotateCcw size={15} />Réactiver</DropdownMenu.Item>}
+        <DropdownMenu.Separator className="user-menu-separator" />
+        <DropdownMenu.Item className="record-action-delete" onSelect={() => setConfirmation('delete')}><Trash2 size={15} />Supprimer</DropdownMenu.Item>
+      </DropdownMenu.Content></DropdownMenu.Portal>
+    </DropdownMenu.Root>
+    {confirmation && <HRecordConfirmation action={confirmation} itemName={itemName} open onOpenChange={(open) => { if (!open) setConfirmation(undefined) }} onConfirm={confirmation === 'archive' ? onArchive : onDelete} onCloseFocus={() => trigger.current?.focus()} />}
+  </>
+}

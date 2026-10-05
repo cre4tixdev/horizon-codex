@@ -132,10 +132,7 @@ Une société peut cumuler plusieurs rôles :
 
 ```text
 client
-prospect
 fournisseur
-partenaire
-autre
 ```
 
 Il ne faut pas créer deux sociétés différentes uniquement parce qu’une société est à la fois cliente et fournisseur.
@@ -177,11 +174,42 @@ Fonctions :
 
 Dans l’interface, l’avatar du contact peut afficher en petit le logo de sa société afin d’identifier immédiatement son rattachement.
 
+### Évolution Contacts — retours du 5 octobre 2026
+
+Périmètre demandé le 5 octobre. Référentiels et fiches implémentés localement ; installation / recette NAS requises. Compteurs métier en attente des modules propriétaires. La livraison V1 ci-dessous décrit le socle antérieur.
+
+- Fiche société structurée autour d’un en-tête visuel : logo unique avec aperçu, nom usuel, raison sociale et rôles. Sélection d’une nouvelle image avec aperçu avant enregistrement ; remplacement et retrait explicites. La fiche présente uniquement le logo ; les anciennes images stockées restent conservées.
+- Un seul champ « Devise », porté par `default_currency`. « Devise préférée » est retiré après migration des données existantes. La langue, la devise et le pays utilisent des combobox recherchables, réutilisables et alimentées par les référentiels communs.
+- SIREN et SIRET explicites, distincts de la TVA et de l’identifiant fiscal international. Adresse principale du siège lisible sur la fiche : adresse, complément, code postal, ville, pays ; les adresses de facturation / livraison restent disponibles. Le code postal reste du texte pour conserver les zéros et formats internationaux.
+- Zone « Contacts associés » sur la société : avatar, nom, fonction, coordonnées, lien vers la personne et création pré-rattachée. Pagination et état vide explicite ; accès aux personnes archivées via filtre.
+- Fiche personne plus visuelle : avatar en haut, badge / lien société, fonction et coordonnées regroupées, notes séparées ; conserver la densité ERP et la lecture seule selon permissions.
+- Bandeau supérieur de boutons avec nombre de devis, factures clients, bons de livraison et opportunités. Chaque bouton ouvre le module propriétaire avec un filtre société effectivement appliqué, conservé dans l’URL. Le total porte sur tous les résultats accessibles, pas seulement sur la page affichée. Zéro réel, chargement, erreur et module indisponible sont des états distincts. Aucun faux compteur pour un module à venir.
+- Sur la fiche personne, ne pas présenter les totaux société comme des totaux personnels. Les objets filtrables par personne utilisent son identifiant ; les raccourcis société sont explicitement libellés comme tels.
+- Action « Recherche informations » via l’API publique de l’État par nom, SIREN ou SIRET : choisir une entreprise / un établissement, comparer les champs proposés, puis appliquer explicitement. Ne pas remplacer automatiquement une valeur existante, créer des personnes à partir des dirigeants ou fusionner sur le seul nom. Détails dans `08-INTEGRATIONS.md`.
+
+Recette attendue : création manuelle sans recherche externe ; choix des référentiels ; logo aperçu / remplacement / retrait ; adresse internationale ; personne créée depuis une société ; liste associée paginée ; compteurs et listes destination cohérents selon permissions ; erreurs de recherche sans perte du formulaire.
+
+### Livraison locale de l’évolution Contacts
+
+Paramètres propose une vue d’ensemble par domaine et une rubrique Référentiels (Pays / Langues / Devises), ajout et modification réservés à `settings.references`, lecture pour utilisateurs actifs. Initialisation : 18 pays, 8 langues et 11 devises, extensibles dans Paramètres ; les codes historiques supplémentaires sont préservés par la migration avec leur code comme libellé à compléter. Les combobox recherchent libellés et codes sans dépendre des accents.
+
+Les fiches ont une zone d’image en haut et un aperçu avant enregistrement, SIREN / SIRET, une devise unique, un pays sélectionnable dans les adresses, une adresse principale par type et les contacts associés paginés avec création pré-rattachée. L’adresse du siège est saisissable dès la création, dans une carte visible à côté des coordonnées. Le bouton Enregistrer sauvegarde la société puis son adresse renseignée. La galerie est retirée de cette fiche ; les fichiers historiques restent conservés.
+
+La recherche publique s’utilise dès la création et sur une société existante : appel direct depuis le navigateur, sélection des informations disponibles puis report local. Seul Enregistrer écrit en base. Aucun onglet Enrichissement, clé serveur ou configuration NAS. Voir `08-INTEGRATIONS.md` pour le mapping et les limites.
+
+Le bandeau Devis / Factures / Bons de livraison / Opportunités est présent mais désactivé et marqué « À venir » : les modules ne sont pas encore livrés. Raccordement aux vrais totaux et filtres prévu à leur réalisation.
+
+Une vérification de version serveur bloque l’édition des fiches si les nouveaux hooks / migrations sont absents ; aucune sauvegarde silencieuse de champs inconnus vers le backend V1.
+
+En-tête compact : logo / avatar de 48 px, identité et relation commerciale au-dessus des champs, puis boutons Devis / Factures / Bons de livraison / Opportunités. Sur une personne rattachée, les relations modifiables et les raccourcis concernent explicitement sa société active ; aucun rôle personnel ou total personnel n’est créé. Les relations sont enregistrées séparément sur une société existante.
+
+En cas de refus de l’adresse après sauvegarde de la société, un message explicite conserve la saisie et l’identifiant créé : Réessayer met à jour la même société sans duplication. Une adresse existante inchangée n’est pas réécrite. Les rôles et adresses complémentaires restent enregistrés séparément.
+
 ### Première livraison Contacts V1
 
-Listes distinctes Sociétés / Personnes avec recherche, tri serveur, pages de 25 et filtre Actifs / Archivés. Fiches de création / modification avec coordonnées, notes texte brut, langues / devises / identifiants fiscaux société, logo / galerie et avatar protégés. Rattachement facultatif d'une personne, recherche de société dans le sélecteur ; société visible dans la liste et badge logo sur l'avatar.
+Listes distinctes Sociétés / Personnes avec recherche, tri serveur, pages de 25 et filtre Actifs / Archivés. La présentation actuelle propose Cartes (par défaut) et Liste via un sélecteur accessible ; le choix figure dans l’URL et reste conservé au rechargement et entre les onglets Sociétés / Personnes. Les deux vues utilisent les mêmes résultats serveur, filtres et pagination. Fiches de création / modification avec coordonnées, notes texte brut, langues / devises / identifiants fiscaux société, logo / galerie et avatar protégés. Rattachement facultatif d'une personne, recherche de société dans le sélecteur ; société visible dans la liste et badge logo sur l'avatar.
 
-Après création de la société, chaque rôle et chaque adresse s'enregistre explicitement. Une société peut cumuler tous les rôles ; la désactivation / réactivation réutilise la relation existante. Les adresses sont multiples et modifiables ; aucune suppression applicative d'une fiche ou d'une adresse. Archivage / réactivation de société ou personne avec confirmation ; les liens historiques restent conservés.
+Client et Fournisseur sont sélectionnables dès la création de la société et enregistrés avec l’action Enregistrer. Après création, chaque changement de rôle et chaque adresse supplémentaire s'enregistre explicitement. Une société peut cumuler Client et Fournisseur ; la désactivation / réactivation réutilise la relation existante. Les adresses sont multiples et modifiables ; aucune suppression applicative d'une fiche ou d'une adresse. Archivage / réactivation de société ou personne avec confirmation ; les liens historiques restent conservés.
 
 `contacts.read` ouvre la consultation ; `contacts.write` autorise les écritures en plus de la lecture. Fiches archivées en lecture seule dans l'interface jusqu'à réactivation. Les nouvelles relations à une société archivée sont refusées côté serveur. Modifications auditées côté serveur. Les documents liés, l'historique métier intermodules et l'activité utilisateur seront raccordés avec Documents / Activity Feed / CRM ; ils ne sont pas simulés dans cette première livraison.
 
@@ -1887,6 +1915,12 @@ règle d’intégrité / workflow critique
 → contrôlée par Horizon
 ```
 
+## 18.0 Organisation de la navigation (livraison locale)
+
+`/settings` présente la vue d’ensemble et une recherche des rubriques. Navigation dédiée en trois ensembles : Socle commun (référentiels, organisation, utilisateurs et accès), Modules métier (Contacts, CRM, Catalogue, Ventes, Achats, Stock, Facturation, Comptabilité, Projets, Planning et temps), Connexions (intégrations). Sur mobile, la navigation devient horizontale et reste contenue à son cadre.
+
+`/settings/references` fournit les catalogues opérationnels ; le catalogue sélectionné figure dans l’URL (`catalog`) et reste conservé au rechargement. Ajout et modification restent soumis à `settings.references`. Les rubriques métier non livrées ouvrent leur périmètre de réglages prévu sous `/settings/modules/:module` ; aucun formulaire d’écriture ou activation fictive. Les liens vers les référentiels communs évitent de dupliquer pays / langues / devises dans chaque module. Cette organisation prépare les futures pages, elle ne livre pas leur administration métier.
+
 ## 18.1 Général
 
 - raison sociale ;
@@ -1898,6 +1932,14 @@ règle d’intégrité / workflow critique
 - langue par défaut ;
 - devise de référence ;
 - formats de date / nombre.
+
+## 18.1.1 Référentiels transverses
+
+Section « Référentiels » dans Paramètres : pays, langues et devises. Les collections dédiées sont partagées par Contacts et les autres modules ; aucune liste de choix dupliquée par module. Réutiliser `settings_languages` et `accounting_currencies`, ajouter `settings_countries`.
+
+Administrer les libellés, l’ordre d’affichage et l’activation avec la permission `settings.references`. Les codes normalisés sont stables ; une valeur utilisée se désactive plutôt que se supprime. Une valeur inactive reste lisible sur les fiches et historiques existants mais n’est plus proposée pour un nouveau choix. Initialisation via migrations reproductibles. Les taux de change restent distincts du catalogue des devises.
+
+Les combobox affichent le libellé et le code, permettent une recherche clavier et proposent uniquement des choix autorisés. Un référentiel indisponible affiche une erreur avec réessai. Les valeurs structurantes comme les types d’adresse ou les transitions restent contrôlées par Horizon.
 
 ## 18.2 Utilisateurs & Organisation
 
@@ -2605,3 +2647,79 @@ L’API est versionnée :
 ```
 
 Une évolution incompatible crée une nouvelle version plutôt que de casser les intégrations existantes.
+
+
+### Synthèse et navigation Contacts — révision visuelle du 5 octobre 2026
+
+Le répertoire affiche les totaux actifs Contacts / Sociétés / Clients / Fournisseurs autorisés par `contacts.read`. Clients et Fournisseurs comptent les relations actives vers une société active ; une société peut apparaître dans les deux catégories. Totaux calculés côté PocketBase, pas à partir des 25 lignes affichées. Une erreur de chargement présente un message et Réessayer, sans inventer un zéro.
+
+La fiche société sépare Informations, Relations (contacts associés / adresses complémentaires), Notes et Enrichissement Pappers en onglets. La fiche personne propose Informations et Notes. Les saisies restent conservées entre onglets ; le bouton Enregistrer fonctionne aussi depuis Notes. Les coordonnées principales sont résumées sous l’identité et les boutons métier restent au-dessus des onglets. Logos proportionnels et portraits recadrés sont traités séparément.
+
+Les cartes présentent désormais la ville et le pays de l’adresse principale du siège, ou de l’unique adresse de siège. Aucun choix arbitraire lorsqu’il existe plusieurs sièges sans principal. Pour une personne, il s’agit du siège de sa société associée. Les libellés pays viennent du référentiel partagé ; à défaut de disponibilité du libellé, le code enregistré reste affiché. Les badges en bas présentent les relations commerciales effectives.
+
+
+### Navigation du compte et recherche Contacts — 5 octobre 2026
+
+Top bar persistante et recherche contextuelle unique sur les répertoires sociétés / personnes. Filtre `q` conservé entre cartes et liste et au rechargement, pagination réinitialisée lorsque le terme change. Recherche des espaces sur les autres écrans. Menu utilisateur : consultation personnelle `/account` (nom, e-mail, rôle en lecture seule), Paramètres et déconnexion avec purge de la session. Aucun nouveau droit ni formulaire d’administration de compte.
+
+Le sélecteur de recherche permet de passer du contexte de la page à la recherche globale des espaces Horizon. Le contexte local est rétabli à chaque navigation. La vue d’ensemble Paramètres utilise également le filtre `q` de la top bar. La recherche globale des enregistrements métier de tous les modules reste hors du périmètre implémenté.
+
+Décision utilisateur du 5 octobre 2026 : les sociétés disposent uniquement de Client / Fournisseur, cumulables. Les autres relations sont retirées du périmètre. Deux cases à cocher indépendantes dans l’en-tête ; identité et coordonnées regroupées dans un panneau avec séparation légère, densité verticale réduite et présentation adaptée au mobile. La base utilisateur est indiquée sans données historiques à reprendre.
+
+Correction du parcours de création : les cases Client / Fournisseur sont visibles dès Nouvelle société. Les choix sont conservés localement avant Enregistrer, puis le service sauvegarde la société, ses relations et l’adresse éventuelle. En cas d’échec partiel, l’erreur indique le lot restant, conserve la saisie et l’identifiant créé pour reprendre sans doublon. Les relations existantes sont relues avant reprise et seules les différences sont écrites.
+
+Présentation des fiches : surface blanche continue, relations sous le nom, onglets intégrés et sections séparées par des traits fins ; largeur maximale de 1180 px. Cette évolution est visuelle et conserve la création avec relations, reprise après erreur, adresses et archivage.
+
+Révision selon la référence utilisateur : création sans grand bandeau ni onglets, titre / actions en tête, logo et choix commerciaux intégrés au bloc Identité, blocs distincts Coordonnées / Adresse / Informations légales / Préférences / Notes. Notes directement disponibles à la création. Consultation et édition des fiches enregistrées conservent résumé, raccourcis et onglets. Aucun changement métier ou backend pour ce gabarit.
+
+Dans la fiche personne, la recherche des sociétés disponibles est intégrée au menu Société. Le choix conserve son libellé à la fermeture du menu, même si la société sélectionnée est hors de la première page de résultats.
+
+Clarification visuelle du 5 octobre 2026 : la maquette sert de référence de style. Création et fiche enregistrée partagent les mêmes blocs de saisie et placement du logo / des relations. Les fonctions propres aux fiches existantes (statut, archivage, relations associées, enrichissement, raccourcis métier) sont conservées. Les actions e-mail / appel / site sont intégrées au bloc Coordonnées sans second affichage des valeurs.
+
+Bouton Enregistrer — 5 octobre 2026 : les formulaires Contacts, adresses et référentiels refusent une soumission sans changement. Le bouton devient primaire et disponible pour les champs modifiés, changements de logo / photo ou rôles préparés à la création. Annuler une modification en restaurant la valeur d’origine remet le bouton au repos ; une sauvegarde réussie fait de même. Un échec partiel de création garde la possibilité de terminer la sauvegarde. Les relations Client / Fournisseur exigent également le clic sur Enregistrer.
+
+Sauvegarde explicite — règle finale du 5 octobre 2026 : toutes les modifications des formulaires restent locales jusqu’au bouton Enregistrer. La fiche société sauvegarde ses champs, image, relations Client / Fournisseur et adresse du siège dans le même parcours explicite ; les reprises après échec partiel sont conservées. La sélection Pappers préremplit la fiche sans écrire ; la sauvegarde ordinaire Contacts persiste les valeurs. Les relations commerciales affichées dans une fiche personne sont en lecture seule et se modifient dans la société.
+
+Clarification rattachement contact — 5 octobre 2026 : le champ Société d’une fiche personne reste modifiable. Changer la sélection prépare un nouveau rattachement ; Enregistrer met à jour le contact. Celui-ci disparaît alors des contacts associés de l’ancienne société et apparaît dans ceux de la nouvelle. Les cases Client / Fournisseur affichent les qualifications de la société associée ; leur lecture seule dans la fiche personne ne concerne pas le champ Société.
+
+Archivage — 5 octobre 2026 : confirmation explicite dans une fenêtre demandant le mot ARCHIVER exact. Aucune mutation avant la validation ; saisie incorrecte, Annuler et Échap ne modifient rien. Application aux sociétés / personnes actuellement archivables, composant commun prévu pour les futures pièces. Gestion des permissions et archivage en base inchangés.
+
+
+Recherche d’entreprises — décision finale du 5 octobre 2026 : Pappers et son onglet sont remplacés par le bouton Recherche informations dans la barre d’actions de la fiche. Nom / SIREN / SIRET sont interrogés directement depuis le navigateur auprès de l’API publique de l’État. La sélection préremplit le formulaire sans écriture ; Enregistrer utilise la sauvegarde Contacts ordinaire. Cette règle remplace les descriptions historiques d’enrichissement ci-dessus.
+
+
+Actions de fiche — décision du 5 octobre 2026 : un bouton engrenage « Actions de la fiche » à droite d’Enregistrer regroupe Dupliquer, Archiver (ou Réactiver) et Supprimer. Ces actions concernent les sociétés et personnes enregistrées. Les actions restent indisponibles pendant une opération ou si une fiche active a des modifications non enregistrées, pour préserver le brouillon.
+
+Dupliquer ouvre une nouvelle fiche locale : informations générales, relations Client / Fournisseur et adresse principale pour une société ; coordonnées et rattachement société pour une personne. Les identifiants légaux de société (SIREN, SIRET, TVA, identifiant fiscal) sont vidés ; aucun identifiant de ligne, fichier, contact associé, adresse complémentaire ou pièce n’est dupliqué. Seul Enregistrer crée la copie.
+
+Archiver conserve les données et relations : confirmation orange exigeant exactement ARCHIVER. Supprimer est définitif : confirmation rouge exigeant exactement SUPPRIMER. Toute relation entrante d’une autre fiche ou pièce, même archivée et même inaccessible à l’utilisateur, interdit la suppression ; message explicite proposant l’archivage. Les contacts associés bloquent aussi la suppression d’une société. Seuls ses rôles commerciaux et adresses propres sont supprimés avec une société inutilisée, dans une transaction auditée.
+
+
+Profil société / Comptabilité — livraison du 5 octobre 2026 : nouvelles sociétés proposées en Français (`fr`) et EUR, choix modifiables. Les préférences des sociétés existantes sont conservées. Le numéro RCS remplace l’identifiant fiscal dans Informations légales ; l’ancienne valeur fiscale reste stockée à titre historique et n’est jamais recopiée en RCS.
+
+La recherche publique propose les numéros TVA actifs fournis par la DGFiP via le champ `tva` de l’API. Un seul numéro : case de reprise habituelle ; plusieurs numéros : choix explicite dans une combobox. Aucun calcul de TVA depuis le SIREN. Une TVA absente ne vide pas la fiche. Le contrat public ne fournit pas de RCS : saisie manuelle conservée.
+
+Onglet Comptabilité après Relations sur une société enregistrée, également disponible en création après Informations. Deux comptes simples facultatifs (client, fournisseur), exemples 411100 / 401100, sans génération de numéro ni grand livre. Préparation de la facturation électronique : e-mail de facturation, adresse électronique de routage, plateforme agréée du tiers, code service destinataire et état de préparation (À vérifier / À compléter / Informations renseignées / Non concerné). Cet état est une déclaration locale, pas une validation de l’annuaire ou un statut de transmission. SUPER PDP reste la plateforme Horizon prévue ; la plateforme du destinataire peut différer.
+
+Tout appartient au brouillon de la fiche et seul Enregistrer persiste. Sauvegardes successives société, relations, adresse puis comptes ; un échec comptable conserve l’identifiant société et la saisie, avec reprise différentielle sans créer de copie. Les références de commande / engagement propres à une facture seront portées par les pièces, pas par la fiche société. La distinction compte général / auxiliaire reste prévue pour le futur module Comptabilité ; la saisie simple est retenue provisoirement en l’absence de réponse au choix proposé.
+
+
+LEI — ajustement de la fiche société (5 octobre 2026). Le champ LEI remplace le RCS dans les informations légales, à la demande de l’utilisateur. Il reste facultatif ; normalisation en majuscules et contrôle de format sur 20 caractères alphanumériques à la sauvegarde. Les valeurs RCS et identifiant fiscal historiques sont conservées sans conversion. La recherche publique d’entreprises ne renseigne pas le LEI. Ce contrôle de format ne vérifie ni l’existence ni le statut du LEI dans un registre.
+
+
+### Cloche et recherche de logos — 5 octobre 2026
+
+Topbar : cloche avant le menu utilisateur, badge rouge du nombre réel de notifications non lues (99+ au-delà de 99, masqué à zéro). Panneau des 30 dernières notifications, état vide, erreurs explicites et action individuelle « Marquer comme lue ». Rafraîchissement toutes les 30 secondes, au retour au premier plan et à l’ouverture ; pas de données fictives dans l’application. Les événements métier producteurs restent à intégrer au fur et à mesure des modules : cette livraison fournit la boîte de réception, pas des alertes métier inventées.
+
+Société : loupe à la place de l’appareil photo dans la zone logo. Popup « Rechercher un logo », nom prérempli avec le suffixe logo, recherche explicite par mots-clés, filtres PNG / JPEG / WebP / tous formats, grille d’images, sélection et aperçu, lien source, bouton « Utiliser ce logo ». Source initiale Wikimedia Commons sans clé, périmètre plus limité qu’une recherche web générale. Import local conservé par clic sur le carré, le libellé ou l’action du popup. La validation prépare un fichier local dans le brouillon ; seul Enregistrer écrit dans PocketBase. Annuler conserve la fiche telle quelle. Avatars personnes inchangés. Une intégration de recherche web plus large avec clé reste une option à confirmer par l’utilisateur.
+
+
+### Fil d’activité complet — Sociétés et Contacts
+
+Le fil reste sous la fiche enregistrée, après les onglets et leurs panneaux ; absent avant la première création. Chronologie inverse, auteur, date/heure, résumé et détails ancien/nouveau repliables. Les modifications d’une sauvegarde société sont regroupées : identité, coordonnées, logo, notes internes, langue/devise, informations légales, Client/Fournisseur, adresse et comptes tiers. Le changement de société d’une personne est tracé par noms lisibles. Une mise à jour sans changement métier ne crée pas de bruit dans le fil.
+
+Commentaires en texte, pièces jointes, choix explicite de collègues via @ ou bouton Mentionner, publication par bouton Publier distinct de la sauvegarde de la fiche. Rien n’est écrit pendant la saisie d’un commentaire ou la sélection de fichiers. Dix mentions au maximum ; les destinataires doivent être actifs et pouvoir lire Contacts. Une mention génère une notification interne sauf si l’auteur se mentionne lui-même. La cloche permet d’ouvrir la fiche au niveau du fil. La lecture de sa notification renseigne aussi la mention correspondante.
+
+Tâches : création directe depuis le rédacteur ou conversion d’une note existante ; titre, responsable actif, échéance facultative, priorité basse/normale/haute. Statuts À faire / En cours / Bloquée / Terminée / Annulée, bouton Terminer et réouverture par changement de statut. L’auteur/horodatage de chaque changement sont tracés ; completed_at est imposé côté serveur. Une tâche assignée à un autre collègue produit une notification. La note originale et ses pièces restent conservées lors de la conversion. Titre/description de la tâche publiée sont immuables dans cette livraison ; les changements d’état sont disponibles dans le fil.
+
+Filtres Tout / Modifications / Commentaires / Documents / Tâches, pagination de 20 événements, actualisation manuelle et toutes les 30 secondes. Fiches archivées : lecture seule du fil et des tâches. Historiques non supprimés avec les fiches ; leur accès métier et les fichiers deviennent indisponibles quand la source n’existe plus. Les migrations reprennent les audits métier historiques exploitables des fiches encore présentes, avec leurs dates et auteurs ; les anciens audits ne permettent pas de reconstruire une ancienne opération commune, ils restent séparés.
