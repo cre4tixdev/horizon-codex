@@ -1,4 +1,28 @@
 module.exports = {
+  removeAttachment(event) {
+    const activity = require(`${__hooks}/lib/activity.js`)
+    if (!activity.allowed(event.app, event.auth, true)) throw new ForbiddenError('Accès refusé.')
+    const input = event.requestInfo().body
+    if (typeof input.event_id !== 'string' || !/^[a-z0-9]{15}$/.test(input.event_id) || typeof input.filename !== 'string' || !input.filename || input.filename.length > 255) throw new BadRequestError('Pièce jointe invalide.')
+    let saved
+    event.app.runInTransaction((app) => {
+      let record
+      try { record = app.findRecordById('core_activity_events', input.event_id) } catch { throw new ApiError(404, 'Publication introuvable.') }
+      if (record.getString('source_module') !== 'contacts') throw new ForbiddenError('Accès refusé.')
+      const root = activity.source(app, record.getString('source_entity'), record.getString('source_record_id'), true)
+      const files = record.getStringSlice('attachments')
+      if (!files.includes(input.filename)) throw new ApiError(404, 'Pièce jointe introuvable.')
+      const before = record.publicExport()
+      record.set('attachments', files.filter((file) => file !== input.filename))
+      app.save(record)
+      const audit = new Record(app.findCollectionByNameOrId('core_audit'))
+      for (const [key, value] of Object.entries({ user: event.auth.id, module: 'core', action: 'update', entity: 'core_activity_events', entity_id: record.id, before, after: record.publicExport(), metadata: { source: 'server', action: 'attachment_delete', filename: input.filename } })) audit.set(key, value)
+      app.save(audit)
+      activity.publish(app, root, event.auth.id, 'document', `Pièce jointe supprimée : ${input.filename.replace(/_[a-z0-9]{10}(\.[^.]+)$/i, '$1')}`, { action: 'attachment_delete', origin_event: record.id })
+      saved = record.publicExport()
+    })
+    return event.json(200, saved)
+  },
   users(event) {
     const activity = require(`${__hooks}/lib/activity.js`)
     if (!activity.allowed(event.app, event.auth, true)) throw new ForbiddenError('Accès refusé.')

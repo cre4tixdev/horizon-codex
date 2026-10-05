@@ -928,4 +928,9 @@ Annuaire de mentions : route authentifiée dédiée, contacts.write, projection 
 
 La disparition d’une source rend ses événements, tâches et fichiers inaccessibles aux utilisateurs ; les traces sont conservées pour l’administration. Les champs source polymorphes ne sont pas des pièces métier qui bloquent une suppression. La garde de suppression existante continue à protéger les vraies pièces liées. Aucun déploiement ni écriture sur NAS effectué durant les tests.
 
-Lot Activité : 9 fichiers, SHA-256 `1e233c0dd017d72fe81489218fcd915aae45e0640d5eaca07131c051953f0c72`.
+Lot Activité : 9 fichiers, SHA-256 `9111e7556947cdd1ecbc8db1d6dffdc79485fd04f540ed8a4beda42e3da6608d`.
+
+
+Suppression de fichier publié : POST /api/horizon/activity/attachments/delete, authentification core_users, compte/rôle actifs et contacts.read + contacts.write. Entrée event_id/filename uniquement ; contrôle de la publication Contacts, de sa source active réellement existante et de l’appartenance exacte du fichier à attachments. Aucune URL ou chemin arbitraire accepté. Le PATCH/DELETE REST de publication reste verrouillé ; seule cette route peut retirer un fichier. Transaction : mise à jour de la liste, audit technique avant/après avec acteur serveur et événement document de suppression. En cas d’échec de l’audit, aucune suppression ni trace partielle ; testé jusqu’au téléchargement du fichier après rollback. Aucun changement de schéma : mettre à jour les deux hooks activity.pb.js et lib/activity-request.js sur le NAS, puis redémarrer PocketBase. Le lot complet Activité ci-dessus est actualisé pour inclure cette modification.
+
+Lot de mise à jour pour une installation Activité existante : `/private/tmp/horizon-activity-attachments.zip` (2 hooks), SHA-256 `20215536993a420ae8c912e7154e40d7bba51eb20e30f78529c2e43e62d071d7`. Arrêter PocketBase, remplacer les deux fichiers aux chemins inclus dans l’archive, redémarrer ; aucune migration ou modification manuelle de collection.

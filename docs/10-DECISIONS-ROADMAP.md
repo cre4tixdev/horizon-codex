@@ -1668,3 +1668,6 @@ Profil société / Comptabilité — livraison locale : TVA réelle proposée pa
 
 
 5 octobre 2026 — utilisateur demande le fil complet immédiatement et insiste sur le design. Livraison sur les fiches Sociétés/Contacts : historique projeté serveur, regroupement par sauvegarde, reprise des anciens audits, commentaires, pièces jointes protégées, mentions et notifications, tâches directes ou issues d’une note, suivi d’état, filtres et pagination. Composant partagé et socle core réutilisables ; seuls Contacts et ses sous-objets actuellement implémentés sont raccordés, les futurs modules devront fournir leur policy source et leurs événements. Fil métier distinct de core_audit. Aucun HTML riche ni moteur d’approbation introduit ; commentaires en texte avec @ et documents. Titre/description des tâches publiées restent immuables, état suivi dans le fil. Archive = lecture seule, suppression = traces conservées hors accès métier. Lot NAS livré, déploiement restant à faire par l’utilisateur.
+
+
+Finition du fil — commentaires en bulles et suppression de pièces jointes : retrait autorisé aux rédacteurs Contacts sur fiche active, confirmation explicite SUPPRIMER, préservation du commentaire et trace serveur. L’immutabilité des publications est conservée hors cette route ciblée ; aucun endpoint général de modification de messages ni nouvelle collection.

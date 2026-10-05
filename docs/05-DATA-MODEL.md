@@ -3688,3 +3688,6 @@ core_tasks : contrat title/description/source/created_by/assigned_to/due_date/pr
 core_notifications reçoit activity_event (relation facultative, sans cascade). Le lien permet de synchroniser read_at d’une mention avec la notification. Les notifications de type activity sont visibles uniquement au destinataire encore autorisé à lire Contacts et dont la fiche source existe ; les autres notifications gardent leur policy privée de destinataire.
 
 Le backfill de migration projette les audits existants par groupes de 100, liste fermée de champs métier, skip des sources supprimées et valeurs techniques. Pas de modification des audits ni des fiches, pas de doublon au second migrate up. Date created d’origine conservée par requête SQL liée dans la migration car le champ autodate protège son horodatage pendant un save ordinaire.
+
+
+Pièces jointes du fil — exception contrôlée à l’immutabilité : attachments peut être réduit uniquement via la route serveur dédiée de suppression. Aucun champ de schéma supplémentaire. L’événement original garde body/author/created/mentions/metadata ; un nouvel événement document porte metadata.action = attachment_delete et origin_event, tandis que core_audit conserve les listes de fichiers avant/après, le fichier retiré et l’acteur. Le fichier est supprimé du stockage protégé par PocketBase ; son ancien lien ne fonctionne plus.

@@ -1,13 +1,14 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { useLocation } from 'react-router'
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { AtSign, Check, CheckCheck, ChevronDown, Clock3, FileText, History, MessageSquare, Paperclip, Plus, RefreshCw, Send, X, ArrowRight } from 'lucide-react'
+import { AtSign, Check, CheckCheck, ChevronDown, Clock3, FileText, History, MessageSquare, Paperclip, Plus, RefreshCw, Send, X, ArrowRight, Trash2 } from 'lucide-react'
 import { sessionService } from '../../core/auth/services/session'
 import { activityService } from '../../core/activity/services/ActivityService'
 import type { ActivityEvent, ActivityFilter, ActivitySource, ActivityTask, ActivityUser, Publication, TaskStatus } from '../../core/activity/types/activity'
 import { HButton } from '../ui/HButton'
 import { HInput } from '../ui/HInput'
 import { HCombobox } from '../ui/HCombobox'
+import { HRecordConfirmation } from '../ui/HRecordConfirmation'
 
 const filters: { value: ActivityFilter; label: string }[] = [{ value: 'all', label: 'Tout' }, { value: 'changes', label: 'Modifications' }, { value: 'comments', label: 'Commentaires' }, { value: 'documents', label: 'Documents' }, { value: 'tasks', label: 'Tâches' }]
 const taskStatuses: { value: TaskStatus; label: string }[] = [{ value: 'todo', label: 'À faire' }, { value: 'in_progress', label: 'En cours' }, { value: 'blocked', label: 'Bloquée' }, { value: 'done', label: 'Terminée' }, { value: 'cancelled', label: 'Annulée' }]
@@ -38,19 +39,24 @@ function ActivityItem({ item, task, editable, taskBusy, onTaskStatus, onConvert 
   const automatic = ['change', 'status_change', 'system'].includes(item.type)
   return <li className={`activity-item activity-item--${automatic ? 'change' : item.type}`}>
     <div className="activity-date-divider"><time dateTime={item.created.replace(' ', 'T')}>{timestamp(item.created)}</time></div>
-    <div className="activity-item-content"><div className="activity-item-heading"><span className={`activity-avatar${!item.author ? ' activity-avatar--system' : ''}`} aria-hidden="true">{item.author ? item.metadata.author.initials : <History size={15} />}</span><strong>{item.metadata.author.name}</strong><span>{automatic ? 'a modifié la fiche' : item.type === 'task' ? task ? 'a créé une tâche' : 'a mis à jour une tâche' : !item.body && item.attachments.length ? 'a ajouté un document' : 'a publié un commentaire'}</span></div>
-      {automatic ? <p className="activity-change-title">{item.body}</p> : item.body && <p className="activity-message">{item.body}</p>}
+    <div className="activity-item-content"><div className="activity-item-heading"><span className={`activity-avatar${!item.author ? ' activity-avatar--system' : ''}`} aria-hidden="true">{item.author ? item.metadata.author.initials : <History size={15} />}</span><strong>{item.metadata.author.name}</strong><span>{item.metadata.action === 'attachment_delete' ? 'a supprimé une pièce jointe' : automatic ? 'a modifié la fiche' : item.type === 'task' ? task ? 'a créé une tâche' : 'a mis à jour une tâche' : item.type === 'document' || !item.body && item.attachments.length ? 'a ajouté un document' : 'a publié un commentaire'}</span></div>
+      {automatic ? <p className="activity-change-title">{item.body}</p> : item.body ? <p className={`activity-message${['note', 'message'].includes(item.type) ? ' activity-message--comment' : ''}`}>{item.body}</p> : !item.attachments.length && <p className="activity-change-title">Les pièces jointes de cette publication ont été supprimées.</p>}
       {Boolean(item.metadata.changes?.length) && <details className="activity-changes"><summary>{item.metadata.changes!.length} modification{item.metadata.changes!.length > 1 ? 's' : ''}<ChevronDown size={13} /></summary><div className="activity-diff">{item.metadata.changes?.map((change, index) => <div key={`${change.field}-${index}`}><strong>{change.label}</strong><span className="activity-diff-before">{String(change.before) || 'Non renseigné'}</span><ArrowRight size={13} aria-label="devient" /><span>{String(change.after) || 'Non renseigné'}</span></div>)}</div></details>}
       {Boolean(item.metadata.mentions?.length) && <div className="activity-mentioned">{item.metadata.mentions?.map((user) => <span key={user.id}><AtSign size={11} />{user.name}</span>)}</div>}
-      {item.attachments.length > 0 && <div className="activity-attachments">{item.attachments.map((file) => <ActivityAttachment key={file} item={item} file={file} />)}</div>}
+      {item.attachments.length > 0 && <div className="activity-attachments">{item.attachments.map((file) => <ActivityAttachment key={file} item={item} file={file} editable={editable} />)}</div>}
       {task && <div className={`activity-task activity-task--${task.status}`}><div className="activity-task-title"><CheckCheck size={17} /><strong>{task.title}</strong>{task.priority === 'high' && <span className="activity-task-priority">Prioritaire</span>}</div><div className="activity-task-meta"><span>{task.assigned_name}</span>{task.due_date && <span><Clock3 size={12} />Échéance {new Date(task.due_date.replace(' ', 'T')).toLocaleDateString('fr-FR')}</span>}</div><div className="activity-task-actions"><HCombobox label={`État de la tâche : ${task.title}`} value={task.status} onChange={(value) => { const status = taskStatuses.find((item) => item.value === value)?.value; if (status) onTaskStatus(task.id, status) }} options={taskStatuses} required showCodes={false} disabled={!editable || taskBusy} />{editable && task.status !== 'done' && task.status !== 'cancelled' && <HButton variant="ghost" size="small" disabled={taskBusy} onClick={() => onTaskStatus(task.id, 'done')}><Check size={14} />Terminer</HButton>}</div></div>}
       {editable && ['note', 'message'].includes(item.type) && <button type="button" className="activity-convert" onClick={onConvert}><Plus size={12} />Créer une tâche à partir de cette note</button>}
     </div>
   </li>
 }
-function ActivityAttachment({ item, file }: { item: ActivityEvent; file: string }) {
+function ActivityAttachment({ item, file, editable }: { item: ActivityEvent; file: string; editable: boolean }) {
+  const [open, setOpen] = useState(false)
+  const client = useQueryClient()
   const link = useQuery({ queryKey: ['activity-file', item.id, file], queryFn: () => activityService.attachmentURL(item.collectionId, item.id, file), staleTime: 60_000, retry: false })
-  return link.data ? <a href={link.data} target="_blank" rel="noreferrer" className="activity-file"><span><FileText size={17} /></span><strong>{filename(file)}</strong><small>Ouvrir</small></a> : <span className="activity-file">{filename(file)}{link.error && <span role="alert"> — Fichier indisponible</span>}</span>
+  return <div className="activity-file-group">{link.data ? <a href={link.data} target="_blank" rel="noreferrer" className="activity-file"><span><FileText size={17} /></span><strong>{filename(file)}</strong><small>Ouvrir</small></a> : <span className="activity-file">{filename(file)}{link.error && <span role="alert"> — Fichier indisponible</span>}</span>}
+    {editable && <HButton variant="ghost" size="icon" className="activity-file-delete" aria-label={`Supprimer la pièce jointe ${filename(file)}`} onClick={() => setOpen(true)}><Trash2 size={14} /></HButton>}
+    <HRecordConfirmation action="delete" itemName={filename(file)} description="Le fichier sera retiré définitivement. Le commentaire reste conservé et la suppression sera tracée dans le fil." open={open} onOpenChange={setOpen} onConfirm={async () => { await activityService.removeAttachment(item.id, file); client.removeQueries({ queryKey: ['activity-file', item.id, file] }); void client.invalidateQueries({ queryKey: ['activity'] }) }} />
+  </div>
 }
 function ActivityComposer({ source, origin, onPublished, onCancelOrigin }: { source: ActivitySource; origin: ActivityEvent | undefined; onPublished: () => Promise<void>; onCancelOrigin: () => void }) {
   const session = useSyncExternalStore(sessionService.subscribe, sessionService.getSnapshot)

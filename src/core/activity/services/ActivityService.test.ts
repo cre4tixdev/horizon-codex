@@ -4,7 +4,7 @@ import type { createActivityRepository } from '../repositories/ActivityRepositor
 const source = { entity: 'contacts_companies' as const, id: 'company12345678' }
 const publication = { type: 'note' as const, body: 'Commentaire', mentions: [] }
 function setup(allowed = true) {
-  const repository: ReturnType<typeof createActivityRepository> = { list: vi.fn(), users: vi.fn(), publish: vi.fn(), tasks: vi.fn(), updateTask: vi.fn(), attachmentURL: vi.fn() }
+  const repository: ReturnType<typeof createActivityRepository> = { list: vi.fn(), users: vi.fn(), publish: vi.fn(), tasks: vi.fn(), updateTask: vi.fn(), attachmentURL: vi.fn(), removeAttachment: vi.fn() }
   return { repository, service: new ActivityService(repository, () => allowed) }
 }
 describe('ActivityService', () => {
@@ -12,8 +12,10 @@ describe('ActivityService', () => {
     const { repository, service } = setup(false)
     await expect(service.list(source, 1, 'all')).rejects.toThrow('permissions')
     await expect(service.publish(source, publication, [])).rejects.toThrow('permissions')
+    await expect(service.removeAttachment('event1234567890', 'note.txt')).rejects.toThrow('permissions')
     expect(repository.list).not.toHaveBeenCalled()
     expect(repository.publish).not.toHaveBeenCalled()
+    expect(repository.removeAttachment).not.toHaveBeenCalled()
   })
   it('refuses empty messages, oversize files, unsupported files and more than five files', () => {
     const { repository, service } = setup()

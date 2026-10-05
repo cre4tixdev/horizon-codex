@@ -19,6 +19,7 @@ export function createActivityRepository(url: string) {
     async tasks(source: ActivitySource) { return z.array(taskSchema).parse(await client.collection('core_tasks').getFullList({ filter: filter(source), sort: 'created,id', requestKey: null })) },
     async updateTask(id: string, change: { status?: TaskStatus; assigned_to?: string; due_date?: string; priority?: ActivityTaskPriority }) { return taskSchema.parse(await client.collection('core_tasks').update(id, change)) },
     async attachmentURL(collectionId: string, id: string, filename: string) { const token = await client.files.getToken({ requestKey: null }); return client.files.getURL({ collectionId, id }, filename, { token }) },
+    async removeAttachment(id: string, filename: string) { return activityEventSchema.parse(await client.send('/api/horizon/activity/attachments/delete', { method: 'POST', body: { event_id: id, filename } })) },
   }
 }
 type ActivityTaskPriority = 'low' | 'normal' | 'high'

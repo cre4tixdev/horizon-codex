@@ -28,6 +28,7 @@ export class ActivityService {
   }
   updateTask(id: string, change: Parameters<ReturnType<typeof createActivityRepository>['updateTask']>[1]) { if (change.status) taskStatusSchema.parse(change.status); return this.run(true, (repo) => repo.updateTask(id, change)) }
   attachmentURL(collectionId: string, id: string, filename: string) { return this.run(false, (repo) => repo.attachmentURL(collectionId, id, filename)) }
+  removeAttachment(id: string, filename: string) { return this.run(true, (repo) => repo.removeAttachment(id, filename)) }
 }
 export const activityService = new ActivityService(environment.pocketBaseUrl ? createActivityRepository(environment.pocketBaseUrl) : undefined, (write) => {
   const session = sessionService.getSnapshot()
