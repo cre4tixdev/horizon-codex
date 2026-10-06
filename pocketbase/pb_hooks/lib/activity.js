@@ -67,6 +67,7 @@ module.exports = {
       })
     }
     if (!changes.length) return
-    publish(app, root, actor, ['archive', 'restore'].includes(action) ? 'status_change' : 'change', action === 'create' && root.id === record.id ? 'Fiche créée' : action === 'archive' ? 'Fiche archivée' : action === 'restore' ? 'Fiche réactivée' : 'Fiche mise à jour', { action, changes }, operation)
+    const rootAction = name === root.collection().name ? action : 'update'
+    publish(app, root, actor, ['archive', 'restore'].includes(rootAction) ? 'status_change' : 'change', rootAction === 'create' ? 'Fiche créée' : rootAction === 'archive' ? 'Fiche archivée' : rootAction === 'restore' ? 'Fiche réactivée' : 'Fiche mise à jour', { action: rootAction, changes }, operation)
   },
 }

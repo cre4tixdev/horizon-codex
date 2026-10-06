@@ -124,6 +124,19 @@ class ActivityTests(unittest.TestCase):
         self.assertEqual(self.pb.request('PATCH', company_route, {'email': 'new@local.invalid'}, self.token)[0], 200)
         self.assertEqual(len(self.events()), count)
 
+    def test_role_withdrawal_does_not_archive_company_activity(self):
+        status, role = self.pb.request('POST', 'collections/contacts_company_roles/records', {'company': self.company['id'], 'role': 'supplier', 'active': True}, self.token)
+        self.assertEqual(status, 200, role)
+        self.assertEqual(self.pb.request('PATCH', f'collections/contacts_company_roles/records/{role["id"]}', {'active': False}, self.token)[0], 200)
+        withdrawal = next(item for item in self.events() if any(change['field'] == 'role_supplier' and change['after'] == 'Non' for change in item['metadata'].get('changes', [])))
+        self.assertEqual(withdrawal['type'], 'change')
+        self.assertEqual(withdrawal['metadata']['action'], 'update')
+        self.assertEqual(withdrawal['body'], 'Fiche mise à jour')
+        self.assertEqual(self.pb.request('PATCH', f'collections/contacts_companies/records/{self.company["id"]}', {'active': False}, self.token)[0], 200)
+        archived = next(item for item in self.events() if item['body'] == 'Fiche archivée')
+        self.assertEqual(archived['type'], 'status_change')
+        self.assertTrue(any(change['field'] == 'active' for change in archived['metadata']['changes']))
+
     def test_mentions_are_validated_and_notify_once(self):
         before = len(self.events())
         self.assertNotEqual(self.post(mentions=[self.pb.other_user['id']])[0], 200)

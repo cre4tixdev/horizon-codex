@@ -16,6 +16,7 @@ import { AuthError } from '../../core/auth/services/AuthError'
 
 export function AppFrame() {
   const [breadcrumbActions, setBreadcrumbActions] = useState<HTMLDivElement | null>(null)
+  const [breadcrumbTrail, setBreadcrumbTrail] = useState<HTMLDivElement | null>(null)
   const [breadcrumbRelated, setBreadcrumbRelated] = useState<HTMLDivElement | null>(null)
   const [connectionError, setConnectionError] = useState<string>()
   useEffect(() => {
@@ -71,8 +72,8 @@ export function AppFrame() {
         </header>
         <main id="main-content" tabIndex={-1} className="main-content">
           {connectionError && <p role="alert" className="login-notice">{connectionError}</p>}
-          <div className="page-breadcrumb-row"><HBreadcrumb items={[{ label: 'Accueil', href: '/' }, { label: currentTitle }]} /><div ref={setBreadcrumbRelated} className="page-breadcrumb-related" /><div ref={setBreadcrumbActions} className="page-breadcrumb-actions" /></div>
-          <BreadcrumbActionsContext.Provider value={{ navigation: breadcrumbActions, related: breadcrumbRelated }}><Outlet /></BreadcrumbActionsContext.Provider>
+          <div className="page-breadcrumb-row"><div className="page-breadcrumb-trail"><HBreadcrumb items={[{ label: 'Accueil', href: '/' }, { label: currentTitle }]} /><div ref={setBreadcrumbTrail} className="page-breadcrumb-custom" /></div><div ref={setBreadcrumbRelated} className="page-breadcrumb-related" /><div ref={setBreadcrumbActions} className="page-breadcrumb-actions" /></div>
+          <BreadcrumbActionsContext.Provider value={{ navigation: breadcrumbActions, related: breadcrumbRelated, trail: breadcrumbTrail }}><Outlet /></BreadcrumbActionsContext.Provider>
         </main>
       </div>
     </div>

@@ -2,10 +2,11 @@ import { useState, useSyncExternalStore } from 'react'
 import { Controller, useForm, useWatch } from 'react-hook-form'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router'
-import { ArrowLeft, ArrowUpRight, Building2, UserRound, Phone, MapPin, Fingerprint, SlidersHorizontal, StickyNote, ChevronDown, Save, Mail, Globe } from 'lucide-react'
+import { ArrowUpRight, Building2, UserRound, Phone, MapPin, Fingerprint, SlidersHorizontal, StickyNote, ChevronDown, Save, Mail, Globe } from 'lucide-react'
 import { sessionService } from '../../../core/auth/services/session'
 import { hasPermission } from '../../../core/auth/types/session'
 import { ActivityPanel } from '../../../shared/activity/ActivityPanel'
+import { HPageBreadcrumb } from '../../../shared/ui/HPageBreadcrumb'
 import { HButton } from '../../../shared/ui/HButton'
 import { HSaveButton } from '../../../shared/ui/HSaveButton'
 import { HRecordActions } from '../../../shared/ui/HRecordActions'
@@ -133,7 +134,8 @@ function ContactEditor({ kind, record, addresses, accounts, canWrite, duplicateS
   const preferencesPanel = kind === 'companies' ? <section className="contact-panel contact-preferences-panel"><div className="contact-panel-heading"><SlidersHorizontal size={16} /><h2>Préférences</h2></div><div className="contact-fields">{(['preferred_language', 'default_currency'] as const).map((name) => <label key={name} htmlFor={`contact-${name}`}>{name === 'preferred_language' ? 'Langue' : 'Devise'}<Controller name={name} control={form.control} render={({ field }) => <ReferencePicker id={`contact-${name}`} label={name === 'preferred_language' ? 'Langue' : 'Devise'} catalog={name === 'preferred_language' ? 'settings_languages' : 'accounting_currencies'} value={field.value} onChange={field.onChange} disabled={!editable || busy} invalid={Boolean(form.formState.errors[name])} />} /></label>)}</div></section> : null
 
   return <div className={`contact-record contact-record--form-layout${!record ? ' contact-record--creating' : ''}`} data-section={section} inert={changingRecord} aria-busy={changingRecord}>
-    <div className="contact-record-toolbar"><div className="contact-title-group"><HButton asChild variant="ghost" size="small"><Link to={directoryHref(directory, kind)} state={directory ? { contactDirectory: directory } : undefined}><ArrowLeft size={14} />Répertoire</Link></HButton><div className="contact-page-heading"><h1>{title}</h1>{record && <HBadge tone={record.active ? 'success' : 'neutral'}>{record.active ? 'Actif' : 'Archivé'}</HBadge>}</div></div><div className="contact-record-actions">
+    <HPageBreadcrumb items={[{ label: 'Accueil', href: '/' }, { label: 'Contacts', href: directoryHref(directory, kind), state: directory ? { contactDirectory: directory } : undefined }, { label: title }]} />
+    <div className="contact-record-toolbar"><div className="contact-title-group"><div className="contact-page-heading"><h1>{title}</h1>{record && <HBadge tone={record.active ? 'success' : 'neutral'}>{record.active ? 'Actif' : 'Archivé'}</HBadge>}</div></div><div className="contact-record-actions">
       {kind === 'companies' && canWrite && <CompanyLookup getInitialQuery={() => form.getValues('siret') || form.getValues('siren') || form.getValues('legal_name') || form.getValues('name')} disabled={!editable || busy} onApply={(proposal, selectedFields, includeAddress) => { setSection('information'); for (const field of selectedFields) { const value = proposal.fields[field]; if (value !== undefined) form.setValue(field, value, { shouldDirty: true }) }; if (includeAddress && proposal.address) for (const field of ['line1', 'line2', 'postal_code', 'city', 'country'] as const) addressForm.setValue(field, proposal.address[field], { shouldDirty: true }) }} />}
 
       {!record && <HButton asChild><Link to={directoryHref(directory, kind)} state={directory ? { contactDirectory: directory } : undefined}>Annuler</Link></HButton>}
