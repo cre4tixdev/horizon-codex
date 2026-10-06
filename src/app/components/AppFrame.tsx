@@ -46,7 +46,7 @@ export function AppFrame() {
             <div className="sidebar-group" key={group.label}>
               <p className="sidebar-group__title">{group.label}</p>
               {group.items.map(({ href, label, icon: Icon }) => (
-                <NavLink key={href} to={href} end aria-label={label} title={label} className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`}>
+                <NavLink key={href} to={href} end={href === '/'} aria-label={label} title={label} className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`}>
                   <Icon size={17} aria-hidden="true" /><span>{label}</span>
                 </NavLink>
               ))}

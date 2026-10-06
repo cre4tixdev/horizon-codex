@@ -18,8 +18,9 @@ export function SearchFilterChips({ selections, onChange }: Pick<Props, 'selecti
   const active = selections.filter(({ filter, value }) => value !== filter.defaultValue)
   if (!active.length) return null
   return <div className="search-filter-chips" role="group" aria-label="Filtres appliqués">{active.map(({ filter, value }) => {
-    const label = filter.options.find((option) => option.value === value)?.label
-    return <button key={filter.key} type="button" className="search-filter-chip" data-compact={filter.appearance === 'compact'} aria-label={`Retirer le filtre ${filter.label} : ${label}`} onClick={() => onChange(filter, filter.defaultValue)} title={`${filter.label} : ${label}`}><span>{label}</span><X size={12} aria-hidden="true" /></button>
+    const option = filter.options.find((option) => option.value === value)
+    const label = option?.label
+    return <button key={filter.key} type="button" className="search-filter-chip" data-tone={option?.tone} data-compact={filter.appearance === 'compact'} aria-label={`Retirer le filtre ${filter.label} : ${label}`} onClick={() => onChange(filter, filter.defaultValue)} title={`${filter.label} : ${label}`}><span>{label}</span><X size={12} aria-hidden="true" /></button>
   })}</div>
 }
 

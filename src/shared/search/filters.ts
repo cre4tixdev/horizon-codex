@@ -3,7 +3,7 @@ export type SearchFilter = {
   label: string
   defaultValue: string
   appearance?: 'compact'
-  options: readonly { value: string; label: string; icon?: LucideIcon }[]
+  options: readonly { value: string; label: string; icon?: LucideIcon; tone?: 'violet' | 'amber' }[]
 }
 
 export function filterValue(params: URLSearchParams, filter: SearchFilter): string {

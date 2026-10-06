@@ -8,7 +8,7 @@ export const contactStateFilter: SearchFilter = {
 
 export const contactRoleFilter: SearchFilter = {
   key: 'role', label: 'Relation commerciale', defaultValue: 'all',
-  options: [{ value: 'all', label: 'Toutes' }, { value: 'customer', label: 'Clients' }, { value: 'supplier', label: 'Fournisseurs' }],
+  options: [{ value: 'all', label: 'Toutes' }, { value: 'customer', label: 'Clients', tone: 'violet' }, { value: 'supplier', label: 'Fournisseurs', tone: 'amber' }],
 }
 
 export const contactSearchFilters: readonly SearchFilter[] = [contactRoleFilter, contactStateFilter]

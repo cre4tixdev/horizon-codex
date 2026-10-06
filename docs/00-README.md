@@ -46,6 +46,8 @@ Toute personne ou agent travaillant sur Horizon doit lire dans cet ordre :
 
 `AGENTS.md` se trouve à la racine du projet et impose les règles de travail aux agents de développement.
 
+Pour tout nouvel écran ou changement UI, appliquer la [base de design validée sur Contacts](07-UX-DESIGN-SYSTEM.md#base-validée-sur-contacts-pour-tous-les-modules). Elle centralise les décisions utilisateur à reprendre dans les autres modules Horizon et prime sur les anciennes propositions de présentation.
+
 Le [suivi global de réalisation](10-DECISIONS-ROADMAP.md#suivi-global-de-réalisation) centralise les lots de la roadmap, leurs statuts, dépendances, critères de clôture et le journal d'avancement. Il est mis à jour après chaque livraison ou changement significatif.
 
 ## Démarrage local du frontend

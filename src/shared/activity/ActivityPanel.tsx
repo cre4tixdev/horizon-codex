@@ -1,7 +1,7 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { useLocation } from 'react-router'
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { AtSign, Check, CheckCheck, ChevronDown, Clock3, FileText, History, MessageSquare, Paperclip, Plus, RefreshCw, Send, X, ArrowRight, Trash2 } from 'lucide-react'
+import { AtSign, Check, CheckCheck, ChevronDown, Clock3, FileText, History, MessageSquare, Paperclip, RefreshCw, Send, X, ArrowRight, Trash2, ClipboardPlus } from 'lucide-react'
 import { sessionService } from '../../core/auth/services/session'
 import { activityService } from '../../core/activity/services/ActivityService'
 import type { ActivityEvent, ActivityFilter, ActivitySource, ActivityTask, ActivityUser, Publication, TaskStatus } from '../../core/activity/types/activity'
@@ -39,14 +39,16 @@ export function ActivityPanel({ source, editable }: { source: ActivitySource; ed
 }
 function ActivityItem({ item, task, editable, taskBusy, onTaskStatus, onConvert }: { item: ActivityEvent; task: ActivityTask | undefined; editable: boolean; taskBusy: boolean; onTaskStatus: (id: string, status: TaskStatus) => void; onConvert: () => void }) {
   const automatic = ['change', 'status_change', 'system'].includes(item.type)
+  const comment = ['note', 'message'].includes(item.type)
+  const convertAction = editable && comment ? <button type="button" className="activity-convert" aria-label="Créer une tâche à partir de cette note" title="Créer une tâche à partir de cette note" onClick={onConvert}><ClipboardPlus size={15} aria-hidden="true" /></button> : null
+  const message = item.body ? <p className={`activity-message${comment ? ' activity-message--comment' : ''}`}>{mentionParts(item.body, item.metadata.mentions).map((part, index) => part.mentioned ? <span className="activity-mention" key={index}>{part.text}</span> : part.text)}</p> : !item.attachments.length ? <p className="activity-change-title">Les pièces jointes de cette publication ont été supprimées.</p> : null
   return <li className={`activity-item activity-item--${automatic ? 'change' : item.type}`}>
     <div className="activity-date-divider"><time dateTime={item.created.replace(' ', 'T')}>{timestamp(item.created)}</time></div>
     <div className="activity-item-content"><div className="activity-item-heading"><span className={`activity-avatar${!item.author ? ' activity-avatar--system' : ''}`} aria-hidden="true">{item.author ? item.metadata.author.initials : <History size={15} />}</span><strong>{item.metadata.author.name}</strong><span>{item.metadata.action === 'attachment_delete' ? 'a supprimé une pièce jointe' : automatic ? changeAction(item) : item.type === 'task' ? task ? 'a créé une tâche' : 'a mis à jour une tâche' : item.type === 'document' || !item.body && item.attachments.length ? 'a ajouté un document' : item.metadata.mentions?.length ? item.metadata.mentions.length === 1 ? 'a mentionné un collègue' : 'a mentionné des collègues' : 'a publié un commentaire'}</span></div>
-      {automatic ? <div className="activity-change-row">{!item.metadata.changes?.length && <p className="activity-change-title">{item.body}</p>}<ActivityChanges changes={item.metadata.changes} /></div> : item.body ? <p className={`activity-message${['note', 'message'].includes(item.type) ? ' activity-message--comment' : ''}`}>{mentionParts(item.body, item.metadata.mentions).map((part, index) => part.mentioned ? <span className="activity-mention" key={index}>{part.text}</span> : part.text)}</p> : !item.attachments.length && <p className="activity-change-title">Les pièces jointes de cette publication ont été supprimées.</p>}
+      {automatic ? <div className="activity-change-row">{!item.metadata.changes?.length && <p className="activity-change-title">{item.body}</p>}<ActivityChanges changes={item.metadata.changes} /></div> : message && (comment ? <div className="activity-comment-row">{message}{convertAction}</div> : message)}
       {!automatic && <ActivityChanges changes={item.metadata.changes} />}
-      {item.attachments.length > 0 && <div className="activity-attachments">{item.attachments.map((file) => <ActivityAttachment key={file} item={item} file={file} editable={editable} />)}</div>}
+      {item.attachments.length > 0 && <div className="activity-attachments">{item.attachments.map((file) => <ActivityAttachment key={file} item={item} file={file} editable={editable} />)}{!item.body && convertAction}</div>}
       {task && <div className={`activity-task activity-task--${task.status}`}><div className="activity-task-title"><CheckCheck size={17} /><strong>{task.title}</strong>{task.priority === 'high' && <span className="activity-task-priority">Prioritaire</span>}</div><div className="activity-task-meta"><span>{task.assigned_name}</span>{task.due_date && <span><Clock3 size={12} />Échéance {new Date(task.due_date.replace(' ', 'T')).toLocaleDateString('fr-FR')}</span>}</div><div className="activity-task-actions"><HCombobox label={`État de la tâche : ${task.title}`} value={task.status} onChange={(value) => { const status = taskStatuses.find((item) => item.value === value)?.value; if (status) onTaskStatus(task.id, status) }} options={taskStatuses} required showCodes={false} disabled={!editable || taskBusy} />{editable && task.status !== 'done' && task.status !== 'cancelled' && <HButton variant="ghost" size="small" disabled={taskBusy} onClick={() => onTaskStatus(task.id, 'done')}><Check size={14} />Terminer</HButton>}</div></div>}
-      {editable && ['note', 'message'].includes(item.type) && <button type="button" className="activity-convert" onClick={onConvert}><Plus size={12} />Créer une tâche à partir de cette note</button>}
     </div>
   </li>
 }

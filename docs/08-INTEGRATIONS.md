@@ -565,7 +565,7 @@ Si ajoutés :
 
 Pappers est remplacé par l’[API Recherche d’entreprises de l’État](https://recherche-entreprises.api.gouv.fr/docs/). Architecture retenue avec l’utilisateur : UI Contacts → CompanyLookupService → CompanyLookupRepository → API publique, directement depuis le navigateur. Aucun relais PocketBase, clé API, configuration serveur ni déploiement NAS nécessaire à cette recherche.
 
-Le bouton « Recherche informations » est placé dans la barre d’actions en haut de la fiche, en création et sur une société existante. Aucun onglet Enrichissement. La fenêtre recherche par nom, SIREN ou SIRET, propose au maximum dix résultats puis les informations disponibles à sélectionner. « Remplir le formulaire » modifie seulement le brouillon local. Seul « Enregistrer » persiste société et adresse via le parcours Contacts habituel, ses validations, permissions et audit.
+Le bouton « Rechercher sur le web », avec une icône globe, est placé dans l’en-tête du bloc Identité, en création et sur une société existante. Aucun onglet Enrichissement. La fenêtre recherche par nom, SIREN ou SIRET, propose au maximum dix résultats puis les informations disponibles à sélectionner. « Remplir le formulaire » modifie seulement le brouillon local. Seul « Enregistrer » persiste société et adresse via le parcours Contacts habituel, ses validations, permissions et audit.
 
 Les requêtes anonymes utilisent `GET https://recherche-entreprises.api.gouv.fr/search?q=…&per_page=10`, `credentials: omit` et un délai maximal de dix secondes. Aucun token Horizon n’est transmis au fournisseur. Les erreurs réseau, quota HTTP 429, réponse invalide et absence de résultat sont présentées sans perdre le formulaire. La saisie manuelle reste possible.
 

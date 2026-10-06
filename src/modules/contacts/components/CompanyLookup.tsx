@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Dialog } from 'radix-ui'
-import { Search, X, Building2 } from 'lucide-react'
+import { Search, X, Building2, Globe } from 'lucide-react'
 import { useMutation } from '@tanstack/react-query'
 import { HButton } from '../../../shared/ui/HButton'
 import { HCombobox } from '../../../shared/ui/HCombobox'
@@ -22,7 +22,7 @@ export function CompanyLookup({ getInitialQuery, disabled, onApply }: { getIniti
   function runSearch() { if (busy || query.trim().length < 3) return; preview.reset(); search.mutate() }
 
   return <Dialog.Root open={open} onOpenChange={(next) => { setOpen(next); if (next) { setQuery(getInitialQuery()); search.reset(); preview.reset(); setFields([]); setAddress(false); setVatNumber('') } }}>
-    <Dialog.Trigger asChild><HButton size="small" disabled={disabled}><Search size={14} />Recherche informations</HButton></Dialog.Trigger>
+    <Dialog.Trigger asChild><HButton size="small" variant="ghost" disabled={disabled} title="Rechercher les informations officielles de la société sur le web"><Globe size={14} aria-hidden="true" />Rechercher sur le web</HButton></Dialog.Trigger>
     <Dialog.Portal><Dialog.Overlay className="dialog-overlay" /><Dialog.Content className="dialog-content company-search-dialog">
       <div className="dialog-heading"><div><Dialog.Title>Recherche informations</Dialog.Title><Dialog.Description>Par nom, SIREN ou SIRET · API publique de l’État</Dialog.Description></div><Dialog.Close asChild><HButton size="icon" variant="ghost" aria-label="Fermer la recherche"><X size={16} /></HButton></Dialog.Close></div>
       <div className="company-search-body">

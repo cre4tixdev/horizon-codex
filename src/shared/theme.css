@@ -1,8 +1,9 @@
 /* Semantic theme tokens. Light mode keeps the existing colors through CSS fallbacks. */
-:root { color-scheme: light; }
+:root { color-scheme: light; --theme-activity-background: #edf2f8; }
 :root[data-theme="dark"] {
   color-scheme: dark;
   --color-horizon-background: #0e1726;
+  --theme-activity-background: #0a1220;
   --color-horizon-form-text: #f3f6fc;
   --theme-surface: #162236;
   --theme-surface-soft: #1c2a40;
@@ -35,7 +36,7 @@
 .theme-toggle.h-button { color: var(--theme-text, var(--color-horizon-navy)); }
 @media (max-width: 700px) {
   /* Two compact rows keep search usable and centered alongside the three account actions. */
-  .app-workspace .topbar { height: 88px; grid-template-columns: 30px minmax(0, 1fr) 104px; grid-template-rows: 34px 30px; padding: 8px; row-gap: 5px; }
+  .app-workspace .topbar { height: var(--workspace-topbar-height); grid-template-columns: 30px minmax(0, 1fr) 104px; grid-template-rows: 34px 30px; padding: 8px; row-gap: 5px; }
   .topbar .sidebar-toggle { grid-column: 1; grid-row: 1; }
   .topbar .topbar-context { grid-column: 3; grid-row: 1; gap: 5px; }
   .topbar .workspace-search { grid-column: 1 / -1; grid-row: 2; }

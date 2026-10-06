@@ -1,5 +1,5 @@
 import { Link } from 'react-router'
-import { Mail, Phone, Building2, MapPin } from 'lucide-react'
+import { Mail, Phone, Building2, UsersRound, MapPin } from 'lucide-react'
 import { HBadge } from '../../../shared/ui/HBadge'
 import { useReferences } from '../../settings/hooks/useReferences'
 import { ContactAvatar } from './ContactIdentity'
@@ -44,7 +44,7 @@ export function ContactCards({ records, directory }: { records: (Company | Perso
           {!record.email && !phone && !location && <span className="contact-muted">Coordonnées à compléter</span>}
         </div>
       </div>
-      <div className="contact-card-footer"><div className="contact-role-list">{roles.map((role) => <HBadge key={role.id} className={`contact-role-pill contact-role-pill--${role.role}`}>{roleLabels[role.role]}</HBadge>)}{!record.active && <HBadge>Archivé</HBadge>}</div></div>
+      <div className="contact-card-footer"><div className="contact-role-list">{roles.map((role) => <HBadge key={role.id} className={`contact-role-pill contact-role-pill--${role.role}`}>{roleLabels[role.role]}</HBadge>)}{!record.active && <HBadge>Archivé</HBadge>}</div><Link className={`contact-card-kind contact-card-kind--${company ? 'company' : 'person'}`} to={destination} state={directory ? { contactDirectory: directory } : undefined} title={company ? 'Société' : 'Personne'} aria-label={company ? 'Société' : 'Personne'}>{company ? <Building2 size={14} aria-hidden="true" /> : <UsersRound size={14} aria-hidden="true" />}</Link></div>
     </article>
   })}</div>
 }
