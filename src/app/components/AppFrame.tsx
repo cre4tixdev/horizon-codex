@@ -3,6 +3,7 @@ import { Link, NavLink, Outlet, useLocation } from 'react-router'
 import { Building2, PanelLeftClose, PanelLeftOpen, CircleHelp, Keyboard } from 'lucide-react'
 import { navigationGroups, navigationItems } from '../navigation'
 import { NotificationBell } from './NotificationBell'
+import { ThemeToggle } from './ThemeToggle'
 import { UserMenu } from './UserMenu'
 import { WorkspaceSearch } from './WorkspaceSearch'
 import { HorizonMark } from '../../shared/branding/HorizonMark'
@@ -63,7 +64,7 @@ export function AppFrame() {
             {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
           </HButton>
           <WorkspaceSearch key={pathname} />
-          <div className="topbar-context"><NotificationBell /><UserMenu /></div>
+          <div className="topbar-context"><ThemeToggle /><NotificationBell /><UserMenu /></div>
         </header>
         <main id="main-content" tabIndex={-1} className="main-content">
           {connectionError && <p role="alert" className="login-notice">{connectionError}</p>}

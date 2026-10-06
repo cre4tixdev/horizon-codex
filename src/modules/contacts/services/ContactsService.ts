@@ -4,7 +4,7 @@ import { sessionService } from '../../../core/auth/services/session'
 import { hasPermission } from '../../../core/auth/types/session'
 import { createContactsRepository, ContactsUpgradeError, type ContactsRepository } from '../repositories/ContactsRepository'
 import { addressInputSchema, companyInputSchema, personInputSchema, roleValues, roleSchema } from '../schemas/contacts'
-import type { AddressInput, CompanyInput, ContactFiles, ContactKind, ListOptions, PersonInput, Company } from '../types/contacts'
+import type { AddressChange, AddressInput, CompanyInput, ContactFiles, ContactKind, ListOptions, PersonInput, Company } from '../types/contacts'
 
 import { ThirdPartyAccountsService } from '../../accounting/services/ThirdPartyAccountsService'
 import { createThirdPartyAccountsRepository } from '../../accounting/repositories/ThirdPartyAccountsRepository'
@@ -59,9 +59,10 @@ export class ContactsService {
   company(id: string) { return this.run('contacts.read', (repo) => repo.company(id)) }
   person(id: string) { return this.run('contacts.read', (repo) => repo.person(id)) }
   saveCompany(input: CompanyInput, files: ContactFiles, id?: string, operation?: string) { const parsed = companyInputSchema.parse(input); if (parsed.siren && parsed.siret && !parsed.siret.startsWith(parsed.siren)) throw new Error('Le SIRET doit correspondre au SIREN.'); this.files(files); return this.run('contacts.write', (repo) => repo.saveCompany(parsed, files, id, operation)) }
-  async saveCompanyDetails(input: CompanyInput, files: ContactFiles, address: AddressInput | undefined, id?: string, addressId?: string, roles?: readonly typeof roleValues[number][], accounts?: AccountDraft) {
+  async saveCompanyDetails(input: CompanyInput, files: ContactFiles, address: AddressInput | undefined, id?: string, addressId?: string, roles?: readonly typeof roleValues[number][], accounts?: AccountDraft, extraAddresses?: AddressChange[], addressCreationId?: string) {
     // The address is optional and independently valid. Validate it before writing the company.
     const parsedAddress = address ? addressInputSchema.parse(address) : undefined
+    const parsedExtras = extraAddresses?.map((entry) => ({ ...entry, input: addressInputSchema.parse(entry.input) }))
     const parsedAccounts = accounts ? accountDraftSchema.parse(accounts) : undefined
     const parsedRoles = roles?.map((role) => roleSchema.shape.role.parse(role))
     const operation = crypto.randomUUID()
@@ -76,8 +77,13 @@ export class ContactsService {
         }
       } catch (error) { throw new CompanyRolesSaveError(company, error) }
     }
-    if (parsedAddress) {
-      try { await this.saveAddress({ ...parsedAddress, company: company.id }, addressId, operation) }
+    if (parsedAddress || parsedExtras?.length) {
+      try {
+        if (parsedExtras?.length) {
+          const entries = [...(parsedAddress ? [{ ...(addressId ? { id: addressId } : addressCreationId ? { creation_id: addressCreationId } : {}), input: { ...parsedAddress, company: company.id } }] : []), ...parsedExtras.map((entry) => ({ ...entry, input: { ...entry.input, company: company.id } }))]
+          await this.run('contacts.write', (repo) => repo.saveAddresses(company.id, entries, operation))
+        } else if (parsedAddress) await this.saveAddress({ ...parsedAddress, company: company.id }, addressId, operation)
+      }
       catch (error) { throw new CompanyAddressSaveError(company, error) }
     }
     if (parsedAccounts) { try { if (!this.accounting) throw new Error('Comptabilité indisponible.'); await this.accounting.save(company.id, parsedAccounts, operation) } catch (cause) { throw new CompanyAccountingSaveError(company, cause) } }

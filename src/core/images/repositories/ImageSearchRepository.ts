@@ -1,12 +1,12 @@
-import type { LogoFormat, LogoSearchResult } from '../types/logoSearch'
+import type { ImageFormat, ImageSearchResult } from '../types/imageSearch'
 import { z } from 'zod'
 
 const imageInfo = z.object({ url: z.string(), thumburl: z.string().optional(), descriptionurl: z.string(), mime: z.string(), thumbmime: z.string().optional(), width: z.number(), height: z.number() })
 const responseSchema = z.object({ query: z.object({ pages: z.array(z.object({ pageid: z.number(), title: z.string(), index: z.number().optional(), imageinfo: z.array(imageInfo).optional() })).optional() }).optional() })
 const mimeTypes = ['image/png', 'image/jpeg', 'image/webp']
 function publicImage(url: string) { const parsed = new URL(url); if (parsed.protocol !== 'https:' || !['upload.wikimedia.org', 'thumb.wikimedia.org'].includes(parsed.hostname)) throw new Error('Adresse d’image inattendue.'); return url }
-export const logoSearchRepository = {
-  async search(query: string, format: LogoFormat): Promise<LogoSearchResult[]> {
+export const imageSearchRepository = {
+  async search(query: string, format: ImageFormat): Promise<ImageSearchResult[]> {
     const suffix = format === 'all' ? '' : ` filemime:${format === 'jpeg' ? 'image/jpeg' : `image/${format}`}`
     const params = new URLSearchParams({ action: 'query', format: 'json', formatversion: '2', origin: '*', generator: 'search', gsrsearch: query + suffix, gsrnamespace: '6', gsrlimit: '24', prop: 'imageinfo', iiprop: 'url|mime|size|thumbmime', iiurlwidth: '500' })
     let response: Response
@@ -27,7 +27,7 @@ export const logoSearchRepository = {
       return [{ id: page.pageid, title: page.title.replace(/^File:/, ''), imageUrl: publicImage(info.thumburl ?? info.url), sourceUrl: source.href, mime, width: info.width, height: info.height }]
     })
   },
-  async download(image: LogoSearchResult): Promise<File> {
+  async download(image: ImageSearchResult): Promise<File> {
     let response: Response
     try { response = await fetch(publicImage(image.imageUrl), { credentials: 'omit', signal: AbortSignal.timeout(15_000) }) }
     catch { throw new Error('Cette image ne peut pas être téléchargée. Choisissez-en une autre ou importez un fichier.') }
@@ -38,6 +38,6 @@ export const logoSearchRepository = {
     const bitmap = await createImageBitmap(blob).catch(() => { throw new Error('Le fichier reçu n’est pas une image valide.') })
     bitmap.close()
     const extension = blob.type === 'image/jpeg' ? 'jpg' : blob.type.split('/')[1]
-    return new File([blob], `logo-${image.id}.${extension}`, { type: blob.type })
+    return new File([blob], `image-${image.id}.${extension}`, { type: blob.type })
   },
 }

@@ -6,8 +6,10 @@ export type Address = z.infer<typeof addressSchema>
 export type CompanyRole = z.infer<typeof roleSchema>
 export type CompanyInput = z.infer<typeof companyInputSchema>
 export type PersonInput = z.infer<typeof personInputSchema>
-export type AddressInput = z.infer<typeof addressInputSchema>
+export type AddressInput = z.input<typeof addressInputSchema>
 export type ContactKind = 'companies' | 'people'
 export type ListOptions = { search: string; archived: boolean; page: number; sort?: string | undefined; company?: string | undefined; descending?: boolean | undefined }
 export type ContactFiles = { image?: File | undefined; removeImage?: boolean; gallery?: File[] }
 export type Paged<T> = { items: T[]; totalPages: number; totalItems: number }
+
+export type AddressChange = { id?: string; creation_id?: string; input: AddressInput }

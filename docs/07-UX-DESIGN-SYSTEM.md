@@ -1,5 +1,7 @@
 # Horizon — UX & Design System
 
+Informations légales société : section toujours visible dans Informations, sans chevron ni action de repli. Les champs SIREN, SIRET, TVA et LEI restent dans la grille compacte existante.
+
 Finition du 5 octobre 2026 — largeur des fiches : les sociétés et contacts utilisent toute la largeur disponible du contenu, au lieu d’un bloc centré plafonné à 1080 px. La barre d’actions, les onglets, les sections et le fil d’activité restent alignés. Seules les marges du layout sont conservées : 25 px par côté sur desktop et 12 px sur mobile. Les grilles adaptatives et les dimensions des logos restent inchangées.
 
 ## Statut
@@ -1712,3 +1714,37 @@ Sur mobile : marges du layout de 12 px, retrait supplémentaire de 6 px dans le 
 
 
 Commentaires : bulle blanche ajustée au contenu, largeur maximale du fil, bord fin, coins 12 px avec coin supérieur gauche droit pour évoquer un message sans décoration excessive. Les modifications automatiques et les tâches gardent leur présentation distincte. Pièce jointe : lien et corbeille indépendante côte à côte ; corbeille neutre avec survol rouge, libellé accessible comprenant le nom du fichier. Confirmation rouge partagée avec saisie SUPPRIMER et texte spécifique à la pièce jointe.
+
+
+### Sélecteur d’images commun
+
+Règle finale du 6 octobre 2026 : le même sélecteur est réutilisable pour les logos de société, les futures images produits et les autres formulaires qui acceptent une image. Les textes dépendent de `purpose`, sans recopier le composant.
+
+**Google Images** est le premier onglet, sélectionné à chaque ouverture ; **Wikimedia** est le second. Un seul parcours est affiché à la fois. Les onglets sont accessibles au clavier : flèches pour basculer, Home pour Google, End pour Wikimedia. Les mots-clés et le format restent disponibles dans les deux parcours. Changer de source abandonne le choix local, conserve les mots-clés et les résultats Wikimedia, et ne modifie pas la fiche.
+
+Parcours Google : champ de recherche prérempli et bouton Ouvrir Google Images, puis trois étapes numérotées : rechercher dans la fenêtre externe, clic droit → Copier l’image, retour dans Horizon → collage. La grande zone de collage affiche ⌘ V / Ctrl V. Le focus est préparé dans cette zone avant l’ouverture de Google. Après collage, l’aperçu remplace les instructions dans la même surface, avec Retirer l’image collée et la validation en pied. Ni résultats Wikimedia vides ni second encart d’aperçu dans cet onglet.
+
+Parcours Wikimedia : recherche explicite, grille de vignettes, sélection unique, aperçu et lien vers la source. Aucun choix automatique ou import en arrière-plan. Importer un fichier reste une alternative discrète en pied, dans les deux onglets.
+
+Popup blanc compact, onglet actif souligné magenta Horizon, traits fins et instructions sobres. Les images sont affichées entières sur blanc ; format carré du logo conservé. Sur mobile : barre de recherche sur deux lignes, étapes empilées, actions adaptées et popup défilable sans débordement.
+
+Utiliser ce logo / Utiliser cette image ne fait que préparer le brouillon. Annuler ou fermer abandonne le choix en cours ; rouvrir repart dans Google Images sans sélection. Seul Enregistrer dans la fiche persiste le fichier. Formats PNG/JPEG/WebP, une seule image de 2 Mio maximum ; les erreurs de format, taille ou décodage restent visibles. Le détail technique de raccordement appartient au [contrat d’architecture](03-ARCHITECTURE.md#sélecteur-dimages-transversal--contrat-de-réutilisation).
+
+### Répertoires Contacts / Adresses d’une société
+
+Remplacer le titre Relations par Contacts et donner aux Adresses un onglet distinct, avant Comptabilité. Adresses reprend un répertoire de cartes : icône discrète par usage, libellé, coordonnées lisibles et action Modifier. Grille adaptative de trois colonnes, puis deux, puis une sur mobile ; formulaire compact sous les cartes sélectionnées, aucune écriture intermédiaire. Les e-mails sont des liens et les adresses postales gardent leurs retours à la ligne. Le bouton Enregistrer principal reflète aussi les brouillons du répertoire. Pas de gros bandeau supplémentaire ni de nouvelle palette ; blanc / navy, accents violets discrets et action principale Horizon. Fil d’activité conservé sous la fiche sans box.
+
+
+Contacts associés — filtre d’archives : afficher Actifs / Archivés avec le nombre d’archives uniquement si la société possède au moins un contact archivé. Filtre compact dans l’en-tête, à côté d’Ajouter un contact, police Inter commune et sélection soulignée discrètement ; aucune case à cocher isolée. Le filtre consulte les données sans écriture et revient à la première page lors d’un changement. Présentation responsive et disponible aux lecteurs autorisés.
+
+
+Lisibilité des formulaires : libellés et valeurs des champs en noir `#111111` via le token partagé `--color-horizon-form-text`. Application aux saisies, textes longs, combobox et options ordinaires, Contacts / Adresses / Comptabilité / Paramètres et formulaires communs. Les placeholders, textes d’aide et états désactivés restent secondaires ; les erreurs et sélections conservent les couleurs Horizon. Ne pas hériter de la couleur grise du libellé pour la valeur saisie.
+
+
+Fiche contact : action Ouvrir la fiche société directement à droite de la combobox Société, sous forme de lien compact avec une flèche sortante et libellé accessible comprenant le nom. Cible la sélection courante du formulaire, disponible également en lecture seule, masquée sans société. Remplace le raccourci auparavant placé dans Coordonnées ; choisir une société reste un brouillon jusqu’à Enregistrer.
+
+### Thèmes clair et sombre — 6 octobre 2026
+
+Le bouton de thème appartient au groupe de droite dans la top bar, avant la cloche et le compte. Icône lune en clair / soleil en sombre, libellé accessible et tooltip indiquant l’action. Interface sombre navy : fond général `#0e1726`, panneaux `#162236`, surfaces secondaires `#1c2a40`, bordures neutres `#364860`, texte principal `#e8eef8`, valeurs de formulaire `#f3f6fc`. Utiliser les tokens `--theme-surface*`, `--theme-text*`, `--theme-border*` et les tokens d’état coloré de `shared/theme.css` ; les couleurs claires actuelles restent en fallback. Pas de filtre d’inversion des images. Les logos / leurs marges demeurent blancs et la sidebar conserve ses couleurs de marque.
+
+Les menus et dialogues portalisés doivent utiliser les mêmes tokens. Placeholder et état désactivé restent lisibles et secondaires ; erreurs, succès et actions Horizon conservent un sens coloré. Préserver le noir des libellés et valeurs en mode clair. À 700 px et moins, la top bar utilise deux lignes de 88 px au total pour accueillir thème, cloche et compte sans écraser la recherche, centrée en seconde ligne. Le choix est local au navigateur et appliqué dès le démarrage.

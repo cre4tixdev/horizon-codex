@@ -1671,3 +1671,15 @@ Profil société / Comptabilité — livraison locale : TVA réelle proposée pa
 
 
 Finition du fil — commentaires en bulles et suppression de pièces jointes : retrait autorisé aux rédacteurs Contacts sur fiche active, confirmation explicite SUPPRIMER, préservation du commentaire et trace serveur. L’immutabilité des publications est conservée hors cette route ciblée ; aucun endpoint général de modification de messages ni nouvelle collection.
+
+
+Décision du 6 octobre 2026 : recherche d’images gratuite Wikimedia + ouverture Google Images préremplie et collage explicite. Pas de moteur payant ou relais serveur. Réutilisation via shared/images et core/images pour logos entreprises puis images produits ; pas de nouveau module Produits fictif. Seul Enregistrer persiste le fichier sélectionné.
+
+
+Retour UX recherche d’images : remplacer la juxtaposition Wikimedia/Google/collage par deux onglets et un parcours Google guidé en trois étapes. Aperçu intégré à la zone de collage, sans espace de résultats vide.
+
+Décision de réutilisation confirmée : ImageSearch est un composant transversal, Google Images en premier et par défaut, Wikimedia conservé. Tout futur raccordement réutilise shared/images et core/images ; le module propriétaire gère le brouillon, ses permissions, ses contraintes de fichiers et la sauvegarde explicite. Le contrat et l’exemple de raccordement sont centralisés dans le document 03, la règle visuelle finale dans le document 07.
+
+Décision utilisateur du 6 octobre 2026 — Relations devient Contacts (toutes les personnes de la société). Un onglet Adresses distinct regroupe coordonnées postales et e-mails par usage : siège / facturation / livraison / autre. Les champs e-mail société existants sont réutilisés, sans duplication ; édition en brouillon et sauvegarde unique par l’action principale de la fiche. Révision Contacts 5 et migration `1791244800_company_addresses.js` ; lot NAS préparé, installation distante restant à réaliser par l’utilisateur. Suppression d’adresses enregistrées hors périmètre ; seul le retrait d’une adresse nouvelle du brouillon est livré.
+
+Mode clair / sombre — décision utilisateur du 6 octobre 2026 : bouton dans la top bar, thème appliqué à toutes les surfaces communes, préférence locale au navigateur et synchronisation entre onglets. Clair par défaut, marque et logos conservés ; aucune écriture PocketBase. Top bar mobile sur deux lignes pour garder recherche et actions utilisables.

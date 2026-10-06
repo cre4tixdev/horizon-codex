@@ -1034,3 +1034,26 @@ Parcours navigateur : 26 scénarios authentifiés vérifiés. Première exécuti
 
 
 Bulles et suppression de PJ : lint/TypeScript et 61 tests unitaires réussis ; 10 scénarios backend Activité réussis, dont retrait d’un fichier parmi deux, permissions/entrée invalide/source archivée ou disparue, conservation du commentaire/auteur/date/mentions, ancien lien inaccessible, trace et audit avant/après, rollback avec fichier encore téléchargeable si audit indisponible. Parcours Playwright du fil complet réussi : bulle, corbeille absente pour lecteur, annulation sans suppression, confirmation SUPPRIMER, commentaire conservé et absence du fichier après rechargement ; captures desktop/mobile.
+
+
+Recherche d’images partagée — 6 octobre 2026 : Google Images en premier, Wikimedia en second ; contrat et exemple d’intégration documentés dans Architecture. Tests de sélection Google, collage d’une image, annulation et aucune écriture avant Enregistrer ; tests Wikimedia et filtres conservés. Les repositories / services sont déplacés vers core/images et le composant vers shared/images. Informations légales : bloc toujours visible, aucun chevron de fermeture.
+
+### Recette Contacts / Adresses — 6 octobre 2026
+
+Vérifier Contacts (personnes uniquement), puis Adresses (siège, e-mails existants, coordonnées complémentaires). Ajouter un e-mail de facturation seul et une adresse de livraison complète avec e-mail ; changer d’onglet sans perte ; aucune requête d’écriture avant Enregistrer ; validation d’un brouillon vide ; sauvegarde et rechargement conservant les cartes et l’onglet. Modifier un e-mail existant et l’e-mail général : mise à jour des champs sources sans doublon. Vérifier lecture seule et absence de débordement sur mobile. Captures `/private/tmp/horizon-company-addresses-desktop.png` et `horizon-company-addresses-mobile.png`.
+
+Tests serveur : base neuve avec toutes les migrations ; e-mail seul ; pays / adresse postale incomplets refusés ; batch atomique si un élément est invalide ; remplacement d’une adresse principale sans suppression ; auteur audité ; identifiants de création rejoués sans doublon ; utilisateur sans écriture refusé ; adresse d’une autre société interdite ; société archivée non modifiable. Les parcours existants de siège et de navigation ont été vérifiés. Les nouvelles capacités exigent le lot NAS Adresses et la révision Contacts 5.
+
+Vérifications finales : lint, TypeScript, build et 67 tests Vitest réussis ; 25 tests backend Contacts et 10 Activity réussis. Suite Chromium authentifiée : 26 scénarios réussis au premier passage, deux assertions adaptées (liste des nouveaux onglets et comptage des écritures métier excluant le renouvellement de session), puis ces deux scénarios et le nouveau parcours Adresses réussis. Captures PC / mobile inspectées ; aucun débordement horizontal. Migration et hooks regroupés dans le lot NAS documenté en Security & Ops, sans déploiement distant.
+
+Contacts associés / archives : parcours Chromium dédié validé sur PocketBase temporaire. Aucun filtre avec zéro archive, apparition d’Actifs / Archivés et du compteur après archivage, consultation des archives puis retour aux actifs, disparition après réactivation du dernier contact archivé. Police Inter, sélection unique, rendu PC / mobile et absence de débordement vérifiés. Lint, TypeScript et build réussis. Aucun changement de schéma PocketBase pour cette finition.
+
+Lisibilité des formulaires : libellés et valeurs en noir via le token partagé, placeholders et champs désactivés secondaires. Lint, TypeScript et build validés ; deux parcours Chromium Contacts / référentiels réussis. Capture de fiche PC inspectée.
+
+Lien Société dans la fiche contact : ouverture depuis l’action attenante à la combobox et cible mise à jour selon la sélection courante. Parcours de changement de société et de requête retardée validés, sans écriture avant Enregistrer. Test de requête retardée précisé pour retenir la liste active, et non la vérification du nombre d’archives. TypeScript, build et lint réussis.
+
+### Thème clair / sombre — 6 octobre 2026
+
+Lint, TypeScript, build et 67 tests Vitest réussis. 12 parcours layout Chromium et 30 parcours authentifiés réussis, puis parcours sombre rejoué après les finitions. Vérifications : bouton lune/soleil accessible, mode mémorisé au rechargement et appliqué dès le démarrage, synchronisation entre onglets, fonctionnement sans stockage navigateur, recherche centrée et top bar fixe PC/mobile, absence de débordement, menus et portals sombres, valeurs de formulaires lisibles, logo 128×128 blanc, champs et brouillons conservés sans écriture lors de la bascule, retour au texte noir en clair. Confirmation ARCHIVER conserve son bouton orange. Aucun changement PocketBase pour le thème.
+
+Captures inspectées : `/private/tmp/horizon-dark-settings.png`, `horizon-dark-mobile.png`, `horizon-dark-company.png`, `horizon-dark-company-mobile.png`, `horizon-dark-confirmation.png`. Le test de défilement attend maintenant le rendu Paramètres avant de faire défiler la page pour éviter une course au chargement.

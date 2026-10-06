@@ -7,6 +7,14 @@ onRecordValidate((event) => {
   if (name === 'contacts_company_roles' && !['customer', 'supplier'].includes(record.getString('role'))) throw new BadRequestError('Company role must be customer or supplier.')
   if (name === 'contacts_companies' && record.getString('website') && !/^https?:\/\//i.test(record.getString('website'))) throw new BadRequestError('Company website must use HTTP or HTTPS.')
   if (name === 'contacts_people' && !record.getString('first_name') && !record.getString('last_name')) throw new BadRequestError('A contact needs a first or last name.')
+  if (name === 'contacts_addresses' && record.collection().fields.getByName('email')) {
+    record.set('email', record.getString('email').trim()); record.set('label', record.getString('label').trim())
+    const postal = ['line1', 'line2', 'postal_code', 'city', 'country', 'state_region'].some((field) => record.getString(field))
+    if (!postal && !record.getString('email')) throw new BadRequestError('Ajoutez une adresse postale ou un e-mail.')
+    if (postal && (!record.getString('line1') || !record.getString('city') || !record.getString('country'))) throw new BadRequestError('Une adresse postale nécessite une voie, une ville et un pays.')
+    const owner = event.app.findRecordById('contacts_companies', record.getString('company'))
+    if (!owner.getBool('active')) throw new BadRequestError('Cette société est archivée.')
+  }
   if (record.getString('company')) {
     const company = event.app.findRecordById('contacts_companies', record.getString('company'))
     if (!company.getBool('active') && (record.isNew() || record.original().getString('company') !== company.id)) throw new BadRequestError('Cannot attach a record to an archived company.')

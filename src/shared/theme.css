@@ -1,0 +1,43 @@
+/* Semantic theme tokens. Light mode keeps the existing colors through CSS fallbacks. */
+:root { color-scheme: light; }
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-horizon-background: #0e1726;
+  --color-horizon-form-text: #f3f6fc;
+  --theme-surface: #162236;
+  --theme-surface-soft: #1c2a40;
+  --theme-surface-glass: #162236ed;
+  --theme-surface-blue: #1c304b;
+  --theme-surface-violet: #302541;
+  --theme-surface-rose: #3c2437;
+  --theme-surface-amber: #3b2d20;
+  --theme-surface-green: #17372e;
+  --theme-text: #e8eef8;
+  --theme-text-muted: #b8c5d7;
+  --theme-text-soft: #9baec7;
+  --theme-violet-text: #c1a0f2;
+  --theme-rose-text: #ff91bc;
+  --theme-amber-text: #efbd86;
+  --theme-green-text: #68d6ae;
+  --theme-blue-text: #93bdff;
+  --theme-border: #364860;
+  --theme-border-subtle: #293a51;
+  --theme-border-accent: #65517e;
+}
+
+/* Logos are assets, not themed surfaces: keep white padding and neutral placeholders. */
+:root[data-theme="dark"] .contact-avatar--company,
+:root[data-theme="dark"] .contact-photo-control--companies .contact-image-preview {
+  background: white;
+  color: #7b8794;
+}
+
+.theme-toggle.h-button { color: var(--theme-text, var(--color-horizon-navy)); }
+@media (max-width: 700px) {
+  /* Two compact rows keep search usable and centered alongside the three account actions. */
+  .app-workspace .topbar { height: 88px; grid-template-columns: 30px minmax(0, 1fr) 104px; grid-template-rows: 34px 30px; padding: 8px; row-gap: 5px; }
+  .topbar .sidebar-toggle { grid-column: 1; grid-row: 1; }
+  .topbar .topbar-context { grid-column: 3; grid-row: 1; gap: 5px; }
+  .topbar .workspace-search { grid-column: 1 / -1; grid-row: 2; }
+  .topbar .theme-toggle.h-button { width: 30px; }
+}

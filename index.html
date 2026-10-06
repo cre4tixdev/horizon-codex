@@ -4,6 +4,11 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#091C3A" />
+    <script>
+      // Apply the saved preference before the first paint, including the login page.
+      try { document.documentElement.dataset.theme = localStorage.getItem('horizon.theme') === 'dark' ? 'dark' : 'light' }
+      catch { document.documentElement.dataset.theme = 'light' }
+    </script>
     <title>Horizon — CVS Engineering</title>
   </head>
   <body>

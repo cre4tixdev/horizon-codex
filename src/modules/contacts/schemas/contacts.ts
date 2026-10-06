@@ -19,7 +19,11 @@ export const companyInputSchema = z.object({
 })
 export const personInputSchema = z.object({ company: z.string(), first_name: text(80), last_name: text(80), job_title: text(120), email, phone: text(40), mobile: text(40), notes: text(10000) })
   .refine((value) => Boolean(value.first_name || value.last_name), { path: ['last_name'], message: 'Saisissez au moins un prénom ou un nom.' })
-export const addressInputSchema = z.object({ company: z.string().min(1), type: z.enum(addressValues), line1: text(200).min(1, 'Saisissez une adresse.'), line2: text(200), postal_code: text(20), city: text(100).min(1, 'Saisissez une ville.'), country: z.string().regex(/^[A-Z]{2}$/, 'Code pays sur deux lettres (FR…).'), state_region: text(100), is_primary: z.boolean().default(false) })
+export const addressInputSchema = z.object({ company: z.string().min(1), type: z.enum(addressValues), label: text(120).default(''), email: z.string().trim().pipe(email).default(''), line1: text(200), line2: text(200), postal_code: text(20), city: text(100), country: z.string().regex(/^$|^[A-Z]{2}$/,  'Code pays sur deux lettres (FR…).'), state_region: text(100), is_primary: z.boolean().default(false) }).superRefine((value, context) => {
+  const postal = [value.line1, value.line2, value.postal_code, value.city, value.country, value.state_region].some(Boolean)
+  if (!postal && !value.email) context.addIssue({ code: 'custom', path: ['line1'], message: 'Ajoutez une adresse postale ou un e-mail.' })
+  if (postal) for (const [field, message] of [['line1', 'Saisissez une adresse.'], ['city', 'Saisissez une ville.'], ['country', 'Choisissez un pays.']] as const) if (!value[field]) context.addIssue({ code: 'custom', path: [field], message })
+})
 export const roleSchema = base.extend({ company: z.string(), role: z.enum(roleValues), active: z.boolean() })
 export const addressSchema = base.extend(addressInputSchema.shape)
 export const companySchema = base.extend(companyInputSchema.shape).extend({ active: z.boolean(), logo: z.string(), images: z.array(z.string()), expand: z.object({ contacts_company_roles_via_company: z.array(roleSchema).optional(), contacts_addresses_via_company: z.array(addressSchema).optional() }).optional() })

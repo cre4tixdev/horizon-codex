@@ -651,6 +651,8 @@ active
 ```text
 company
 type
+label
+email
 line1
 line2
 postal_code
@@ -659,6 +661,16 @@ country
 state_region
 is_primary
 ```
+
+### Évolution Adresses — 6 octobre 2026
+
+Migration `1791244800_company_addresses.js`, révision Contacts **5** : `label` texte optionnel (120 caractères) et `email` optionnel valide. Une adresse appartient à une société et à un usage `registered` (Siège), `billing` (Facturation), `shipping` (Livraison) ou `other` (Autre). Plusieurs coordonnées sont autorisées par usage. Chaque ligne contient une adresse postale, un e-mail ou les deux ; un simple libellé ne suffit pas.
+
+`line1`, `city` et `country` deviennent optionnels dans le schéma pour autoriser un e-mail seul. Si un champ postal est renseigné, ces trois champs sont exigés ensemble par les validations client et serveur ; `country` reste un code ISO alpha-2 du référentiel Pays. Aucun effacement ni recopie des adresses historiques. L’index unique existant garantit au plus une adresse principale par société / usage ; le remplacement est transactionnel côté serveur.
+
+L’e-mail général (`contacts_companies.email`) et l’e-mail de facturation (`contacts_companies.billing_email`) sont affichés dans l’onglet Adresses comme coordonnées existantes : les éditer modifie leur champ source, sans créer de doublon dans `contacts_addresses`. L’adresse électronique de routage des factures reste dans Comptabilité ; elle n’est pas assimilée à un e-mail.
+
+Les nouvelles adresses et modifications sont des brouillons locaux jusqu’à Enregistrer la fiche. Les adresses complémentaires passent ensemble par la route authentifiée `/api/horizon/contacts/addresses/save`, avec identifiants de création stables pour une reprise sans doublon. Permissions `contacts.read` + `contacts.write`, société active, contrôle d’appartenance, allowlist des champs, audit serveur et opération commune au fil. Aucune suppression d’adresse enregistrée dans ce parcours ; une adresse nouvelle non enregistrée peut être retirée du brouillon. Cette évolution remplace les contraintes postales obligatoires et la sauvegarde indépendante du contrat V1 historique ci-dessous.
 
 Le logo de la société peut être utilisé visuellement comme badge sur l’avatar du contact.
 

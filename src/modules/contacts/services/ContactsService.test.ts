@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from 'vitest'
 import { ContactsService, CompanyAddressSaveError, CompanyRolesSaveError } from './ContactsService'
 import type { ContactsRepository } from '../repositories/ContactsRepository'
-import { companyInputSchema, personInputSchema, companySchema, roleSchema } from '../schemas/contacts'
+import { companyInputSchema, personInputSchema, companySchema, roleSchema, addressInputSchema } from '../schemas/contacts'
 
 const company = { name: ' Test ', legal_name: '', vat_number: '', lei: '', billing_email: '', einvoice_routing_address: '', einvoice_platform: '', einvoice_service_code: '', einvoice_status: 'unknown' as const, preferred_language: '', siren: '', siret: '', default_currency: '', website: '', phone: '', email: '', notes: '' }
 function setup(permissions = ['contacts.read', 'contacts.write']) {
-  const repository: ContactsRepository = { ensureRevision: vi.fn(), summary: vi.fn(), companies: vi.fn(), people: vi.fn(), company: vi.fn(), person: vi.fn(), saveCompany: vi.fn(), savePerson: vi.fn(), setActive: vi.fn(), deleteRecord: vi.fn(), addresses: vi.fn(), saveAddress: vi.fn(), saveRole: vi.fn(), removeGallery: vi.fn(), imageURL: vi.fn() }
+  const repository: ContactsRepository = { ensureRevision: vi.fn(), summary: vi.fn(), companies: vi.fn(), people: vi.fn(), company: vi.fn(), person: vi.fn(), saveCompany: vi.fn(), savePerson: vi.fn(), setActive: vi.fn(), deleteRecord: vi.fn(), addresses: vi.fn(), saveAddress: vi.fn(), saveAddresses: vi.fn(), saveRole: vi.fn(), removeGallery: vi.fn(), imageURL: vi.fn() }
   return { service: new ContactsService(repository, (permission) => permissions.includes(permission)), repository }
 }
 describe('Contacts service', () => {
@@ -89,7 +89,7 @@ describe('Contacts service', () => {
     const error = await service.saveCompanyDetails(company, {}, address).catch((failure: unknown) => failure)
     expect(error).toBeInstanceOf(CompanyAddressSaveError)
     expect(error).toMatchObject({ company: { id: 'savedcompany' } })
-    expect(repository.saveAddress).toHaveBeenCalledWith({ ...address, company: 'savedcompany' }, undefined, expect.any(String))
+    expect(repository.saveAddress).toHaveBeenCalledWith({ ...address, label: '', email: '', company: 'savedcompany' }, undefined, expect.any(String))
   })
 
   it('refuse les totaux du répertoire sans permission de lecture', async () => {
@@ -104,4 +104,34 @@ describe('Contacts service', () => {
     await expect(service.summary()).resolves.toEqual(summary)
   })
 
+})
+
+describe('Adresses postales et e-mails de société', () => {
+  const email = { company: 'pending', type: 'billing' as const, email: ' factures@test.fr ', label: 'Comptabilité', line1: '', line2: '', postal_code: '', city: '', country: '', state_region: '', is_primary: false }
+  it('accepte un e-mail seul, exige un contenu et une adresse postale complète', () => {
+    expect(addressInputSchema.parse(email).email).toBe('factures@test.fr')
+    expect(addressInputSchema.safeParse({ ...email, email: '' }).success).toBe(false)
+    expect(addressInputSchema.safeParse({ ...email, email: 'invalide' }).success).toBe(false)
+    expect(addressInputSchema.safeParse({ ...email, line1: '1 rue du Test' }).success).toBe(false)
+    expect(addressInputSchema.safeParse({ ...email, line1: '1 rue du Test', city: 'Paris', country: 'FR' }).success).toBe(true)
+  })
+  it('refuse une adresse supplémentaire invalide avant toute écriture de la fiche', async () => {
+    const { service, repository } = setup()
+    await expect(service.saveCompanyDetails(company, {}, undefined, undefined, undefined, undefined, undefined, [{ creation_id: 'addressnew12345', input: { ...email, email: '' } }])).rejects.toThrow()
+    expect(repository.saveCompany).not.toHaveBeenCalled()
+    expect(repository.saveAddresses).not.toHaveBeenCalled()
+  })
+  it('sauvegarde les adresses ensemble et conserve leurs identifiants pour une reprise', async () => {
+    const { service, repository } = setup()
+    const saved = companySchema.parse({ ...company, id: 'savedcompany', collectionId: 'companies', created: '', updated: '', active: true, logo: '', images: [] })
+    vi.mocked(repository.saveCompany).mockResolvedValue(saved)
+    vi.mocked(repository.saveAddresses).mockRejectedValueOnce(new Error('réponse perdue')).mockResolvedValueOnce([])
+    const entries = [{ creation_id: 'addressnew12345', input: email }]
+    const primary = { ...email, type: 'registered' as const, label: 'Siège' }
+    await expect(service.saveCompanyDetails(company, {}, primary, saved.id, undefined, undefined, undefined, entries, 'primaryaddr0001')).rejects.toBeInstanceOf(CompanyAddressSaveError)
+    await service.saveCompanyDetails(company, {}, primary, saved.id, undefined, undefined, undefined, entries, 'primaryaddr0001')
+    for (const call of vi.mocked(repository.saveAddresses).mock.calls) expect(call[1]).toEqual([{ creation_id: 'primaryaddr0001', input: { ...primary, email: 'factures@test.fr', company: saved.id } }, { creation_id: 'addressnew12345', input: { ...email, email: 'factures@test.fr', company: saved.id } }])
+    expect(repository.saveAddress).not.toHaveBeenCalled()
+    expect(vi.mocked(repository.saveAddresses).mock.calls[1]?.[2]).toBe(vi.mocked(repository.saveCompany).mock.calls[1]?.[3])
+  })
 })

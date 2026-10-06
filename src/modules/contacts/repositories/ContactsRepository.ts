@@ -2,7 +2,7 @@ import { ClientResponseError } from 'pocketbase'
 import { z } from 'zod'
 import { createPocketBaseClient } from '../../../core/pocketbase/client'
 import { addressSchema, companySchema, personSchema, roleSchema } from '../schemas/contacts'
-import type { AddressInput, CompanyInput, ContactFiles, ListOptions, PersonInput } from '../types/contacts'
+import type { AddressChange, AddressInput, CompanyInput, ContactFiles, ListOptions, PersonInput } from '../types/contacts'
 
 export class ContactsUpgradeError extends Error { constructor() { super('Mise à jour PocketBase requise : installez la migration Contacts et les nouveaux hooks avant de modifier les fiches.') } }
 export function createContactsRepository(url: string) {
@@ -21,7 +21,7 @@ export function createContactsRepository(url: string) {
   async function ensureRevision() {
     try {
       const status = z.object({ contacts_revision: z.number() }).parse(await client.send('/api/horizon/company-lookup/status', { method: 'GET', requestKey: null }))
-      if (status.contacts_revision !== 4) throw new ContactsUpgradeError()
+      if (status.contacts_revision !== 5) throw new ContactsUpgradeError()
       return true
     } catch (error) { if (error instanceof ClientResponseError && error.status === 404) throw new ContactsUpgradeError(); throw error }
   }
@@ -56,6 +56,7 @@ export function createContactsRepository(url: string) {
     async setActive(kind: 'companies' | 'people', id: string, active: boolean) { await client.collection(`contacts_${kind}`).update(id, { active }) },
     async addresses(company: string) { return z.array(addressSchema).parse(await client.collection('contacts_addresses').getFullList({ filter: client.filter('company = {:company}', { company }), sort: 'type,created', requestKey: null })) },
     async saveAddress(input: AddressInput, id?: string, operation?: string) { await ensureRevision(); return addressSchema.parse(id ? await client.collection('contacts_addresses').update(id, input, options(operation)) : await client.collection('contacts_addresses').create(input, options(operation))) },
+    async saveAddresses(company: string, entries: AddressChange[], operation: string) { await ensureRevision(); return z.object({ items: z.array(addressSchema) }).parse(await client.send('/api/horizon/contacts/addresses/save', { method: 'POST', body: { company, entries, operation } })).items },
     async saveRole(company: string, role: string, active: boolean, id?: string, operation?: string) { return roleSchema.parse(id ? await client.collection('contacts_company_roles').update(id, { active }, options(operation)) : await client.collection('contacts_company_roles').create({ company, role, active }, options(operation))) },
     async removeGallery(id: string, filename: string) { await client.collection('contacts_companies').update(id, { 'images-': [filename] }) },
     async imageURL(collectionId: string, id: string, filename: string) { const token = await client.files.getToken({ requestKey: null }); return client.files.getURL({ collectionId, id }, filename, { token }) },

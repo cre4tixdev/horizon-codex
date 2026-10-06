@@ -1602,3 +1602,50 @@ Le composant partagé `shared/activity/ActivityPanel` passe par `core/activity/s
 Les hooks métiers continuent à écrire core_audit. Le writer d’audit appelle ensuite le projecteur core ActivityService (`pb_hooks/lib/activity.js`) dans la même transaction : diff limité aux champs métier connus et libellés français, auteur issu de la requête, données de présentation sans secrets. Les sous-enregistrements d’adresse/rôle/compte alimentent la société. Une sauvegarde explicite de société partage un UUID d’opération entre ses requêtes ; un événement de même source/auteur/opération peut être enrichi pendant une minute, sans altérer les audits individuels. L’UUID ne vaut ni preuve ni autorisation. Une reprise après erreur constitue une nouvelle opération et ne journalise que les écritures effectivement réussies ; pas de prétendue transaction atomique entre toutes les requêtes du formulaire.
 
 Commentaires/tâches : publication explicite par l’API standard des événements, avec hook serveur qui impose provenance, auteur, date et metadata. Publication, audit, mentions, notification et éventuelle tâche sont transactionnels. Les notifications internes sont créées par le writer core NotificationService, sans e-mail. Les changements de tâche produisent à leur tour un événement et un audit. Les événements automatiques et publications sont immuables pour les utilisateurs.
+
+
+### Sélecteur d’images transversal — contrat de réutilisation
+
+Le sélecteur est commun à l’ERP, sans dépendance à Contacts ni à une collection PocketBase :
+
+- UI : `src/shared/images/ImageSearch.tsx`.
+- Service : `src/core/images/services/ImageSearchService.ts`.
+- Repository Wikimedia : `src/core/images/repositories/ImageSearchRepository.ts`.
+- Types : `src/core/images/types/imageSearch.ts`.
+- Adaptateur actuellement raccordé : `src/modules/contacts/components/LogoSearch.tsx`.
+
+Wikimedia suit UI → Service → Repository ; la recherche Google construit uniquement une URL d’ouverture, et le collage fournit un fichier local validé par le service. Aucun composant ne contacte directement PocketBase. La recherche et la sélection ne modifient aucune donnée métier.
+
+| Prop | Contrat |
+|---|---|
+| `initialQuery: string` | Mots-clés initiaux, par exemple nom de société ou fabricant + référence produit. |
+| `purpose?: 'logo' \| 'image'` | `image` par défaut ; `logo` adapte les textes et ajoute le suffixe « logo » à la recherche initiale. |
+| `disabled?: boolean` | Bloquer l’accès selon les permissions et l’état du formulaire ; défaut `false`. |
+| `inputId: string` | Identifiant d’un input fichier existant dans l’écran propriétaire, pour l’alternative Importer un fichier. |
+| `onChoose: (file: File) => void` | Réception du fichier choisi dans le brouillon du formulaire ; ne pas sauvegarder automatiquement depuis ce callback. |
+
+Exemple de raccordement d’un futur formulaire produit, dans un écran qui dispose déjà de `imageInputId`, `imageDraft`, `setImageDraft`, `canEdit` et `productName` :
+
+```tsx
+<ImageSearch
+  initialQuery={productName}
+  purpose="image"
+  inputId={imageInputId}
+  disabled={!canEdit}
+  onChoose={(file) => setImageDraft(file)}
+/>
+```
+
+Le propriétaire fournit également son input d’import local, son aperçu dans la fiche et son suivi de modifications. Enregistrer doit appeler son service/repository métier habituel, avec sa propre validation serveur et ses permissions. Le composant commun ne décide ni de la collection/champ cible, ni du nombre d’images autorisé, ni de l’archivage/suppression des médias déjà enregistrés.
+
+La version actuelle sélectionne un seul fichier PNG/JPEG/WebP de 2 Mio maximum par ouverture. Plusieurs images produit nécessiteront plusieurs sélections ou une évolution explicite du contrat ; aucune galerie multi-sélection n’est prétendue livrée. Le module Produits n’est pas encore implémenté : ce raccordement est une recette de réutilisation, pas un écran produit existant. Le choix des sources, les interactions et leurs limites sont détaillés dans [UX & Design System](07-UX-DESIGN-SYSTEM.md#sélecteur-dimages-commun) et [Integrations](08-INTEGRATIONS.md#recherche-dimages--wikimedia-commons).
+
+### Contacts et coordonnées par usage — 6 octobre 2026
+
+`CompanyPeople` porte le répertoire Contacts de la société. `CompanyAddresses` reçoit les brouillons contrôlés par `ContactEditor` : aucune écriture autonome dans ses boutons Ajouter / Modifier. Le formulaire principal et le répertoire partagent le même brouillon de siège ; les e-mails général et de facturation restent liés aux champs société. UI → `ContactsService.saveCompanyDetails` → repository → PocketBase. Les validations de toutes les adresses précèdent toute écriture. Le batch des adresses supplémentaires et du siège modifié est transactionnel côté PocketBase, dans `lib/addresses.js`, avec audit / activité existants ; la fiche entière (société, rôles, adresses, comptes) reste une séquence de sauvegardes avec reprise explicite des erreurs partielles. Identifiants de création stables conservés jusqu’au succès, pour éviter les doublons lors d’une reprise réseau.
+
+### Thème d’interface clair / sombre
+
+`core/theme/theme.ts` porte la préférence locale et la synchronisation des onglets via `useSyncExternalStore` ; `ThemeToggle` dans la top bar est le point d’entrée. Valeur `light` ou `dark`, clé navigateur `horizon.theme`, mode clair par défaut. Le bootstrap minimal dans `index.html` applique la préférence avant le premier affichage, y compris à la connexion. Stockage indisponible : bascule utilisable pour la session courante. Aucune requête métier ni persistance PocketBase.
+
+`shared/theme.css` centralise les couleurs sémantiques du mode sombre. Les règles partagées de `styles.css` utilisent ces tokens avec les couleurs claires existantes en fallback : surfaces, bordures, texte et états colorés. Le token de texte des formulaires passe du noir au blanc clair. La sidebar et la marque gardent leur charte ; les logos et aperçus d’images conservent le fond blanc. Les portals Radix héritent du thème depuis l’élément `html`. Changer de thème ne remonte pas les formulaires et ne modifie pas leurs brouillons.

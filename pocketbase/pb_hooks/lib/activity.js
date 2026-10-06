@@ -2,7 +2,7 @@ const labels = {
   name: 'Nom usuel', legal_name: 'Raison sociale', first_name: 'Prénom', last_name: 'Nom', job_title: 'Fonction', email: 'E-mail', phone: 'Téléphone', mobile: 'Mobile', website: 'Site web',
   siren: 'SIREN', siret: 'SIRET', vat_number: 'Numéro de TVA', lei: 'LEI', preferred_language: 'Langue', default_currency: 'Devise', notes: 'Notes internes', active: 'Statut', logo: 'Logo', avatar: 'Photo', company: 'Société',
   billing_email: 'E-mail de facturation', einvoice_platform: 'Plateforme agréée', einvoice_routing_address: 'Adresse de facturation électronique', einvoice_service_code: 'Code service', einvoice_status: 'Préparation facturation',
-  line1: 'Adresse', line2: 'Complément', postal_code: 'Code postal', city: 'Ville', country: 'Pays', state_region: 'Région', is_primary: 'Adresse principale', account_code: 'Compte',
+  line1: 'Adresse', line2: 'Complément', postal_code: 'Code postal', city: 'Ville', country: 'Pays', state_region: 'Région', is_primary: 'Adresse principale', label: 'Libellé', type: 'Usage', account_code: 'Compte',
 }
 const statusLabels = { todo: 'À faire', in_progress: 'En cours', blocked: 'Bloquée', done: 'Terminée', cancelled: 'Annulée' }
 const allowed = (app, user, write = false) => {
@@ -43,6 +43,7 @@ const publish = (app, root, actor, type, body, metadata, operation = '') => {
 const display = (app, field, value) => {
   if (field === 'company' && value) { try { return targetName(app.findRecordById('contacts_companies', value)) } catch { return 'Ancienne société' } }
   if (field === 'active') return value ? 'Actif' : 'Archivé'
+  if (field === 'type') return ({ registered: 'Siège', billing: 'Facturation', shipping: 'Livraison', other: 'Autre' })[value] || value
   if (field === 'is_primary') return value ? 'Oui' : 'Non'
   if (field === 'einvoice_status') return ({ unknown: 'À vérifier', to_configure: 'À compléter', ready: 'Informations renseignées', not_applicable: 'Non concerné' })[value] || 'Non renseigné'
   return String(value ?? '').slice(0, 500)

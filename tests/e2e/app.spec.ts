@@ -96,6 +96,7 @@ test('le layout reste lisible sur desktop et mobile sans débordement horizontal
 test('la top bar reste en haut pendant le défilement et le compte reste accessible', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 450 })
   await page.goto('/settings')
+  await expect(page.getByRole('heading', { name: 'Paramètres', level: 1, exact: true })).toBeVisible()
   await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
   expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(100)
   expect((await page.locator('.topbar').boundingBox())?.y).toBe(0)
@@ -137,4 +138,60 @@ test('contexte automatique, choix global et retour au contexte de la nouvelle pa
   await scope.click()
   await expect(page.getByRole('menuitemradio', { name: 'Recherche globale' })).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+})
+
+
+test('thème clair / sombre : bascule, persistance et menus adaptés', async ({ page }) => {
+  await page.goto('/')
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
+  await page.getByRole('button', { name: 'Passer en mode sombre', exact: true }).click()
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
+  await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(14, 23, 38)')
+  await expect(page.locator('.topbar')).toHaveCSS('background-color', 'rgb(22, 34, 54)')
+  await page.getByRole('button', { name: 'Menu utilisateur', exact: true }).click()
+  await expect(page.getByRole('menu')).toHaveCSS('background-color', 'rgb(22, 34, 54)')
+  await page.keyboard.press('Escape')
+  await page.getByRole('navigation', { name: 'Navigation principale' }).getByRole('link', { name: 'Paramètres', exact: true }).click()
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
+  await expect(page.getByRole('heading', { name: 'Paramètres', level: 1, exact: true })).toBeVisible()
+  await page.reload()
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
+  await page.screenshot({ path: '/private/tmp/horizon-dark-settings.png', fullPage: true })
+  await page.setViewportSize({ width: 390, height: 844 })
+  await expect(page.getByRole('button', { name: 'Passer en mode clair', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Menu utilisateur', exact: true })).toBeVisible()
+  const search = await page.locator('.workspace-search').boundingBox()
+  const bar = await page.locator('.topbar').boundingBox()
+  expect(Math.abs(search!.x + search!.width / 2 - bar!.x - bar!.width / 2)).toBeLessThan(1)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await page.screenshot({ path: '/private/tmp/horizon-dark-mobile.png', fullPage: true })
+  await page.getByRole('button', { name: 'Passer en mode clair', exact: true }).click()
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
+  await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(245, 248, 253)')
+  await page.reload()
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
+})
+
+test('thème : préférence appliquée au démarrage et synchronisée entre onglets', async ({ page }) => {
+  await page.addInitScript(() => { if (!localStorage.getItem('horizon.theme')) localStorage.setItem('horizon.theme', 'dark') })
+  await page.goto('/')
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
+  const other = await page.context().newPage()
+  await other.goto('/')
+  await expect(other.locator('html')).toHaveAttribute('data-theme', 'dark')
+  await page.getByRole('button', { name: 'Passer en mode clair', exact: true }).click()
+  await expect(other.locator('html')).toHaveAttribute('data-theme', 'light')
+  await other.close()
+})
+
+test('thème : bascule utilisable même si le stockage navigateur est bloqué', async ({ page }) => {
+  await page.addInitScript(() => {
+    Storage.prototype.getItem = () => { throw new DOMException('Storage disabled', 'SecurityError') }
+    Storage.prototype.setItem = () => { throw new DOMException('Storage disabled', 'SecurityError') }
+  })
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Passer en mode sombre', exact: true }).click()
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
+  await page.getByRole('button', { name: 'Passer en mode clair', exact: true }).click()
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
 })

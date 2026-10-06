@@ -25,6 +25,52 @@ class ContactsTests(unittest.TestCase):
         self.assertEqual(status, 200, record)
         return record
 
+    def test_postal_and_email_address_batch_permissions_and_retry(self):
+        company = self.create_company()
+        route = 'horizon/contacts/addresses/save'
+        payload = {'company': company['id'], 'operation': 'operation-addresses-2026', 'entries': [
+            {'creation_id': 'newemail1234567', 'input': {'type': 'billing', 'label': 'Comptabilité', 'email': 'billing@local.invalid', 'is_primary': True}},
+            {'creation_id': 'postal000000001', 'input': {'type': 'shipping', 'label': 'Entrepôt', 'line1': '12 rue du Test', 'city': 'Lyon', 'country': 'FR', 'email': 'warehouse@local.invalid'}},
+        ]}
+        # Record ids must be 15 characters, stable across an ambiguous retry.
+        for token in ['', self.reader, self.other]:
+            self.assertIn(self.pb.request('POST', route, payload, token)[0], [401, 403])
+        status, result = self.pb.request('POST', route, payload, self.token)
+        self.assertEqual(status, 200, result)
+        self.assertEqual(len(result['items']), 2)
+        self.assertEqual(result['items'][0]['line1'], '')
+        self.assertEqual(result['items'][1]['email'], 'warehouse@local.invalid')
+        status, retry = self.pb.request('POST', route, payload, self.token)
+        self.assertEqual(status, 200, retry)
+        self.assertEqual([item['id'] for item in retry['items']], [item['id'] for item in result['items']])
+        addresses = self.pb.request('GET', 'collections/contacts_addresses/records', token=self.token)[1]['items']
+        self.assertEqual(len(addresses), 2)
+        other_company = self.create_company('Autre société')
+        self.assertEqual(self.pb.request('POST', route, {**payload, 'company': other_company['id']}, self.token)[0], 403)
+        self.pb.request('PATCH', f'collections/contacts_companies/records/{company["id"]}', {'active': False}, self.token)
+        self.assertEqual(self.pb.request('POST', route, payload, self.token)[0], 400)
+
+    def test_address_batch_atomic_validation_primary_and_audit(self):
+        company = self.create_company()
+        route = 'horizon/contacts/addresses/save'
+        old = self.pb.create('contacts_addresses', {'company': company['id'], 'type': 'billing', 'email': 'old@local.invalid', 'is_primary': True})
+        payload = {'company': company['id'], 'operation': 'operation-addresses-atomic', 'entries': [
+            {'creation_id': 'addressnew12345', 'input': {'type': 'billing', 'email': 'new@local.invalid', 'is_primary': True}},
+            {'creation_id': 'addressbad12345', 'input': {'type': 'shipping', 'line1': 'Adresse incomplète'}},
+        ]}
+        self.assertEqual(self.pb.request('POST', route, payload, self.token)[0], 400)
+        self.assertTrue(self.pb.request('GET', f'collections/contacts_addresses/records/{old["id"]}', token=self.token)[1]['is_primary'])
+        self.assertEqual(self.pb.request('GET', 'collections/contacts_addresses/records', token=self.token)[1]['totalItems'], 1)
+        payload['entries'] = payload['entries'][:1]
+        status, result = self.pb.request('POST', route, payload, self.token)
+        self.assertEqual(status, 200, result)
+        self.assertTrue(result['items'][0]['is_primary'])
+        self.assertFalse(self.pb.request('GET', f'collections/contacts_addresses/records/{old["id"]}', token=self.token)[1]['is_primary'])
+        audits = self.pb.request('GET', 'collections/core_audit/records?perPage=500', token=self.pb.admin_token)[1]['items']
+        self.assertTrue(any(item['entity_id'] == result['items'][0]['id'] and item['user'] == self.writer['id'] for item in audits))
+        for input in [{'type': 'other'}, {'type': 'billing', 'email': 'invalid'}, {'type': 'shipping', 'country': 'FR'}]:
+            self.assertEqual(self.pb.request('POST', 'collections/contacts_addresses/records', {'company': company['id'], **input}, self.token)[0], 400)
+
     def test_crud_archive_preserves_relations_and_audits_actor(self):
         company = self.create_company()
         person = self.pb.create('contacts_people', {'company': company['id'], 'last_name': 'Contact', 'active': True})
@@ -268,7 +314,7 @@ class ContactsTests(unittest.TestCase):
 
     def test_contacts_revision_permissions_and_no_company_search_proxy(self):
         route = 'horizon/company-lookup/'
-        self.assertEqual(self.pb.request('GET', route + 'status', token=self.token)[1], {'contacts_revision': 4})
+        self.assertEqual(self.pb.request('GET', route + 'status', token=self.token)[1], {'contacts_revision': 5})
         for token in ['', self.other]:
             self.assertIn(self.pb.request('GET', route + 'status', token=token)[0], [401, 403])
         self.assertEqual(self.pb.request('GET', route + 'search?q=ab', token=self.reader)[0], 404)

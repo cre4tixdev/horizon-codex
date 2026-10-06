@@ -2726,3 +2726,22 @@ Filtres Tout / Modifications / Commentaires / Documents / Tâches, pagination de
 
 
 Commentaires et fichiers — finition : les commentaires publiés sont présentés dans une bulle blanche discrète. Chaque fichier publié propose une corbeille aux utilisateurs disposant de contacts.write sur une fiche active. La suppression nécessite de saisir SUPPRIMER dans la confirmation rouge commune ; Annuler ne modifie rien. Elle retire uniquement ce fichier, conserve le commentaire, son auteur, sa date et ses mentions, et ajoute un événement de suppression avec nom du fichier/auteur/date. Les autres fichiers restent accessibles. Si une publication sans texte perd sa dernière pièce jointe, elle reste visible avec une indication de retrait. Les fichiers sélectionnés dans le brouillon restent retirables avant publication sans écriture en base.
+
+
+Recherche d’images — Wikimedia + Google/collage : le popup propose Google Images en premier, actif par défaut, et Wikimedia en second ; chaque onglet affiche son propre parcours. Le bouton ouvre une fenêtre séparée avec les mots-clés actuels et le filtre de format ; société : nom + logo, image générique/produit : mots-clés sans suffixe logo. L’utilisateur copie l’image elle-même dans Google, revient dans Horizon et colle via ⌘ V / Ctrl V dans la zone prévue ; aperçu local, retrait, Annuler ou Utiliser. Une seule image PNG/JPEG/WebP de 2 Mio maximum ; contenu vérifié par décodage avant validation. Le presse-papiers est reçu uniquement sur un collage explicite, sans demande de lecture générale. Annuler abandonne la sélection. Le fichier choisi reste dans le brouillon jusqu’à Enregistrer. Composant partagé prêt pour les futures images produits ; actuellement branché aux logos sociétés, le module Produits n’étant pas encore implémenté.
+
+
+Recherche d’images : Wikimedia et Google/collage sont désormais deux onglets distincts. Google est actif à chaque ouverture. Un seul choix à la fois ; basculer abandonne la sélection locale, pas les mots-clés. L’aperçu Google est intégré à la zone de collage et masque les étapes une fois l’image prête. La sauvegarde reste explicitement celle de la fiche.
+
+### Onglets Contacts et Adresses de la société — 6 octobre 2026
+
+Navigation actuelle : **Informations → Contacts → Adresses → Comptabilité → Notes**. Contacts remplace Relations et présente toutes les personnes rattachées à la société, avec accès à leur fiche et création d’un contact associé. Les rôles Client / Fournisseur demeurent dans Informations. Adresses regroupe siège, livraison, facturation, autres adresses et e-mails. Cartes par usage, libellé libre, édition des coordonnées et choix de l’adresse principale pour chaque usage. Une ligne peut porter uniquement un e-mail, une adresse postale ou les deux. L’e-mail général et l’e-mail de facturation déjà saisis sont aussi accessibles ici sans doublon en base.
+
+Ajouter ou modifier une adresse active Enregistrer en haut ; aucun bouton intermédiaire n’écrit en base. Les brouillons persistent lors du changement d’onglet. On peut retirer une nouvelle adresse du brouillon ; les adresses enregistrées restent conservées. Sur une nouvelle société, enregistrer d’abord la fiche pour accéder aux répertoires Contacts / Adresses. Les lecteurs et les sociétés archivées consultent ces répertoires sans actions d’édition. La sauvegarde depuis Adresses conserve cet onglet après succès et rechargement.
+
+
+Contacts associés — filtre d’archives : afficher Actifs / Archivés avec le nombre d’archives uniquement si la société possède au moins un contact archivé. Filtre compact dans l’en-tête, à côté d’Ajouter un contact, police Inter commune et sélection soulignée discrètement ; aucune case à cocher isolée. Le filtre consulte les données sans écriture et revient à la première page lors d’un changement. Présentation responsive et disponible aux lecteurs autorisés.
+
+### Mode clair / sombre
+
+Bouton lune / soleil dans la top bar, à droite de la recherche et à côté des notifications / du compte. Bascule immédiate pour toute l’interface : Dashboard, Contacts, Adresses, Paramètres, champs, tableaux, menus, popups et fil d’activité. Choix mémorisé pour ce navigateur, conservé au rechargement et synchronisé entre onglets ouverts ; mode clair initial sans préférence. Aucune sauvegarde métier ni modification des brouillons. Les logos restent entiers sur fond blanc. Sur mobile, top bar fixe à deux lignes compactes : actions en haut et recherche centrée sur toute la largeur en dessous.
