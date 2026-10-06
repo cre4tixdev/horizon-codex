@@ -5,8 +5,9 @@ import { useReferences } from '../../settings/hooks/useReferences'
 import { ContactAvatar } from './ContactIdentity'
 import { roleLabels } from '../schemas/contacts'
 import type { Company, Person } from '../types/contacts'
+import type { ContactDirectoryContext } from '../navigationContext'
 
-export function ContactCards({ records }: { records: (Company | Person)[] }) {
+export function ContactCards({ records, directory }: { records: (Company | Person)[]; directory?: ContactDirectoryContext }) {
   const countries = useReferences('settings_countries')
   return <div className="contact-card-grid" aria-label="Fiches en cartes">{records.map((record) => {
     const company = 'name' in record ? record : undefined
@@ -18,21 +19,32 @@ export function ContactCards({ records }: { records: (Company | Person)[] }) {
     const address = registered.find((item) => item.is_primary) ?? (registered.length === 1 ? registered[0] : undefined)
     const country = countries.data?.find((item) => item.code === address?.country)?.label ?? address?.country
     const location = [address?.city, country].filter(Boolean).join(', ')
+    const phone = record.phone || person?.mobile
     const roles = relatedCompany?.expand?.contacts_company_roles_via_company?.filter((role) => role.active) ?? []
-    return <article className="contact-directory-card" key={record.id}>
-      <Link className="contact-card-portrait" to={destination} aria-label={`Ouvrir la fiche de ${name}`}><ContactAvatar kind={company ? 'company' : 'person'} collectionId={record.collectionId} id={record.id} filename={company?.logo ?? person?.avatar ?? ''} company={person?.expand?.company} /></Link>
+    return <article className={`contact-directory-card${person ? ' contact-directory-card--person' : ''}`} key={record.id}>
+      <Link className="contact-card-portrait" to={destination} state={directory ? { contactDirectory: directory } : undefined} aria-label={`Ouvrir la fiche de ${name}`}><ContactAvatar kind={company ? 'company' : 'person'} collectionId={record.collectionId} id={record.id} filename={company?.logo ?? person?.avatar ?? ''} company={person?.expand?.company} /></Link>
       <div className="contact-card-body">
-        <Link className="contact-card-title" to={destination}>{name}</Link>
-        {person?.job_title && <p className="contact-card-function">{person.job_title}</p>}
-        {person?.expand?.company && <Link className="contact-card-company" to={`/contacts/companies/${person.company}`}><Building2 size={14} />{person.expand.company.name}</Link>}
+        <Link className="contact-card-title" to={destination} state={directory ? { contactDirectory: directory } : undefined} title={name}><span>{name}</span></Link>
+        {person && (person.job_title || person.expand?.company) && <div className="contact-card-meta">
+          {person.job_title && <p className="contact-card-function" title={person.job_title}>{person.job_title}</p>}
+          {person.expand?.company && <Link className="contact-card-company" to={`/contacts/companies/${person.company}`} title={person.expand.company.name}><Building2 size={12} /><span>{person.expand.company.name}</span></Link>}
+        </div>}
         <div className="contact-card-coordinates">
-          {record.email && <a href={`mailto:${record.email}`}><Mail size={16} aria-hidden="true" /><span>{record.email}</span></a>}
-          {location && <p title={person ? `Siège de ${relatedCompany?.name}` : [address?.line1, address?.postal_code, address?.city].filter(Boolean).join(', ')}><MapPin size={16} aria-hidden="true" /><span>{location}</span></p>}
-          {(record.phone || person?.mobile) && <a href={`tel:${record.phone || person?.mobile}`}><Phone size={16} aria-hidden="true" /><span>{record.phone || person?.mobile}</span></a>}
-          {!record.email && !record.phone && !person?.mobile && !location && <span className="contact-muted">Coordonnées à compléter</span>}
+          {person ? <>
+            {record.email && <a className="contact-card-primary-coordinate" href={`mailto:${record.email}`} title={record.email}><Mail size={14} aria-hidden="true" /><span>{record.email}</span></a>}
+            {location && <p className={record.email ? undefined : 'contact-card-primary-coordinate'} title={location} aria-label={location}><MapPin size={14} aria-hidden="true" />{!record.email && <span>{location}</span>}</p>}
+            {phone && <a className={!record.email && !location ? 'contact-card-primary-coordinate' : undefined} href={`tel:${phone}`} title={phone} aria-label={phone}><Phone size={14} aria-hidden="true" />{!record.email && !location && <span>{phone}</span>}</a>}
+          </> : <>
+          {record.email && <a href={`mailto:${record.email}`} title={record.email}><Mail size={16} aria-hidden="true" /><span>{record.email}</span></a>}
+          {(location || phone) && <div className="contact-card-secondary">
+            {location && <p title={[location, address?.line1, address?.postal_code].filter(Boolean).join(' · ')}><MapPin size={14} aria-hidden="true" /><span>{location}</span></p>}
+            {phone && <a href={`tel:${phone}`} title={phone}><Phone size={14} aria-hidden="true" /><span>{phone}</span></a>}
+          </div>}
+          </>}
+          {!record.email && !phone && !location && <span className="contact-muted">Coordonnées à compléter</span>}
         </div>
-        <div className="contact-card-footer"><div className="contact-role-list">{roles.map((role) => <HBadge key={role.id} className={`contact-role-pill contact-role-pill--${role.role}`}>{roleLabels[role.role]}</HBadge>)}{!record.active && <HBadge>Archivé</HBadge>}</div></div>
       </div>
+      <div className="contact-card-footer"><div className="contact-role-list">{roles.map((role) => <HBadge key={role.id} className={`contact-role-pill contact-role-pill--${role.role}`}>{roleLabels[role.role]}</HBadge>)}{!record.active && <HBadge>Archivé</HBadge>}</div></div>
     </article>
   })}</div>
 }

@@ -6,6 +6,11 @@ import { HDialog } from '../../shared/ui/HDialog'
 import { HInput } from '../../shared/ui/HInput'
 import { DropdownMenu } from 'radix-ui'
 import { searchNavigation } from '../searchNavigation'
+import { contactSearchFilters, contactGroupingFilter, contactSortFilter } from '../../modules/contacts'
+import { changeFilter, filterValue, resetFilters, type SearchFilter } from '../../shared/search/filters'
+import { SearchFilterChips, SearchFilters } from '../../shared/search/SearchFilters'
+import { SavedViews } from '../../shared/search/SavedViews'
+import { viewParamsSchema } from '../../core/views/types'
 
 export function WorkspaceSearch() {
   const { pathname } = useLocation()
@@ -14,6 +19,19 @@ export function WorkspaceSearch() {
   const [mode, setMode] = useState({ pathname, global: false })
   const global = mode.pathname === pathname && mode.global
   const contextual = Boolean(scope) && !global
+  const filters = pathname === '/contacts' || pathname === '/contacts/people' ? contactSearchFilters : []
+  const selections = filters.map((filter) => ({ filter, value: filterValue(params, filter) }))
+  const directory = pathname === '/contacts' || pathname === '/contacts/people'
+  const groupFilter = contactGroupingFilter(pathname === '/contacts/people')
+  const sortFilter = contactSortFilter(pathname === '/contacts/people')
+  const definitions = [...filters, groupFilter, sortFilter]
+  const savedParams: Record<string, string> = {}
+  if (params.get('q')) savedParams.q = params.get('q')!.slice(0, 200)
+  if (params.get('view') === 'list') savedParams.view = 'list'
+  definitions.forEach((filter) => { const value = filterValue(params, filter); if (value !== filter.defaultValue) savedParams[filter.key] = value })
+  function setFilter(filter: SearchFilter, value: string) {
+    setParams((current) => changeFilter(current, filter, value))
+  }
   const contextualRef = useRef<HTMLInputElement>(null)
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
@@ -60,8 +78,17 @@ export function WorkspaceSearch() {
   if (contextual) return <div className="workspace-search workspace-search--contextual">
     <Search size={16} aria-hidden="true" />
     {scopeSelector}
+    <SearchFilterChips selections={[...selections, ...(directory ? [{ filter: groupFilter, value: filterValue(params, groupFilter) }] : [])]} onChange={setFilter} />
     <HInput ref={contextualRef} type="search" aria-label={scope === 'Paramètres' ? 'Rechercher dans les paramètres' : 'Rechercher dans les contacts'} aria-describedby="workspace-search-scope" placeholder={scope === 'Paramètres' ? 'Rechercher un paramétrage…' : pathname === '/contacts' ? 'Rechercher une société, un e-mail…' : 'Rechercher une personne, une société…'} value={params.get('q') ?? ''} onChange={(event) => changeSearch(event.target.value)} />
     {params.get('q') ? <HButton variant="ghost" size="icon" aria-label="Effacer la recherche" onClick={() => { changeSearch(''); contextualRef.current?.focus() }}><X size={14} /></HButton> : <kbd>⌘ / Ctrl K</kbd>}
+    <SearchFilters selections={selections} grouping={directory ? { filter: groupFilter, value: filterValue(params, groupFilter) } : undefined} sorting={directory ? { filter: sortFilter, value: filterValue(params, sortFilter) } : undefined} onChange={setFilter} onReset={() => setParams((current) => resetFilters(current, definitions))}>
+      {directory && <SavedViews key={pathname} context={pathname === '/contacts/people' ? 'contacts.people' : 'contacts.companies'} params={viewParamsSchema.parse(savedParams)} onApply={(view) => setParams((current) => {
+        const next = resetFilters(current, definitions)
+        next.delete('q'); next.delete('view')
+        Object.entries(view.params).forEach(([key, value]) => { if (value !== undefined) next.set(key, value) })
+        return next
+      })} />}
+    </SearchFilters>
   </div>
 
   return (

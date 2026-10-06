@@ -5,10 +5,20 @@ import { companyInputSchema, personInputSchema, companySchema, roleSchema, addre
 
 const company = { name: ' Test ', legal_name: '', vat_number: '', lei: '', billing_email: '', einvoice_routing_address: '', einvoice_platform: '', einvoice_service_code: '', einvoice_status: 'unknown' as const, preferred_language: '', siren: '', siret: '', default_currency: '', website: '', phone: '', email: '', notes: '' }
 function setup(permissions = ['contacts.read', 'contacts.write']) {
-  const repository: ContactsRepository = { ensureRevision: vi.fn(), summary: vi.fn(), companies: vi.fn(), people: vi.fn(), company: vi.fn(), person: vi.fn(), saveCompany: vi.fn(), savePerson: vi.fn(), setActive: vi.fn(), deleteRecord: vi.fn(), addresses: vi.fn(), saveAddress: vi.fn(), saveAddresses: vi.fn(), saveRole: vi.fn(), removeGallery: vi.fn(), imageURL: vi.fn() }
+  const repository: ContactsRepository = { ensureRevision: vi.fn(), companyPeopleCount: vi.fn(), navigation: vi.fn(), summary: vi.fn(), companies: vi.fn(), people: vi.fn(), company: vi.fn(), person: vi.fn(), saveCompany: vi.fn(), savePerson: vi.fn(), setActive: vi.fn(), deleteRecord: vi.fn(), addresses: vi.fn(), saveAddress: vi.fn(), saveAddresses: vi.fn(), saveRole: vi.fn(), removeGallery: vi.fn(), imageURL: vi.fn() }
   return { service: new ContactsService(repository, (permission) => permissions.includes(permission)), repository }
 }
 describe('Contacts service', () => {
+  it('protège la navigation des fiches avant toute requête', async () => {
+    const { service, repository } = setup([])
+    await expect(service.navigation('companies', 'record', { search: '', archived: false, page: 1 })).rejects.toThrow('permissions')
+    expect(repository.navigation).not.toHaveBeenCalled()
+  })
+  it('protège les compteurs contextuels avant toute requête', async () => {
+    const { service, repository } = setup([])
+    await expect(service.companyPeopleCount('record')).rejects.toThrow('permissions')
+    expect(repository.companyPeopleCount).not.toHaveBeenCalled()
+  })
   it('refuse la lecture sans permission avant toute requête', async () => {
     const { service, repository } = setup([])
     await expect(service.companies({ page: 1, search: '', archived: false })).rejects.toThrow('permissions')

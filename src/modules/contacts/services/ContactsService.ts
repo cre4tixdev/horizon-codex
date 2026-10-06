@@ -53,6 +53,8 @@ export class ContactsService {
     if ((files.gallery?.length ?? 0) > 10) throw new Error('La galerie est limitée à dix images.')
   }
   summary() { return this.run('contacts.read', (repo) => repo.summary()) }
+  companyPeopleCount(company: string) { return this.run('contacts.read', (repo) => repo.companyPeopleCount(company)) }
+  navigation(kind: ContactKind, id: string, options: ListOptions) { return this.run('contacts.read', (repo) => repo.navigation(kind, id, options)) }
   ready() { return this.run('contacts.read', (repo) => repo.ensureRevision()) }
   companies(options: ListOptions) { return this.run('contacts.read', (repo) => repo.companies(options)) }
   people(options: ListOptions) { return this.run('contacts.read', (repo) => repo.people(options)) }

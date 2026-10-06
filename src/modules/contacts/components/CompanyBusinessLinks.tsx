@@ -1,5 +1,9 @@
-import { FileText, Receipt, Truck, Target } from 'lucide-react'
-// These modules have no executable collections/routes yet. Never invent totals.
-export function CompanyBusinessLinks({ person = false, companyName }: { person?: boolean; companyName?: string }) {
-  return <nav className="company-business-links" aria-label={person ? 'Objets métier de la société associée' : 'Objets métier de la société'}>{person && <span className="company-business-context">Activité de {companyName}</span>}{[{ label: 'Devis', icon: FileText }, { label: 'Factures', icon: Receipt }, { label: 'Bons de livraison', icon: Truck }, { label: 'Opportunités', icon: Target }].map(({ label, icon: Icon }) => <button key={label} type="button" disabled title="Disponible à la livraison du module concerné · périmètre société"><Icon size={17} /><span>{label}</span><small>À venir</small></button>)}</nav>
+import { HBreadcrumbActions } from '../../../shared/ui/HBreadcrumbActions'
+import { HRecordLinks } from '../../../shared/ui/HRecordLinks'
+import { companyShortcuts } from '../companyShortcuts'
+import type { Company } from '../types/contacts'
+
+export function CompanyBusinessLinks({ company, person = false, busy = false }: { company: Company; person?: boolean; busy?: boolean }) {
+  const roles = company.expand?.contacts_company_roles_via_company?.filter((role) => role.active).map((role) => role.role) ?? []
+  return <HBreadcrumbActions placement="related"><HRecordLinks items={companyShortcuts(roles)} busy={busy} label={person ? 'Objets métier de la société associée' : 'Objets métier de la société'} /></HBreadcrumbActions>
 }

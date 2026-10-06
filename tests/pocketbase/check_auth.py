@@ -322,6 +322,8 @@ if __name__ == '__main__':
             pb.create('core_notifications', {'user': writer['id'], 'title': 'Notification de recette', 'body': 'Un message réservé à ce compte.'})
             references_role = pb.create('core_roles', {'name': 'references_editor', 'label': 'Référentiels', 'active': True, 'permissions': ['contacts.read', 'contacts.write', 'settings.references']})
             pb.create_user('references@local.invalid', references_role['id'])
+            views_role = pb.create('core_roles', {'name': 'views_admin', 'label': 'Administrateur des vues', 'active': True, 'permissions': ['contacts.read', 'core.views.manage']})
+            pb.create_user('views-admin@local.invalid', views_role['id'])
             colleague = pb.create_user('activity@local.invalid', pb.role['id'])
             pb.request('PATCH', f'collections/core_users/records/{colleague["id"]}', {'name': 'Alice Martin'}, pb.admin_token)
             print('Local PocketBase auth fixture ready on 127.0.0.1:18090', flush=True)

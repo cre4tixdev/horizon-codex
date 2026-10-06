@@ -8,12 +8,15 @@ import { UserMenu } from './UserMenu'
 import { WorkspaceSearch } from './WorkspaceSearch'
 import { HorizonMark } from '../../shared/branding/HorizonMark'
 import { HBreadcrumb } from '../../shared/ui/HBreadcrumb'
+import { BreadcrumbActionsContext } from '../../shared/ui/breadcrumbActionsContext'
 import { HButton } from '../../shared/ui/HButton'
 import { HDialog } from '../../shared/ui/HDialog'
 import { isLayoutPreview, sessionService } from '../../core/auth/services/session'
 import { AuthError } from '../../core/auth/services/AuthError'
 
 export function AppFrame() {
+  const [breadcrumbActions, setBreadcrumbActions] = useState<HTMLDivElement | null>(null)
+  const [breadcrumbRelated, setBreadcrumbRelated] = useState<HTMLDivElement | null>(null)
   const [connectionError, setConnectionError] = useState<string>()
   useEffect(() => {
     if (isLayoutPreview) return
@@ -68,8 +71,8 @@ export function AppFrame() {
         </header>
         <main id="main-content" tabIndex={-1} className="main-content">
           {connectionError && <p role="alert" className="login-notice">{connectionError}</p>}
-          <HBreadcrumb items={[{ label: 'Accueil', href: '/' }, { label: currentTitle }]} />
-          <Outlet />
+          <div className="page-breadcrumb-row"><HBreadcrumb items={[{ label: 'Accueil', href: '/' }, { label: currentTitle }]} /><div ref={setBreadcrumbRelated} className="page-breadcrumb-related" /><div ref={setBreadcrumbActions} className="page-breadcrumb-actions" /></div>
+          <BreadcrumbActionsContext.Provider value={{ navigation: breadcrumbActions, related: breadcrumbRelated }}><Outlet /></BreadcrumbActionsContext.Provider>
         </main>
       </div>
     </div>

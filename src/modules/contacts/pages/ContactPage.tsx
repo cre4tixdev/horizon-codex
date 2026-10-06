@@ -1,7 +1,7 @@
 import { useState, useSyncExternalStore } from 'react'
 import { Controller, useForm, useWatch } from 'react-hook-form'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router'
 import { ArrowLeft, ArrowUpRight, Building2, UserRound, Phone, MapPin, Fingerprint, SlidersHorizontal, StickyNote, ChevronDown, Save, Mail, Globe } from 'lucide-react'
 import { sessionService } from '../../../core/auth/services/session'
 import { hasPermission } from '../../../core/auth/types/session'
@@ -19,6 +19,8 @@ import { CompanyLookup } from '../components/CompanyLookup'
 import { CompanyBusinessLinks } from '../components/CompanyBusinessLinks'
 import { ReferencePicker } from '../components/ReferencePicker'
 import { CompanyPeople } from '../components/CompanyPeople'
+import { ContactRecordNavigator } from '../components/ContactRecordNavigator'
+import { directoryContext, directoryHref } from '../navigationContext'
 import { ContactImageEditor } from '../components/ContactImageEditor'
 import { CompanyRoleChoices } from '../components/CompanyRelations'
 import { CompanyAddresses, type AddressDraft } from '../components/CompanyAddresses'
@@ -40,11 +42,14 @@ const fields = {
 
 function ContactEditor({ kind, record, addresses, accounts, canWrite, duplicateSource, duplicateAddress }: { accounts: AccountDraft; duplicateSource?: Company | Person | undefined; duplicateAddress?: Address | undefined; kind: ContactKind; record?: Company | Person | undefined; addresses: Address[]; canWrite: boolean }) {
   const navigate = useNavigate()
+  const location = useLocation()
+  const directory = directoryContext(location.state, kind)
   const [searchParams, setSearchParams] = useSearchParams()
   const client = useQueryClient()
-  const [section, setSection] = useState(record && searchParams.get('section') === 'addresses' ? 'addresses' : 'information')
+  const [section, setSection] = useState(kind === 'companies' && record && ['contacts', 'addresses'].includes(searchParams.get('section') ?? '') ? searchParams.get('section')! : 'information')
   const [companySearch, setCompanySearch] = useState('')
   const [chosenCompany, setChosenCompany] = useState<Company>()
+  const [changingRecord, setChangingRecord] = useState(false)
   const [files, setFiles] = useState<ContactFiles>({})
   const source = record ?? duplicateSource
   const initialRoles = source && 'name' in source ? source.expand?.contacts_company_roles_via_company?.filter((role) => role.active).map((role) => role.role) ?? [] : []
@@ -56,6 +61,8 @@ function ContactEditor({ kind, record, addresses, accounts, canWrite, duplicateS
   const company = record && 'name' in record ? record : undefined
   const person = record && 'first_name' in record ? record : undefined
   const relatedCompany = company ?? person?.expand?.company
+  const peopleCount = useQuery({ queryKey: ['contacts', 'company-people-count', company?.id], queryFn: () => contactsService.companyPeopleCount(company!.id), enabled: Boolean(company), staleTime: 10_000, retry: false })
+  const addressCount = addresses.length + (company?.email ? 1 : 0) + (company?.billing_email ? 1 : 0)
   const registered = addresses.filter((address) => address.type === 'registered')
   const primaryAddress = registered.find((address) => address.is_primary) ?? (registered.length === 1 ? registered[0] : undefined)
   const initialExtraDrafts: AddressDraft[] = addresses.filter((address) => address.id !== primaryAddress?.id).map((address) => ({ key: address.id, id: address.id, input: addressInputSchema.parse(address) }))
@@ -79,7 +86,7 @@ function ContactEditor({ kind, record, addresses, accounts, canWrite, duplicateS
     mutationFn: async ({ input, address }: { input: FormValues; address?: AddressInput | undefined }) => kind === 'companies'
       ? contactsService.saveCompanyDetails(companyInputSchema.parse(input), files, address, record?.id ?? stagedCompany?.id, primaryAddress?.id, draftRoles, accountDraftSchema.parse(input), extraChanges.map((draft) => ({ ...(draft.id ? { id: draft.id } : { creation_id: draft.key }), input: draft.input })), primaryCreationId)
       : contactsService.savePerson(personInputSchema.parse(input), files, record?.id),
-    onSuccess: async (saved) => { setFiles({}); await client.cancelQueries({ queryKey: ['contacts'] }); await client.invalidateQueries({ queryKey: ['contacts'] }); await client.invalidateQueries({ queryKey: ['activity'] }); navigate(`/contacts/${kind}/${saved.id}${section === 'addresses' ? '?section=addresses' : ''}`, { replace: true }) },
+    onSuccess: async (saved) => { setFiles({}); await client.cancelQueries({ queryKey: ['contacts'] }); await client.invalidateQueries({ queryKey: ['contacts'] }); await client.invalidateQueries({ queryKey: ['activity'] }); navigate(`/contacts/${kind}/${saved.id}${['addresses', 'contacts'].includes(section) ? `?section=${section}` : ''}`, { replace: true, state: location.state }) },
     onError: (error) => { if (error instanceof CompanyAddressSaveError || error instanceof CompanyRolesSaveError || error instanceof CompanyAccountingSaveError) { setStagedCompany(error.company); setFiles({}) } },
   })
   const archive = useMutation({ mutationFn: (active: boolean) => contactsService.setActive(kind, record!.id, active), onSuccess: async () => { await client.invalidateQueries({ queryKey: ['contacts'] }); await client.invalidateQueries({ queryKey: ['activity'] }) } })
@@ -116,24 +123,31 @@ function ContactEditor({ kind, record, addresses, accounts, canWrite, duplicateS
     return <label key={name} htmlFor={`contact-${name}`}>{field.label}<HInput id={`contact-${name}`} type={'type' in field ? field.type : 'text'} placeholder={field.placeholder} {...form.register(name)} aria-invalid={Boolean(form.formState.errors[name])} aria-describedby={form.formState.errors[name] ? `error-${name}` : undefined} />{form.formState.errors[name] && <span className="field-error" id={`error-${name}`}>{form.formState.errors[name]?.message}</span>}</label>
   }
 
+  function openSection(value: string) {
+    setSection(value)
+    if (company) setSearchParams((params) => { if (value === 'addresses' || value === 'contacts') params.set('section', value); else params.delete('section'); return params }, { replace: true, state: location.state })
+    if (value === 'notes') document.getElementById('contact-record-notes')?.setAttribute('open', '')
+  }
+
   const addressPanel = kind === 'companies' ? <section className="contact-panel contact-primary-address"><div className="contact-panel-heading"><MapPin size={16} /><h2>Adresse du siège</h2></div><p className="contact-section-description">{primaryAddress ? 'Adresse principale de la société.' : 'Renseignez l’adresse principale de la société.'}</p><AddressFields form={addressForm} prefix="primary-address" disabled={!editable || busy} /></section> : null
   const preferencesPanel = kind === 'companies' ? <section className="contact-panel contact-preferences-panel"><div className="contact-panel-heading"><SlidersHorizontal size={16} /><h2>Préférences</h2></div><div className="contact-fields">{(['preferred_language', 'default_currency'] as const).map((name) => <label key={name} htmlFor={`contact-${name}`}>{name === 'preferred_language' ? 'Langue' : 'Devise'}<Controller name={name} control={form.control} render={({ field }) => <ReferencePicker id={`contact-${name}`} label={name === 'preferred_language' ? 'Langue' : 'Devise'} catalog={name === 'preferred_language' ? 'settings_languages' : 'accounting_currencies'} value={field.value} onChange={field.onChange} disabled={!editable || busy} invalid={Boolean(form.formState.errors[name])} />} /></label>)}</div></section> : null
 
-  return <div className={`contact-record contact-record--form-layout${!record ? ' contact-record--creating' : ''}`} data-section={section}>
-    <div className="contact-record-toolbar"><div className="contact-title-group"><HButton asChild variant="ghost" size="small"><Link to={kind === 'companies' ? '/contacts' : '/contacts/people'}><ArrowLeft size={14} />Répertoire</Link></HButton><div className="contact-page-heading"><h1>{title}</h1>{record && <HBadge tone={record.active ? 'success' : 'neutral'}>{record.active ? 'Actif' : 'Archivé'}</HBadge>}</div></div><div className="contact-record-actions">
+  return <div className={`contact-record contact-record--form-layout${!record ? ' contact-record--creating' : ''}`} data-section={section} inert={changingRecord} aria-busy={changingRecord}>
+    <div className="contact-record-toolbar"><div className="contact-title-group"><HButton asChild variant="ghost" size="small"><Link to={directoryHref(directory, kind)} state={directory ? { contactDirectory: directory } : undefined}><ArrowLeft size={14} />Répertoire</Link></HButton><div className="contact-page-heading"><h1>{title}</h1>{record && <HBadge tone={record.active ? 'success' : 'neutral'}>{record.active ? 'Actif' : 'Archivé'}</HBadge>}</div></div><div className="contact-record-actions">
       {kind === 'companies' && canWrite && <CompanyLookup getInitialQuery={() => form.getValues('siret') || form.getValues('siren') || form.getValues('legal_name') || form.getValues('name')} disabled={!editable || busy} onApply={(proposal, selectedFields, includeAddress) => { setSection('information'); for (const field of selectedFields) { const value = proposal.fields[field]; if (value !== undefined) form.setValue(field, value, { shouldDirty: true }) }; if (includeAddress && proposal.address) for (const field of ['line1', 'line2', 'postal_code', 'city', 'country'] as const) addressForm.setValue(field, proposal.address[field], { shouldDirty: true }) }} />}
 
-      {!record && <HButton asChild><Link to={kind === 'companies' ? '/contacts' : '/contacts/people'}>Annuler</Link></HButton>}
+      {!record && <HButton asChild><Link to={directoryHref(directory, kind)} state={directory ? { contactDirectory: directory } : undefined}>Annuler</Link></HButton>}
       {editable && <HSaveButton form="contact-record-form" hasChanges={hasChanges} pending={save.isPending} disabled={busy}><Save size={14} />{save.isPending ? 'Enregistrement…' : 'Enregistrer'}</HSaveButton>}
       {canWrite && record && <HRecordActions itemName={title} active={record.active} disabled={busy || (hasChanges && record.active)} onArchive={() => archive.mutateAsync(false)} onRestore={() => { if (window.confirm('Réactiver cette fiche ?')) archive.mutate(true) }} onDuplicate={() => navigate(`/contacts/${kind}/new?duplicate=${record.id}`)} onDelete={() => deletion.mutateAsync()} />}
     </div></div>
     <div className="contact-record-sheet">
-    {relatedCompany && <CompanyBusinessLinks person={Boolean(person)} companyName={relatedCompany.name} />}
+    {relatedCompany && <CompanyBusinessLinks company={relatedCompany} person={Boolean(person)} busy={busy || changingRecord} />}
     {readiness.isPending && <p role="status">Vérification du module Contacts…</p>}
     {readiness.error && <p role="alert" className="field-error">{readiness.error.message}<HButton onClick={() => { void readiness.refetch() }}>Réessayer</HButton></p>}
     {archive.error && record && !record.active && <p role="alert" className="field-error">{archive.error.message}</p>}
     {save.error && <div role="alert" className="contact-save-error">{save.error.message}</div>}
-    {(record || kind === 'companies') && <div className="contact-record-navigation" role="tablist" aria-label="Sections de la fiche">{[{ value: 'information', label: 'Informations', panel: 'contact-record-form' }, ...(company ? [{ value: 'contacts', label: 'Contacts', panel: 'contact-record-contacts' }, { value: 'addresses', label: 'Adresses', panel: 'contact-record-addresses' }] : []), ...(kind === 'companies' ? [{ value: 'accounting', label: 'Comptabilité', panel: 'contact-record-form' }] : []), { value: 'notes', label: 'Notes', panel: 'contact-record-form' }].map(({ value, label, panel }) => <button key={value} id={`contact-tab-${value}`} type="button" role="tab" aria-selected={section === value} aria-controls={panel} tabIndex={section === value ? 0 : -1} onKeyDown={(event) => { if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return; event.preventDefault(); const tabs = Array.from(event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role=tab]') ?? []); const index = tabs.indexOf(event.currentTarget); const next = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : (index + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length; tabs[next]?.click(); tabs[next]?.focus() }} onClick={() => { setSection(value); if (company) setSearchParams((params) => { if (value === 'addresses') params.set('section', 'addresses'); else params.delete('section'); return params }, { replace: true }); if (value === 'notes') document.getElementById('contact-record-notes')?.setAttribute('open', '') }}>{label}</button>)}</div>}
+    {(record || kind === 'companies') && <div className="contact-record-navigation" role="tablist" aria-label="Sections de la fiche">{[{ value: 'information', label: 'Informations', count: undefined, panel: 'contact-record-form' }, ...(company ? [{ value: 'contacts', label: 'Contacts', count: peopleCount.data, panel: 'contact-record-contacts' }, { value: 'addresses', label: 'Adresses', count: addressCount, panel: 'contact-record-addresses' }] : []), ...(kind === 'companies' ? [{ value: 'accounting', label: 'Comptabilité', count: undefined, panel: 'contact-record-form' }] : []), { value: 'notes', label: 'Notes', count: undefined, panel: 'contact-record-form' }].map(({ value, label, count, panel }) => <button key={value} id={`contact-tab-${value}`} type="button" role="tab" aria-selected={section === value} aria-controls={panel} tabIndex={section === value ? 0 : -1} onKeyDown={(event) => { if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return; event.preventDefault(); const tabs = Array.from(event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role=tab]') ?? []); const index = tabs.indexOf(event.currentTarget); const next = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : (index + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length; tabs[next]?.click(); tabs[next]?.focus() }} onClick={() => openSection(value)}>{label}{count !== undefined && <span className="contact-tab-count">{count}</span>}</button>)}</div>}
+    {peopleCount.error && <p role="alert" className="field-error">{peopleCount.error.message}<HButton size="small" variant="ghost" onClick={() => { void peopleCount.refetch() }}>Réessayer le compteur des contacts</HButton></p>}
     <form id="contact-record-form" role={record || kind === 'companies' ? 'tabpanel' : undefined} aria-labelledby={record || kind === 'companies' ? `contact-tab-${section}` : undefined} hidden={section === 'contacts' || section === 'addresses'} className="contact-record-form" onSubmit={form.handleSubmit(submit)} noValidate>
       <fieldset hidden={section === 'accounting'} disabled={!editable || busy} className={`contact-record-layout${kind === 'people' ? ' contact-person-layout' : ''}`}>
         <div className="contact-main-column">
@@ -171,6 +185,7 @@ function ContactEditor({ kind, record, addresses, accounts, canWrite, duplicateS
     }} onAdd={() => { const key = crypto.randomUUID().replace(/-/g, '').slice(0, 15); setAddressDrafts((items) => [...items, { key, input: { company: company.id, type: 'billing', label: '', email: '', line1: '', line2: '', postal_code: '', city: '', country: '', state_region: '', is_primary: false } }]); return key }} onRemove={(key) => setAddressDrafts((items) => items.filter((item) => item.key !== key))} /></div>}
 
     </div>
+    {record && <ContactRecordNavigator kind={kind} id={record.id} active={record.active} dirty={hasChanges} busy={busy} onChanging={setChangingRecord} />}
     {record && <ActivityPanel source={{ entity: kind === 'companies' ? 'contacts_companies' : 'contacts_people', id: record.id }} editable={editable && !busy} />}
   </div>
 }
@@ -183,9 +198,9 @@ export function ContactPage({ kind }: { kind: ContactKind }) {
   const session = useSyncExternalStore(sessionService.subscribe, sessionService.getSnapshot)
   const canRead = session.status === 'authenticated' && hasPermission(session.user, 'contacts.read')
   const canWrite = canRead && session.status === 'authenticated' && hasPermission(session.user, 'contacts.write')
-  const record = useQuery({ queryKey: ['contacts', kind, sourceId], queryFn: async () => kind === 'companies' ? contactsService.company(sourceId) : contactsService.person(sourceId), enabled: canRead && sourceId !== 'new', retry: false })
-  const addresses = useQuery({ queryKey: ['contacts', 'addresses', sourceId], queryFn: () => contactsService.addresses(sourceId), enabled: canRead && kind === 'companies' && sourceId !== 'new', retry: false })
-  const accounts = useQuery({ queryKey: ['contacts', 'accounts', sourceId], queryFn: () => contactsService.accounts(sourceId), enabled: canRead && kind === 'companies' && id !== 'new', retry: false })
+  const record = useQuery({ queryKey: ['contacts', kind, sourceId], queryFn: async () => kind === 'companies' ? contactsService.company(sourceId) : contactsService.person(sourceId), enabled: canRead && sourceId !== 'new', staleTime: 10_000, retry: false })
+  const addresses = useQuery({ queryKey: ['contacts', 'addresses', sourceId], queryFn: () => contactsService.addresses(sourceId), enabled: canRead && kind === 'companies' && sourceId !== 'new', staleTime: 10_000, retry: false })
+  const accounts = useQuery({ queryKey: ['contacts', 'accounts', sourceId], queryFn: () => contactsService.accounts(sourceId), enabled: canRead && kind === 'companies' && id !== 'new', staleTime: 10_000, retry: false })
   if (!canRead || (id === 'new' && !canWrite)) return <p role="alert">Vous ne disposez pas des permissions nécessaires.</p>
   if (sourceId !== 'new' && (record.isPending || (kind === 'companies' && (addresses.isPending || (id !== 'new' && accounts.isPending))))) return <p role="status">Chargement de la fiche…</p>
   const error = record.error ?? addresses.error ?? accounts.error
