@@ -334,7 +334,34 @@ PocketBase
 
 Réutiliser le Design System.
 
-Créer un composant local uniquement s’il est spécifique au module.
+Avant de créer ou modifier une page métier, lire les règles applicables de
+`docs/07-UX-DESIGN-SYSTEM.md` et examiner une page existante qui les applique
+(Contacts / CRM). Les décisions validées sur Contacts servent de base aux autres
+modules ; ne pas repartir d'un design indépendant.
+
+Pour toute liste métier principale, y compris Employés et Utilisateurs et accès :
+
+- recherche contextuelle dans la top bar via `WorkspaceSearch` ;
+- filtres, regroupement et tri dans le panneau partagé `SearchFilters`, avec ses pastilles ;
+- même JSX et CSS partagés que Contacts : les modules déclarent leurs critères
+  et leur logique métier, sans copie du panneau ni variantes locales de style ;
+- les groupes de résultats utilisent `GroupedResults`, commun à Contacts et aux
+  autres listes ; une modification visuelle commune doit se propager à tous ;
+- aucun deuxième champ de recherche ou sélecteur de filtre dans la page ;
+- critères conservés dans l'URL lors du rechargement, du changement de vue et de
+  la fermeture d'une fiche ; réinitialiser les filtres conserve le texte recherché.
+
+Les petites listes intégrées à une fiche peuvent conserver leurs contrôles dans
+l'en-tête de section, selon le contrat du Design System. Les champs de saisie
+d'un formulaire ne sont pas des filtres de liste.
+
+Avant livraison d'une modification UI, confronter le résultat aux règles lues :
+recherche / filtres, composants partagés, titres, typographie, densité, espacements,
+couleurs, clair / sombre et responsive. Vérifier le parcours dans le navigateur
+lorsque le comportement change ; compléter les tests de régression pertinents.
+La documentation seule ne remplace pas cette vérification.
+
+Créer un composant local uniquement s'il est spécifique au module.
 
 Si un pattern est répété dans plusieurs modules, le déplacer vers le Design System ou `shared`.
 

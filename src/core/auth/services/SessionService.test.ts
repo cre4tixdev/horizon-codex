@@ -104,6 +104,29 @@ describe('session Horizon', () => {
     expect(hasPermission(user, 'contacts')).toBe(false)
     expect(hasPermission(user, '*')).toBe(false)
   })
+  it('purge le cache lors d’une modification de droits ou de périmètre, sans le purger à chaque refresh', async () => {
+    const { service, repository, clear } = setup()
+    await service.signIn(input)
+    await service.refresh()
+    expect(clear).toHaveBeenCalledTimes(1)
+    const scoped = { ...user, accessRevision: 'changed', role: { ...user.role, permissions: ['hr.read'] } }
+    vi.mocked(repository.refresh).mockResolvedValue(scoped)
+    await service.refresh()
+    expect(clear).toHaveBeenCalledTimes(2)
+    vi.mocked(repository.refresh).mockResolvedValue({ ...scoped, accessRevision: 'scope-changed' })
+    await service.refresh()
+    expect(clear).toHaveBeenCalledTimes(3)
+  })
+  it('réserve les paramètres aux profils autorisés et bloque les écritures Viewer', () => {
+    const privileged = { ...user, role: { ...user.role, permissions: ['settings.references', 'settings.users', 'crm.read', 'crm.write', 'hr.organisation.manage'] } }
+    expect(hasPermission({ ...privileged, erpProfile: 'user' }, 'settings.references')).toBe(false)
+    expect(hasPermission({ ...privileged, erpProfile: 'superuser' }, 'settings.references')).toBe(true)
+    expect(hasPermission({ ...privileged, erpProfile: 'superuser' }, 'settings.users')).toBe(false)
+    expect(hasPermission({ ...privileged, erpProfile: 'admin' }, 'settings.users')).toBe(true)
+    expect(hasPermission({ ...privileged, erpProfile: 'viewer' }, 'crm.read')).toBe(true)
+    expect(hasPermission({ ...privileged, erpProfile: 'viewer' }, 'crm.write')).toBe(false)
+    expect(hasPermission({ ...privileged, erpProfile: 'viewer' }, 'hr.organisation.manage')).toBe(false)
+  })
   it.each([
     { active: false }, { collectionName: '_superusers' }, { role: 'different' },
     { expand: { role: { id: 'role', name: 'reader', label: 'Lecture', active: false, permissions: [] } } },

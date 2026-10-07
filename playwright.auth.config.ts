@@ -7,7 +7,7 @@ export default defineConfig({
   use: { baseURL: 'http://127.0.0.1:4174', trace: 'retain-on-failure' },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: [
-    { command: 'python3 tests/pocketbase/check_auth.py --serve', url: 'http://127.0.0.1:18090/api/health', reuseExistingServer: false },
+    { command: 'python3 tests/pocketbase/check_auth.py --serve', wait: { stdout: /Local PocketBase auth fixture ready/ }, reuseExistingServer: false },
     { command: 'pnpm dev --port 4174 --strictPort', env: { VITE_POCKETBASE_URL: 'http://127.0.0.1:18090' }, url: 'http://127.0.0.1:4174', reuseExistingServer: false },
   ],
 })

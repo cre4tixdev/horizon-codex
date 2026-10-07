@@ -1263,18 +1263,18 @@ Un lot terminé n'est rouvert que si ses critères ne sont plus satisfaits. Une 
 
 ## Tableau de bord global
 
-Dernière mise à jour : **5 octobre 2026**.
+Dernière mise à jour : **7 octobre 2026**.
 
 | Phase | Lots | Terminés | En cours | À vérifier | Bloqués | À faire |
 |---|---:|---:|---:|---:|---:|---:|
 | 1 — Fondation | 8 | 2 | 2 | 3 | 0 | 1 |
 | 2 — Référentiel | 10 | 0 | 1 | 1 | 0 | 8 |
-| 3 — Commercial | 5 | 0 | 0 | 0 | 0 | 5 |
+| 3 — Commercial | 5 | 0 | 1 | 0 | 0 | 4 |
 | 4 — Opérations | 8 | 0 | 0 | 0 | 0 | 8 |
-| 5 — Ressources / RH interne | 4 | 0 | 0 | 0 | 0 | 4 |
+| 5 — Ressources / RH interne | 4 | 0 | 1 | 0 | 0 | 3 |
 | 6 — Finance | 6 | 0 | 0 | 0 | 0 | 6 |
 | 7 — Consolidation | 5 | 0 | 0 | 0 | 0 | 5 |
-| **Total** | **46** | **2** | **3** | **4** | **0** | **37** |
+| **Total** | **46** | **2** | **5** | **4** | **0** | **35** |
 
 **Progression de livraison : 2 / 46 lots terminés (4,3 %).** Calcul : lots terminés / lots du périmètre suivi. Cet indicateur mesure les lots livrés, sans pondérer leur taille ; il ne représente ni une estimation de charge ni le temps restant. La documentation existante est un acquis de cadrage, hors de ce compteur d'implémentation.
 
@@ -1314,7 +1314,7 @@ La roadmap reste organisée en sept phases. Certains prérequis transverses doiv
 
 | ID | Lot | Dépendances | Résultat attendu pour clôture | Statut |
 |---|---|---|---|---|
-| C01 | CRM direct et analytique | R01, R02, socle accounting | Opportunité et compte analytique créés de manière cohérente ; activités et code affaire commun | À faire |
+| C01 | CRM direct et analytique | R01, R02, socle accounting | Opportunité et compte analytique créés de manière cohérente ; activités et code affaire commun | En cours |
 | C02 | CRM / Appels d'offres | C01, R06, R09 | Extension AO transactionnelle, Kanban / drag & drop, liste, planning, visites multiples, tags, documents et archivage realtime | À faire |
 | C03 | Devis, pricing et marge | C01, R03, R04, A01, A02 | Brouillons, calculs serveur, validation par permissions, snapshots et révisions ; plusieurs devis acceptés par opportunité | À faire |
 | C04 | Commandes client | C03 | Conversion totale ou partielle, reliquats et plusieurs commandes sur le même compte analytique | À faire |
@@ -1337,7 +1337,7 @@ La roadmap reste organisée en sept phases. Certains prérequis transverses doiv
 
 | ID | Lot | Dépendances | Résultat attendu pour clôture | Statut |
 |---|---|---|---|---|
-| H01 | Employés, capacité et coûts | Fondation, R02 | Salariés / freelances / intérimaires / externes sans compte obligatoire ; calendriers, compétences et coûts datés protégés | À faire |
+| H01 | Employés, capacité et coûts | Fondation, R02 | Salariés / freelances / intérimaires / externes sans compte obligatoire ; calendriers, compétences et coûts datés protégés | En cours |
 | H02 | Planning ressources | H01, C01, O05 pour liens projet, H04 pour absences | Semaine, internes / externes, jour / nuit, multi-codes, ATE / IDF / DEP, BE / Production, copie et surcharge visible | À faire |
 | H03 | TimeReport | H01, H02 | Temps réel distinct du prévu, validation serveur, coûts historiques et comparaison prévu / réalisé par analytique | À faire |
 | H04 | Congés et dépenses | H01, R06, C01 pour analytique | Demandes / validations, soldes, absences reliées au planning, justificatifs et dépenses analytiques | À faire |
@@ -1422,7 +1422,8 @@ Ces points ne bloquent pas tous les travaux : la préparation du frontend et du 
 | F04 | Agent de développement | Non fixée | Installer la migration d’évolution Contacts / Référentiels selon 06 et vérifier l’historique NAS | Reconstruction, reprise des codes / devises et refus de conflits testés localement ; archive prête |
 | F05 | Agent de développement | Non fixée | Recetter les permissions Contacts sur préproduction après installation | Login, déconnexion / reconnexion, rechargement et révocation du compte de test confirmés par l’utilisateur ; comptes créés par lui dans le dashboard |
 | R01 | Agent de développement | Non fixée | Installer et recetter les nouvelles fiches, adresses / personnes associées et permissions sur NAS | V1 installée ; évolution frontend / backend locale testée, recherche publique directe validée ; compteurs des futurs modules restant à raccorder |
-| R02 | Agent de développement | Non fixée | Installer les référentiels, attribuer la permission administrateur et recetter ; organisation / autres paramètres ensuite | Pays / Langues / Devises et combobox partagée livrés localement ; tests des permissions et codes immuables réussis |
+| R02 | Agent de développement | Non fixée | Installer le lot Utilisateurs / Employés avec premier Admin explicite, recetter les quatre profils ; paramètres complémentaires ensuite | Référentiels, CRM, Séquences, comptes / accréditations et équipes livrés localement avec contrôles serveur |
+| H01 | Agent de développement | Non fixée | Recetter liste / fiches / organigramme ; compléter ensuite capacité, calendriers, compétences et coûts protégés | Ressources sans compte, équipes, managers, photos, organigramme et périmètres HR livrés localement |
 | F07 | Agent de développement | Non fixée | Étendre / recetter le socle audit au-delà des changements Contacts | Writer transactionnel et collection verrouillée préparés comme prérequis Contacts |
 
 Ce tableau expose la file de travail immédiate. F01 reste `En cours` ; F02 et F06 sont `Terminé`. F03 / F04 / F05 sont `À vérifier` après préparation locale autorisée et tests : déploiement / recette Synology et realtime des futurs repositories restent à compléter. R01 est `À vérifier` après livraison locale Contacts et F07 `En cours` pour son prérequis audit ; les autres lots restent `À faire`. Les phases suivantes seront détaillées progressivement avec leurs tâches, responsables et échéances. Les autorisations de F02 / F06 ne valent pas autorisation de modifier PocketBase ou de démarrer un nouveau lot.
@@ -1703,3 +1704,64 @@ Décision utilisateur : uniformiser recherche et filtres au fil des modules Hori
 6 octobre 2026 — décision utilisateur : Contacts devient la base de design des prochains modules Horizon. Contrat consolidé en tête du document 07, lien de lecture dans le document 00 : composants partagés, typographie et graisses réelles, densité / dimensions, espacements uniformes, couleurs sémantiques, navigation, sauvegarde, confirmations et fil d’activité. Les anciens essais visuels ne doivent pas réintroduire de variantes abandonnées. Toute évolution d’un pattern commun doit être centralisée et vérifiée sur les écrans déjà raccordés. Les spécificités métier de Contacts ne sont pas imposées aux autres modules.
 
 6 octobre 2026 — la barre fil d’Ariane / raccourcis métier / compteur et chevrons reste persistante sous la top bar pendant le défilement. Pattern partagé du shell, desktop et mobile, ajouté au contrat de design commun validé sur Contacts.
+
+CRM classique — premier lot du 6 octobre 2026 : utilisateur valide opportunités d’abord, puis AO. Liste / Kanban, fiche, fil Core, paramètres d’étapes et création atomique numéro / compte analytique réalisés et testés localement. Déplacements Kanban en brouillon jusqu’à Enregistrer ; conflits concurrents refusés, reprise de création idempotente. Raccourci Opportunités des sociétés clientes raccordé au compteur réel. Migration et lot NAS préparés, aucun déploiement distant effectué ni permission automatiquement accordée aux rôles existants. C01 reste En cours pour les activités commerciales spécialisées et les compléments du périmètre cible ; C02 AO non démarré. Limites opérationnelles documentées dans les spécifications.
+
+
+6 octobre 2026 — révision CRM demandée : étapes Nouveau / Qualifié / Gagné / Terminé / Perdue / Annulé ; état associé cohérent côté serveur, colonnes repliables et totaux globaux par devise, glissement guidé et animé, colonnes ouvertes plus légères. Numéro / titre séparés, effacement explicite des sélecteurs, référentiel Types de marché dans Paramètres, description Tiptap terminée. Migration corrective préservant numéros, comptes et descriptions existantes ; nouveau lot NAS consolidé à installer. C01 reste En cours pour le périmètre cible restant et AO non démarré.
+
+
+CRM : repli des colonnes désormais conservé après refresh, préférence locale par utilisateur. À la demande utilisateur, le remplacement du drag & drop par une bibliothèque doit être proposé avant réalisation ; dnd-kit React proposé puis validé par l’utilisateur et intégré (voir décision ci-dessous).
+
+6 octobre 2026 — accord utilisateur pour dnd-kit : remplacement du drag HTML5 / FLIP par la bibliothèque React moderne 0.5.0. Les animations de tri, overlay et capteurs sont gérés par la bibliothèque ; service CRM et sauvegarde explicite conservés. Repli de colonnes toujours mémorisé par utilisateur et navigateur. Aucun lot supplémentaire clôturé, aucune migration ou installation NAS requise pour ce changement frontend.
+
+6 octobre 2026 — nouvelle décision utilisateur : dépli automatique d’une colonne survolée par une carte, mémorisation de l’ouverture ; sauvegarde immédiate des déplacements Kanban / menu, retrait d’Enregistrer et Annuler les déplacements du répertoire. La fiche conserve sa sauvegarde explicite. Dépôt sans changement d’étape ou Échap ne crée aucune écriture. Échec / conflit : suppression de la projection locale, relecture serveur et erreur visible. Cadre discret des colonnes, code noir et colonne Code triable en liste. Aucun changement de schéma PocketBase ni de droits, aucun déploiement NAS.
+
+7 octobre 2026 — ajustements CRM demandés : couleurs distinctes par colonne sans liseré, retrait du menu de déplacement et des tags d’état des cartes, identité du responsable (clarification utilisateur : responsable, pas créateur) et logo client dans le Kanban comme en liste. Réutilisation du composant Contacts pour les images protégées et de la projection autorisée des responsables CRM pour leurs noms. Aucun changement de schéma ni élargissement des droits sur core_users.
+
+7 octobre 2026 — décision utilisateur : séparer paramètres métier et référentiels transverses. CRM dispose de sa page et des onglets Présentation / Étapes / Types de marché. Vue initiale globale configurable ; couleur unique par étape et type, palette partagée, raccourci de réglage dans l’en-tête de colonne. Qualification d’une opportunité par plusieurs marchés. Nouvelle migration préparée et vérifiée localement, lot NAS consolidé disponible ; aucune modification distante. C01 reste En cours pour les compléments métier, C02 AO non démarré.
+
+7 octobre 2026 — retour utilisateur sur le Kanban : abandon des grandes boxes et des en-têtes teintés au profit de colonnes ouvertes, titres / compteurs colorés et totaux compacts. Ajustement visuel uniquement ; aucun changement des paramètres ni du schéma PocketBase.
+
+7 octobre 2026 — références utilisateur pour le Kanban : rendre les colonnes identifiables par des surfaces neutres distinctes et des cartes blanches, avec couleurs localisées dans les en-têtes. Conserver le fonctionnement et les réglages CRM. Ajustement frontend uniquement.
+
+7 octobre 2026 — demande explicite : remplacer les ronds de colonne par un bord supérieur coloré et renforcer la délimitation des colonnes CRM. Couleur issue des paramètres existants ; aucune migration supplémentaire.
+
+7 octobre 2026 — finition Kanban CRM : marché(s) en tags dans les cartes, logo client agrandi à droite et état vide centré. Hauteur 112 px, responsable et couleurs configurées conservés. Aucun changement serveur.
+
+7 octobre 2026 — disposition des cartes précisée par l’utilisateur : code et client réunis en haut, titre puis montant dessous ; avatar du responsable et logo client à droite. Tags en bas, probabilité opposée. Frontend uniquement, densité et interactions conservées.
+
+7 octobre 2026 — demandes Paramètres : rubrique Séquences transversale pour départ / prochaine valeur et formats, configuration des tableaux par engrenage centré. Étapes commerciales au nombre fixe de six, titres / couleurs / ordre personnalisables ; ajout / suppression / changement de signification interdits côté serveur. Couleur libre facultative sur étapes et marchés, en complément des tons Horizon. Remplace le caractère extensible du référentiel d’étapes prévu auparavant. Les étapes supplémentaires historiques sont conservées inactives, affaires rattachées à l’étape fixe correspondant à leur état.
+
+7 octobre 2026 — cadrage demandé avant implémentation de Utilisateurs et accès / Employés : quatre profils ERP (Admin, Superuser, User, Viewer), paramétrage réservé aux profils d’administration, poste descriptif sans effet sur les droits, responsabilité de manager distincte du profil et accréditations métier par module / périmètre. Liste et organigramme dans Employés, hiérarchie unique des ressources avec comptes associés facultatifs. Récapitulatif, état réel du dépôt, propositions et arbitrages dans `04-FUNCTIONAL-SPECS.md`, section « 18.2.2 Cadrage utilisateurs, droits, managers et organigramme ». Frontière précise Admin / Superuser, périmètres indirects et modèle d’attribution restent à valider. Aucune implémentation, migration ou modification des droits actuels dans ce lot documentaire.
+
+### 7 octobre 2026 — Utilisateurs, accréditations et Employés
+
+Cadrage validé par l’utilisateur. Quatre profils ERP structurels, Admin seul administrateur des comptes / droits, Superuser administrateur fonctionnel, User / Viewer par accréditation. Paramètres existants soumis à la nouvelle frontière, navigation filtrée et cache purgé au changement de droits / révision du compte. Page `/settings/users` avec configuration explicite, rôles effectifs dédiés et audit sans secrets. Aucun héritage de droits depuis le poste ou la responsabilité Manager.
+
+Employés `/hr` : liste, fiche, photos protégées, équipes, responsable principal, Manager, ressources sans compte et organigramme compact avec repli / zoom. Policies et API Rules HR self / reports directs / team / all réellement appliquées ; hiérarchie globale avec contribution requise, cycles et perte d’un manager actif refusés. Fin d’activité désactive le compte lié ; dernier Admin protégé. `core_users.employee` source unique, inverse calculé. Migration 1791331203 : comptes historiques conservés en User, rôle historique inchangé sauf premier Admin explicitement désigné par variable serveur ; mise à niveau refusée sans désignation. Aucun déploiement NAS.
+
+H01 passe à En cours ; capacité / calendriers / compétences / coûts restent à faire. R02 reste En cours, F05 À vérifier pour la préproduction. Tableau global recalculé : 2 terminés, 5 en cours, 4 à vérifier, 35 à faire sur 46. Les permissions / validations des modules futurs restent indisponibles jusqu’à contrôle réel serveur. Prochaine étape : installer le lot consolidé, désigner le premier Admin et recetter sur préproduction.
+
+### 7 octobre 2026 — responsabilité Direction
+
+Ajout demandé et livré localement dans Employés / accès : niveau Direction au-dessus des managers et collaborateurs, sélection exclusive, responsable principal explicite, badges et organigramme. Aucun droit ERP ou accès aux descendants hérité automatiquement. Migration additive 1791331204 et nouveau lot consolidé décrits dans 06 ; vérifications dans 09. Démarrage du conteneur NAS signalé en échec : diagnostic toujours en attente du journal / compte Admin initial, aucun redémarrage distant effectué.
+
+### 7 octobre 2026 — correction recherche et filtres Employés / Utilisateurs
+
+Suppression des barres de recherche / filtres locaux ajoutées à tort. Raccordement des deux listes à la top bar et au panneau SearchFilters validés sur Contacts / CRM. Critères URL persistants et conservation lors de la fermeture de fiche / changement Liste–Organigramme. Nettoyage du CSS des contrôles retirés. Changement frontend uniquement, aucun nouveau lot PocketBase nécessaire. Contrat et recette précisés dans 04 / 07 / 09.
+
+### 7 octobre 2026 — panneau Filtres / Regrouper / Trier réellement transverse
+
+Correction du raccordement incomplet HR / accès au panneau partagé. Même structure et CSS que Contacts, déclaration des regroupements / tris métier, application aux listes. Correction du tri CRM masqué lorsqu’aucun regroupement n’était déclaré et de Réinitialiser lorsque seul le tri change. Extraction des groupes de Contacts dans GroupedResults commun ; aucun rendu recopié par module. Consigne renforcée dans AGENTS et contrat dans 03 / 04 / 07. Changement frontend, aucune migration.
+
+### 7 octobre 2026 — Équipes dans Employés
+
+Remplacement du dialogue à code par un onglet Équipes, nom / managers multiples / archivage / réactivation. Recherche, filtres, tri et regroupement dans les composants transverses. Managers d’équipe distincts de la hiérarchie et des accès ; protection serveur des équipes actives et archivage sans perte de membres. Migration additive 1791331205 et archive consolidée 49 fichiers dans 06. Frontend / backend livrés localement, recette dans 09 ; aucun déploiement NAS.
+
+### 7 octobre 2026 — popup Équipe finalisé
+
+Mise en page compacte, pied fixe partagé, absence de badge Active en création. Engrenage déplacé dans l’en-tête via actions de HDialog. Correction de son blocage lorsque le formulaire contient des modifications ; archivage confirmé de la version enregistrée, avec information explicite d’abandon des changements. Parcours Chromium complet validé, détails dans 09. Frontend uniquement, archive PocketBase Équipes inchangée.
+
+
+7 octobre 2026 — couleurs des tags organisation / profils ERP : implémentation locale terminée, dans Utilisateurs et accès → Tags. Admin / Superuser administrent les couleurs ; comptes et accréditations restent réservés Admin. Sept tags fixes et configuration globale persistée, composants de rendu et sélecteur de couleur partagés, aucune nouvelle rubrique Paramètres. Migration additive 1791331206 et audit ; mise à jour du frontend et backend requise ensemble. Tests de sécurité / persistance / affichage croisé validés. Aucun déploiement NAS ni commit / push réalisé pour ce lot.

@@ -245,7 +245,7 @@ active
 Migration `pocketbase/pb_migrations/1791072000_core_auth.js`, cible testée : PocketBase 0.40.4.
 
 - `core_roles` : `name` unique, `label`, `permissions` (JSON : tableau de chaînes), `active`, dates automatiques.
-- `core_users` : auth email / mot de passe, `name`, `first_name`, `last_name`, `public_email`, relation obligatoire `role`, `active`, `avatar` protégé, `mail_from`, dates automatiques. `employee` sera ajouté par migration lorsque `hr_employees` sera disponible ; aucun faux identifiant d'employé n'est stocké.
+- `core_users` : auth email / mot de passe, `name`, `first_name`, `last_name`, `public_email`, relation obligatoire `role`, `active`, `avatar` protégé, `mail_from`, dates automatiques. `employee` est ajouté par la migration Utilisateurs / Employés du 7 octobre ; aucun faux identifiant d’employé n’est stocké. Voir le contrat livré en section 9.
 - Inscription publique interdite ; gestion des comptes et rôles réservée au superuser technique dans ce premier socle. Les écrans d'administration Horizon attendent leur service serveur et leur audit.
 - Lecture limitée à son propre compte et son propre rôle, avec compte et rôle actifs. Aucun utilisateur ne peut modifier son rôle ni ses permissions par REST.
 - Aucun compte, mot de passe ni rôle privilégié n'est créé par la migration. Le premier compte applicatif sera provisionné explicitement après validation du déploiement.
@@ -260,14 +260,13 @@ L'utilisateur a créé ces collections via le dashboard de préproduction. Leur 
 ### `core_teams`
 
 ```text
-code
 name
-type
-manager
+managers → hr_employees (multiple)
 active
+type (cible)
 ```
 
-Types initiaux possibles :
+Le champ `type` reste une cible ultérieure. Les identifiants PocketBase sont techniques et masqués dans l’interface. Le champ legacy `code` reste interne et caché pour préserver les références historiques ; sur les nouvelles équipes, il est dérivé de l’identifiant serveur, sans saisie utilisateur. `managers` accepte plusieurs ressources actives désignées Manager ou Direction, sans modifier leur responsable principal ni leurs droits. Types initiaux possibles :
 
 ```text
 commerce
@@ -280,11 +279,11 @@ management
 other
 ```
 
-### `core_team_members`
+### `core_team_members` (cible multi-équipe, non livré)
 
 ```text
 team
-user
+employee
 role
 start_date
 end_date
@@ -491,6 +490,14 @@ Ce mapping rend les imports Odoo relançables sans créer de doublons.
 
 # 9. Employés / Ressources
 
+### Livraison Utilisateurs / Employés du 7 octobre 2026
+
+`core_users.erp_profile` : admin / superuser / user / viewer, obligatoire, initialisation user sans promotion implicite. `access_grants` JSON caché : droits par module et périmètre, bornés et validés serveur ; `hr_scope` : none / self / reports / team / all, dérivé des droits ; `employee` relation facultative unique vers hr_employees, source de vérité du rattachement. Aucun champ user persistant dans hr_employees : la projection inverse est calculée. Le rôle effectif core_roles est dédié au compte lors d’une sauvegarde des accès ; permissions calculées serveur, jamais librement saisies dans l’UI. Les rôles historiques restent conservés.
+
+`core_teams` : name, managers → hr_employees (multiple), active, created / updated, code legacy unique caché ; membres dérivés de hr_employees.team dans ce premier lot, sans liste concurrente d’utilisateurs. `hr_employees` : first_name / last_name requis, professional_email / professional_phone, job_title descriptif, employment_type employee / freelance / interim / external, team → core_teams, manager → hr_employees, is_manager, is_direction, external_company → contacts_companies, start_date / end_date, status active / inactive / planned / ended, avatar protégé, created / updated. Responsable principal sans cycle ; responsable doit être une ressource active désignée Manager ou Direction. Responsabilités exclusives : is_manager / is_direction ; faux / faux désigne un collaborateur. Direction peut encadrer managers et collaborateurs, et ne peut être rattachée qu’à une autre Direction. Aucun droit ERP implicite. Ressources sans compte autorisées. Fin d’activité / inactivation désactive le compte lié dans la même transaction, sans effacer l’historique.
+
+Permissions disponibles dans le lot : Contacts / CRM read / write (périmètre global réel), HR read / write / organisation.manage (périmètres self / reports directs / team / all), administration fonctionnelle Admin / Superuser et gestion des comptes Admin seulement. Les accréditations des modules non livrés restent non attribuables. La gestion de hiérarchie requiert le périmètre HR all. REST Users / Roles / Employés / Équipes en écriture verrouillé ; routes serveur avec validation, version et audit. Premier Admin provisionné uniquement par e-mail explicite dans HORIZON_INITIAL_ADMIN_EMAIL à la migration, aucun compte ni mot de passe créé ; mise à niveau de comptes existants refusée sans e-mail explicite. Migration `1791331203_access_employees.js`.
+
 ## `hr_employees`
 
 Ressource humaine métier.
@@ -506,13 +513,14 @@ employment_type
 job_title
 team
 manager
+is_manager
+is_direction
 external_company
 start_date
 end_date
 status
 work_calendar
 resource_profile
-user
 notes
 ```
 
@@ -542,13 +550,13 @@ manager → hr_employees
 external_company → contacts_companies
 work_calendar → planning_work_calendars
 resource_profile → core_resource_profiles
-user → core_users
+compte inverse calculé depuis core_users.employee
 ```
 
 Contraintes :
 
 ```text
-user UNIQUE lorsqu’il est renseigné
+core_users.employee UNIQUE lorsqu’il est renseigné (index filtré sur relation non vide)
 ```
 
 Un employé peut exister sans utilisateur.
@@ -3257,6 +3265,8 @@ active
 
 ```text
 entity_type
+start_value
+has_issued
 prefix
 suffix
 pattern
@@ -3713,3 +3723,29 @@ Regroupements Contacts : aucune colonne de pays dénormalisée ni collection de 
 Navigation des fiches : aucun nouvel identifiant métier ni collection. GET /api/horizon/contacts/navigation retourne `{position, total, previous, next}` ; position est un ordinal calculé, pas un numéro stocké. Critères allowlist identiques aux groupes, avec group=none accepté ; id est un identifiant PocketBase de 15 caractères. Hors résultat : position=0, total du filtre, voisins vides. Aucun attribut de fiche exposé par cette route ; policy contacts.read active identique au répertoire et aux groupes. Toute future restriction par fiche doit également s’appliquer au rang, total et voisins.
 
 Compteurs des onglets Contacts / Adresses et futurs raccourcis métier : aucune collection ni champ de compteur dénormalisé. Contacts = total de contacts_people où company correspond à la société et active=true, calculé par PocketBase avec ses API Rules. Adresses = lignes contacts_addresses lisibles pour la société + e-mail général / billing_email présents, conformément aux cartes virtuelles du répertoire. Les identifiants des sources seront transmis aux filtres de listes des futurs modules ; un rôle commercial actif sélectionne les raccourcis applicables, sans créer de pièces ou de rôles personnels.
+
+## Contrat initial CRM classique — migration `1791244802_crm.js`
+
+Ce lot implémente `crm_opportunities` pour `type=direct` uniquement ; `tender` et ses tables sont réservés au lot AO suivant. Numéro unique, compte analytique requis, société / responsable / étape requis ; contact facultatif contrôlé contre la société. Montant et coût positifs ou nuls, probabilité entière 0–100, marge serveur = montant − coût. `currency` est un code du référentiel actif `accounting_currencies`, `expected_date` une date valide ou vide. `status` = open / won / lost / cancelled, `active` booléen indépendant. Champs created / updated ; création_key technique (`creation_key`, UUID unique non vide) et `creation_actor` cachés des exports REST, exclusivement serveur.
+
+`crm_stages` : code unique immuable, label, sort_order entier positif ou nul, tone (blue / violet / pink), active, created / updated. Référence `stage` de l’opportunité ; configurable avec settings.references. Trois valeurs initiales Qualification / Proposition / Négociation, sans sémantique de validation critique codée par leur nom.
+
+`accounting_analytic_accounts` : code unique égal au numéro CRM, label, company → contacts_companies, opportunity → crm_opportunities, status open / closed, active, created / updated. La relation opportunity est facultative au niveau du schéma pour permettre l’amorçage de la relation circulaire dans une transaction ; le parcours métier CRM la renseigne avant le commit et ne publie aucun compte orphelin. Le compte ne change jamais de code ou d’identifiant ; son libellé et sa société suivent la fiche via AnalyticService. Aucun CRUD utilisateur direct.
+
+`settings_numbering_sequences` appartient à Paramètres : entity_type unique, start_value entier positif (départ historique), has_issued (au moins une allocation validée), prefix / suffix, pattern, separator, padding 1–12, next_value entier positif, reset_rule=never, active, created / updated. Enregistrement initial CRM : pattern={sequence}, padding=5, start_value=1, next_value=1. Seul ce token et l’absence de remise à zéro sont pris en charge actuellement ; les autres patterns du modèle cible ne sont pas encore activés. Lecture settings.references ; écritures CRUD API interdites, modification via route serveur authentifiée settings.references avec contrôle de version et audit transactionnel. Départ immuable après allocation ; prochain compteur ne recule jamais après utilisation. Allocation incrémentale et has_issued transactionnels, contraintes uniques en base ; une transaction refusée ne consomme pas le numéro. Migration `1791331201_numbering_settings.js` conserve les compteurs et initialise has_issued depuis l’historique CRM / compteur existant.
+
+Étapes CRM fixes — 7 octobre 2026 : seuls new, qualified, won, completed, lost et cancelled restent actifs, avec significations open / open / won / completed / lost / cancelled immuables. Création et suppression API interdites ; titre, ordre, tone et color modifiables avec settings.references, désactivation interdite. Les anciennes étapes restent conservées mais inactives ; leurs opportunités sont rattachées à une des six étapes selon l’état métier (open → qualified). `crm_stages.color` et `crm_market_types.color` : texte facultatif #RRGGBB (7 caractères), prioritaire sur tone pour le rendu ; vide signifie palette Horizon. Migration `1791331202_fixed_crm_stages_colors.js` conserve titres / tons / numéros et objets historiques.
+
+Core conserve ses collections de fil, mentions, tâches et notifications. Leurs sources autorisées s’étendent à source_module=crm / source_entity=crm_opportunities ; aucun mélange des droits CRM et Contacts. Les tables AO et crm_activities ne sont pas créées par ce lot.
+
+
+CRM — révision pipeline : six étapes initiales `new` Nouveau, `qualified` Qualifié, `won` Gagné, `completed` Terminé, `lost` Perdue, `cancelled` Annulé. `crm_stages.status` (open/won/completed/lost/cancelled) définit l’état appliqué côté serveur lors d’un changement d’étape ; état commercial distinct de l’archivage et de toute clôture comptable. Les anciennes étapes standard sont désactivées et leurs affaires transférées en conservant leur état commercial ; les étapes personnalisées et les comptes analytiques sont conservés.
+
+`crm_market_types` appartient à CRM et utilise le référentiel partagé : code unique immuable, label, active, sort_order, created, updated. Valeurs initiales Broadcast, Corporate, Institutionnel, Événementiel, Consulting, Export. Lecture crm.read ou settings.references, écriture settings.references, suppression interdite. `crm_opportunities.market_type` est une relation facultative vers ce référentiel. `description_content` est un JSON Tiptap facultatif (100 Ko maximum, profondeur/nœuds bornés, types et attributs en allowlist) ; description conserve la projection texte pour historique et compatibilité. Aucune description HTML brute enregistrée. Migration corrective `1791244803_crm_pipeline.js`, sans suppression de données ni renumérotation.
+
+CRM — paramètres et qualification multiple, 7 octobre 2026 : `crm_stages.tone` et `crm_market_types.tone` utilisent la palette partagée blue / violet / pink / green / amber / navy. La couleur configurée est la source unique des colonnes et tags ; elle ne se déduit plus du code métier. `crm_opportunities.market_types` remplace la relation unique `market_type` par une relation multiple facultative (maximum 50), sans doublon ; la migration copie chaque ancien rattachement avant de retirer le champ unique. Une référence inactive reste conservable sur une fiche déjà liée mais ne peut être ajoutée. Le fil trace les libellés des marchés ajoutés / retirés.
+
+`settings_crm` appartient à Paramètres : singleton `code = crm` immuable et unique, `default_view` (kanban / list, obligatoire), created / updated. Lecture CRM ou administration des référentiels, mise à jour avec settings.references ; création et suppression par API utilisateur interdites. Vue initiale globale, URL explicite prioritaire. Paramètres CRM possède ses onglets Présentation / Étapes / Types de marché ; Référentiels ne présente que les données transversales. Migration additive `1791331200_crm_settings.js`, sans modification des opportunités ni des numéros hors migration des rattachements de marché.
+
+
+Tags utilisateurs — 7 octobre 2026 : `settings_identity_tags` appartient à Paramètres. Sept enregistrements fixes : admin, superuser, user, viewer (profils ERP), direction, manager, collaborator (responsabilités). Champs : code unique immuable, label immuable, sort_order immuable, active=true immuable, tone (palette partagée), color (vide ou #RRGGBB), created / updated. Aucun ajout, suppression ni archivage par API. Lecture pour les comptes core_users actifs avec rôle actif ; écriture réservée aux profils admin / superuser possédant settings.references, validation serveur et audit transactionnel. Les couleurs ne modifient ni les permissions ni la hiérarchie. Valeurs initiales : admin/direction navy, superuser/manager violet, user/viewer/collaborator blue. Migration additive `1791331206_identity_tag_colors.js`.

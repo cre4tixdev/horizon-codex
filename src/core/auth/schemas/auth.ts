@@ -10,6 +10,8 @@ export const userSchema = z.object({
   id: z.string().min(1), collectionName: z.literal('core_users'),
   email: z.email(), name: z.string().min(1), active: z.literal(true),
   role: z.string().min(1),
+  erp_profile: z.enum(['admin', 'superuser', 'user', 'viewer']).default('user'),
+  updated: z.string().default(''),
   expand: z.object({ role: z.object({
     id: z.string().min(1), name: z.string().min(1), label: z.string().min(1),
     active: z.literal(true), permissions: z.array(z.string().min(1)),

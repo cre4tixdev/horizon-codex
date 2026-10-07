@@ -300,6 +300,7 @@ class ContactsTests(unittest.TestCase):
         for token in ['', self.reader, self.token, self.other]:
             self.assertGreaterEqual(self.pb.request('POST', f'collections/{collection}/records', {'code': 'SE', 'label': 'Suède', 'active': True}, token)[0], 400)
         self.pb.request('PATCH', f'collections/core_roles/records/{self.writer_role["id"]}', {'permissions': ['contacts.read', 'contacts.write', 'settings.references']}, self.pb.admin_token)
+        self.pb.request('PATCH', f'collections/core_users/records/{self.writer["id"]}', {'erp_profile': 'superuser'}, self.pb.admin_token)
         status, reference = self.pb.request('POST', f'collections/{collection}/records', {'code': 'SE', 'label': 'Suède', 'active': True}, self.token)
         self.assertEqual(status, 200, reference)
         self.assertEqual(self.pb.request('PATCH', f'collections/{collection}/records/{reference["id"]}', {'code': 'NO'}, self.token)[0], 400)
@@ -345,7 +346,7 @@ class ContactsMigrationTests(unittest.TestCase):
         pb.process.terminate()
         pb.process.wait(timeout=10)
         args = [arg for arg in pb.args if not arg.startswith('--migrationsDir=')] + [f'--migrationsDir={ROOT / "pocketbase/pb_migrations"}']
-        result = subprocess.run(args + ['migrate', 'up'], capture_output=True, text=True)
+        result = subprocess.run(args + ['migrate', 'up'], env={**pb.environment, 'HORIZON_INITIAL_ADMIN_EMAIL': 'reader@local.invalid'}, capture_output=True, text=True)
         pb.launch_and_authenticate(args if result.returncode == 0 else pb.args)
         return result
 

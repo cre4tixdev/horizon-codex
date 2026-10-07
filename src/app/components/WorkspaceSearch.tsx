@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { Link, useLocation, useSearchParams, useNavigate } from 'react-router'
 import { Search, ArrowUpRight, X, ChevronDown, Check } from 'lucide-react'
 import { HButton } from '../../shared/ui/HButton'
@@ -6,35 +6,48 @@ import { HDialog } from '../../shared/ui/HDialog'
 import { HInput } from '../../shared/ui/HInput'
 import { DropdownMenu } from 'radix-ui'
 import { searchNavigation } from '../searchNavigation'
+import { canAccessNavigation } from '../navigationAccess'
+import { sessionService } from '../../core/auth/services/session'
 import { contactSearchFilters, contactGroupingFilter, contactSortFilter } from '../../modules/contacts'
+import { useHrDirectory, employeeStatusFilter, employeeTeamFilter, employeeGroupingFilter, employeeSortFilter, teamStateFilter, teamGroupingFilter, teamSortFilter } from '../../modules/hr'
+import { userProfileFilter, userGroupingFilter, userSortFilter } from '../../modules/settings'
+import { hasPermission } from '../../core/auth/types/session'
+import { crmSearchFilters, crmSortFilter } from '../../modules/crm'
 import { changeFilter, filterValue, resetFilters, type SearchFilter } from '../../shared/search/filters'
 import { SearchFilterChips, SearchFilters } from '../../shared/search/SearchFilters'
 import { SavedViews } from '../../shared/search/SavedViews'
 import { viewParamsSchema } from '../../core/views/types'
 
 export function WorkspaceSearch() {
+  const session = useSyncExternalStore(sessionService.subscribe, sessionService.getSnapshot)
   const { pathname, state } = useLocation()
   const [params, setParams] = useSearchParams()
-  const scope = pathname === '/contacts' ? 'Sociétés' : pathname === '/contacts/people' ? 'Personnes' : pathname === '/settings' ? 'Paramètres' : undefined
+  const identityTags = pathname === '/settings/users' && (params.get('tab') === 'tags' || session.status === 'authenticated' && session.user.erpProfile !== 'admin')
+  const users = pathname === '/settings/users' && !identityTags
+  const teams = pathname === '/hr' && params.get('tab') === 'teams'
+  const scope = pathname === '/contacts' ? 'Sociétés' : pathname === '/contacts/people' ? 'Personnes' : pathname === '/crm' ? 'Opportunités' : pathname === '/hr' ? teams ? 'Équipes' : 'Employés' : identityTags ? 'Tags' : users ? 'Utilisateurs' : pathname === '/settings' ? 'Paramètres' : undefined
   const navigate = useNavigate()
   const [mode, setMode] = useState<{ pathname: string; scope: string }>({ pathname, scope: 'contacts' })
   const explicitScope = params.get('scope')
   const selectedScope = mode.pathname === pathname && mode.scope === 'global' ? 'global' : explicitScope === 'companies' || explicitScope === 'people' ? explicitScope : 'contacts'
   const global = selectedScope === 'global'
   const contextual = Boolean(scope) && !global
-  const filters = pathname === '/contacts' || pathname === '/contacts/people' ? contactSearchFilters : []
+  const hrDirectory = useHrDirectory(pathname === '/hr' && session.status === 'authenticated' && hasPermission(session.user, 'hr.read'))
+  const filters = pathname === '/contacts' || pathname === '/contacts/people' ? contactSearchFilters : pathname === '/crm' ? crmSearchFilters : teams ? [teamStateFilter] : pathname === '/hr' ? [employeeTeamFilter(hrDirectory.data?.teams || []), employeeStatusFilter] : users ? [userProfileFilter] : []
   const selections = filters.map((filter) => ({ filter, value: filterValue(params, filter) }))
   const directory = pathname === '/contacts' || pathname === '/contacts/people'
   const scopeLabel = global ? 'Tout Horizon' : directory ? selectedScope === 'companies' ? 'Sociétés' : selectedScope === 'people' ? 'Personnes' : 'Contacts' : scope
-  const groupFilter = contactGroupingFilter(pathname === '/contacts/people')
-  const sortFilter = contactSortFilter(pathname === '/contacts/people')
-  const definitions = [...filters, groupFilter, sortFilter]
+  const groupFilter = teams ? teamGroupingFilter : directory ? contactGroupingFilter(pathname === '/contacts/people') : pathname === '/hr' && params.get('view') !== 'org' ? employeeGroupingFilter : users ? userGroupingFilter : undefined
+  const sortFilter = teams ? teamSortFilter : directory ? contactSortFilter(pathname === '/contacts/people') : pathname === '/crm' ? crmSortFilter : pathname === '/hr' ? employeeSortFilter : users ? userSortFilter : undefined
+  const definitions = [...filters, ...(groupFilter ? [groupFilter] : []), ...(sortFilter ? [sortFilter] : []), ...(pathname === '/hr' && !groupFilter ? [employeeGroupingFilter] : [])]
+  const searchLabel = teams ? 'Rechercher une équipe' : pathname === '/hr' ? 'Rechercher un employé' : identityTags ? 'Rechercher un tag' : users ? 'Rechercher un utilisateur' : scope === 'Paramètres' ? 'Rechercher dans les paramètres' : pathname === '/crm' ? 'Rechercher dans les opportunités' : 'Rechercher dans les contacts'
+  const searchPlaceholder = teams ? 'Rechercher une équipe…' : pathname === '/hr' ? 'Nom, poste ou e-mail…' : identityTags ? 'Nom du profil ou de la responsabilité…' : users ? 'Nom, e-mail ou employé…' : scope === 'Paramètres' ? 'Rechercher un paramétrage…' : pathname === '/crm' ? 'Rechercher une opportunité, une société, un numéro…' : selectedScope === 'contacts' ? 'Rechercher une société, une personne, un e-mail…' : pathname === '/contacts' ? 'Rechercher une société, un e-mail…' : 'Rechercher une personne, une société…'
   const savedParams: Record<string, string> = {}
   if (params.get('q')) savedParams.q = params.get('q')!.slice(0, 200)
   if (params.get('view') === 'list') savedParams.view = 'list'
   definitions.forEach((filter) => { const value = filterValue(params, filter); if (value !== filter.defaultValue) savedParams[filter.key] = value })
   function setFilter(filter: SearchFilter, value: string) {
-    setParams((current) => changeFilter(current, filter, value))
+    setParams((current) => { const next = changeFilter(current, filter, value); next.delete('page'); return next })
   }
   const contextualRef = useRef<HTMLInputElement>(null)
   useEffect(() => {
@@ -43,7 +56,7 @@ export function WorkspaceSearch() {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
-  const results = searchNavigation(query)
+  const results = searchNavigation(query).filter((item) => canAccessNavigation(item.href, session.status === 'authenticated' ? session.user : undefined))
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -67,6 +80,7 @@ export function WorkspaceSearch() {
       const next = new URLSearchParams(current)
       if (value) next.set('q', value)
       else next.delete('q')
+      next.delete('page')
       return next
     }, { replace: true })
   }
@@ -92,10 +106,10 @@ export function WorkspaceSearch() {
   if (contextual) return <div className="workspace-search workspace-search--contextual">
     <Search size={16} aria-hidden="true" />
     {scopeSelector}
-    <SearchFilterChips selections={[...selections, ...(directory ? [{ filter: groupFilter, value: filterValue(params, groupFilter) }] : [])]} onChange={setFilter} />
-    <HInput ref={contextualRef} type="search" aria-label={scope === 'Paramètres' ? 'Rechercher dans les paramètres' : 'Rechercher dans les contacts'} aria-describedby="workspace-search-scope" placeholder={scope === 'Paramètres' ? 'Rechercher un paramétrage…' : selectedScope === 'contacts' ? 'Rechercher une société, une personne, un e-mail…' : pathname === '/contacts' ? 'Rechercher une société, un e-mail…' : 'Rechercher une personne, une société…'} value={params.get('q') ?? ''} onChange={(event) => changeSearch(event.target.value)} />
+    <SearchFilterChips selections={[...selections, ...(groupFilter ? [{ filter: groupFilter, value: filterValue(params, groupFilter) }] : [])]} onChange={setFilter} />
+    <HInput ref={contextualRef} type="search" aria-label={searchLabel} aria-describedby="workspace-search-scope" placeholder={searchPlaceholder} value={params.get('q') ?? ''} onChange={(event) => changeSearch(event.target.value)} />
     {params.get('q') ? <HButton variant="ghost" size="icon" aria-label="Effacer la recherche" onClick={() => { changeSearch(''); contextualRef.current?.focus() }}><X size={14} /></HButton> : <kbd>⌘ / Ctrl K</kbd>}
-    <SearchFilters selections={selections} grouping={directory ? { filter: groupFilter, value: filterValue(params, groupFilter) } : undefined} sorting={directory ? { filter: sortFilter, value: filterValue(params, sortFilter) } : undefined} onChange={setFilter} onReset={() => setParams((current) => resetFilters(current, definitions))}>
+    <SearchFilters selections={selections} grouping={groupFilter ? { filter: groupFilter, value: filterValue(params, groupFilter) } : undefined} sorting={sortFilter ? { filter: sortFilter, value: filterValue(params, sortFilter) } : undefined} onChange={setFilter} onReset={() => setParams((current) => resetFilters(current, definitions))}>
       {directory && <SavedViews key={pathname} context={pathname === '/contacts/people' ? 'contacts.people' : 'contacts.companies'} params={viewParamsSchema.parse(savedParams)} onApply={(view) => setParams((current) => {
         const next = resetFilters(current, definitions)
         next.delete('q'); next.delete('view')

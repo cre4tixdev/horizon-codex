@@ -21,7 +21,7 @@ export function createAuthRepository(url: string): AuthRepository {
       throw new AuthError('invalid-session')
     }
     const user = result.data
-    return { id: user.id, email: user.email, name: user.name,
+    return { id: user.id, email: user.email, name: user.name, erpProfile: user.erp_profile, accessRevision: user.updated,
       role: { id: user.role, label: user.expand.role.label, permissions: user.expand.role.permissions } }
   }
   function failure(error: unknown, refresh: boolean): never {

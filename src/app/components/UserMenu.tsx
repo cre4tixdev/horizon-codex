@@ -2,6 +2,7 @@ import { useSyncExternalStore } from 'react'
 import { Link } from 'react-router'
 import { DropdownMenu } from 'radix-ui'
 import { ChevronDown, LogOut, Settings, UserRound } from 'lucide-react'
+import { hasPermission } from '../../core/auth/types/session'
 import { sessionService } from '../../core/auth/services/session'
 import { HButton } from '../../shared/ui/HButton'
 
@@ -24,7 +25,7 @@ export function UserMenu() {
         <DropdownMenu.Label className="user-menu-label"><strong>{name}</strong>{user && <small>{user.email}</small>}</DropdownMenu.Label>
         <DropdownMenu.Separator className="user-menu-separator" />
         {user && <DropdownMenu.Item asChild><Link to="/account"><UserRound size={16} />Mon compte</Link></DropdownMenu.Item>}
-        <DropdownMenu.Item asChild><Link to="/settings"><Settings size={16} />Paramètres</Link></DropdownMenu.Item>
+        {(!user || hasPermission(user, 'settings.references')) && <DropdownMenu.Item asChild><Link to="/settings"><Settings size={16} />Paramètres</Link></DropdownMenu.Item>}
         {user && <><DropdownMenu.Separator className="user-menu-separator" /><DropdownMenu.Item className="user-menu-signout" onSelect={() => sessionService.signOut()}><LogOut size={16} />Se déconnecter</DropdownMenu.Item></>}
       </DropdownMenu.Content>
     </DropdownMenu.Portal>

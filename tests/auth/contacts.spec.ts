@@ -25,7 +25,7 @@ test('société, rôles, adresse, personne et archivage sur un vrai PocketBase',
   const saveButton = page.getByRole('button', { name: 'Enregistrer', exact: true })
   await expect(saveButton).toBeDisabled()
   await expect(saveButton).toHaveClass(/h-button--secondary/)
-  await page.getByLabel('Nom usuel *', { exact: true }).fill('Acme e2e')
+  await page.getByLabel('Nom usuel', { exact: true }).fill('Acme e2e')
   await expect(saveButton).toBeEnabled()
   await expect(saveButton).toHaveClass(/h-button--primary/)
   await page.getByLabel('Raison sociale', { exact: true }).fill('Acme Engineering')
@@ -237,7 +237,7 @@ test('référentiels administrables, choix clavier et consultation sans écritur
   await page.getByRole('button', { name: 'Enregistrer', exact: true }).click()
   await expect(page.getByRole('row').filter({ hasText: 'Norvège' })).toContainText('Inactif')
   await page.goto('/contacts/companies/new')
-  await page.getByLabel('Nom usuel *', { exact: true }).fill('Référentiels clavier')
+  await page.getByLabel('Nom usuel', { exact: true }).fill('Référentiels clavier')
   await page.getByRole('combobox', { name: 'Langue', exact: true }).click()
   const search = page.getByRole('combobox', { name: 'Rechercher : Langue', exact: true })
   await search.fill('francais')
@@ -253,7 +253,7 @@ test('référentiels administrables, choix clavier et consultation sans écritur
   await page.getByRole('menuitem', { name: 'Se déconnecter' }).click()
   await login(page, 'reader@local.invalid')
   await page.goto('/settings/references')
-  await expect(page.getByRole('cell', { name: 'Norvège', exact: true })).toBeVisible()
+  await expect(page.getByText('Le paramétrage est réservé à Admin et Superuser.')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Ajouter une valeur', exact: true })).toHaveCount(0)
   await page.setViewportSize({ width: 390, height: 844 })
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
@@ -266,7 +266,7 @@ test('ancien backend : édition bloquée sans sauvegarde silencieuse', async ({ 
   page.on('request', (request) => { if (request.method() === 'POST' && request.url().includes('/collections/contacts_companies/records')) writes++ })
   await page.goto('/contacts/companies/new')
   await expect(page.getByRole('alert')).toContainText('Mise à jour PocketBase requise')
-  await expect(page.getByLabel('Nom usuel *', { exact: true })).toBeDisabled()
+  await expect(page.getByLabel('Nom usuel', { exact: true })).toBeDisabled()
   await expect(page.getByRole('button', { name: 'Enregistrer', exact: true })).toHaveCount(0)
   expect(writes).toBe(0)
 })
@@ -274,7 +274,7 @@ test('ancien backend : édition bloquée sans sauvegarde silencieuse', async ({ 
 test('une ancienne requête retardée ne masque pas le contact nouvellement associé', async ({ page }) => {
   await login(page, 'writer@local.invalid')
   await page.goto('/contacts/companies/new')
-  await page.getByLabel('Nom usuel *', { exact: true }).fill('Société requête retardée')
+  await page.getByLabel('Nom usuel', { exact: true }).fill('Société requête retardée')
   let notifyStarted!: () => void
   let release!: () => void
   const started = new Promise<void>((resolve) => { notifyStarted = resolve })
@@ -309,7 +309,7 @@ test('une ancienne requête retardée ne masque pas le contact nouvellement asso
 test('adresse refusée : le formulaire reste renseigné et la société n’est pas créée deux fois', async ({ page }) => {
   await login(page, 'writer@local.invalid')
   await page.goto('/contacts/companies/new')
-  await page.getByLabel('Nom usuel *', { exact: true }).fill('Société adresse à reprendre')
+  await page.getByLabel('Nom usuel', { exact: true }).fill('Société adresse à reprendre')
   await page.getByLabel('Adresse', { exact: true }).fill('24 avenue de Test')
   await page.getByLabel('Ville', { exact: true }).fill('Paris')
   await page.getByRole('combobox', { name: 'Pays', exact: true }).click()
@@ -338,7 +338,7 @@ test('adresse refusée : le formulaire reste renseigné et la société n’est 
 test('cartes et liste : mêmes fiches, recherche conservée et en-tête compact', async ({ page }) => {
   await login(page, 'writer@local.invalid')
   await page.goto('/contacts/companies/new')
-  await page.getByLabel('Nom usuel *', { exact: true }).fill('Atelier Présentation')
+  await page.getByLabel('Nom usuel', { exact: true }).fill('Atelier Présentation')
   await page.getByLabel('Raison sociale', { exact: true }).fill('Atelier Présentation SAS')
   await page.getByLabel('E-mail', { exact: true }).fill('bonjour@atelier.invalid')
   await page.getByLabel('Téléphone', { exact: true }).fill('01 23 45 67 89')
@@ -425,7 +425,7 @@ test('nouvelle charte : logo horizontal entier, synthèse réelle et onglets cla
     context.font = 'bold 27px sans-serif'; context.fillText('ASTER', 70, 40)
     return canvas.toDataURL('image/png').split(',')[1] ?? ''
   })
-  await page.getByLabel('Nom usuel *', { exact: true }).fill('Aster Studio')
+  await page.getByLabel('Nom usuel', { exact: true }).fill('Aster Studio')
   await page.getByLabel('E-mail', { exact: true }).fill('bonjour@aster.invalid')
   await page.getByLabel('Téléphone', { exact: true }).fill('01 80 00 00 00')
   await page.getByLabel('Adresse', { exact: true }).fill('10 rue du Studio')
@@ -450,7 +450,7 @@ test('nouvelle charte : logo horizontal entier, synthèse réelle et onglets cla
   await page.keyboard.press('ArrowRight')
   await expect(page.getByRole('tab', { name: /^Contacts(?: \d+)?$/ })).toBeFocused()
   await expect(page.getByRole('heading', { name: 'Contacts associés (0)', exact: true })).toBeVisible()
-  await expect(page.getByLabel('Nom usuel *', { exact: true })).toBeHidden()
+  await expect(page.getByLabel('Nom usuel', { exact: true })).toBeHidden()
   await page.getByRole('tab', { name: 'Notes', exact: true }).click()
   await page.getByRole('textbox', { name: 'Notes', exact: true }).fill('Suivi commercial du studio.')
   await page.getByRole('button', { name: 'Enregistrer', exact: true }).click()
@@ -488,19 +488,19 @@ test('nouvelle charte : logo horizontal entier, synthèse réelle et onglets cla
 })
 
 test('paramètres organisés par domaine, référentiels accessibles et combobox intégrée', async ({ page }) => {
-  await login(page, 'writer@local.invalid')
+  await login(page, 'references@local.invalid')
   await page.goto('/settings')
   await expect(page.locator('.settings-main').getByRole('heading', { name: 'Vue d’ensemble', exact: true })).toBeVisible()
   await expect(page.locator('.content-footer')).toHaveCount(0)
   await page.setViewportSize({ width: 1440, height: 1000 })
   await page.screenshot({ path: '/private/tmp/horizon-settings-overview.png', fullPage: true })
-  await page.getByLabel('Rechercher dans les paramètres').fill('pipeline')
+  await page.getByLabel('Rechercher dans les paramètres').fill('étapes')
   await page.locator('.settings-main').getByRole('link').filter({ has: page.getByRole('heading', { name: 'CRM', exact: true }) }).click()
-  await expect(page).toHaveURL('/settings/modules/crm')
-  await expect(page.getByRole('heading', { name: 'Pipelines', exact: true })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Enregistrer', exact: true })).toHaveCount(0)
+  await expect(page).toHaveURL('/settings/crm')
+  await expect(page.locator('.settings-main').getByRole('heading', { name: 'CRM', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Enregistrer', exact: true })).toBeDisabled()
   await page.locator('.settings-navigation').getByRole('link', { name: 'Référentiels', exact: true }).click()
-  await expect(page.getByRole('button', { name: 'Ajouter une valeur', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Ajouter une valeur', exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Langues', exact: true }).click()
   await page.reload()
   await expect(page.getByRole('button', { name: 'Langues', exact: true })).toHaveAttribute('aria-pressed', 'true')
@@ -526,7 +526,7 @@ test('paramètres organisés par domaine, référentiels accessibles et combobox
 test('recherche Contacts : bascule automatique et filtres conservés dans les listes', async ({ page }) => {
   await login(page, 'writer@local.invalid')
   await page.goto('/contacts/companies/new')
-  await page.getByLabel('Nom usuel *', { exact: true }).fill('SocieteAutoseule986')
+  await page.getByLabel('Nom usuel', { exact: true }).fill('SocieteAutoseule986')
   await page.getByRole('button', { name: 'Enregistrer', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'SocieteAutoseule986', exact: true })).toBeVisible()
   await expect(page.getByRole('navigation', { name: 'Navigation principale' }).getByRole('link', { name: 'Contacts', exact: true })).toHaveAttribute('aria-current', 'page')
@@ -594,10 +594,10 @@ test('une seule recherche contextuelle, persistante entre les vues et après rec
   await expect(search).toBeFocused()
 })
 
-test('surface des cartes et lignes cliquable sans détourner les coordonnées', async ({ page }) => {
+test('surface des cartes : e-mail ouvre la fiche, téléphone indépendant et lignes cliquables', async ({ page }) => {
   await login(page, 'writer@local.invalid')
   await page.goto('/contacts/companies/new')
-  await page.getByLabel('Nom usuel *', { exact: true }).fill('Surface cliquable')
+  await page.getByLabel('Nom usuel', { exact: true }).fill('Surface cliquable')
   await page.getByLabel('E-mail', { exact: true }).fill('surface@local.invalid')
   await page.getByLabel('Téléphone', { exact: true }).fill('0123456789')
   await page.getByRole('button', { name: 'Enregistrer', exact: true }).click()
@@ -606,9 +606,10 @@ test('surface des cartes et lignes cliquable sans détourner les coordonnées', 
   await page.goto('/contacts?q=Surface+cliquable&view=cards')
   const card = page.locator('.contact-directory-card').filter({ hasText: 'Surface cliquable' })
   await expect(card).toBeVisible()
-  await page.evaluate(() => document.querySelector('a[href="mailto:surface@local.invalid"]')?.addEventListener('click', (event) => event.preventDefault(), { once: true }))
   await card.getByRole('link', { name: 'surface@local.invalid' }).click()
-  await expect(page).toHaveURL(/view=cards/)
+  await expect(page).toHaveURL(destination)
+  await page.getByRole('navigation', { name: 'Fil d’Ariane' }).getByRole('link', { name: 'Contacts', exact: true }).click()
+  await expect(page).toHaveURL(/q=Surface\+cliquable.*view=cards/)
   await expect(card.locator('a[href="tel:0123456789"]')).toBeVisible()
   const bounds = await card.boundingBox()
   await card.click({ position: { x: bounds!.width - 6, y: bounds!.height - 6 } })
@@ -648,7 +649,7 @@ test('relations disponibles dès la création et reprise sans doublon si un rôl
   await page.setViewportSize({ width: 1440, height: 1000 })
   await page.getByRole('checkbox', { name: 'Client', exact: true }).check()
   await page.getByRole('checkbox', { name: 'Fournisseur', exact: true }).check()
-  await page.getByLabel('Nom usuel *', { exact: true }).fill('Relations à la création')
+  await page.getByLabel('Nom usuel', { exact: true }).fill('Relations à la création')
   await page.getByLabel('Adresse', { exact: true }).fill('5 rue Test')
   await page.getByLabel('Ville', { exact: true }).fill('Paris')
   await page.getByRole('combobox', { name: 'Pays', exact: true }).click()
@@ -702,7 +703,7 @@ test('recherche entreprises de l’État : création et report sans écriture av
   page.on('request', (request) => {
     if (request.url().includes('/api/') && !request.url().includes('/auth-') && ['POST', 'PATCH', 'DELETE'].includes(request.method())) writes++
   })
-  await page.getByLabel('Nom usuel *', { exact: true }).fill('Entreprise recherchée')
+  await page.getByLabel('Nom usuel', { exact: true }).fill('Entreprise recherchée')
   await page.getByLabel('Téléphone', { exact: true }).fill('01 23 45 67 89')
   await page.getByLabel('Numéro de TVA', { exact: true }).fill('FR00123456789')
   await expect(page.locator('.contact-identity-panel .h-section-heading').getByRole('button', { name: 'Rechercher sur le web', exact: true })).toBeVisible()
@@ -723,7 +724,7 @@ test('recherche entreprises de l’État : création et report sans écriture av
   await page.screenshot({ path: '/private/tmp/horizon-company-search-mobile.png' })
   await dialog.getByRole('button', { name: 'Remplir le formulaire', exact: true }).click()
   await expect(dialog).toBeHidden()
-  await expect(page.getByLabel('Nom usuel *', { exact: true })).toHaveValue('Entreprise proposée')
+  await expect(page.getByLabel('Nom usuel', { exact: true })).toHaveValue('Entreprise proposée')
   await expect(page.getByLabel('Raison sociale', { exact: true })).toHaveValue('Entreprise proposée SAS')
   await expect(page.getByLabel('Adresse', { exact: true })).toHaveValue('8 rue des Tests')
   await expect(page.getByLabel('Téléphone', { exact: true })).toHaveValue('01 23 45 67 89')
@@ -753,7 +754,7 @@ test('un contact change de société uniquement après Enregistrer', async ({ pa
   const companyPaths: string[] = []
   for (const name of ['Société départ mobilité', 'Société arrivée mobilité']) {
     await page.goto('/contacts/companies/new')
-    await page.getByLabel('Nom usuel *', { exact: true }).fill(name)
+    await page.getByLabel('Nom usuel', { exact: true }).fill(name)
     await page.getByRole('button', { name: 'Enregistrer', exact: true }).click()
     await expect(page.getByRole('heading', { name, exact: true })).toBeVisible()
     companyPaths.push(new URL(page.url()).pathname)
@@ -799,7 +800,7 @@ test('un contact change de société uniquement après Enregistrer', async ({ pa
 test('menu engrenage : duplication en brouillon et suppression confirmée protégée', async ({ page }) => {
   await login(page, 'writer@local.invalid')
   await page.goto('/contacts/companies/new')
-  await page.getByLabel('Nom usuel *', { exact: true }).fill('Société source duplication')
+  await page.getByLabel('Nom usuel', { exact: true }).fill('Société source duplication')
   await page.getByLabel('SIREN', { exact: true }).fill('123456789')
   await page.getByLabel('SIRET', { exact: true }).fill('12345678900001')
   await page.getByLabel('Adresse', { exact: true }).fill('10 rue Originale')
@@ -819,7 +820,7 @@ test('menu engrenage : duplication en brouillon et suppression confirmée proté
   await gear.click()
   await page.getByRole('menuitem', { name: 'Dupliquer', exact: true }).click()
   await expect(page).toHaveURL(/\/contacts\/companies\/new\?duplicate=/)
-  await expect(page.getByLabel('Nom usuel *', { exact: true })).toHaveValue('Société source duplication (copie)')
+  await expect(page.getByLabel('Nom usuel', { exact: true })).toHaveValue('Société source duplication (copie)')
   await expect(page.getByLabel('SIREN', { exact: true })).toHaveValue('')
   await expect(page.getByLabel('SIRET', { exact: true })).toHaveValue('')
   await expect(page.getByLabel('Adresse', { exact: true })).toHaveValue('10 rue Originale')
@@ -881,7 +882,7 @@ test('comptabilité : défauts, LEI et comptes sauvegardés explicitement avec r
     if (request.url().includes('/api/collections/') && !request.url().includes('/auth-') && ['POST', 'PATCH', 'DELETE'].includes(request.method())) writes++
     if (request.url().endsWith('/api/collections/contacts_companies/records') && request.method() === 'POST') creates++
   })
-  await page.getByLabel('Nom usuel *', { exact: true }).fill('Comptabilité explicite')
+  await page.getByLabel('Nom usuel', { exact: true }).fill('Comptabilité explicite')
   await page.getByLabel('LEI', { exact: true }).fill('506700ge1g29325qx363')
   await page.getByRole('checkbox', { name: 'Client', exact: true }).check()
   await page.getByRole('checkbox', { name: 'Fournisseur', exact: true }).check()
@@ -932,7 +933,7 @@ test('comptabilité : défauts, LEI et comptes sauvegardés explicitement avec r
 test('logos : recherche, sélection et aperçu sans écriture avant Enregistrer', async ({ page }) => {
   await login(page, 'writer@local.invalid')
   await page.goto('/contacts/companies/new')
-  await page.getByLabel('Nom usuel *', { exact: true }).fill('TF1')
+  await page.getByLabel('Nom usuel', { exact: true }).fill('TF1')
   let writes = 0
   page.on('request', (request) => {
     if (request.url().includes('/api/collections/') && !request.url().includes('/auth-') && ['POST', 'PATCH', 'DELETE'].includes(request.method())) writes++
@@ -977,7 +978,7 @@ test('logos : recherche, sélection et aperçu sans écriture avant Enregistrer'
 test('images : Google prérempli, collage, annulation et sauvegarde explicite', async ({ page }) => {
   await login(page, 'writer@local.invalid')
   await page.goto('/contacts/companies/new')
-  await page.getByLabel('Nom usuel *', { exact: true }).fill('Sony France')
+  await page.getByLabel('Nom usuel', { exact: true }).fill('Sony France')
   let writes = 0
   page.on('request', (request) => { if (request.url().includes('/api/collections/') && !request.url().includes('/auth-') && ['POST', 'PATCH', 'DELETE'].includes(request.method())) writes++ })
   await page.evaluate(() => {
@@ -1060,7 +1061,7 @@ test('fil complet : modifications groupées, document, mention, tâche et notifi
   await login(page, 'writer@local.invalid')
   await page.goto('/contacts/companies/new')
   await expect(page.getByRole('region', { name: 'Fil d’activité' })).toHaveCount(0)
-  await page.getByLabel('Nom usuel *', { exact: true }).fill('Studio Horizon')
+  await page.getByLabel('Nom usuel', { exact: true }).fill('Studio Horizon')
   await page.getByRole('checkbox', { name: 'Client', exact: true }).check()
   await page.getByLabel('Adresse', { exact: true }).fill('12 rue des Ateliers')
   await page.getByLabel('Ville', { exact: true }).fill('Paris')
@@ -1159,7 +1160,7 @@ test('fil complet : modifications groupées, document, mention, tâche et notifi
 test('titres de sections : typographie uniforme pour contacts, adresses et comptabilité', async ({ page }) => {
   await login(page, 'writer@local.invalid')
   await page.goto('/contacts/companies/new')
-  await page.getByLabel('Nom usuel *', { exact: true }).fill('Titres homogènes')
+  await page.getByLabel('Nom usuel', { exact: true }).fill('Titres homogènes')
   await page.getByRole('button', { name: 'Enregistrer', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Titres homogènes', exact: true })).toBeVisible()
   await page.evaluate(() => document.fonts.ready)
@@ -1184,7 +1185,7 @@ test('titres de sections : typographie uniforme pour contacts, adresses et compt
 test('contacts et adresses : coordonnées par usage en brouillon puis sauvegarde de la fiche', async ({ page }) => {
   await login(page, 'writer@local.invalid')
   await page.goto('/contacts/companies/new')
-  await page.getByLabel('Nom usuel *', { exact: true }).fill('Société multi-adresses')
+  await page.getByLabel('Nom usuel', { exact: true }).fill('Société multi-adresses')
   await page.getByLabel('E-mail', { exact: true }).fill('contact@multi.invalid')
   await page.getByLabel('Adresse', { exact: true }).fill('12 rue du Siège')
   await page.getByLabel('Ville', { exact: true }).fill('Paris')
@@ -1257,7 +1258,7 @@ test('contacts et adresses : coordonnées par usage en brouillon puis sauvegarde
 test('raccourcis de fiche : barre compacte, rôles, compteurs réels et liens de section', async ({ page }) => {
   await login(page, 'writer@local.invalid')
   await page.goto('/contacts/companies/new')
-  await page.getByLabel('Nom usuel *', { exact: true }).fill('Raccourcis contextuels')
+  await page.getByLabel('Nom usuel', { exact: true }).fill('Raccourcis contextuels')
   await page.getByLabel('E-mail', { exact: true }).fill('compteurs@local.invalid')
   await page.getByRole('checkbox', { name: 'Client', exact: true }).check()
   await page.getByRole('button', { name: 'Enregistrer', exact: true }).click()
@@ -1346,7 +1347,7 @@ test('navigation des fiches : compteur, contexte, limites et brouillon protégé
   for (const letter of ['A', 'B', 'C']) {
     await page.goto('/contacts/companies/new')
     await expect(page.getByRole('navigation', { name: 'Navigation des fiches sociétés' })).toHaveCount(0)
-    await page.getByLabel('Nom usuel *', { exact: true }).fill(`Navigateur e2e ${letter}`)
+    await page.getByLabel('Nom usuel', { exact: true }).fill(`Navigateur e2e ${letter}`)
     await page.getByRole('checkbox', { name: 'Client', exact: true }).check()
     await page.getByRole('button', { name: 'Enregistrer', exact: true }).click()
     await expect(page.getByRole('heading', { name: `Navigateur e2e ${letter}`, exact: true })).toBeVisible()
@@ -1391,11 +1392,11 @@ test('navigation des fiches : compteur, contexte, limites et brouillon protégé
   await expect(nav.getByRole('button', { name: 'Société précédente' })).toBeDisabled()
   let writes = 0
   page.on('request', (request) => { if (request.url().includes('/api/collections/contacts_') && ['POST', 'PATCH', 'DELETE'].includes(request.method())) writes++ })
-  await page.getByLabel('Nom usuel *', { exact: true }).fill('Brouillon non enregistré')
+  await page.getByLabel('Nom usuel', { exact: true }).fill('Brouillon non enregistré')
   await nav.getByRole('link', { name: 'Société suivante', exact: true }).click()
   const dialog = page.getByRole('dialog', { name: 'Quitter sans enregistrer ?', exact: true })
   await dialog.getByRole('button', { name: 'Rester sur la fiche', exact: true }).click()
-  await expect(page.getByLabel('Nom usuel *', { exact: true })).toHaveValue('Brouillon non enregistré')
+  await expect(page.getByLabel('Nom usuel', { exact: true })).toHaveValue('Brouillon non enregistré')
   await nav.getByRole('link', { name: 'Société suivante', exact: true }).click()
   await dialog.getByRole('button', { name: 'Quitter sans enregistrer', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Navigateur e2e B', exact: true })).toBeVisible()
@@ -1444,7 +1445,7 @@ test('navigation des fiches : compteur, contexte, limites et brouillon protégé
 test('contacts associés : filtre intégré visible uniquement en présence d’archives', async ({ page }) => {
   await login(page, 'writer@local.invalid')
   await page.goto('/contacts/companies/new')
-  await page.getByLabel('Nom usuel *', { exact: true }).fill('Contacts avec archives')
+  await page.getByLabel('Nom usuel', { exact: true }).fill('Contacts avec archives')
   await page.getByRole('button', { name: 'Enregistrer', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Contacts avec archives', exact: true })).toBeVisible()
   const companyUrl = page.url()
@@ -1482,7 +1483,7 @@ test('contacts associés : filtre intégré visible uniquement en présence d’
   await expect(associatedCard.locator('.contact-avatar--person')).toHaveCSS('width', '64px')
   await expect(associatedCard.locator('.contact-avatar--person')).toHaveCSS('height', '64px')
   await expect(associatedCard.getByText('Responsable technique', { exact: true })).toBeVisible()
-  await expect(associatedCard.getByRole('link', { name: 'camille@local.invalid', exact: true })).toHaveAttribute('href', 'mailto:camille@local.invalid')
+  await expect(associatedCard.getByRole('link', { name: 'camille@local.invalid', exact: true })).toHaveAttribute('href', new URL(personUrl).pathname)
   await expect(associatedCard.getByRole('link', { name: 'Contacts avec archives', exact: true })).toHaveAttribute('href', new URL(companyUrl).pathname)
   const functionBounds = await associatedCard.locator('.contact-card-function').boundingBox()
   const companyBounds = await associatedCard.locator('.contact-card-company').boundingBox()
@@ -1491,11 +1492,15 @@ test('contacts associés : filtre intégré visible uniquement en présence d’
   expect(emailBounds!.y).toBeGreaterThanOrEqual(companyBounds!.y + companyBounds!.height)
   await expect(associatedCard.getByText('Archivé', { exact: true })).toBeVisible()
   await expect(associatedCard).toHaveCSS('height', '112px')
-  await page.setViewportSize({ width: 1440, height: 1000 })
   const associatedGrid = directory.locator('.contact-card-grid')
-  expect(await associatedGrid.evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(' ').length)).toBeGreaterThanOrEqual(4)
+  for (const width of [1440, 1600, 3440]) {
+    await page.setViewportSize({ width, height: 1000 })
+    const grid = await associatedGrid.boundingBox()
+    const card = await associatedCard.boundingBox()
+    expect(card!.width).toBeGreaterThanOrEqual(280)
+    expect(await associatedGrid.evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(' ').length)).toBe(Math.floor((grid!.width + 12) / (280 + 12)))
+  }
   await page.setViewportSize({ width: 1600, height: 1000 })
-  expect(await associatedGrid.evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(' ').length)).toBeGreaterThanOrEqual(5)
   await page.screenshot({ path: '/private/tmp/horizon-company-contacts-archives.png', fullPage: true })
   await filter.getByRole('button', { name: 'Actifs', exact: true }).click()
   await expect(directory.getByText('Aucun contact actif associé.', { exact: true })).toBeVisible()
@@ -1515,9 +1520,7 @@ test('contacts associés : filtre intégré visible uniquement en présence d’
   await expect(associatedCard).toHaveCSS('height', '112px')
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   await page.screenshot({ path: '/private/tmp/horizon-company-contact-cards-mobile.png', fullPage: true })
-  const cardSize = await associatedCard.boundingBox()
-  if (!cardSize) throw new Error('Carte contact absente')
-  await associatedCard.click({ position: { x: cardSize.width - 8, y: cardSize.height - 8 } })
+  await associatedCard.getByRole('link', { name: 'camille@local.invalid', exact: true }).click()
   await expect(page).toHaveURL(personUrl)
 })
 
@@ -1528,15 +1531,15 @@ test('mode sombre : formulaire, logos, combobox, popups et fil cohérents', asyn
   await page.goto('/contacts/companies/new')
   let writes = 0
   page.on('request', (request) => { if (request.url().includes('/api/collections/contacts_') && ['POST', 'PATCH', 'DELETE'].includes(request.method())) writes++ })
-  await page.getByLabel('Nom usuel *', { exact: true }).fill('Horizon mode sombre')
+  await page.getByLabel('Nom usuel', { exact: true }).fill('Horizon mode sombre')
   await page.getByLabel('E-mail', { exact: true }).fill('contact@dark.invalid')
   await page.getByRole('button', { name: 'Passer en mode clair', exact: true }).click()
-  await expect(page.getByLabel('Nom usuel *', { exact: true })).toHaveValue('Horizon mode sombre')
-  await expect(page.getByLabel('Nom usuel *', { exact: true })).toHaveCSS('color', 'rgb(17, 17, 17)')
+  await expect(page.getByLabel('Nom usuel', { exact: true })).toHaveValue('Horizon mode sombre')
+  await expect(page.getByLabel('Nom usuel', { exact: true })).toHaveCSS('color', 'rgb(17, 17, 17)')
   await page.getByRole('button', { name: 'Passer en mode sombre', exact: true }).click()
   expect(writes).toBe(0)
-  await expect(page.getByLabel('Nom usuel *', { exact: true })).toHaveCSS('color', 'rgb(243, 246, 252)')
-  await expect(page.getByLabel('Nom usuel *', { exact: true })).toHaveCSS('background-color', 'rgb(22, 34, 54)')
+  await expect(page.getByLabel('Nom usuel', { exact: true })).toHaveCSS('color', 'rgb(243, 246, 252)')
+  await expect(page.getByLabel('Nom usuel', { exact: true })).toHaveCSS('background-color', 'rgb(22, 34, 54)')
   await expect(page.getByRole('button', { name: /Notifications/ })).toHaveCSS('color', 'rgb(232, 238, 248)')
   await page.getByLabel('Adresse', { exact: true }).fill('12 rue du Contraste')
   await page.getByLabel('Ville', { exact: true }).fill('Paris')
@@ -1580,7 +1583,7 @@ test('mode sombre : formulaire, logos, combobox, popups et fil cohérents', asyn
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
   await page.getByRole('button', { name: 'Passer en mode clair', exact: true }).click()
   await page.getByRole('tab', { name: 'Informations', exact: true }).click()
-  await expect(page.getByLabel('Nom usuel *', { exact: true })).toHaveCSS('color', 'rgb(17, 17, 17)')
+  await expect(page.getByLabel('Nom usuel', { exact: true })).toHaveCSS('color', 'rgb(17, 17, 17)')
 })
 
 test('filtres dans la recherche : URL, archives, historique et affichage responsive', async ({ page }) => {
@@ -1686,7 +1689,7 @@ test('relation commerciale : clients, fournisseurs et doubles rôles sans faux p
   let doubleId = ''
   for (const [index, name] of names.entries()) {
     await page.goto('/contacts/companies/new')
-    await page.getByLabel('Nom usuel *', { exact: true }).fill(name)
+    await page.getByLabel('Nom usuel', { exact: true }).fill(name)
     if (index !== 1) await page.getByRole('checkbox', { name: 'Client', exact: true }).check()
     if (index !== 0) await page.getByRole('checkbox', { name: 'Fournisseur', exact: true }).check()
     await page.getByRole('button', { name: 'Enregistrer', exact: true }).click()
@@ -1743,7 +1746,7 @@ test('groupes : pays du siège, société des personnes, tri et deux colonnes re
   let companyId = ''
   for (const [name, country] of [['Groupe UX Paris', 'France FR'], ['Groupe UX Berlin', 'Allemagne DE']]) {
     await page.goto('/contacts/companies/new')
-    await page.getByLabel('Nom usuel *', { exact: true }).fill(name!)
+    await page.getByLabel('Nom usuel', { exact: true }).fill(name!)
     await page.getByLabel('Adresse', { exact: true }).fill('1 rue du Test')
     await page.getByLabel('Ville', { exact: true }).fill('Ville')
     await page.getByRole('combobox', { name: 'Pays', exact: true }).click()
@@ -1771,10 +1774,10 @@ test('groupes : pays du siège, société des personnes, tri et deux colonnes re
   await expect(page.getByRole('heading', { name: 'Allemagne', exact: true })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'France', exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Vue liste' }).click()
-  await expect(page.locator('.contact-group')).toHaveCount(2)
-  await expect(page.locator('.contact-group tbody tr')).toHaveCount(2)
+  await expect(page.locator('.record-group')).toHaveCount(2)
+  await expect(page.locator('.record-group tbody tr')).toHaveCount(2)
   await page.reload()
-  await expect(page.locator('.contact-group')).toHaveCount(2)
+  await expect(page.locator('.record-group')).toHaveCount(2)
   await page.goto('/contacts/people?q=Groupe+UX&group=company')
   await expect(page.getByRole('heading', { name: 'Groupe UX Berlin', exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Passer en mode sombre' }).click()

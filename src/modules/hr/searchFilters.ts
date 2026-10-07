@@ -1,0 +1,10 @@
+import { List, Building2, Network } from 'lucide-react'
+import type { SearchFilter } from '../../shared/search/filters'
+import type { Team } from './schemas/employees'
+export const employeeStatusFilter: SearchFilter = { key: 'status', label: 'Statut des employés', defaultValue: 'active', appearance: 'compact', options: [{ value: 'active', label: 'Actifs' }, { value: 'all', label: 'Tous les statuts' }, { value: 'planned', label: 'À venir' }, { value: 'inactive', label: 'Inactifs' }, { value: 'ended', label: 'Terminés' }] }
+export const employeeTeamFilter = (teams: readonly Team[]): SearchFilter => ({ key: 'team', label: 'Équipe', defaultValue: 'all', options: [{ value: 'all', label: 'Toutes les équipes' }, ...teams.map((team) => ({ value: team.id, label: team.name }))] })
+export const employeeGroupingFilter: SearchFilter = { key: 'group', label: 'Regrouper par', defaultValue: 'none', options: [{ value: 'none', label: 'Aucun regroupement', icon: List }, { value: 'team', label: 'Équipe', icon: Building2 }, { value: 'responsibility', label: 'Responsabilité', icon: Network }] }
+export const employeeSortFilter: SearchFilter = { key: 'sort', label: 'Trier les employés', defaultValue: 'name:asc', options: [{ value: 'name:asc', label: 'Nom : A → Z' }, { value: 'name:desc', label: 'Nom : Z → A' }, { value: 'email:asc', label: 'E-mail : A → Z' }, { value: 'email:desc', label: 'E-mail : Z → A' }, { value: 'job:asc', label: 'Poste : A → Z' }] }
+export const teamStateFilter: SearchFilter = { key: 'state', label: 'État des équipes', defaultValue: 'active', appearance: 'compact', options: [{ value: 'active', label: 'Actives' }, { value: 'archived', label: 'Archivées' }, { value: 'all', label: 'Toutes' }] }
+export const teamGroupingFilter: SearchFilter = { key: 'group', label: 'Regrouper par', defaultValue: 'none', options: [{ value: 'none', label: 'Aucun regroupement', icon: List }, { value: 'state', label: 'État', icon: Building2 }] }
+export const teamSortFilter: SearchFilter = { key: 'sort', label: 'Trier les équipes', defaultValue: 'name:asc', options: [{ value: 'name:asc', label: 'Nom : A → Z' }, { value: 'name:desc', label: 'Nom : Z → A' }] }

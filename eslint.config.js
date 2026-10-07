@@ -9,7 +9,7 @@ export default defineConfig([
   globalIgnores(['dist', 'coverage', 'playwright-report', 'test-results', 'node_modules']),
   {
     files: ['pocketbase/pb_migrations/*.js'],
-    languageOptions: { globals: { migrate: 'readonly', Collection: 'readonly', Record: 'readonly', TextField: 'readonly', JSONField: 'readonly', BoolField: 'readonly', EmailField: 'readonly', SelectField: 'readonly', RelationField: 'readonly' } },
+    languageOptions: { globals: { migrate: 'readonly', $os: 'readonly', Collection: 'readonly', Record: 'readonly', TextField: 'readonly', NumberField: 'readonly', JSONField: 'readonly', BoolField: 'readonly', EmailField: 'readonly', SelectField: 'readonly', RelationField: 'readonly' } },
   },
   {
     files: ['pocketbase/pb_hooks/**/*.js'],

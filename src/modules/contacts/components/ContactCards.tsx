@@ -31,11 +31,11 @@ export function ContactCards({ records, directory }: { records: (Company | Perso
         </div>}
         <div className="contact-card-coordinates">
           {person ? <>
-            {record.email && <a className="contact-card-primary-coordinate" href={`mailto:${record.email}`} title={record.email}><Mail size={14} aria-hidden="true" /><span>{record.email}</span></a>}
+            {record.email && <Link className="contact-card-primary-coordinate" to={destination} state={directory ? { contactDirectory: directory } : undefined} title={record.email}><Mail size={14} aria-hidden="true" /><span>{record.email}</span></Link>}
             {location && <p className={record.email ? undefined : 'contact-card-primary-coordinate'} title={location} aria-label={location}><MapPin size={14} aria-hidden="true" />{!record.email && <span>{location}</span>}</p>}
             {phone && <a className={!record.email && !location ? 'contact-card-primary-coordinate' : undefined} href={`tel:${phone}`} title={phone} aria-label={phone}><Phone size={14} aria-hidden="true" />{!record.email && !location && <span>{phone}</span>}</a>}
           </> : <>
-          {record.email && <a href={`mailto:${record.email}`} title={record.email}><Mail size={16} aria-hidden="true" /><span>{record.email}</span></a>}
+          {record.email && <Link to={destination} state={directory ? { contactDirectory: directory } : undefined} title={record.email}><Mail size={16} aria-hidden="true" /><span>{record.email}</span></Link>}
           {(location || phone) && <div className="contact-card-secondary">
             {location && <p title={[location, address?.line1, address?.postal_code].filter(Boolean).join(' · ')}><MapPin size={14} aria-hidden="true" /><span>{location}</span></p>}
             {phone && <a href={`tel:${phone}`} title={phone}><Phone size={14} aria-hidden="true" /><span>{phone}</span></a>}

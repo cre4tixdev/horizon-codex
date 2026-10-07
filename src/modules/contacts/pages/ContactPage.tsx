@@ -1,3 +1,5 @@
+import { HFieldLabel } from '../../../shared/ui/HFieldLabel'
+import { HRecordTabs } from '../../../shared/ui/HRecordTabs'
 import { useState, useSyncExternalStore } from 'react'
 import { Controller, useForm, useWatch } from 'react-hook-form'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -33,7 +35,7 @@ import { accountDraftSchema, type AccountDraft } from '../../accounting/schemas/
 
 type FormValues = CompanyInput & PersonInput & AccountDraft
 const fields = {
-  name: { label: 'Nom usuel *', placeholder: 'Nom de la société' }, legal_name: { label: 'Raison sociale', placeholder: 'Dénomination légale' },
+  name: { label: 'Nom usuel', placeholder: 'Nom de la société' }, legal_name: { label: 'Raison sociale', placeholder: 'Dénomination légale' },
   first_name: { label: 'Prénom', placeholder: 'Prénom' }, last_name: { label: 'Nom', placeholder: 'Nom' }, job_title: { label: 'Fonction', placeholder: 'Responsable, directeur…' },
   email: { label: 'E-mail', placeholder: 'contact@societe.fr', type: 'email' }, phone: { label: 'Téléphone', placeholder: '+33 …', type: 'tel' }, mobile: { label: 'Mobile', placeholder: '+33 …', type: 'tel' },
   website: { label: 'Site web', placeholder: 'https://…', type: 'url' }, vat_number: { label: 'Numéro de TVA', placeholder: 'FR…' }, lei: { label: 'LEI', placeholder: '20 caractères alphanumériques' },
@@ -121,7 +123,7 @@ function ContactEditor({ kind, record, addresses, accounts, canWrite, duplicateS
 
   function renderField(name: keyof typeof fields) {
     const field = fields[name]
-    return <label key={name} htmlFor={`contact-${name}`}>{field.label}<HInput id={`contact-${name}`} type={'type' in field ? field.type : 'text'} placeholder={field.placeholder} {...form.register(name)} aria-invalid={Boolean(form.formState.errors[name])} aria-describedby={form.formState.errors[name] ? `error-${name}` : undefined} />{form.formState.errors[name] && <span className="field-error" id={`error-${name}`}>{form.formState.errors[name]?.message}</span>}</label>
+    return <label key={name} htmlFor={`contact-${name}`}><HFieldLabel required={name === 'name'}>{field.label}</HFieldLabel><HInput id={`contact-${name}`} aria-required={name === 'name'} type={'type' in field ? field.type : 'text'} placeholder={field.placeholder} {...form.register(name)} aria-invalid={Boolean(form.formState.errors[name])} aria-describedby={form.formState.errors[name] ? `error-${name}` : undefined} />{form.formState.errors[name] && <span className="field-error" id={`error-${name}`}>{form.formState.errors[name]?.message}</span>}</label>
   }
 
   function openSection(value: string) {
@@ -149,7 +151,7 @@ function ContactEditor({ kind, record, addresses, accounts, canWrite, duplicateS
     {readiness.error && <p role="alert" className="field-error">{readiness.error.message}<HButton onClick={() => { void readiness.refetch() }}>Réessayer</HButton></p>}
     {archive.error && record && !record.active && <p role="alert" className="field-error">{archive.error.message}</p>}
     {save.error && <div role="alert" className="contact-save-error">{save.error.message}</div>}
-    {(record || kind === 'companies') && <div className="contact-record-navigation" role="tablist" aria-label="Sections de la fiche">{[{ value: 'information', label: 'Informations', count: undefined, panel: 'contact-record-form' }, ...(company ? [{ value: 'contacts', label: 'Contacts', count: peopleCount.data, panel: 'contact-record-contacts' }, { value: 'addresses', label: 'Adresses', count: addressCount, panel: 'contact-record-addresses' }] : []), ...(kind === 'companies' ? [{ value: 'accounting', label: 'Comptabilité', count: undefined, panel: 'contact-record-form' }] : []), { value: 'notes', label: 'Notes', count: undefined, panel: 'contact-record-form' }].map(({ value, label, count, panel }) => <button key={value} id={`contact-tab-${value}`} type="button" role="tab" aria-selected={section === value} aria-controls={panel} tabIndex={section === value ? 0 : -1} onKeyDown={(event) => { if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return; event.preventDefault(); const tabs = Array.from(event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role=tab]') ?? []); const index = tabs.indexOf(event.currentTarget); const next = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : (index + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length; tabs[next]?.click(); tabs[next]?.focus() }} onClick={() => openSection(value)}>{label}{count !== undefined && <span className="contact-tab-count">{count}</span>}</button>)}</div>}
+    {(record || kind === 'companies') && <HRecordTabs label="Sections de la fiche" value={section} onChange={openSection} items={[{ value: 'information', label: 'Informations', count: undefined, panel: 'contact-record-form' }, ...(company ? [{ value: 'contacts', label: 'Contacts', count: peopleCount.data, panel: 'contact-record-contacts' }, { value: 'addresses', label: 'Adresses', count: addressCount, panel: 'contact-record-addresses' }] : []), ...(kind === 'companies' ? [{ value: 'accounting', label: 'Comptabilité', count: undefined, panel: 'contact-record-form' }] : []), { value: 'notes', label: 'Notes', count: undefined, panel: 'contact-record-form' }]} />}
     {peopleCount.error && <p role="alert" className="field-error">{peopleCount.error.message}<HButton size="small" variant="ghost" onClick={() => { void peopleCount.refetch() }}>Réessayer le compteur des contacts</HButton></p>}
     <form id="contact-record-form" role={record || kind === 'companies' ? 'tabpanel' : undefined} aria-labelledby={record || kind === 'companies' ? `contact-tab-${section}` : undefined} hidden={section === 'contacts' || section === 'addresses'} className="contact-record-form" onSubmit={form.handleSubmit(submit)} noValidate>
       <fieldset hidden={section === 'accounting'} disabled={!editable || busy} className={`contact-record-layout${kind === 'people' ? ' contact-person-layout' : ''}`}>
@@ -172,7 +174,7 @@ function ContactEditor({ kind, record, addresses, accounts, canWrite, duplicateS
       {kind === 'companies' && <fieldset disabled={!editable || busy} hidden={section !== 'accounting'} className="contact-accounting-layout">
         <section className="contact-panel"><HSectionHeading title="Comptes tiers" icon={SlidersHorizontal} description="Comptes utilisés pour les échanges comptables. Renseignez ceux qui concernent cette société." /><div className="contact-fields">{(['customer_account', 'supplier_account'] as const).map(renderField)}</div></section>
         <section className="contact-panel"><HSectionHeading title="Facturation électronique" icon={Mail} description="Préparez les informations du destinataire. Le routage reste à vérifier dans l’annuaire avant tout envoi." /><div className="contact-fields">
-          <label htmlFor="einvoice-status">Préparation<Controller name="einvoice_status" control={form.control} render={({ field }) => <HCombobox id="einvoice-status" label="Préparation" value={field.value} onChange={field.onChange} required showCodes={false} options={[{ value: 'unknown', label: 'À vérifier' }, { value: 'to_configure', label: 'À compléter' }, { value: 'ready', label: 'Informations renseignées' }, { value: 'not_applicable', label: 'Non concerné' }]} />} /></label>
+          <label htmlFor="einvoice-status"> <HFieldLabel required>Préparation</HFieldLabel><Controller name="einvoice_status" control={form.control} render={({ field }) => <HCombobox id="einvoice-status" label="Préparation" value={field.value} onChange={field.onChange} required showCodes={false} options={[{ value: 'unknown', label: 'À vérifier' }, { value: 'to_configure', label: 'À compléter' }, { value: 'ready', label: 'Informations renseignées' }, { value: 'not_applicable', label: 'Non concerné' }]} />} /></label>
           {(['einvoice_platform', 'einvoice_routing_address', 'billing_email', 'einvoice_service_code'] as const).map(renderField)}
         </div></section>
       </fieldset>}

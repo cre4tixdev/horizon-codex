@@ -17,6 +17,7 @@ import { roleLabels } from '../schemas/contacts'
 import type { Company, Person, ContactKind } from '../types/contacts'
 import { directoryContext } from '../navigationContext'
 import { filterValue } from '../../../shared/search/filters'
+import { GroupedResults } from '../../../shared/search/GroupedResults'
 import { contactStateFilter, contactRoleFilter, contactGroupingFilter, contactSortFilter } from '../searchFilters'
 
 export function ContactsPage({ kind = 'companies' }: { kind?: ContactKind }) {
@@ -109,11 +110,7 @@ export function ContactsPage({ kind = 'companies' }: { kind?: ContactKind }) {
       </div>
       {records.isFetching && <p role="status">Chargement des contacts…</p>}
       {records.error && <div role="alert" className="contact-error">{records.error.message}<HButton onClick={() => { void records.refetch() }}>Réessayer</HButton></div>}
-      {records.data && (records.data.items.length ? records.data.groups ? <div className="contact-groups">{records.data.groups.map((item) => {
-        const visible = records.data.items.filter((record) => item.ids.includes(record.id))
-        const Icon = group === 'company' ? Building2 : Globe
-        return <section key={item.key || 'unspecified'} className="contact-group" aria-label={`${item.label} : ${item.total} fiches`}><header><h2><Icon size={16} />{item.label}</h2><span>{item.total} fiche(s){visible.length < item.total && <small> · {visible.length} sur cette page</small>}</span></header>{renderRecords(visible)}</section>
-      })}</div> : renderRecords(records.data.items) : <div className="contact-empty"><h2>Aucun résultat</h2><p>{search ? 'Essayez une autre recherche.' : archived ? 'Aucune fiche archivée.' : 'Commencez par créer votre première fiche.'}</p></div>)}
+      {records.data && (records.data.items.length ? records.data.groups ? <GroupedResults groups={records.data.groups.map((item) => ({ key: item.key || 'unspecified', label: item.label, total: item.total, items: records.data.items.filter((record) => item.ids.includes(record.id)) }))} icon={group === 'company' ? Building2 : Globe} render={renderRecords} /> : renderRecords(records.data.items) : <div className="contact-empty"><h2>Aucun résultat</h2><p>{search ? 'Essayez une autre recherche.' : archived ? 'Aucune fiche archivée.' : 'Commencez par créer votre première fiche.'}</p></div>)}
     </>}
   </div>
 }

@@ -445,3 +445,8 @@ Microsoft OAuth2
 Les deux peuvent coexister sur Horizon.
 
 Le lien avec Microsoft ne remplace pas le modèle de rôles / permissions Horizon.
+
+
+Édition riche — CRM, 6 octobre 2026 : Tiptap est maintenant installé via `@tiptap/react`, `@tiptap/pm`, `@tiptap/starter-kit` 3.31.4, versions verrouillées dans le lockfile. Intégration React conforme à la [documentation officielle Tiptap](https://tiptap.dev/docs/editor/getting-started/install/react). Usage initial : description d’opportunité, composant partagé et stockage JSON, aucune interprétation d’HTML utilisateur. Sans images ni liens embarqués dans ce premier raccordement.
+
+Kanban CRM : dnd-kit 0.5.0 (`@dnd-kit/react`, `@dnd-kit/dom`, `@dnd-kit/helpers`), dépendance validée par l’utilisateur. La bibliothèque remplace les événements HTML5 et le FLIP local ; capteurs pointeur / clavier, tri multi-colonnes, overlay et défilement automatique du preset. Référence : https://dndkit.com/react/guides/multiple-sortable-lists/.

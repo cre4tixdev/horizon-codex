@@ -1,14 +1,13 @@
 module.exports = {
   removeAttachment(event) {
     const activity = require(`${__hooks}/lib/activity.js`)
-    if (!activity.allowed(event.app, event.auth, true)) throw new ForbiddenError('Accès refusé.')
     const input = event.requestInfo().body
     if (typeof input.event_id !== 'string' || !/^[a-z0-9]{15}$/.test(input.event_id) || typeof input.filename !== 'string' || !input.filename || input.filename.length > 255) throw new BadRequestError('Pièce jointe invalide.')
     let saved
     event.app.runInTransaction((app) => {
       let record
       try { record = app.findRecordById('core_activity_events', input.event_id) } catch { throw new ApiError(404, 'Publication introuvable.') }
-      if (record.getString('source_module') !== 'contacts') throw new ForbiddenError('Accès refusé.')
+      if (!activity.allowed(app, event.auth, true, record.getString('source_module'))) throw new ForbiddenError('Accès refusé.')
       const root = activity.source(app, record.getString('source_entity'), record.getString('source_record_id'), true)
       const files = record.getStringSlice('attachments')
       if (!files.includes(input.filename)) throw new ApiError(404, 'Pièce jointe introuvable.')
@@ -25,27 +24,29 @@ module.exports = {
   },
   users(event) {
     const activity = require(`${__hooks}/lib/activity.js`)
-    if (!activity.allowed(event.app, event.auth, true)) throw new ForbiddenError('Accès refusé.')
+    const module = String(event.request.url.query().get('module') || 'contacts')
+    if (!activity.allowed(event.app, event.auth, true, module)) throw new ForbiddenError('Accès refusé.')
     const query = String(event.request.url.query().get('q') || '').trim().slice(0, 80)
-    const users = event.app.findRecordsByFilter('core_users', 'active = true && role.active = true && role.permissions ~ {:permission} && name ~ {:query}', 'name,id', 15, 0, { permission: '"contacts.read"', query })
+    const users = event.app.findRecordsByFilter('core_users', 'active = true && role.active = true && role.permissions ~ {:permission} && name ~ {:query}', 'name,id', 15, 0, { permission: `"${module}.read"`, query })
     return event.json(200, { items: users.map((user) => ({ id: user.id, name: user.getString('name') || 'Utilisateur Horizon', initials: activity.author(event.app, user.id).initials })) })
   },
   create(event) {
     const activity = require(`${__hooks}/lib/activity.js`)
-    if (!activity.allowed(event.app, event.auth, true)) throw new ForbiddenError('Accès refusé.')
     const record = event.record
+    const module = record.getString('source_module')
+    if (!activity.allowed(event.app, event.auth, true, module)) throw new ForbiddenError('Accès refusé.')
     const root = activity.source(event.app, record.getString('source_entity'), record.getString('source_record_id'), true)
-    if (record.getString('source_module') !== 'contacts' || !['note', 'message', 'document', 'task'].includes(record.getString('type'))) throw new BadRequestError('Type de publication invalide.')
+    if ((root.collection().name === 'crm_opportunities' ? 'crm' : 'contacts') !== module || !['note', 'message', 'document', 'task'].includes(record.getString('type'))) throw new BadRequestError('Type de publication invalide.')
     const body = record.getString('body').trim()
     const attachments = record.getUploadedFiles('attachments')
     if (!body && !attachments.length) throw new BadRequestError('Ajoutez un message ou une pièce jointe.')
     const recipients = [...new Set(record.getStringSlice('mentions'))]
-    for (const id of recipients) activity.recipient(event.app, id)
+    for (const id of recipients) activity.recipient(event.app, id, module)
     const input = JSON.parse(record.getString('metadata') || '{}')
     const taskInput = record.getString('type') === 'task' ? input.task : null
     if (taskInput) {
       if (typeof taskInput.title !== 'string' || !taskInput.title.trim() || taskInput.title.length > 160) throw new BadRequestError('Saisissez un titre de tâche.')
-      activity.recipient(event.app, taskInput.assigned_to)
+      activity.recipient(event.app, taskInput.assigned_to, module)
       if (!['low', 'normal', 'high'].includes(taskInput.priority)) throw new BadRequestError('Priorité invalide.')
       if (taskInput.due_date && (!/^\d{4}-\d{2}-\d{2}$/.test(taskInput.due_date) || !Number.isFinite(Date.parse(taskInput.due_date)) || new Date(taskInput.due_date).toISOString().slice(0, 10) !== taskInput.due_date)) throw new BadRequestError('Échéance invalide.')
       if (input.origin_event) {
@@ -70,7 +71,7 @@ module.exports = {
       }
       if (taskInput) {
         const task = new Record(txApp.findCollectionByNameOrId('core_tasks'))
-        for (const [key, value] of Object.entries({ source_module: 'contacts', source_entity: root.collection().name, source_record_id: root.id, title: taskInput.title.trim(), description: body, created_by: event.auth.id, assigned_to: taskInput.assigned_to, assigned_name: activity.author(txApp, taskInput.assigned_to).name, priority: taskInput.priority, status: 'todo', activity_event: record.id, due_date: taskInput.due_date ? `${taskInput.due_date} 00:00:00.000Z` : '' })) task.set(key, value)
+        for (const [key, value] of Object.entries({ source_module: module, source_entity: root.collection().name, source_record_id: root.id, title: taskInput.title.trim(), description: body, created_by: event.auth.id, assigned_to: taskInput.assigned_to, assigned_name: activity.author(txApp, taskInput.assigned_to).name, priority: taskInput.priority, status: 'todo', activity_event: record.id, due_date: taskInput.due_date ? `${taskInput.due_date} 00:00:00.000Z` : '' })) task.set(key, value)
         txApp.save(task)
         if (taskInput.assigned_to !== event.auth.id && !recipients.includes(taskInput.assigned_to)) activity.notification(txApp, taskInput.assigned_to, record, 'Une tâche vous a été assignée', taskInput.title.trim())
       }
@@ -78,14 +79,15 @@ module.exports = {
   },
   task(event) {
     const activity = require(`${__hooks}/lib/activity.js`)
-    if (!activity.allowed(event.app, event.auth, true)) throw new ForbiddenError('Accès refusé.')
     const record = event.record
+    const module = record.getString('source_module')
+    if (!activity.allowed(event.app, event.auth, true, module)) throw new ForbiddenError('Accès refusé.')
     const before = record.original().publicExport()
     const root = activity.source(event.app, before.source_entity, before.source_record_id, true)
     for (const field of ['source_module', 'source_entity', 'source_record_id', 'created_by', 'activity_event', 'created', 'completed_at', 'title', 'description']) {
       if (JSON.stringify(record.publicExport()[field]) !== JSON.stringify(before[field])) throw new BadRequestError('Ce champ de tâche est immuable.')
     }
-    activity.recipient(event.app, record.getString('assigned_to'))
+    activity.recipient(event.app, record.getString('assigned_to'), module)
     const changes = ['status', 'assigned_to', 'priority', 'due_date'].filter((field) => JSON.stringify(before[field]) !== JSON.stringify(record.publicExport()[field])).map((field) => ({ field, label: ({ status: 'État', assigned_to: 'Responsable', priority: 'Priorité', due_date: 'Échéance' })[field], before: field === 'status' ? activity.statusLabels[before[field]] : field === 'assigned_to' ? activity.author(event.app, before[field]).name : before[field], after: field === 'status' ? activity.statusLabels[record.getString(field)] : field === 'assigned_to' ? activity.author(event.app, record.getString(field)).name : record.getString(field) }))
     record.set('assigned_name', activity.author(event.app, record.getString('assigned_to')).name)
     record.set('completed_at', record.getString('status') === 'done' ? record.original().getString('completed_at') || new Date().toISOString() : '')

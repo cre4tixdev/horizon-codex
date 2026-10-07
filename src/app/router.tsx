@@ -1,5 +1,7 @@
 import { createBrowserRouter } from 'react-router'
 import { settingsRoutes } from '../modules/settings'
+import { crmRoutes } from '../modules/crm'
+import { hrRoutes } from '../modules/hr'
 import { contactsRoutes } from '../modules/contacts'
 import { dashboardRoutes } from '../modules/dashboard'
 import { NotFoundPage } from './pages/NotFoundPage'
@@ -20,8 +22,10 @@ export const router = createBrowserRouter([
       { path: '/account', lazy: async () => ({ Component: (await import('./pages/AccountPage')).AccountPage }) },
       ...dashboardRoutes,
       ...contactsRoutes,
+      ...crmRoutes,
+      ...hrRoutes,
       ...settingsRoutes,
-      ...navigationItems.filter((item) => item.href !== '/' && item.href !== '/contacts' && item.href !== '/settings').map((item) => ({ path: item.href, element: <WorkspacePage item={item} /> })),
+      ...navigationItems.filter((item) => !['/', '/contacts', '/settings', '/crm', '/hr'].includes(item.href)).map((item) => ({ path: item.href, element: <WorkspacePage item={item} /> })),
       { path: '*', element: <NotFoundPage /> },
     ],
     }],

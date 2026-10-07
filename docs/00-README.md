@@ -50,6 +50,8 @@ Pour tout nouvel écran ou changement UI, appliquer la [base de design validée 
 
 Le [suivi global de réalisation](10-DECISIONS-ROADMAP.md#suivi-global-de-réalisation) centralise les lots de la roadmap, leurs statuts, dépendances, critères de clôture et le journal d'avancement. Il est mis à jour après chaque livraison ou changement significatif.
 
+Le [cadrage Utilisateurs, droits, managers et organigramme](04-FUNCTIONAL-SPECS.md#1822-cadrage-utilisateurs-droits-managers-et-organigramme) récapitule la cible demandée avant développement de la gestion des accès et d’Employés : profils ERP, responsabilités hiérarchiques, accréditations par module et périmètre, cible validée et périmètre livré (section 18.2.3).
+
 ## Démarrage local du frontend
 
 Préférer Node 24 LTS (`.node-version`) et pnpm 12.9.1 (`packageManager` dans `package.json`). Les contraintes exactes sont déclarées dans `engines`.
@@ -59,7 +61,7 @@ pnpm install --frozen-lockfile
 pnpm dev
 ```
 
-Vite écoute uniquement sur `127.0.0.1` ; utiliser l'adresse affichée dans le terminal. Le frontend affiche le layout Horizon, un dashboard avec états vides, la navigation réductible, le fil d'Ariane et une recherche des espaces (⌘ K / Ctrl K). Les espaces non implémentés sont signalés « À venir ». Le module Contacts propose les listes et fiches sociétés / personnes, les rôles, adresses, images et archivage ; son utilisation nécessite l’installation de la migration et des hooks Contacts et les permissions appropriées, selon le document 06. Les autres modules métier restent à venir. Sans URL PocketBase, le serveur de développement reste en aperçu du layout ; `/login` permet d'examiner l'écran de connexion.
+Vite écoute uniquement sur `127.0.0.1` ; utiliser l'adresse affichée dans le terminal. Le frontend affiche le layout Horizon, un dashboard avec états vides, la navigation réductible, le fil d'Ariane et une recherche des espaces (⌘ K / Ctrl K). Les espaces non implémentés sont signalés « À venir ». Le module Contacts propose les listes et fiches sociétés / personnes, les rôles, adresses, images et archivage ; son utilisation nécessite l’installation de la migration et des hooks Contacts et les permissions appropriées, selon le document 06. Le CRM propose les opportunités classiques en liste / Kanban, leurs fiches et le fil partagé après installation du lot CRM décrit dans le document 06. Employés fournit l’annuaire et l’organigramme ; Paramètres → Utilisateurs et accès gère les comptes et les accréditations après installation du lot décrit dans le document 06. Les autres modules métier restent à venir. Sans URL PocketBase, le serveur de développement reste en aperçu du layout ; `/login` permet d'examiner l'écran de connexion.
 
 `.env.example` fournit l'URL publique de l'instance PocketBase de développement. Pour préparer cette configuration, copier le fichier vers `.env.local` ; ce fichier est ignoré par Git. Les valeurs `VITE_*` sont publiques et ne doivent contenir aucun secret. Avec cette URL, le login natif utilise `core_users` : appliquer d'abord les migrations et provisionner un compte Horizon, selon la procédure de `06-SECURITY-OPS.md`. Aucun compte superuser ne doit être utilisé dans le frontend. Sans variable, l'aperçu est limité au développement ; la production exige une connexion configurée.
 
@@ -381,3 +383,9 @@ docs/assets/horizon-ui-reference-dashboard.png
 docs/assets/horizon-ui-reference-crm.png
 docs/assets/horizon-ui-reference-quote.png
 ```
+
+CRM — premier lot du 6 octobre 2026 : liste / Kanban des opportunités classiques, fiche, fil d’activité partagé, compte analytique et numéro serveur. Installation PocketBase et permissions spécifiques décrites dans `06-SECURITY-OPS.md` ; périmètre et limites dans `04-FUNCTIONAL-SPECS.md`. Les appels d’offres constituent le lot suivant.
+
+CRM — paramètres du 7 octobre 2026 : page dédiée Présentation / Étapes / Types de marché, couleurs partagées entre colonnes et tags, qualification multiple. Installer le lot PocketBase décrit dans le document 06 avant d’utiliser ce frontend.
+
+Paramètres — séquences et étapes fixes : rubrique Séquences pour les compteurs des modules activés, configuration par engrenage et couleurs personnalisées. Le CRM conserve les six étapes demandées, sans ajout / suppression ni changement de signification. Installer le lot consolidé Séquences décrit dans le document 06 ; numérotation et historique conservés.

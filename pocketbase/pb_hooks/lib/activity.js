@@ -5,14 +5,15 @@ const labels = {
   line1: 'Adresse', line2: 'Complément', postal_code: 'Code postal', city: 'Ville', country: 'Pays', state_region: 'Région', is_primary: 'Adresse principale', label: 'Libellé', type: 'Usage', account_code: 'Compte',
 }
 const statusLabels = { todo: 'À faire', in_progress: 'En cours', blocked: 'Bloquée', done: 'Terminée', cancelled: 'Annulée' }
-const allowed = (app, user, write = false) => {
+const allowed = (app, user, write = false, module = 'contacts') => {
   if (!user || user.collection().name !== 'core_users' || !user.getBool('active')) return false
+  if (write && user.getString('erp_profile') === 'viewer') return false
   const role = app.findRecordById('core_roles', user.getString('role'))
   const permissions = JSON.parse(role.getString('permissions') || '[]')
-  return role.getBool('active') && permissions.includes('contacts.read') && (!write || permissions.includes('contacts.write'))
+  return role.getBool('active') && ['contacts', 'crm'].includes(module) && permissions.includes(`${module}.read`) && (!write || permissions.includes(`${module}.write`))
 }
 const source = (app, entity, id, writable = false) => {
-  if (!['contacts_companies', 'contacts_people'].includes(entity) || !/^[a-z0-9]{15}$/.test(id)) throw new BadRequestError('Fiche invalide.')
+  if (!['contacts_companies', 'contacts_people', 'crm_opportunities'].includes(entity) || !/^[a-z0-9]{15}$/.test(id)) throw new BadRequestError('Fiche invalide.')
   let record
   try { record = app.findRecordById(entity, id) } catch { throw new ApiError(404, 'Fiche introuvable.') }
   if (writable && !record.getBool('active')) throw new BadRequestError('Cette fiche est archivée.')
@@ -24,7 +25,7 @@ const author = (app, id) => {
 }
 const targetName = (record) => record.collection().name === 'contacts_companies' ? record.getString('name') : [record.getString('first_name'), record.getString('last_name')].filter(Boolean).join(' ')
 const notification = (...args) => require(`${__hooks}/lib/notification-service.js`)(...args)
-const recipient = (app, id) => { let user; try { user = app.findRecordById('core_users', id) } catch { throw new BadRequestError('Utilisateur mentionné introuvable.') }; if (!allowed(app, user)) throw new BadRequestError('Ce destinataire ne peut pas consulter la fiche.'); return user }
+const recipient = (app, id, module = 'contacts') => { let user; try { user = app.findRecordById('core_users', id) } catch { throw new BadRequestError('Utilisateur mentionné introuvable.') }; if (!allowed(app, user, false, module)) throw new BadRequestError('Ce destinataire ne peut pas consulter la fiche.'); return user }
 const publish = (app, root, actor, type, body, metadata, operation = '') => {
   const entity = root.collection().name
   let existing
@@ -36,7 +37,7 @@ const publish = (app, root, actor, type, body, metadata, operation = '') => {
     return existing
   }
   const record = new Record(app.findCollectionByNameOrId('core_activity_events'))
-  for (const [key, value] of Object.entries({ source_module: 'contacts', source_entity: entity, source_record_id: root.id, author: actor, type, body, metadata: { ...metadata, author: author(app, actor) }, operation_id: operation })) record.set(key, value)
+  for (const [key, value] of Object.entries({ source_module: entity === 'crm_opportunities' ? 'crm' : 'contacts', source_entity: entity, source_record_id: root.id, author: actor, type, body, metadata: { ...metadata, author: author(app, actor) }, operation_id: operation })) record.set(key, value)
   app.save(record)
   return record
 }

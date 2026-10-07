@@ -242,8 +242,8 @@ class ActivityMigrationTests(unittest.TestCase):
         creation = next(item for item in audits if item['entity_id'] == company['id'])
         pb.process.terminate(); pb.process.wait(timeout=10)
         args = [arg for arg in pb.args if not arg.startswith('--migrationsDir=')] + [f'--migrationsDir={ROOT / "pocketbase/pb_migrations"}']
-        subprocess.run(args + ['migrate', 'up'], check=True, stdout=subprocess.DEVNULL)
-        subprocess.run(args + ['migrate', 'up'], check=True, stdout=subprocess.DEVNULL)
+        subprocess.run(args + ['migrate', 'up'], env={**pb.environment, 'HORIZON_INITIAL_ADMIN_EMAIL': 'reader@local.invalid'}, check=True, stdout=subprocess.DEVNULL)
+        subprocess.run(args + ['migrate', 'up'], env={**pb.environment, 'HORIZON_INITIAL_ADMIN_EMAIL': 'reader@local.invalid'}, check=True, stdout=subprocess.DEVNULL)
         pb.launch_and_authenticate(args)
         events = pb.request('GET', 'collections/core_activity_events/records', token=pb.admin_token)[1]['items']
         self.assertEqual(len(events), 1)

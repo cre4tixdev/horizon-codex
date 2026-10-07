@@ -592,3 +592,5 @@ Documentation primaire : https://www.mediawiki.org/wiki/API:Search ; https://www
 
 
 Complément Google Images gratuit — 6 octobre 2026 : ouverture de `https://www.google.com/search` avec tbm=isch et q encodé, suffixe filetype optionnel. Google reste hors du popup Horizon ; aucune API Google/Brave/SerpApi, compte, clé ou abonnement. Copie utilisateur puis collage de l’image dans Horizon, sans téléchargement manuel intermédiaire. Wikimedia reste la recherche intégrée et l’import local reste disponible. Le composant et le provider Wikimedia sont désormais partagés pour les images génériques autant que les logos.
+
+CRM / analytique — 6 octobre 2026 : création locale du compte analytique avec l’opportunité via AnalyticService, dans la même transaction PocketBase. Aucune écriture, synchronisation ou appel Sage / SUPER PDP. Les futurs devis, commandes et projets reprendront cette référence stable via les services des modules concernés ; aucune intégration financière n’est simulée dans ce lot.

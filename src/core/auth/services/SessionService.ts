@@ -56,6 +56,8 @@ export class SessionService {
     try {
       const user = await this.repository.refresh()
       if (generation !== this.generation) { this.repository.signOut(); return }
+      const previous = this.session.status === 'authenticated' ? this.session.user : undefined
+      if (!previous || previous.id !== user.id || previous.erpProfile !== user.erpProfile || previous.accessRevision !== user.accessRevision || JSON.stringify(previous.role.permissions) !== JSON.stringify(user.role.permissions)) this.clearData()
       this.publish({ status: 'authenticated', user })
     } catch (error) {
       if (error instanceof AuthError && error.kind !== 'unavailable') this.signOut()

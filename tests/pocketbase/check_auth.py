@@ -21,6 +21,7 @@ class LocalPocketBase:
     def __init__(self, port=None):
         self.environment = dict(os.environ)
         self.environment.pop('PAPPERS_API_KEY', None)
+        self.environment.pop('HORIZON_INITIAL_ADMIN_EMAIL', None)
         self.binary = os.environ.get('POCKETBASE_BINARY', 'pocketbase')
         version = subprocess.check_output([self.binary, '--version'], text=True)
         if '0.40.4' not in version:
@@ -34,7 +35,7 @@ class LocalPocketBase:
         self.url = f'http://127.0.0.1:{port}'
         self.args = [self.binary, f'--dir={self.data}',
                      f'--migrationsDir={ROOT / "pocketbase/pb_migrations"}',
-                     f'--hooksDir={ROOT / "pocketbase/pb_hooks"}', '--automigrate=false']
+                     f'--hooksDir={ROOT / "pocketbase/pb_hooks"}', '--automigrate=false', '--hooksWatch=false']
         self.admin_password = 'Local-' + secrets.token_urlsafe(32)
         self.admin_token = ''
         self.process = None
@@ -113,9 +114,12 @@ class LocalPocketBase:
             raise RuntimeError(f'Fixture creation failed: {collection}, status {status}, fields {result.get("data", {})}')
         return result
 
-    def create_user(self, email, role):
+    def create_user(self, email, role, profile=None):
+        # Test setup only: a functional settings fixture has an explicit ERP profile.
+        permissions = self.request('GET', f'collections/core_roles/records/{role}', token=self.admin_token)[1].get('permissions', [])
+        profile = profile or ('admin' if 'settings.users' in permissions else 'superuser' if 'settings.references' in permissions else 'user')
         return self.create('core_users', {'name': 'Utilisateur test', 'email': email, 'role': role,
-                                          'active': True, 'password': TEST_PASSWORD, 'passwordConfirm': TEST_PASSWORD})
+                                          'erp_profile': profile, 'active': True, 'password': TEST_PASSWORD, 'passwordConfirm': TEST_PASSWORD})
 
     def login(self, email='reader@local.invalid', password=TEST_PASSWORD):
         return self.request('POST', 'collections/core_users/auth-with-password?expand=role',
@@ -242,6 +246,12 @@ class MigrationCompatibilityTests(unittest.TestCase):
 
     def test_manual_schema_adoption_preserves_schema_ids_records_and_login(self):
         pb, before, role, user = self.manual_fixture()
+        # Verify adoption itself separately from later intentional schema changes.
+        import shutil
+        isolated = Path(pb.temp.name) / 'adoption_migrations'
+        isolated.mkdir()
+        shutil.copy(ROOT / 'pocketbase/pb_migrations/1791072000_core_auth.js', isolated)
+        pb.args = [arg for arg in pb.args if not arg.startswith('--migrationsDir=')] + [f'--migrationsDir={isolated}']
         for _ in range(2):
             result = subprocess.run(pb.args + ['migrate', 'up'], capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
@@ -319,6 +329,15 @@ if __name__ == '__main__':
             pb.start()
             writer_role = pb.create('core_roles', {'name': 'contacts_writer', 'label': 'Contacts', 'active': True, 'permissions': ['contacts.read', 'contacts.write']})
             writer = pb.create_user('writer@local.invalid', writer_role['id'])
+            admin_role = pb.create('core_roles', {'name': 'erp_admin', 'label': 'Admin', 'active': True, 'permissions': ['settings.users', 'settings.references', 'contacts.read', 'contacts.write', 'crm.read', 'crm.write', 'hr.read', 'hr.write', 'hr.organisation.manage']})
+            admin_user = pb.create_user('erp-admin@local.invalid', admin_role['id'], 'admin')
+            pb.request('PATCH', f'collections/core_users/records/{admin_user["id"]}', {'hr_scope': 'all'}, pb.admin_token)
+            crm_role = pb.create('core_roles', {'name': 'crm_writer', 'label': 'CRM', 'active': True, 'permissions': ['contacts.read', 'contacts.write', 'crm.read', 'crm.write']})
+            pb.create_user('crm@local.invalid', crm_role['id'])
+            crm_admin = pb.create('core_roles', {'name': 'crm_admin', 'label': 'CRM paramètres', 'active': True, 'permissions': ['crm.read', 'crm.write', 'contacts.read', 'settings.references']})
+            pb.create_user('crm-admin@local.invalid', crm_admin['id'])
+            crm_reader = pb.create('core_roles', {'name': 'crm_reader', 'label': 'CRM lecture', 'active': True, 'permissions': ['crm.read', 'contacts.read']})
+            pb.create_user('crm-reader@local.invalid', crm_reader['id'])
             pb.create('core_notifications', {'user': writer['id'], 'title': 'Notification de recette', 'body': 'Un message réservé à ce compte.'})
             references_role = pb.create('core_roles', {'name': 'references_editor', 'label': 'Référentiels', 'active': True, 'permissions': ['contacts.read', 'contacts.write', 'settings.references']})
             pb.create_user('references@local.invalid', references_role['id'])

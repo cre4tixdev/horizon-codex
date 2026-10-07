@@ -6,7 +6,7 @@ module.exports = (event, action) => {
     event.next()
     const audit = new Record(txApp.findCollectionByNameOrId('core_audit'))
     audit.set('user', event.record.getString('__audit_actor'))
-    audit.set('module', event.record.collection().name.startsWith('contacts_') ? 'contacts' : event.record.collection().name.startsWith('accounting_') ? 'accounting' : event.record.collection().name.startsWith('core_') ? 'core' : 'settings')
+    audit.set('module', event.record.collection().name.startsWith('contacts_') ? 'contacts' : event.record.collection().name.startsWith('accounting_') ? 'accounting' : event.record.collection().name.startsWith('core_') ? 'core' : event.record.collection().name.startsWith('crm_') ? 'crm' : 'settings')
     audit.set('action', action === 'update' && before.active !== event.record.getBool('active') && event.record.collection().fields.getByName('active') ? (event.record.getBool('active') ? 'restore' : 'archive') : action)
     audit.set('entity', event.record.collection().name)
     audit.set('entity_id', event.record.id)

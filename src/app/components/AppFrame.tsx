@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useSyncExternalStore } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router'
 import { Building2, PanelLeftClose, PanelLeftOpen, CircleHelp, Keyboard } from 'lucide-react'
 import { navigationGroups, navigationItems } from '../navigation'
@@ -13,8 +13,11 @@ import { HButton } from '../../shared/ui/HButton'
 import { HDialog } from '../../shared/ui/HDialog'
 import { isLayoutPreview, sessionService } from '../../core/auth/services/session'
 import { AuthError } from '../../core/auth/services/AuthError'
+import { canAccessNavigation } from '../navigationAccess'
 
 export function AppFrame() {
+  const session = useSyncExternalStore(sessionService.subscribe, sessionService.getSnapshot)
+  const user = session.status === 'authenticated' ? session.user : undefined
   const [breadcrumbActions, setBreadcrumbActions] = useState<HTMLDivElement | null>(null)
   const [breadcrumbTrail, setBreadcrumbTrail] = useState<HTMLDivElement | null>(null)
   const [breadcrumbRelated, setBreadcrumbRelated] = useState<HTMLDivElement | null>(null)
@@ -42,10 +45,10 @@ export function AppFrame() {
       <aside className="sidebar" aria-label="Navigation Horizon">
         <Link to="/" aria-label="Horizon — Accueil" className="sidebar-brand"><HorizonMark /><span>HORIZON</span></Link>
         <nav className="sidebar-nav" aria-label="Navigation principale">
-          {navigationGroups.map((group) => (
+          {navigationGroups.filter((group) => group.items.some((item) => canAccessNavigation(item.href, user))).map((group) => (
             <div className="sidebar-group" key={group.label}>
               <p className="sidebar-group__title">{group.label}</p>
-              {group.items.map(({ href, label, icon: Icon }) => (
+              {group.items.filter((item) => canAccessNavigation(item.href, user)).map(({ href, label, icon: Icon }) => (
                 <NavLink key={href} to={href} end={href === '/'} aria-label={label} title={label} className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`}>
                   <Icon size={17} aria-hidden="true" /><span>{label}</span>
                 </NavLink>

@@ -1978,7 +1978,183 @@ Les rôles et permissions restent toujours Horizon.
 
 Un utilisateur Microsoft doit correspondre à un utilisateur Horizon autorisé.
 
+## 18.2.2 Cadrage utilisateurs, droits, managers et organigramme
+
+Récapitulatif du 7 octobre 2026, validé par l’utilisateur pour démarrer la réalisation. Ce cadrage conserve la cible globale ; la section 18.2.3 décrit le périmètre réellement livré et les limites restantes.
+
+### Orientations exprimées par l’utilisateur
+
+- Quatre profils ERP : Admin, Superuser, User et Viewer.
+- Paramétrage de Horizon réservé à Admin et Superuser ; accès métier attribués selon les besoins de chacun.
+- Le titre du poste est une étiquette descriptive. « Commercial » ou « Responsable bureau d’études » ne donne aucun droit automatiquement.
+- Manager est une responsabilité organisationnelle indépendante du profil ERP. Il faut définir les collaborateurs dont la personne est responsable et ses accréditations sur les modules.
+- Une validation est une action métier, distincte de l’administration de l’ERP.
+- Gestion des utilisateurs et module Employés doivent être cohérents ; Employés proposera une liste et un organigramme.
+
+### Situation du dépôt au moment du cadrage (avant livraison)
+
+| Sujet | État réel |
+|---|---|
+| Comptes et droits | `core_users` lié à un `core_roles`, qui porte une liste de permissions. Contrôles services / API Rules / hooks serveur. |
+| Gestion des comptes et rôles dans Horizon | Non livrée. « Utilisateurs et accès » affiche encore un périmètre à venir ; le socle REST interdit leur administration aux utilisateurs. |
+| Quatre profils ERP | Cible demandée, pas encore des profils structurels appliqués par le code. |
+| Paramètres fonctionnels | Administration actuellement conditionnée par `settings.references`, sans catégorie Admin / Superuser. Ce droit devra être encadré lors du nouveau lot. |
+| Manager et périmètre hiérarchique | Non implémentés dans les autorisations actuelles. |
+| Employés, équipes et responsables | Prévus par le Data Model, mais collections métier / écrans / organigramme non livrés. |
+| Validation métier | Principe déjà retenu : permission dédiée et transition serveur, sans moteur de seuils par montant. Les workflows non livrés restent à construire. |
+
+### Quatre notions à séparer
+
+| Notion | Question traitée | Exemple |
+|---|---|---|
+| Employé / ressource | Qui travaille dans l’organisation ? | Salarié, freelance, intérimaire ou externe. |
+| Profil ERP du compte | Quel niveau d’administration de Horizon ? | User ou Admin. |
+| Responsabilité de manager | De quelles personnes est-il responsable ? | Marie est responsable de Paul et Léa. |
+| Accréditation métier | Quelle action peut-il faire sur quelles données ? | Valider les temps de Paul et Léa, consulter le CRM, préparer des devis. |
+
+Un intitulé ne doit jamais déclencher une permission. Une responsabilité de manager ne doit jamais entraîner une élévation du profil ERP. Une personne peut valider des pièces sans être manager si elle possède l’accréditation métier nécessaire.
+
+### Proposition de profils ERP
+
+| Profil | Accès métier | Paramétrage fonctionnel | Sécurité et gestion des accès |
+|---|---|---|---|
+| Admin | Tous les modules et actions prévues, sous réserve des invariants métier. | Complet. | Comptes, profils, accréditations, authentification et intégrations sensibles. |
+| Superuser | Accès étendu ; droits de validation et données sensibles à attribuer explicitement. | Référentiels, séquences, réglages des modules et modèles. | Pas de modification des profils ou permissions, ni des secrets / paramètres de sécurité. |
+| User | Modules, actions et périmètres attribués. | Aucun paramétrage global. | Aucun. |
+| Viewer | Consultation des modules et périmètres attribués. | Aucun. | Aucun. |
+
+La frontière exacte Admin / Superuser est une proposition à valider. Superuser Horizon reste un compte applicatif normal `core_users`, jamais un superuser technique PocketBase. Les invariants s’appliquent à tous : historique figé, intégrité des relations, contrôle des transitions, archivage distinct de suppression.
+
+Les préférences personnelles et les vues filtrées ne constituent pas l’administration globale de Horizon. Conserver les règles déjà validées : un utilisateur autorisé peut créer une vue personnelle ou globale ; son créateur et les administrateurs autorisés peuvent la modifier / supprimer.
+
+### Accréditations par module : action et périmètre
+
+Proposition : présenter des niveaux usuels pour faciliter la saisie, avec le détail des actions disponible. Les niveaux doivent correspondre à des permissions explicites ; « Manager » ne constitue pas un niveau d’accréditation.
+
+| Niveau présenté | Actions possibles |
+|---|---|
+| Aucun accès | Module inaccessible. |
+| Consultation | Lire les données autorisées. |
+| Contribution | Lire et créer / modifier les objets autorisés selon leurs états. |
+| Validation | Droits de contribution et validations explicitement cochées. |
+
+Archivage, suppression, export, envoi de documents, consultation des coûts / marges et clôtures restent des actions distinctes quand le module les prévoit. Une accréditation de validation des devis ne donne pas la validation des commandes, factures ou temps. Viewer constitue un plafond de consultation : aucune combinaison ne doit lui donner une écriture métier. Les éventuelles préférences personnelles suivent leur propre policy.
+
+Le périmètre est choisi séparément : soi / ses objets, collaborateurs encadrés, équipe(s) désignée(s), ou ensemble du module. Chaque module précise quels périmètres ont un sens et comment les objets y sont rattachés. Par exemple, les temps se rattachent à un employé ; un devis se rattache à une affaire / un responsable commercial. Ne pas déduire la propriété d’un objet de son seul créateur, ni appliquer un filtre hiérarchique universel à toutes les collections.
+
+Les droits effectifs combinent compte actif, profil ERP, accréditation, périmètre et état de l’objet. Un refus par une règle métier ne peut pas être levé par un simple profil privilégié.
+
+Projection sur les modules Horizon, à traduire dans leurs policies lors de leur livraison :
+
+| Domaine | Actions métier à distinguer | Attention sur le périmètre |
+|---|---|---|
+| Contacts / CRM | Consulter, contribuer, archiver ; responsabilité d’affaire distincte du responsable hiérarchique. | Référentiel partagé et portefeuille commercial à définir explicitement. |
+| Ventes / Achats | Préparer, valider, envoyer, archiver. | Affaires / équipe / ensemble du module ; une validation d’achat n’est pas une validation de vente. |
+| Projets / SAV | Piloter, affecter, valider une recette / intervention, résoudre des réserves, clôturer. | Participation ou responsabilité opérationnelle ; clôtures technique et financière distinctes. |
+| Planning / TimeReport / Congés / Dépenses | Saisir / organiser, consulter, valider selon le module. | Ressource concernée et collaborateurs encadrés ; règles d’auto-validation à définir. |
+| Catalogue / Stock | Gérer le catalogue, consulter / réaliser / corriger des mouvements. | Produits et entrepôts partagés ; être manager ne donne pas un droit de correction de stock. |
+| Facturation / Comptabilité | Préparer, valider, comptabiliser, rapprocher, exporter, clôturer. | Accréditations explicites, données sensibles et invariants financiers ; absence de moteur de seuils. |
+| Employés | Consulter l’annuaire / organisation, gérer les fiches, lire les données sensibles autorisées. | Annuaire, ressources de son équipe et données confidentielles séparés. |
+| Messagerie / Documents / Fil | Envoyer, participer, consulter les fichiers ou publier sur une source autorisée. | Membres de conversation et permissions de l’objet source ; manager ne donne pas accès aux échanges privés. |
+
+Ce tableau décrit la cible, pas une liste de permissions déjà disponibles. Le niveau de détail des actions sera adapté au module sans transformer tous les écrans en matrices complexes.
+
+### Manager et collaborateurs encadrés
+
+Proposition simple : un responsable hiérarchique principal par employé, sans cycle et sans auto-rattachement. L’organigramme et la liste des collaborateurs directs sont dérivés de cette relation. Si les collaborateurs disposent de comptes Horizon, afficher ces comptes à côté des employés ; ne pas maintenir une seconde hiérarchie indépendante entre utilisateurs.
+
+La catégorie Manager peut apparaître comme une responsabilité sur la fiche. Elle ne suffit pas à obtenir un droit. Le périmètre « mes collaborateurs » doit également disposer d’une action autorisée dans le module concerné. Proposition initiale : collaborateurs directs seulement ; l’accès aux équipes indirectes doit être explicite et reste à arbitrer.
+
+| Exemple | Configuration cohérente |
+|---|---|
+| User manager de Paul et Léa | Peut valider leurs temps si `time.validate` et le périmètre correspondant lui sont attribués ; ne modifie pas les paramètres. |
+| User chargé des validations commerciales | Peut valider les devis autorisés sans être responsable hiérarchique de leurs auteurs. |
+| Manager ayant seulement consultation CRM | Consulte le périmètre CRM accordé ; ne valide aucun devis par héritage. |
+| Superuser sans validation financière | Configure les séquences ; ne comptabilise pas une écriture sans permission dédiée. |
+
+Changer de manager ne réécrit pas les validations passées : conserver auteur et date historiques. Le périmètre courant doit être recalculé côté serveur pour les nouvelles actions. Aucun mécanisme d’auto-validation, délégation ou remplacement temporaire n’est introduit implicitement.
+
+### Lien avec Employés et organigramme
+
+Employés reste propriétaire de la ressource humaine : identité, photo, intitulé libre, service / équipe, responsable, statut et données de planification. Core / Auth reste propriétaire du compte, de l’authentification et des accréditations. Le référentiel d’équipes est partagé conformément au Data Model, sans seconde liste dans chaque module.
+
+Un employé peut ne pas avoir de compte. Un compte peut être sans fiche employé, par exemple pour un accès technique autorisé ; il ne figure alors pas artificiellement dans l’organigramme. Proposition : un responsable hiérarchique doit être une ressource Employés identifiée, même si elle n’a pas de compte. Elle ne peut exercer une action dans Horizon qu’après rattachement à un compte autorisé.
+
+Deux vues complémentaires dans Employés :
+
+| Liste | Organigramme |
+|---|---|
+| Recherche, filtres équipe / statut / type, coordonnées et lien vers la fiche. | Cartes compactes avec avatar, nom, intitulé et équipe, liens de responsabilité. |
+| Visibilité du compte lié et de sa catégorie selon les droits du lecteur. | Repli des branches, zoom / recentrage et recherche d’une personne. |
+| Ressources sans compte présentes. | Ressources sans compte présentes ; personnes sans responsable dans une zone dédiée. |
+
+L’organigramme ne révèle ni coûts, ni accréditations, ni données sensibles à un lecteur non autorisé. Il représente la hiérarchie, pas une carte d’accès à toutes les données. Commencer par une vue consultable ; un déplacement de carte modifiant le responsable ne sera ajouté qu’avec validation explicite, sauvegarde serveur et audit.
+
+### Page « Utilisateurs et accès » proposée
+
+Liste dense : identité / avatar, employé lié, profil ERP, responsabilité Manager, modules accessibles, statut du compte et engrenage de configuration. Recherche et filtres dans les patterns communs Horizon.
+
+Fiche utilisateur : identité et rattachement Employés ; profil ERP ; accréditations par module avec actions et périmètres ; aperçu des droits effectifs ; état / accès au compte ; historique des changements sensibles. Le lien Employés ouvre la fiche métier. La responsabilité et les collaborateurs sont montrés depuis l’organisation, sans deuxième liste hiérarchique saisie manuellement dans cette page.
+
+Seul Admin gère les droits dans la proposition actuelle. Un manager peut consulter son équipe dans Employés selon sa permission, sans accorder de droits à ses collaborateurs. Superuser accède aux paramètres fonctionnels autorisés sans administrer les profils.
+
+### Contraintes de réalisation
+
+- Autorisation commune côté serveur, reprise par services et API Rules ; contrôles effectifs sur listes, détails, recherche, agrégats, fichiers, exports et realtime.
+- Aucun droit déduit du nom d’un rôle ou du titre du poste, aucune élévation via le REST des utilisateurs.
+- Audit de création / désactivation de compte, changement de profil, accréditation, périmètre et rattachement hiérarchique ; secrets exclus des traces.
+- Empêcher la suppression / désactivation du dernier Admin actif ; sécuriser les modifications de ses propres droits.
+- Une désactivation du compte ne supprime ni l’employé ni son historique. Une fin d’activité Employés ne doit pas laisser un accès actif par oubli : comportement à définir et appliquer explicitement côté serveur.
+- Révocation des droits prise en compte côté serveur sans dépendre d’un ancien snapshot de session dans le navigateur.
+- Migration contrôlée des rôles actuels, sans promotion automatique fondée sur leur libellé. Mise à jour du Data Model et tests avant toute implémentation.
+
+Source de vérité retenue : `core_users.employee`, relation unique facultative. La projection inverse sur Employés est calculée ; les membres d’équipe viennent de `hr_employees.team`. Aucun second rattachement persistant ni obligation de compte pour rejoindre une équipe.
+
+### Points à arbitrer avant développement
+
+| Sujet | Proposition de départ |
+|---|---|
+| Superuser | Paramètres fonctionnels, sans gestion des droits ni sécurité. Accès sensibles / validations explicitement attribués. |
+| Manager de plusieurs niveaux | Collaborateurs directs par défaut ; descendants seulement avec périmètre explicite. |
+| Accréditations | Configuration par utilisateur, avec possibilité de copier un ensemble de droits pour faciliter la saisie ; pas de règle fondée sur le poste. Évaluer ensuite les modèles partagés si le besoin se répète. |
+| Responsabilité principale et transverse | Un manager principal pour l’organigramme. Responsabilités projet et périmètres d’équipe traités par les modules, sans ajouter d’emblée une hiérarchie matricielle. |
+| Auto-validation et remplacement | Politique par action métier à préciser ; aucune délégation automatique. |
+| Fin d’activité d’un employé | Proposer une désactivation liée et contrôlée du compte ; conserver les exceptions explicites pour les comptes techniques. |
+
+### Découpage de réalisation proposé
+
+1. Valider profils, frontières d’administration, hiérarchie et périmètres métier.
+2. Définir le contrat Core / Employés / équipes et migrer les rôles existants ; centraliser l’autorisation serveur.
+3. Livrer la page Utilisateurs et accès, puis appliquer la nouvelle frontière aux paramètres déjà livrés.
+4. Livrer Employés en liste / fiche, rattachements utilisateurs et responsables.
+5. Ajouter l’organigramme consultable ; activer ensuite les périmètres de manager sur les modules capables de les contrôler.
+
+Les modules non livrés restent un chantier. Tant qu’un périmètre n’est pas contrôlé réellement côté serveur pour un module, ne pas afficher une accréditation restreinte qui donnerait en réalité un accès global.
+
+## 18.2.3 Livraison Utilisateurs, droits et Employés — 7 octobre 2026
+
+Accord utilisateur pour réaliser le cadrage. `/settings/users` fournit la liste des comptes, recherche, filtre de profil, employé lié, indication Manager, modules accessibles, activation et engrenage de configuration. L’éditeur gère identité, profil ERP, lien unique Employés, mot de passe initial / remplacement facultatif et accréditations. Toutes les modifications sont enregistrées explicitement ; aucun mot de passe existant n’est affiché. Admin seul crée les comptes et modifie les droits. Admin et Superuser accèdent aux paramètres fonctionnels avec `settings.references`. User / Viewer ne voient pas leur navigation ; les routes et règles serveur contrôlent également cette frontière.
+
+| Profil | Administration | Droits métier |
+|---|---|---|
+| Admin | Comptes, accréditations, paramètres fonctionnels | Toutes les actions des modules actuellement livrés, sous leurs invariants |
+| Superuser | Paramètres fonctionnels, sans administration des comptes / droits | Actions explicitement attribuées |
+| User | Aucune administration ERP | Actions explicitement attribuées |
+| Viewer | Aucune administration ERP | Consultation seulement, dans son périmètre |
+
+Accréditations disponibles : Contacts et CRM `read` / `write`, périmètre global réel ; Employés `hr.read`, `hr.write`, `hr.organisation.manage`. Les périmètres Employés sont soi-même, collaborateurs directs, son équipe principale et tout le module. Un périmètre restreint nécessite un employé lié ; collaborateurs directs nécessite la responsabilité Manager ou Direction, équipe nécessite une équipe. Gérer la hiérarchie exige le périmètre global ; ce droit n’est pas hérité du statut Manager. Modules futurs visibles dans un volet « Modules à venir », sans droits attribuables. La granularité validation / portefeuille / projet sera livrée avec chaque module concerné.
+
+`/hr` propose liste dense et organigramme : recherche, filtres équipe / statut, avatar protégé, poste descriptif, type de ressource, responsable, statut et présence du compte. Fiche éditable selon droits, responsabilité Collaborateur / Manager / Direction et responsable principal, équipe, coordonnées, dates et photo. Types salarié / freelance / intérimaire / externe, sans compte obligatoire. Équipes gérées dans un onglet d’Employés : nom, managers multiples, archivage et réactivation par Admin / Superuser ; aucun code technique affiché. Organigramme consultable avec cartes de largeur 280 px, liens hiérarchiques, repli des branches, zoom et recentrage. Aucun déplacement ne modifie silencieusement la hiérarchie. Une recherche / restriction peut présenter une personne comme racine si son responsable n’est pas dans les résultats visibles.
+
+Le responsable doit être actif et désigné Manager ou Direction. Auto-rattachement et cycles refusés serveur. Un responsable ayant des collaborateurs actifs ne peut être désactivé ou perdre sa responsabilité avant leur réaffectation. Inactiver / terminer une ressource désactive son compte lié dans la même transaction ; les fiches et audits restent conservés. Le dernier Admin actif ne peut être désactivé ou rétrogradé, même via Employés. Compte et rôle actifs requis à chaque appel ; les changements de droits prennent effet serveur immédiatement. Le navigateur rafraîchit la session et purge ses caches lors d’une modification des droits / révision du compte.
+
+Routes dédiées transactionnelles, allowlist, contrôle de version `409` et audit sans secrets. Écritures REST directes Core / Employés / équipes verrouillées. La migration conserve les rôles historiques, initialise les comptes en User et ne promeut que l’e-mail explicitement configuré dans `HORIZON_INITIAL_ADMIN_EMAIL` ; une mise à niveau de comptes existants sans cet e-mail est refusée avant modification. Procédure dans 06. Aucun déploiement NAS effectué.
+
+Restent hors de ce lot : salaires / coûts, capacité, compétences, calendriers, workflows de validation des modules futurs, délégations, hiérarchie indirecte et modèles partagés de droits. Les audits sensibles sont enregistrés côté serveur ; un écran de consultation de ces audits n’est pas livré. H01 reste en cours jusqu’aux autres exigences RH de la roadmap.
+
 ## 18.3 Numérotation
+
+Rubrique transversale Paramètres → Séquences : séquences des modules activés, numéro de départ, prochaine valeur, préfixe / suffixe et nombre minimum de chiffres, avec aperçu du prochain numéro. Administration avec settings.references ; sauvegarde explicite. Départ figé après première allocation et compteur ne reculant jamais ensuite. Numérotation et changements de configuration transactionnels côté serveur, conflit visible si une pièce a consommé le numéro pendant l’édition. Aucun nouveau numéro généré par le navigateur, aucune renumérotation des pièces existantes. Le format actuellement activé est {sequence}, sans remise à zéro ; les autres formats ci-dessous restent le modèle cible.
 
 La numérotation métier est entièrement configurable dès le départ.
 
@@ -2759,3 +2935,60 @@ Raccourcis contextuels — 6 octobre 2026 : remplace le bandeau historique « À
 Contacts et Adresses sont retirés de la barre métier : leurs vrais nombres sont affichés dans les onglets correspondants de la société, sans accès dupliqué dans l’en-tête. Changer de section dans la fiche conserve le brouillon sans écrire ; les liens profonds `?section=contacts` / `?section=addresses` sont conservés au rechargement. Le contexte du répertoire reste attaché aux changements de section. Les compteurs intermodules et leurs listes filtrées ne sont pas encore exécutables, car Ventes / CRM / Facturation / Achats / Stock ne sont pas livrés ; les entrées contextuelles restent désactivées avec un tiret et le module manquant expliqué au survol. À leur livraison, chaque compteur devra avoir une destination portant le même périmètre société / produit / état et respecter les permissions du module. Ce contrat remplace les boutons identiques sur toutes les pages ; aucun écran Produits ni devis simulé n’est livré dans ce lot.
 
 Recherche unifiée du répertoire Contacts — 6 octobre 2026 : contexte Contacts initial, résultats affichés sous Sociétés ou Personnes dans la liste existante. Bascule vers l’autre type uniquement si le type courant ne contient aucun résultat et l’autre au moins un, sous les mêmes critères recherche / relation commerciale / archives. Les deux types avec résultats ou tous deux vides conservent l’onglet courant. Choisir un onglet pendant une recherche ou un périmètre explicite Sociétés / Personnes suspend la bascule ; choisir Contacts la réactive. Présentation, critères compatibles et texte conservés. Aucune écriture de fiche ni évolution PocketBase.
+
+## CRM — premier lot classique réalisé le 6 octobre 2026
+
+Périmètre utilisateur validé : opportunités classiques d’abord, appels d’offres ensuite. `/crm` propose Kanban et liste ; recherche unique dans la top bar par titre, numéro ou société, filtres État / Archives et tri partagé. Les critères de société et responsable sont également supportés par URL. Pagination de 100 fiches, affichée dans la barre supérieure ; les en-têtes de colonne donnent le nombre et le montant estimé de toutes les opportunités filtrées, calculés côté serveur, avec un montant distinct par devise. Les cartes restent paginées.
+
+Fiche : titre, société obligatoire, contact facultatif appartenant à cette société, responsable autorisé à lire le CRM, étape, montant / coût estimés, devise EUR initiale, probabilité, échéance et description. Société / personne restent les référentiels Contacts ; changer de société remet le contact à vide. État commercial Ouverte / Gagnée / Terminée / Perdue / Annulée dérivé de l’étape côté serveur ; archivage distinct. Marge affichée en aperçu et recalculée côté serveur à la sauvegarde.
+
+Six étapes initiales modifiables : Nouveau, Qualifié, Gagné, Terminé, Perdue, Annulé. Les libellés, ordre, activation et tons de marque sont configurables via Paramètres → CRM / Étapes CRM avec `settings.references`. Codes immuables et aucune suppression d’étape. Une étape inactive déjà liée reste lisible ; elle ne reçoit plus de nouveaux rattachements.
+
+Numéro d’affaire et compte analytique alloués ensemble côté serveur. Séquence initiale `00001`, paramétrable avant utilisation ; aucun numéro saisi ou généré par React. Duplication crée un nouveau numéro et un nouveau compte, réouvre l’opportunité et ne copie pas son fil. Sauvegarde explicite dans le formulaire de fiche. Dans le Kanban, le dépôt à la souris ou au clavier enregistre immédiatement la nouvelle étape via le service CRM et les validations serveur. Aucun bouton Enregistrer ni lot de déplacements à confirmer. Un conflit concurrent refuse le changement ; la vue est relue et l’erreur reste visible.
+
+Le fil réutilise commentaires, PJ protégées / suppression confirmée, mentions, tâches et historique. Archivage par saisie ARCHIVER, réactivation dans le menu de fiche. La suppression d’une affaire possédant son compte analytique est refusée côté serveur ; l’archivage conserve la traçabilité et ne constitue pas une clôture comptable. Les raccourcis Opportunités des sociétés clientes affichent le nombre réel d’opportunités ouvertes et ouvrent la liste filtrée.
+
+Non inclus dans ce premier lot : appels d’offres, planning AO, intégration e-mail, activités commerciales spécialisées Appel / Rendez-vous, vues CRM enregistrées et regroupements personnalisés, transitions vers devis / commandes / projets et comptabilité financière. Les vues enregistrées Contacts existantes restent inchangées. La navigation entre fiches porte sur la page courante de la liste ; utiliser la pagination pour changer de page.
+
+
+CRM — révision du 6 octobre 2026 : colonnes repliables conservant titre, nombre et totaux, présentation ouverte avec séparations fines, cartes ≥ 280 px. Glissement avec source estompée, emplacement destination selon le même ordre que les cartes et animation entre positions réelles ; mouvements réduits respectés. Menu clavier et sauvegarde automatique au dépôt conservés. Les colonnes fermées commercialement acceptent également des déplacements explicites pour corriger ou rouvrir une affaire ; le serveur applique l’état associé à l’étape. Terminé reste un état CRM, sans clôture de projet ou comptable automatique.
+
+La fiche présente séparément Numéro (lecture seule, attribué à l’enregistrement), Titre, Type de marché et Étape. Le titre de page ne concatène plus numéro et nom. Types de marché facultatifs administrables dans Paramètres : Broadcast, Corporate, Institutionnel, Événementiel, Consulting, Export. Les listes partagées proposent Effacer même pour un choix obligatoire : le brouillon peut être vide, la sauvegarde reste bloquée par validation si une référence obligatoire manque. Description utilise l’éditeur Tiptap partagé : gras, italique, souligné, titres, listes, annuler / rétablir, compteur de caractères, lecture seule selon permissions. Les anciennes descriptions texte sont conservées et chargées sans interprétation HTML ; mise en forme enregistrée uniquement avec la fiche.
+
+Kanban CRM : glissement dnd-kit validé par l’utilisateur, aperçu de destination par déplacement des cartes voisines, carte flottante et dépôt animé. Échap restaure la position avant glissement sans écriture. Survoler une colonne repliée avec une carte pendant 300 ms la déplie et mémorise son ouverture. Les colonnes repliées sont aussi des destinations. Le rang visuel n’est pas un ordre métier enregistré ; le tri de recherche reprend au rafraîchissement. Aucun changement de contrat PocketBase ; chaque changement d’étape reste transactionnel côté serveur.
+
+CRM — 7 octobre 2026 : les cartes et la liste affichent les initiales du responsable (`owner`), avec son nom au survol, et le petit logo de la société cliente. Aucun affichage du créateur ni duplication de son identité. Les cartes n’ont plus de menu à double flèche ni de badge Gagné / Terminé : la colonne indique leur étape ; la liste conserve sa colonne d’état.
+
+CRM — réglages dédiés du 7 octobre 2026 : Paramètres → CRM possède Présentation (vue initiale Kanban / Liste commune), Étapes (six étapes fixes, noms, ordre et couleur) et Types de marché (noms, ordre, activation et couleur de tag). Référentiels conserve uniquement Pays / Langues / Devises ; les anciennes URL de référentiels CRM redirigent vers la page dédiée. Un clic sur le titre d’une colonne ouvre son réglage pour les utilisateurs disposant de settings.references. La liste affiche l’étape en tag de la même couleur que sa colonne. Plusieurs types de marché peuvent être sélectionnés et retirés dans le brouillon de la fiche, affichés comme tags dans la fiche et la liste ; ils sont enregistrés seulement avec la fiche. Une référence inactive liée reste lisible et retirable. Vue de départ appliquée quand aucun choix explicite n’est fourni dans l’URL ; changer de vue ne modifie pas le réglage global.
+
+
+CRM — décision du 7 octobre 2026 : Nouveau, Qualifié, Gagné, Terminé, Perdue et Annulé constituent les six étapes fixes. Aucun ajout, suppression, désactivation ou changement de signification ; seuls les titres, couleurs et ordre sont personnalisables. Couleur libre #RRGGBB en complément des six tons Horizon pour étapes et marchés, commune aux colonnes et tags. Les anciennes étapes supplémentaires sont conservées inactives, leurs affaires reprises dans une des six étapes selon leur état commercial.
+
+### Responsabilité Direction — 7 octobre 2026
+
+Dans Employés, le champ Responsabilité propose Collaborateur, Manager ou Direction, indépendamment de l’intitulé du poste et du profil ERP. Direction peut encadrer des managers et des collaborateurs directement ; les liens explicites via le responsable principal dessinent l’organigramme Direction → Manager → Collaborateur. Aucune personne n’est rattachée automatiquement à toute la société. Une Direction ne peut dépendre que d’une autre Direction ; les cycles restent interdits. Badge navy Direction dans la liste, l’organigramme et Utilisateurs et accès, Manager violet conservé. Le changement de responsabilité requiert `hr.organisation.manage`. Réaffectation obligatoire avant retrait d’un responsable ayant des collaborateurs actifs, ou avant rétrogradation d’une Direction ayant des directions rattachées.
+
+Direction n’octroie aucun droit Admin, aucune validation et aucun périmètre global implicite. Le périmètre collaborateurs directs peut être explicitement attribué à une Direction comme à un Manager ; il ne donne pas accès aux descendants indirects. La permission Employés avec périmètre global reste nécessaire pour consulter toute l’organisation. Nouvelle migration additive 1791331204, sans changement des responsabilités ou liens existants.
+
+### Recherche commune Employés / Utilisateurs — 7 octobre 2026
+
+Recherche unique dans la top bar sur Employés et Utilisateurs et accès, filtres dans son panneau commun : Équipe / Statut pour les ressources, Profil ERP pour les comptes. Recherche et critères sont conservés dans l’URL, au rechargement, au changement de présentation et à la fermeture des dialogues. Réinitialiser conserve le texte ; les pastilles permettent de retirer un critère. Même contrat Contacts / CRM, aucun champ dupliqué dans la page. Le filtre ne peut jamais élargir le périmètre autorisé par le serveur. Aucun changement de schéma ou de droits.
+
+Présentation des listes Employés / accès — 7 octobre 2026 : le panneau transverse reprend les deux colonnes Filtres / Regrouper par et Trier par de Contacts. Employés : Équipe ou Responsabilité, tri nom / e-mail / poste ; Utilisateurs : Profil ERP ou Responsabilité, tri nom / e-mail. Les résultats sont réellement ordonnés et groupés dans le périmètre autorisé, sans changer de droits. Organigramme conserve sa hiérarchie réelle et masque le regroupement tabulaire, tout en conservant sa valeur pour le retour Liste. Les groupes Contacts / HR / accès partagent désormais leur composant visuel.
+
+### Équipes dans Employés — 7 octobre 2026
+
+Onglet Équipes dans `/hr?tab=teams`, avec liste dense nom / managers et avatars / nombre de membres visibles / état / engrenage. Recherche, filtres Actives / Archivées / Toutes, regroupement État et tri nom dans la top bar commune. Création et édition par nom, sélection de plusieurs ressources actives Manager ou Direction ; aucun code saisi ou affiché. Gestion réservée aux Admin / Superuser ; les autres lecteurs Employés consultent selon les identités accessibles. Le nombre de membres reste celui des employés autorisés visibles, sans élargissement de périmètre.
+
+Sauvegarde explicite, grisée sans changement. L’engrenage dans l’en-tête du popup d’édition propose Archiver ou Réactiver, sans action Supprimer / Dupliquer non livrée. Archivage avec confirmation orange et saisie ARCHIVER, conservant membres et managers ; nouvelles affectations à une équipe archivée refusées, rattachements existants conservés. Réactivation préparée dans l’éditeur puis enregistrée, managers revérifiés. Un manager d’une équipe active ne peut être inactivé ou perdre sa responsabilité avant d’être retiré des managers d’équipe. Désigner un manager d’équipe ne change ni sa hiérarchie principale ni ses accréditations.
+
+Popup Équipe — 7 octobre 2026 : pas de badge d’état ni engrenage tant que la nouvelle équipe n’est pas enregistrée. À l’édition, badge de l’état courant à côté du titre de l’équipe ; engrenage dans l’en-tête, à côté de Fermer. Archiver reste accessible en présence de modifications non enregistrées ; la confirmation ARCHIVER précise dans ce cas leur abandon, et archive uniquement la version enregistrée. Réactiver prépare la modification, confirmée ensuite par Enregistrer. Pendant une sauvegarde / un archivage, les actions sont bloquées. Titre et badge alignés, sections compactes, boutons Annuler / Enregistrer à droite dans un pied fixe partagé.
+
+
+Utilisateurs et accès / Tags — 7 octobre 2026 : onglets partagés Utilisateurs et Tags, sans rubrique supplémentaire dans la navigation Paramètres. Admin accède aux comptes et aux couleurs ; Superuser accède aux couleurs uniquement, sans lecture ni modification des comptes. Onglet Tags : deux zones Profils ERP (Admin, Superuser, User, Viewer) et Responsabilités (Direction, Manager, Collaborateur), aperçu et engrenage par ligne. Seule la couleur est administrable, via palette Horizon ou couleur personnalisée, avec Enregistrer actif uniquement après modification. Configuration globale en base, indépendante des permissions et responsabilités. Même composant `IdentityTag` pour Employés, organigramme et utilisateurs ; le sélecteur de managers des équipes utilise les mêmes couleurs. Recherche contextuelle Tags dans la top bar, sans filtres de comptes appliqués à cet onglet.
+
+
+Présentation Employés / Équipes — 7 octobre 2026 : titre et description uniques au-dessus des onglets. Bouton primaire de création contextuel à droite de cet en-tête, même emplacement pour Nouvel employé et Nouvelle équipe. Aucun deuxième titre / sous-titre sous l’onglet Équipes ; compteur discret des équipes correspondant aux filtres avant la liste, dans la barre commune à Employés. Action visible uniquement avec les droits correspondants.
+
+
+Employés et équipes / ouverture des fiches — 7 octobre 2026 : cliquer sur toute la ligne ouvre le popup, pas uniquement le nom ; pas d’engrenage de fin de ligne pour l’ouverture. Le même tableau partagé que Contacts applique les fonds alternés et le focus clavier. Un lecteur peut consulter une équipe sans modifier les champs, archiver ou enregistrer. Les boutons de configuration restent adaptés aux véritables paramètres. Aucun changement des droits ou du backend.

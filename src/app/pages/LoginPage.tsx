@@ -1,3 +1,4 @@
+import { HFieldLabel } from '../../shared/ui/HFieldLabel'
 import { useState, useSyncExternalStore } from 'react'
 import { useForm } from 'react-hook-form'
 import { Navigate, useLocation } from 'react-router'
@@ -48,11 +49,11 @@ export function LoginPage() {
           <p className="login-description">Retrouvez votre espace de travail.</p>
           {!environment.pocketBaseUrl && <p role="status" className="login-notice">La connexion n’est pas encore configurée.</p>}
           <form onSubmit={handleSubmit(submit)} noValidate>
-            <label htmlFor="login-email">Adresse e-mail</label>
-            <HInput id="login-email" type="email" autoComplete="username" autoCapitalize="none" {...register('email')} aria-invalid={Boolean(errors.email)} aria-describedby={errors.email ? 'email-error' : undefined} disabled={isSubmitting} />
+            <label htmlFor="login-email"><HFieldLabel required>Adresse e-mail</HFieldLabel></label>
+            <HInput id="login-email" required type="email" autoComplete="username" autoCapitalize="none" {...register('email')} aria-invalid={Boolean(errors.email)} aria-describedby={errors.email ? 'email-error' : undefined} disabled={isSubmitting} />
             {errors.email && <p className="field-error" id="email-error">{errors.email.message}</p>}
-            <label htmlFor="login-password">Mot de passe</label>
-            <HInput id="login-password" type="password" autoComplete="current-password" {...register('password')} aria-invalid={Boolean(errors.password)} aria-describedby={errors.password ? 'password-error' : undefined} disabled={isSubmitting} />
+            <label htmlFor="login-password"><HFieldLabel required>Mot de passe</HFieldLabel></label>
+            <HInput id="login-password" required type="password" autoComplete="current-password" {...register('password')} aria-invalid={Boolean(errors.password)} aria-describedby={errors.password ? 'password-error' : undefined} disabled={isSubmitting} />
             {errors.password && <p className="field-error" id="password-error">{errors.password.message}</p>}
             {error && <p className="field-error login-error" role="alert">{error}</p>}
             <HButton type="submit" variant="primary" disabled={isSubmitting || !environment.pocketBaseUrl}><LogIn size={16} />{isSubmitting ? 'Connexion…' : 'Se connecter'}</HButton>
