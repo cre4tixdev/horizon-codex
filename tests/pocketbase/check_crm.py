@@ -78,6 +78,9 @@ class CrmTests(unittest.TestCase):
         token = self.pb.login('crm-settings@local.invalid')[1]['token']
         self.assertEqual(self.pb.request('PATCH', path, {'default_view': 'list'}, token)[0], 200)
         self.assertEqual(self.pb.request('GET', path, token=self.reader_token)[1]['default_view'], 'list')
+        self.assertEqual(self.pb.request('PATCH', path, {'default_view': 'last'}, self.token)[0], 404)
+        self.assertEqual(self.pb.request('PATCH', path, {'default_view': 'last'}, token)[0], 200)
+        self.assertEqual(self.pb.request('GET', path, token=self.reader_token)[1]['default_view'], 'last')
         self.assertEqual(self.pb.request('PATCH', path, {'default_view': 'other'}, token)[0], 400)
         self.assertEqual(self.pb.request('DELETE', path, token=token)[0], 403)
         stage = f'collections/crm_stages/records/{self.stages[0]["id"]}'
@@ -174,12 +177,15 @@ class CrmTests(unittest.TestCase):
 
     def test_summary_covers_all_results_and_keeps_currencies_separate(self):
         self.save(key='summary-eur-000001')
-        self.save(key='summary-eur-000002', estimated_value=8000)
+        self.save(key='summary-eur-000002', estimated_value=8000.25)
         self.save(key='summary-usd-000001', currency='USD', estimated_value=5000)
         self.save(key='summary-won-000001', stage=self.stages[2]['id'], estimated_value=10000)
         status, result = self.pb.request('GET', 'horizon/crm/summary?status=open', token=self.token)
         self.assertEqual(status, 200, result)
-        self.assertEqual(sorted((item['currency'], item['count'], item['amount']) for item in result['items']), [('EUR', 2, 20000), ('USD', 1, 5000)])
+        self.assertEqual(sorted((item['currency'], item['count'], item['amount']) for item in result['items']), [('EUR', 2, 20000.25), ('USD', 1, 5000)])
+        status, all_totals = self.pb.request('GET', 'horizon/crm/summary?q=&state=active&status=&company=&owner=&type=&preparation=&preparation_status=&tag=', token=self.token)
+        self.assertEqual(status, 200, all_totals)
+        self.assertAlmostEqual(sum(item['amount'] for item in all_totals['items'] if item['currency'] == 'EUR'), 30000.25)
         self.assertEqual(self.pb.request('GET', 'horizon/crm/summary', token=self.contacts_token)[0], 403)
         status, result = self.pb.request('GET', 'horizon/crm/summary?q=Absent', token=self.reader_token)
         self.assertEqual(status, 200, result)

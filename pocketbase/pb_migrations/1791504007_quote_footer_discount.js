@@ -1,0 +1,12 @@
+migrate((app) => {
+  const quotes = app.findCollectionByNameOrId('sales_quotes')
+  quotes.fields.add(new NumberField({ name: 'discount', min: 0, max: 100 }))
+  for (const name of ['discount_amount', 'subtotal_before_discount']) quotes.fields.add(new NumberField({ name, min: 0 }))
+  quotes.fields.add(new NumberField({ name: 'margin_percent' }))
+  app.save(quotes)
+  app.db().newQuery('UPDATE sales_quotes SET subtotal_before_discount = subtotal, margin_percent = CASE WHEN cost_total > 0 THEN margin_amount / cost_total * 100 ELSE 0 END').execute()
+  const lines = app.findCollectionByNameOrId('sales_quote_lines')
+  lines.fields.add(new NumberField({ name: 'tax_base', min: 0 }))
+  app.save(lines)
+  app.db().newQuery('UPDATE sales_quote_lines SET tax_base = line_total').execute()
+}, () => { throw new Error('Restore a coherent backup instead of removing quote discount snapshots.') })

@@ -31,6 +31,6 @@ describe('CRM permissions and validated write boundary', () => {
     expect(() => service.save({ ...input, estimated_value: -1 }, 'creation-key-local')).toThrow()
     expect(repository.save).not.toHaveBeenCalled()
     await service.save(input, 'creation-key-local')
-    expect(repository.save).toHaveBeenCalledExactlyOnceWith(input, 'creation-key-local', undefined)
+    expect(repository.save).toHaveBeenCalledExactlyOnceWith(input, 'creation-key-local', undefined, undefined, undefined)
   })
 })

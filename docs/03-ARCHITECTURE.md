@@ -256,6 +256,7 @@ Exemples :
 CRM / AO
 → visites
 → remise
+→ soutenances
 
 CRM
 → rendez-vous
@@ -268,6 +269,8 @@ Congés
 ```
 
 Le calendrier n’est pas obligatoirement propriétaire de toutes les dates affichées.
+
+Pour le volet AO, CRM demeure propriétaire des dates de publication, visites, remise et soutenances. Un fournisseur d’événements CRM les expose au service Calendrier après contrôle des permissions sur les dossiers sources. La vue spécialisée AO et le calendrier général consomment cette même agrégation et les composants partagés ; aucune duplication systématique dans `calendar_events`. Toute édition d’une date CRM revient au service métier CRM. Une référence stable à l’objet / événement source permet de retrouver le dossier et d’éviter les doublons. Le premier fournisseur AO est implémenté ; les fournisseurs Projets / Congés et les événements manuels restent à développer.
 
 ---
 
@@ -1718,3 +1721,31 @@ Core/Auth possède les profils ERP, les comptes et leurs droits. HR possède les
 `shared/search/SearchFilters` possède le rendu Filtres / Regrouper par / Trier par, ses pastilles et le comportement du panneau, avec CSS partagé. `WorkspaceSearch` fournit les déclarations du contexte courant ; les fichiers `searchFilters.ts` des modules contiennent uniquement les critères / valeurs / icônes métier. Aucun composant de panneau recopié par module. Le tri peut exister sans regroupement, comme dans CRM. Les valeurs non standard du tri sont incluses dans le compteur et permettent Réinitialiser.
 
 `shared/search/GroupedResults` possède les en-têtes et surfaces de groupes, utilisé par Contacts, Employés et Utilisateurs. `listPresentation` fournit tri naturel français sans mutation et regroupement par identité ; les listes HR / accès l’appliquent aux seules données autorisées reçues du serveur. Contacts conserve son regroupement / pagination métier via son service, et adapte les groupes reçus au même rendu. Les colonnes et cellules de table restent propres aux données du module. Les vues enregistrées restent limitées aux contextes réellement supportés côté serveur (Contacts) ; leur composant existant est injecté dans le panneau commun.
+
+
+## CRM / AO et projection Calendrier — premier lot du 7 octobre 2026
+
+`TenderService → TenderRepository` lit les dossiers / rendez-vous / dépôts et appelle les routes métier CRM. Le dossier AO se crée seul ; sa promotion réutilise NumberingService et AnalyticService à la décision de répondre. `CrmService.save` conserve le parcours des opportunités directes et des affaires déjà liées. `lib/tenders.js` vérifie les références, les dates, les droits et les jetons de concurrence avant audit / activité. Les six étapes commerciales restent indépendantes des étapes de préparation AO.
+
+`CalendarService → CalendarRepository → GET /api/horizon/calendar/events` expose des projections, sans nouvelle collection de dates. Le fournisseur serveur `lib/calendar.js` lit uniquement les sources CRM autorisées et rend des identifiants stables. `BusinessCalendar` est utilisé dans le volet AO et la page Calendrier, avec navigation semaine / mois / trimestre / année. Ajouter ultérieurement les fournisseurs des autres modules dans l’agrégation serveur, avec leur policy, sans modifier les données privées depuis Calendrier.
+
+Les fichiers restent possédés par Core Activity. Un dépôt AO référence `{event_id, filename}` sur le dossier AO ou son opportunité liée ; il fige cette sélection et interdit la suppression ultérieure des pièces. Il ne recopie pas le binaire. La version est allouée transactionnellement, et la clé de création rend la reprise idempotente.
+
+Les changements CRM / AO sont reçus par PocketBase Realtime via le repository, puis invalident listes, totaux, références AO et projections Calendrier. Aucun composant ne contacte directement PocketBase. Les brouillons ouverts ne sont pas réinitialisés par ces événements ; leur `updated` est contrôlé à la sauvegarde. Le calendrier conserve aussi un rafraîchissement de secours à 30 secondes.
+
+
+## Création / consultation liées — 8 octobre 2026
+
+`shared/records/RecordWorkspace` conserve le contenu d’origine monté et ouvre une pile de fiches dans `HDialog`, sans changement d’URL, second routeur ni copie de brouillon. `recordContext` expose le contrat `RecordRequest / RecordSession / RecordResult` : ressource, identifiant facultatif, valeurs initiales autorisées, état dirty / busy, résultat sauvegardé et fermeture. L’enregistrement de la fiche liée passe par son service métier habituel ; seul le résultat `{id, label}` revient au sélecteur. Une fermeture sans sauvegarde retourne sans changer la sélection ; les changements préparés nécessitent confirmation, une mutation en cours interdit la fermeture.
+
+Le shell compose les adaptateurs dans `app/components/RecordEditors` (chemin de fiche, titres, rendu lazy). Contacts fournit **le même `ContactPage / ContactEditor`** que ses routes classiques ; la session modale remplace seulement l’identifiant de route, les valeurs initiales, le callback de sauvegarde et la navigation de page. Formulaire, services, validation, images, adresses, comptabilité, onglets et fil restent communs. Identifiants de formulaires / champs uniques pour les ouvertures imbriquées, et contexte breadcrumb isolé : aucun popup ne remplace le fil d’Ariane d’origine.
+
+`HRecordPicker` étend `HCombobox` avec création et consultation. Le module fournit droits, état de chargement / erreur, défauts contextuels et relecture / invalidation des données. `ContactRecordPicker` applique la policy Contacts et invalide les choix Contacts / CRM. Le CRM vérifie le contact relu et reprend sa société si celle-ci change, afin de maintenir la cohérence des deux champs. Les liens vers les fiches enregistrées des adaptateurs sont capturés dans le popup et ouverts dans la même pile, sans quitter la page d’origine. Le focus revient au déclencheur.
+
+Premier raccordement : société dans une fiche personne, société / interlocuteur dans une opportunité (directe ou AO). Produits n’étant pas livré, son adaptateur sera ajouté avec son formulaire canonique lors de l’implémentation du module ; aucun formulaire produit fictif. Pour les autres modules, enregistrer leur éditeur existant et utiliser le même picker, sans dupliquer formulaire, fenêtre ou CSS. Les listes de valeurs structurelles ne deviennent pas des fiches créables par défaut.
+
+Conversion du type CRM — 8 octobre 2026 : `CRM save` conserve l’opportunité et son compte analytique, et archive / crée / réactive l’extension AO dans la même transaction que l’audit et le fil. `crm_tenders.archived_at` est fixé ou vidé exclusivement côté serveur. AO → direct contrôle aussi `tender_updated` ; direct → AO reprend l’unique extension avec son contrôle de version. Le formulaire canonique reste unique et conserve son brouillon jusqu’à Enregistrer. Le calendrier exclut les dossiers archivés et les opportunités directes avant projection ; rendez-vous, dépôts et fichiers restent conservés et protégés.
+
+Navigation secondaire CRM — 8 octobre 2026 : `NavigationItem.children` et `SidebarItem` portent le pattern commun de sous-pages dépliables, sans nouvelles routes métier. Liens Pipeline et AO sans paramètre view. `usePreferredView` mémorise uniquement kanban / list sous horizon.crm.view.[userId] dans ce navigateur ; URL > préférence locale > settings_crm.default_view. Les permissions métier et le singleton global restent inchangés.
+
+AO autonome — 8 octobre 2026 : `crm_tenders` est la racine du volet AO avant décision. Les routes CRM projettent un modèle de lecture commun au formulaire et aux cartes, sans créer de fausse opportunité. La promotion réutilise la validation, numérotation et création analytique CRM dans une transaction. Après liaison, les valeurs commerciales proviennent exclusivement de l’affaire. Le fil AO et le calendrier restent utilisables avant promotion.

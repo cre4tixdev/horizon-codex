@@ -23,7 +23,7 @@ export function DashboardPage() {
   const date = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'long', timeZone: 'Europe/Paris' }).format(new Date())
 
   return <>
-    <HPageHeader title="Dashboard" description="Une vue d’ensemble de votre activité et de vos prochaines échéances." actions={<span className="dashboard-date"><CalendarDays size={15} aria-hidden="true" />{date}</span>} />
+    <HPageHeader title="Dashboard" description="Une vue d’ensemble de votre activité et de vos prochaines échéances." actionsPlacement="inline" actions={<span className="dashboard-date"><CalendarDays size={15} aria-hidden="true" />{date}</span>} />
     <div className="dashboard-intro"><span className="dashboard-intro__line" /><span><strong>Votre espace de travail, au même endroit.</strong> Retrouvez les domaines clés de votre activité CVS.</span><HBadge>Prise en main</HBadge></div>
     <div className="kpi-grid">{indicators.map(({ label, icon: Icon, caption }) => (
       <section className="panel kpi" key={label} aria-label={label}>

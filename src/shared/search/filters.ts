@@ -1,9 +1,10 @@
+import type { TagTone } from '../schemas/tagTone'
 export type SearchFilter = {
   key: string
   label: string
   defaultValue: string
   appearance?: 'compact'
-  options: readonly { value: string; label: string; icon?: LucideIcon; tone?: 'violet' | 'amber' }[]
+  options: readonly { value: string; label: string; icon?: LucideIcon; tone?: TagTone; color?: string | undefined }[]
 }
 
 export function filterValue(params: URLSearchParams, filter: SearchFilter): string {

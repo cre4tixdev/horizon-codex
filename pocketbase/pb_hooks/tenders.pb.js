@@ -1,0 +1,17 @@
+routerAdd('GET', '/api/horizon/crm/tenders', (event) => require(`${__hooks}/lib/tender-cases.js`).list(event), $apis.requireAuth('core_users'))
+routerAdd('GET', '/api/horizon/crm/tenders/summary', (event) => require(`${__hooks}/lib/tender-cases.js`).summary(event), $apis.requireAuth('core_users'))
+routerAdd('GET', '/api/horizon/crm/tenders/{id}', (event) => require(`${__hooks}/lib/tender-cases.js`).record(event), $apis.requireAuth('core_users'))
+routerAdd('POST', '/api/horizon/crm/tenders/save', (event) => require(`${__hooks}/lib/tender-cases.js`).save(event), $apis.requireAuth('core_users'))
+routerAdd('POST', '/api/horizon/crm/tenders/archive', (event) => require(`${__hooks}/lib/tender-cases.js`).archive(event), $apis.requireAuth('core_users'))
+routerAdd('POST', '/api/horizon/crm/tenders/appointments', (event) => require(`${__hooks}/lib/tenders.js`).appointments(event), $apis.requireAuth('core_users'))
+routerAdd('POST', '/api/horizon/crm/tenders/stage', (event) => require(`${__hooks}/lib/tenders.js`).move(event), $apis.requireAuth('core_users'))
+routerAdd('POST', '/api/horizon/crm/tenders/submit', (event) => require(`${__hooks}/lib/tenders.js`).submit(event), $apis.requireAuth('core_users'))
+onRecordValidate((event) => {
+  const record = event.record
+  if (!record.isNew() && record.getString('code') !== record.original().getString('code')) throw new BadRequestError('Le code est immuable.')
+  record.set('label', record.getString('label').trim())
+  if (record.getString('color') && !/^#[0-9a-fA-F]{6}$/.test(record.getString('color'))) throw new BadRequestError('Couleur invalide.')
+  event.next()
+}, 'crm_tender_statuses', 'crm_tender_tags')
+onRecordCreateRequest((event) => { event.record.set('__audit_actor', event.auth ? event.auth.id : ''); require(`${__hooks}/lib/audit.js`)(event, 'create') }, 'crm_tender_statuses', 'crm_tender_tags')
+onRecordUpdateRequest((event) => { event.record.set('__audit_actor', event.auth ? event.auth.id : ''); require(`${__hooks}/lib/audit.js`)(event, 'update') }, 'crm_tender_statuses', 'crm_tender_tags')

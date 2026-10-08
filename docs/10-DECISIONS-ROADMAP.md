@@ -104,6 +104,8 @@ tender
 
 Les fonctions AO spécialisées appartiennent au module `crm`, sous-domaine `tenders`.
 
+Précision utilisateur du 7 octobre 2026 : volet AO spécialisé au sein du CRM, avec réutilisation du socle des opportunités ; navigation à définir sans imposer un onglet. Le calendrier doit couvrir visites multiples, remise avec heure, soutenances multiples et autres jalons AO. Vue AO et calendrier général partagent composants et agrégation ; CRM possède les dates métier, sans duplication systématique dans `calendar_events`. Cadrage détaillé dans les sections Calendrier / Appels d’offres des spécifications et Calendrier de l’architecture. Le premier lot AO / projection Calendrier est implémenté localement ; C02 et R09 passent En cours pour la recette et les compléments.
+
 ---
 
 ## H-011 — Documentation canonique
@@ -1268,13 +1270,13 @@ Dernière mise à jour : **7 octobre 2026**.
 | Phase | Lots | Terminés | En cours | À vérifier | Bloqués | À faire |
 |---|---:|---:|---:|---:|---:|---:|
 | 1 — Fondation | 8 | 2 | 2 | 3 | 0 | 1 |
-| 2 — Référentiel | 10 | 0 | 1 | 1 | 0 | 8 |
-| 3 — Commercial | 5 | 0 | 1 | 0 | 0 | 4 |
+| 2 — Référentiel | 10 | 0 | 2 | 1 | 0 | 7 |
+| 3 — Commercial | 5 | 0 | 2 | 0 | 0 | 3 |
 | 4 — Opérations | 8 | 0 | 0 | 0 | 0 | 8 |
 | 5 — Ressources / RH interne | 4 | 0 | 1 | 0 | 0 | 3 |
 | 6 — Finance | 6 | 0 | 0 | 0 | 0 | 6 |
 | 7 — Consolidation | 5 | 0 | 0 | 0 | 0 | 5 |
-| **Total** | **46** | **2** | **5** | **4** | **0** | **35** |
+| **Total** | **46** | **2** | **7** | **4** | **0** | **33** |
 
 **Progression de livraison : 2 / 46 lots terminés (4,3 %).** Calcul : lots terminés / lots du périmètre suivi. Cet indicateur mesure les lots livrés, sans pondérer leur taille ; il ne représente ni une estimation de charge ni le temps restant. La documentation existante est un acquis de cadrage, hors de ce compteur d'implémentation.
 
@@ -1307,7 +1309,7 @@ La roadmap reste organisée en sept phases. Certains prérequis transverses doiv
 | R06 | Documents et templates | Fondation | Tiptap JSON, versions de modèles, fichiers protégés, liens métier et archivage documentaire | À faire |
 | R07 | Messagerie e-mail | Fondation, configuration Microsoft | Messaging Service / MailProvider, Graph principal et SMTP de secours, From serveur, outbox et erreurs suivies | À faire |
 | R08 | Chat interne | Fondation | Conversations, membres, messages, pièces jointes, lecture et non-lus via REST / realtime ; non-membres refusés | À faire |
-| R09 | Calendrier | Fondation | Vues et agrégation des dates métier avec respect de la propriété et des permissions des objets sources | À faire |
+| R09 | Calendrier | Fondation | Vues et agrégation des dates métier avec respect de la propriété et des permissions des objets sources | En cours |
 | R10 | Activity Feed, tâches et mentions | Fondation | core_activity_events distinct de l'audit, notes explicites, tâches, mentions et notifications sans élévation de droits | À faire |
 
 ### Phase 3 — Commercial
@@ -1315,7 +1317,7 @@ La roadmap reste organisée en sept phases. Certains prérequis transverses doiv
 | ID | Lot | Dépendances | Résultat attendu pour clôture | Statut |
 |---|---|---|---|---|
 | C01 | CRM direct et analytique | R01, R02, socle accounting | Opportunité et compte analytique créés de manière cohérente ; activités et code affaire commun | En cours |
-| C02 | CRM / Appels d'offres | C01, R06, R09 | Extension AO transactionnelle, Kanban / drag & drop, liste, planning, visites multiples, tags, documents et archivage realtime | À faire |
+| C02 | CRM / Appels d'offres | C01, R06, R09 | Extension AO transactionnelle, Kanban / drag & drop, liste, planning, visites multiples, tags, documents et archivage realtime | En cours |
 | C03 | Devis, pricing et marge | C01, R03, R04, A01, A02 | Brouillons, calculs serveur, validation par permissions, snapshots et révisions ; plusieurs devis acceptés par opportunité | À faire |
 | C04 | Commandes client | C03 | Conversion totale ou partielle, reliquats et plusieurs commandes sur le même compte analytique | À faire |
 | C05 | PDF et envoi commercial | C03, R06, R07 | Tiptap → HTML → Gotenberg → PDF, versions envoyées figées, envoi autorisé et parcours commercial testé | À faire |
@@ -1765,3 +1767,35 @@ Mise en page compacte, pied fixe partagé, absence de badge Active en création.
 
 
 7 octobre 2026 — couleurs des tags organisation / profils ERP : implémentation locale terminée, dans Utilisateurs et accès → Tags. Admin / Superuser administrent les couleurs ; comptes et accréditations restent réservés Admin. Sept tags fixes et configuration globale persistée, composants de rendu et sélecteur de couleur partagés, aucune nouvelle rubrique Paramètres. Migration additive 1791331206 et audit ; mise à jour du frontend et backend requise ensemble. Tests de sécurité / persistance / affichage croisé validés. Aucun déploiement NAS ni commit / push réalisé pour ce lot.
+
+
+7 octobre 2026 — premier lot AO / Calendrier : création atomique d’opportunités `tender`, préparation indépendante, visites / soutenances multiples, tags administrables, dépôts immuables versionnés avec pièces protégées, filtres / regroupement transverse, Kanban / liste / calendrier partagé et Realtime. Référence fonctionnelle AOBoard examinée au commit `1437ec8fbad9c43b0e402807b0e3bf09bc1d5ef9` ; architecture React / PocketBase Horizon conservée. Migration additive `1791331207_crm_tenders.js`, contrôle de concurrence et rollback préservant les historiques. C02 et R09 passent En cours : recette NAS, rappels, fournisseurs Calendrier supplémentaires et compléments documentaires restent à faire. Aucun déploiement distant. Tableau global : 2 terminés, 7 en cours, 4 à vérifier, 33 à faire sur 46. Prochaine action : installer le lot AO consolidé et recetter les échéances / dépôts avec les utilisateurs.
+
+
+8 octobre 2026 — décision et premier raccordement de création / consultation liées : fenêtre commune réutilisant le formulaire canonique, parent maintenu monté, résultat sélectionné après sauvegarde, fermeture dirty / busy protégée, popups imbriqués et lecture seule. Société de fiche personne et société / contact du CRM raccordés ; maintien du lien société-contact après modification. `shared/records` centralise le contrat et le rendu ; adaptation Produits prévue à la livraison de son éditeur, sans seconde version de formulaire. Aucun schéma, migration, dépendance ou backend ajouté. Statuts globaux des lots inchangés ; compléments UI Contacts / CRM. Prochaine recette : usages réels avec brouillons et plusieurs ouvertures successives.
+
+8 octobre 2026 — décision utilisateur : type Directe / AO convertible. AO → direct met en sommeil uniquement l’extension AO, sans supprimer documents, visites ou réponses. Direct → AO crée ou réactive le dossier 1:1, même numéro / compte analytique et fil. Migration additive 1791417600, droits CRM et concurrence serveur conservés ; aucune modification des étapes commerciales, aucun déploiement distant.
+
+
+8 octobre 2026 — décision utilisateur AO : dossier autonome en `À analyser` / `No go`, affaire seulement à la décision de répondre (`En préparation`). Cette décision remplace la création immédiate du premier lot AO. Implémentation locale : migration additive, promotion atomique idempotente, conservation des liens historiques, fil / fichiers / visites avant promotion, trois vues Kanban / Liste / Planning. Planning par dossier inspiré de la référence AOBoard, données partagées avec Calendrier. No go reste distinct de Perdue ; retour No go après promotion conserve l’affaire et son historique. C02 / R09 restent En cours pour recette NAS, rappels et compléments déjà identifiés. Lot consolidé et procédure dans 06 ; aucune installation distante effectuée.
+
+8 octobre 2026 — Devis S01 : création de brouillons et lignes libres HT, compte analytique / devise hérités de l’opportunité obligatoire, numéros code CRM-rang atomiques, liste générale et filtrée, smart button Devis et revenu prévisionnel. Annulation draft avec motif et historique. Restent validation, TVA, catalogue / pricing avancé, PDF / envoi, révisions validées et commandes partielles. Modèle de commandes réservé et consolidation testée sans double comptage ; aucun parcours commande livré à ce stade.
+
+
+8 octobre 2026 — Devis S02 : structure des lignes, sections à deux niveaux / sous-totaux facultatifs, notes, remises, coûts, options séparées et revenu CRM hors options ; duplication / déplacement / suppression confirmée. Largeurs communes et validité dans Paramètres Ventes, fil d’activité et popup CRM transversal. Modèles de devis prévus : réutiliser ces mêmes lignes et sections, sans formulaire concurrent. Suivi achat de ligne réservé à l’approvisionnement futur. S01 reste incomplet pour catalogue / TVA effective / validation / PDF / conversion en commandes.
+
+Devis S03 — 8 octobre 2026 : édition pleine largeur, option dédiée, actions directes avec confirmation, ajouts en pied de grille et déplacement via dnd-kit existant. Aucun ajout de dépendance, ordre sauvegardé par le flux brouillon existant ; options et montants restent gouvernés par le pricing serveur.
+
+8 octobre 2026 — Devis S04 : densité et centrage affinés, redimensionnement direct des colonnes, marge sur coût saisissable avec recalcul du PUV serveur, TVA de brouillon explicite et HT / TVA / TTC. Préférences de largeur propres au compte localement, valeurs communes dans Paramètres Ventes. Première brique de calcul fiscal serveur sans livraison des règles contextuelles A01 ni validation / facturation.
+
+Devis S05 — trois niveaux de titres repliables, suppression rapide de ligne, cellules discrètes, largeur globale conservée au redimensionnement, en-têtes persistants et résumé des totaux. TVA configurable exclusivement dans Paramètres → Devis, remplace la saisie par brouillon S04.
+
+Devis S07 : remise de pied sur le HT après remises de ligne et hors options, TVA calculée sur les bases nettes réparties au centime. Total achats estimé et marge globale après remise, en devise et pourcentage sur coût ; la remise réduit le revenu prévisionnel CRM. Aucun workflow achat / facture / validation supplémentaire.
+
+Devis S09 : CGV configurables sélectionnables et snapshotées, unités partagées via inventory_units, remise en montant ou %, détails de grille et duplication affinés. Les unités ne créent pas de moteur de conversion ni de second catalogue. Catalogue produits, conditions de paiement, fiscalité contextuelle et émission restent hors de ce lot.
+
+8 octobre 2026 — Devis S10 : grille compacte, montants avec devise intégrée, remise globale montant / pourcentage simultanés et retrait, titres optionnels avec héritage serveur et exclusions cohérentes des totaux / revenu. Aucun nouveau workflow ni schéma.
+
+8 octobre 2026 — Studio de pièces PDF : cadrage initial R06 / C05 dans `04-FUNCTIONAL-SPECS.md`, section 17.1, après examen des deux devis CVS fournis (une et deux pages). Bibliothèque de blocs, A4 portrait / paysage, champs métier autorisés, tableau dynamique, pagination, aperçu sur vrai devis et téléchargement ; choix confirmés par l’utilisateur : blocs avec pagination automatique, modèles communs dans Paramètres, devis pour le premier lot. Aucun studio, migration Documents ou service Gotenberg livré par ce cadrage.
+
+8 octobre 2026 — précision Studio Documents : positionnement au pixel conservé dans les zones de composition malgré le choix de blocs avec pagination automatique ; valeurs de position / déplacement surlignées pendant le drag. Cadrage complété avant le commit demandé, implémentation du studio non commencée.

@@ -1,9 +1,10 @@
 /* Semantic theme tokens. Light mode keeps the existing colors through CSS fallbacks. */
-:root { color-scheme: light; --theme-activity-background: #edf2f8; }
+:root { color-scheme: light; --theme-activity-background: #e5ebf3; --theme-red-text: #dc2626; }
 :root[data-theme="dark"] {
+  --theme-focus-ring: #8caada;
   color-scheme: dark;
   --color-horizon-background: #0e1726;
-  --theme-activity-background: #0a1220;
+  --theme-activity-background: #111d2e;
   --color-horizon-form-text: #f3f6fc;
   --theme-surface: #162236;
   --theme-surface-soft: #1c2a40;
@@ -18,6 +19,7 @@
   --theme-text-soft: #9baec7;
   --theme-violet-text: #c1a0f2;
   --theme-rose-text: #ff91bc;
+  --theme-red-text: #ff9b94;
   --theme-amber-text: #efbd86;
   --theme-green-text: #68d6ae;
   --theme-blue-text: #93bdff;

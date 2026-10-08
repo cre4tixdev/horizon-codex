@@ -1,3 +1,4 @@
+import { tenderInputSchema, type TenderInput } from '../schemas/tenders'
 import { hasPermission } from '../../../core/auth/types/session'
 import { ClientResponseError } from 'pocketbase'
 import { environment } from '../../../core/config/environment'
@@ -24,7 +25,7 @@ export class CrmService {
   record(id: string) { return this.run(false, (repo) => repo.record(id)) }
   stages() { return this.run(false, (repo) => repo.stages()) }
   owners() { return this.run(false, (repo) => repo.owners()) }
-  save(input: OpportunityInput, key: string, record?: { id: string; updated: string }) { const parsed = opportunityInputSchema.parse(input); return this.run(true, (repo) => repo.save(parsed, key, record)) }
+  save(input: OpportunityInput, key: string, record?: { id: string; updated: string }, tender?: TenderInput, tenderUpdated?: string) { const parsed = opportunityInputSchema.parse(input); return this.run(true, (repo) => repo.save(parsed, key, record, tender ? tenderInputSchema.parse(tender) : undefined, tenderUpdated)) }
   move(changes: StageChange[]) { return this.run(true, (repo) => repo.move(changes)) }
   archive(id: string, active: boolean) { return this.run(true, (repo) => repo.archive(id, active)) }
   remove(id: string) { return this.run(true, (repo) => repo.remove(id)) }

@@ -12,6 +12,10 @@ module.exports = {
       const files = record.getStringSlice('attachments')
       if (!files.includes(input.filename)) throw new ApiError(404, 'Pièce jointe introuvable.')
       const before = record.publicExport()
+      if (record.getString('source_entity').startsWith('crm_') && app.findAllCollections().some((collection) => collection.name === 'crm_tender_submissions')) {
+        const tender = record.getString('source_entity') === 'crm_tenders' ? app.findRecordById('crm_tenders', record.getString('source_record_id')) : require(`${__hooks}/lib/tenders.js`).find(app, record.getString('source_record_id'))
+        if (tender && app.findRecordsByFilter('crm_tender_submissions', 'tender = {:id}', '', 0, 0, { id: tender.id }).some((submission) => JSON.parse(submission.getString('documents') || '[]').some((file) => file.event_id === record.id && file.filename === input.filename))) throw new ApiError(409, 'Cette pièce fait partie d’une réponse AO déposée et doit être conservée.')
+      }
       record.set('attachments', files.filter((file) => file !== input.filename))
       app.save(record)
       const audit = new Record(app.findCollectionByNameOrId('core_audit'))
@@ -36,7 +40,7 @@ module.exports = {
     const module = record.getString('source_module')
     if (!activity.allowed(event.app, event.auth, true, module)) throw new ForbiddenError('Accès refusé.')
     const root = activity.source(event.app, record.getString('source_entity'), record.getString('source_record_id'), true)
-    if ((root.collection().name === 'crm_opportunities' ? 'crm' : 'contacts') !== module || !['note', 'message', 'document', 'task'].includes(record.getString('type'))) throw new BadRequestError('Type de publication invalide.')
+    if ((root.collection().name.startsWith('sales_') ? 'sales' : root.collection().name.startsWith('crm_') ? 'crm' : 'contacts') !== module || !['note', 'message', 'document', 'task'].includes(record.getString('type'))) throw new BadRequestError('Type de publication invalide.')
     const body = record.getString('body').trim()
     const attachments = record.getUploadedFiles('attachments')
     if (!body && !attachments.length) throw new BadRequestError('Ajoutez un message ou une pièce jointe.')
@@ -51,7 +55,7 @@ module.exports = {
       if (taskInput.due_date && (!/^\d{4}-\d{2}-\d{2}$/.test(taskInput.due_date) || !Number.isFinite(Date.parse(taskInput.due_date)) || new Date(taskInput.due_date).toISOString().slice(0, 10) !== taskInput.due_date)) throw new BadRequestError('Échéance invalide.')
       if (input.origin_event) {
         const origin = event.app.findRecordById('core_activity_events', input.origin_event)
-        if (origin.getString('source_entity') !== root.collection().name || origin.getString('source_record_id') !== root.id || !['note', 'message'].includes(origin.getString('type'))) throw new BadRequestError('Note d’origine invalide.')
+        if (!(origin.getString('source_entity') === root.collection().name && origin.getString('source_record_id') === root.id || root.collection().name === 'crm_tenders' && origin.getString('source_entity') === 'crm_opportunities' && origin.getString('source_record_id') === root.getString('opportunity')) || !['note', 'message'].includes(origin.getString('type'))) throw new BadRequestError('Note d’origine invalide.')
       }
     } else if (record.getString('type') === 'task') throw new BadRequestError('Informations de tâche manquantes.')
     record.set('body', body)

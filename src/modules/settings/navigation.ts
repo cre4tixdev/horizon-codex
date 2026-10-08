@@ -7,7 +7,7 @@ export const settingsSections = [
   { slug: 'contacts', title: 'Contacts', group: 'Modules métier', icon: UsersRound, description: 'Qualification des contacts et relations commerciales.', topics: ['Sources des contacts', 'Tags et qualification', 'Préférences de relation'], available: false },
   { slug: 'crm', title: 'CRM', group: 'Modules métier', icon: Target, description: 'Étapes et présentation du suivi commercial.', topics: ['Étapes commerciales', 'Ordre du Kanban', 'Couleurs des étapes', 'Types de marché'], available: true },
   { slug: 'catalogue', title: 'Catalogue', group: 'Modules métier', icon: Package, description: 'Structuration des produits, services et tarifs.', topics: ['Catégories et unités', 'Taxes', 'Tarification'], available: false },
-  { slug: 'ventes', title: 'Ventes', group: 'Modules métier', icon: ShoppingCart, description: 'Paramètres des devis, commandes et livraisons.', topics: ['Numérotation', 'Conditions commerciales', 'Modèles de documents'], available: false },
+  { slug: 'ventes', title: 'Devis', group: 'Modules métier', icon: ShoppingCart, description: 'Présentation et valeurs par défaut des devis.', topics: ['Colonnes des devis', 'Valeurs par défaut', 'Conditions générales de vente'], available: true },
   { slug: 'achats', title: 'Achats', group: 'Modules métier', icon: Truck, description: 'Règles de préparation et suivi des achats.', topics: ['Numérotation des commandes', 'Conditions fournisseurs', 'Approvisionnement'], available: false },
   { slug: 'stock', title: 'Stock', group: 'Modules métier', icon: Warehouse, description: 'Entrepôts, emplacements et suivi des mouvements.', topics: ['Entrepôts et emplacements', 'Types de mouvements', 'Inventaires'], available: false },
   { slug: 'facturation', title: 'Facturation', group: 'Modules métier', icon: Receipt, description: 'Factures, règlements et documents de facturation.', topics: ['Numérotation', 'Conditions de paiement', 'Modèles et mentions'], available: false },
@@ -17,4 +17,4 @@ export const settingsSections = [
   { slug: 'integrations', title: 'Intégrations', group: 'Connexions', icon: Plug, description: 'Services externes et connexions à Horizon.', topics: ['Recherche d’entreprises (État)', 'Sage et SUPER PDP', 'Messagerie et génération PDF'], available: false },
 ] as const
 export const settingsGroups = ['Socle commun', 'Modules métier', 'Connexions'] as const
-export const settingsSectionPath = (slug: string) => ['references', 'crm', 'sequences', 'users'].includes(slug) ? `/settings/${slug}` : `/settings/modules/${slug}`
+export const settingsSectionPath = (slug: string) => ['references', 'crm', 'sequences', 'users', 'ventes'].includes(slug) ? `/settings/${slug}` : `/settings/modules/${slug}`

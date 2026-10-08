@@ -1,5 +1,7 @@
+import { RecordEditors } from './RecordEditors'
 import { useEffect, useState, useSyncExternalStore } from 'react'
-import { Link, NavLink, Outlet, useLocation } from 'react-router'
+import { Link, Outlet, useLocation } from 'react-router'
+import { SidebarItem } from './SidebarItem'
 import { Building2, PanelLeftClose, PanelLeftOpen, CircleHelp, Keyboard } from 'lucide-react'
 import { navigationGroups, navigationItems } from '../navigation'
 import { NotificationBell } from './NotificationBell'
@@ -18,6 +20,7 @@ import { canAccessNavigation } from '../navigationAccess'
 export function AppFrame() {
   const session = useSyncExternalStore(sessionService.subscribe, sessionService.getSnapshot)
   const user = session.status === 'authenticated' ? session.user : undefined
+  const [recordActions, setRecordActions] = useState<HTMLDivElement | null>(null)
   const [breadcrumbActions, setBreadcrumbActions] = useState<HTMLDivElement | null>(null)
   const [breadcrumbTrail, setBreadcrumbTrail] = useState<HTMLDivElement | null>(null)
   const [breadcrumbRelated, setBreadcrumbRelated] = useState<HTMLDivElement | null>(null)
@@ -40,7 +43,7 @@ export function AppFrame() {
   const currentTitle = pathname === '/account' ? 'Mon compte' : currentItem?.label ?? 'Page introuvable'
 
   return (
-    <div className={`app-shell${collapsed ? ' app-shell--collapsed' : ''}`}>
+    <RecordEditors><div className={`app-shell${collapsed ? ' app-shell--collapsed' : ''}`}>
       <a href="#main-content" className="skip-link">Aller au contenu</a>
       <aside className="sidebar" aria-label="Navigation Horizon">
         <Link to="/" aria-label="Horizon — Accueil" className="sidebar-brand"><HorizonMark /><span>HORIZON</span></Link>
@@ -48,11 +51,7 @@ export function AppFrame() {
           {navigationGroups.filter((group) => group.items.some((item) => canAccessNavigation(item.href, user))).map((group) => (
             <div className="sidebar-group" key={group.label}>
               <p className="sidebar-group__title">{group.label}</p>
-              {group.items.filter((item) => canAccessNavigation(item.href, user)).map(({ href, label, icon: Icon }) => (
-                <NavLink key={href} to={href} end={href === '/'} aria-label={label} title={label} className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`}>
-                  <Icon size={17} aria-hidden="true" /><span>{label}</span>
-                </NavLink>
-              ))}
+              {group.items.filter((item) => canAccessNavigation(item.href, user)).map((item) => <SidebarItem key={item.href} item={item} />)}
             </div>
           ))}
         </nav>
@@ -75,10 +74,10 @@ export function AppFrame() {
         </header>
         <main id="main-content" tabIndex={-1} className="main-content">
           {connectionError && <p role="alert" className="login-notice">{connectionError}</p>}
-          <div className="page-breadcrumb-row"><div className="page-breadcrumb-trail"><HBreadcrumb items={[{ label: 'Accueil', href: '/' }, { label: currentTitle }]} /><div ref={setBreadcrumbTrail} className="page-breadcrumb-custom" /></div><div ref={setBreadcrumbRelated} className="page-breadcrumb-related" /><div ref={setBreadcrumbActions} className="page-breadcrumb-actions" /></div>
-          <BreadcrumbActionsContext.Provider value={{ navigation: breadcrumbActions, related: breadcrumbRelated, trail: breadcrumbTrail }}><Outlet /></BreadcrumbActionsContext.Provider>
+          <div className="page-breadcrumb-row"><div className="page-breadcrumb-trail"><HBreadcrumb items={[{ label: 'Accueil', href: '/' }, { label: currentTitle }]} /><div ref={setBreadcrumbTrail} className="page-breadcrumb-custom" /></div><div ref={setBreadcrumbRelated} className="page-breadcrumb-related" /><div className="page-breadcrumb-controls"><div ref={setRecordActions} className="page-breadcrumb-record-actions" /><div ref={setBreadcrumbActions} className="page-breadcrumb-actions" /></div></div>
+          <BreadcrumbActionsContext.Provider value={{ actions: recordActions, navigation: breadcrumbActions, related: breadcrumbRelated, trail: breadcrumbTrail }}><Outlet /></BreadcrumbActionsContext.Provider>
         </main>
       </div>
-    </div>
+    </div></RecordEditors>
   )
 }

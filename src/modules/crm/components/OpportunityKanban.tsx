@@ -36,7 +36,7 @@ function InteractionState({ onChange }: { onChange: (busy: boolean) => void }) {
 type CardProps = Parameters<typeof OpportunityCard>[0]
 function SortableCard({ index, reduced, ...props }: CardProps & { index: number; reduced: boolean; stages: Stage[]; editable: boolean }) {
   const { ref, isDragSource } = useSortable({ id: props.record.id, group: props.record.stage, index, type: 'opportunity', accept: 'opportunity', disabled: { draggable: !props.editable, droppable: !props.editable || !props.stages.some((stage) => stage.id === props.record.stage && stage.active) }, transition: reduced ? null : { duration: 240, easing: 'cubic-bezier(.2,.8,.2,1)' } })
-  return <div ref={ref} aria-label={`Glisser l’opportunité ${props.record.opportunity_number}`} className="crm-sortable-card" data-dragging={isDragSource}><OpportunityCard {...props} /></div>
+  return <div ref={ref} aria-label={`Glisser ${props.record.record_kind === 'tender' ? 'l’appel d’offres' : 'l’opportunité'} ${props.record.record_kind === 'tender' ? props.record.tender?.reference || props.record.title : props.record.opportunity_number}`}  className="crm-sortable-card" data-dragging={isDragSource}><OpportunityCard {...props} /></div>
 }
 function Column({ stage, folded, amount, count, ready, editable, busy, onToggle, onExpand, empty, onConfigure, children }: { stage: Stage; folded: boolean; amount: string; count: number; ready: boolean; editable: boolean; busy: boolean; onToggle: () => void; onExpand: () => void; empty: boolean; onConfigure?: (() => void) | undefined; children: React.ReactNode }) {
   // Target only the column under the pointer; the floating card must not shadow empty rails.
@@ -53,7 +53,7 @@ function Column({ stage, folded, amount, count, ready, editable, busy, onToggle,
   </section>
 }
 
-export function OpportunityKanban({ rows, stages, totals, summaryReady, editable, drafts, listQuery, collapsed, onToggleCollapsed, onMove, onBusyChange, busy, onExpandCollapsed, onConfigure, markets }: { rows: Opportunity[]; markets: Reference[]; stages: Stage[]; totals: StageTotal[]; summaryReady: boolean; editable: boolean; drafts: Record<string, StageChange>; listQuery: string; collapsed: Set<string>; onToggleCollapsed: (id: string) => void; onMove: (id: string, stage: string) => void; onBusyChange: (busy: boolean) => void; busy: boolean; onExpandCollapsed: (id: string) => void; onConfigure?: ((id: string) => void) | undefined }) {
+export function OpportunityKanban({ rows, stages, totals, summaryReady, editable, drafts, listQuery, collapsed, onToggleCollapsed, onMove, onBusyChange, busy, onExpandCollapsed, onConfigure, markets, emptyMessage = 'Aucune opportunité' }: { emptyMessage?: string; rows: Opportunity[]; markets: Reference[]; stages: Stage[]; totals: StageTotal[]; summaryReady: boolean; editable: boolean; drafts: Record<string, StageChange>; listQuery: string; collapsed: Set<string>; onToggleCollapsed: (id: string) => void; onMove: (id: string, stage: string) => void; onBusyChange: (busy: boolean) => void; busy: boolean; onExpandCollapsed: (id: string) => void; onConfigure?: ((id: string) => void) | undefined }) {
   const reduced = useSyncExternalStore(subscribeMotion, reducedMotion, () => false)
   // Ordering is a local visual preference; the configured business sort applies on refresh.
   const [order, setOrder] = useState<string[]>([])
@@ -98,7 +98,7 @@ export function OpportunityKanban({ rows, stages, totals, summaryReady, editable
       return <Column key={stage.id} stage={stage} folded={collapsed.has(stage.id)} amount={amount} count={count} ready={summaryReady} editable={editable} busy={busy} empty={!ids.length} onConfigure={onConfigure ? () => onConfigure(stage.id) : undefined} onToggle={() => onToggleCollapsed(stage.id)} onExpand={() => onExpandCollapsed(stage.id)}>{ids.map((id, index) => {
         const record = rows.find((row) => row.id === id)
         return record && <SortableCard key={id} record={{ ...record, stage: stage.id }} markets={markets} index={index} reduced={reduced} stages={stages} editable={editable && record.active} pending={Boolean(drafts[id])} listQuery={listQuery} />
-      })}{!ids.length && <p className="crm-column-empty">Aucune opportunité</p>}</Column>
+      })}{!ids.length && <p className="crm-column-empty">{emptyMessage}</p>}</Column>
     })}</div></div>
     <DragOverlay className="crm-drag-overlay" dropAnimation={reduced ? null : { duration: 240, easing: 'cubic-bezier(.2,.8,.2,1)' }}>{(source) => {
       const record = rows.find((row) => row.id === source.id)

@@ -1,6 +1,6 @@
-import { LayoutDashboard, Mail, CalendarDays, ContactRound, Target, FileText, ShoppingCart, Package, FolderKanban, Headset, UsersRound, Clock3, CalendarOff, Receipt, Wallet, Landmark, Files, Settings2, type LucideIcon } from 'lucide-react'
+import { LayoutDashboard, Mail, CalendarDays, ContactRound, Target, FileText, ShoppingCart, Package, FolderKanban, Headset, UsersRound, Clock3, CalendarOff, Receipt, Wallet, Landmark, Files, Settings2, Columns3, ClipboardList, type LucideIcon } from 'lucide-react'
 
-export type NavigationItem = { label: string; href: string; icon: LucideIcon; description: string }
+export type NavigationItem = { label: string; href: string; icon: LucideIcon; description: string; children?: NavigationItem[] }
 export type NavigationGroup = { label: string; items: NavigationItem[] }
 
 export const navigationGroups: NavigationGroup[] = [
@@ -11,8 +11,11 @@ export const navigationGroups: NavigationGroup[] = [
   ] },
   { label: 'Activité', items: [
     { label: 'Contacts', href: '/contacts', icon: ContactRound, description: 'Sociétés, contacts et adresses' },
-    { label: 'CRM', href: '/crm', icon: Target, description: 'Opportunités et appels d’offres' },
-    { label: 'Ventes', href: '/sales', icon: FileText, description: 'Devis et commandes clients' },
+    { label: 'CRM', href: '/crm', icon: Target, description: 'Opportunités et appels d’offres', children: [
+      { label: 'Pipeline', href: '/crm', icon: Columns3, description: 'Toutes les opportunités commerciales' },
+      { label: 'Appels d’offres', href: '/crm?area=ao', icon: ClipboardList, description: 'Préparation et suivi des réponses AO' },
+    ] },
+    { label: 'Ventes', href: '/sales', icon: FileText, description: 'Devis et commandes clients', children: [{ label: 'Devis', href: '/sales/quotes', icon: FileText, description: 'Tous les devis commerciaux' }] },
     { label: 'Achats', href: '/purchasing', icon: ShoppingCart, description: 'Demandes et commandes fournisseurs' },
     { label: 'Stock', href: '/inventory', icon: Package, description: 'Catalogue, disponibilités et mouvements' },
     { label: 'Projets', href: '/projects', icon: FolderKanban, description: 'Exécution, jalons et recettes' },

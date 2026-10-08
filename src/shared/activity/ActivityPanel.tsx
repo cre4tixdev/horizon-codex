@@ -1,8 +1,9 @@
+import { ActivityFileLink } from './ActivityFileLink'
 import { HFieldLabel } from '../ui/HFieldLabel'
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { useLocation } from 'react-router'
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { AtSign, Check, CheckCheck, ChevronDown, Clock3, FileText, History, MessageSquare, Paperclip, Send, X, ArrowRight, Trash2, ClipboardPlus } from 'lucide-react'
+import { AtSign, Check, CheckCheck, ChevronDown, Clock3, History, MessageSquare, Paperclip, Send, X, ArrowRight, Trash2, ClipboardPlus } from 'lucide-react'
 import { sessionService } from '../../core/auth/services/session'
 import { activityService } from '../../core/activity/services/ActivityService'
 import type { ActivityEvent, ActivityFilter, ActivitySource, ActivityTask, ActivityUser, Publication, TaskStatus } from '../../core/activity/types/activity'
@@ -61,8 +62,7 @@ function ActivityChanges({ changes }: { changes: ActivityEvent['metadata']['chan
 function ActivityAttachment({ item, file, editable }: { item: ActivityEvent; file: string; editable: boolean }) {
   const [open, setOpen] = useState(false)
   const client = useQueryClient()
-  const link = useQuery({ queryKey: ['activity-file', item.id, file], queryFn: () => activityService.attachmentURL(item.collectionId, item.id, file), staleTime: 60_000, retry: false })
-  return <div className="activity-file-group">{link.data ? <a href={link.data} target="_blank" rel="noreferrer" className="activity-file"><span><FileText size={17} /></span><strong>{filename(file)}</strong><small>Ouvrir</small></a> : <span className="activity-file">{filename(file)}{link.error && <span role="alert"> — Fichier indisponible</span>}</span>}
+  return <div className="activity-file-group"><ActivityFileLink eventId={item.id} collectionId={item.collectionId} file={file} />
     {editable && <HButton variant="ghost" size="icon" className="activity-file-delete" aria-label={`Supprimer la pièce jointe ${filename(file)}`} onClick={() => setOpen(true)}><Trash2 size={14} /></HButton>}
     <HRecordConfirmation action="delete" itemName={filename(file)} description="Le fichier sera retiré définitivement. Le commentaire reste conservé et la suppression sera tracée dans le fil." open={open} onOpenChange={setOpen} onConfirm={async () => { await activityService.removeAttachment(item.id, file); client.removeQueries({ queryKey: ['activity-file', item.id, file] }); void client.invalidateQueries({ queryKey: ['activity'] }) }} />
   </div>

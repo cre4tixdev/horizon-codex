@@ -361,6 +361,14 @@ couleurs, clair / sombre et responsive. Vérifier le parcours dans le navigateur
 lorsque le comportement change ; compléter les tests de régression pertinents.
 La documentation seule ne remplace pas cette vérification.
 
+Pour les pages Paramètres : réutiliser la même structure de tableau validée
+(`settings-reference-table` + `reference-table`), avec sa bordure, ses en-têtes
+et ses cellules d’action. Placer `HSaveButton` en haut à droite du contenu
+configuré via les actions de `HSectionHeading`, jamais sous le tableau. Les
+popups utilisent `HDialog`, `dialog-form` et `HDialogFooter`. Avant livraison,
+comparer visuellement les onglets voisins et vérifier ces trois points dans
+le navigateur ; ne pas attendre une reprise utilisateur pour les harmoniser.
+
 Créer un composant local uniquement s'il est spécifique au module.
 
 Si un pattern est répété dans plusieurs modules, le déplacer vers le Design System ou `shared`.

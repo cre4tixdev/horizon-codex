@@ -789,144 +789,54 @@ note
 
 ---
 
-## AO — extension d’une opportunité CRM
+## AO — dossier autonome puis opportunité liée
 
 ### `crm_tenders`
 
-Extension 1:1 d’une opportunité de type `tender`.
+Dossier propriétaire CRM, lié à zéro ou une opportunité. `opportunity` est facultatif et unique seulement lorsqu’il est renseigné (index partiel). En **À analyser** (`todo`) et **No go** (`no_go`), un nouveau dossier reste autonome : aucun numéro commercial, compte analytique ou opportunité. En **En préparation** (`preparing`), la décision de répondre crée atomiquement l’opportunité `tender`, son numéro et son compte analytique, puis renseigne le lien. Un passage direct dans une autre étape de réponse (`review`, `ready`, `submitted` ou étape ajoutée) applique la même promotion. La transaction et le lien unique rendent cette promotion idempotente.
 
-Module propriétaire :
+Champs AO : `reference`, `consultation_url`, `status` → `crm_tender_statuses`, `order`, `publication_date`, `submission_deadline`, `timezone`, `expected_result_date`, `visit_required`, `tags`, `active`, `archived_at`, timestamps ; clé de création et acteur cachés. Avant promotion, le dossier possède `title`, `company`, `contact`, `owner`, `market_types`, `estimated_value`, `estimated_cost`, `currency`, `probability`, `expected_date`, `description`, `description_content`. Après promotion, les champs commerciaux sont lus et modifiés dans l’opportunité : les valeurs initiales du dossier sont conservées comme snapshot, jamais comme second référentiel mutable.
 
-```text
-crm
-```
+**No go** signifie ne pas répondre ; **Perdue** reste un résultat commercial après poursuite de l’affaire. Un dossier déjà promu conserve son lien et son affaire historique même s’il revient en À analyser ou No go ; aucune suppression ni annulation commerciale automatique. L’archivage demeure une action explicite. Les anciennes affaires ne sont pas dénumérotées rétroactivement. `archived_at` conserve le sens de conversion AO → directe.
 
-Champs :
+### `crm_tender_statuses` / `crm_tender_tags`
 
-```text
-opportunity
-reference
-status
-order
-publication_date
-submission_deadline
-visit_required
-is_archived
-archived_at
-```
+Référentiels CRM : `code` immuable unique, `label`, `tone`, `color`, `sort_order`, `active`, timestamps. Les étapes de préparation AO sont configurables indépendamment des six étapes commerciales. Une étape / un tag utilisé et désactivé reste lisible historiquement ; aucun déplacement vers une référence inactive. Réglages réservés à Admin / Superuser avec `settings.references`.
 
-Relations :
+### `crm_appointment_kinds`
 
-```text
-opportunity → crm_opportunities
-status → crm_tender_statuses
-tags → crm_tender_tags
-```
+Deux présentations fixes des rendez-vous AO : `visit` (Visite), `hearing` (Soutenance). Code, libellé, ordre et active=true immuables ; `tone` / `color` modifiables par Admin / Superuser avec `settings.references`. Lecture avec `crm.read` ou droit de paramétrage. Pas de création / suppression REST. Mêmes champs de présentation que les référentiels CRM, validation serveur et audit. Ne change pas les valeurs structurelles `kind` des rendez-vous. Migration additive `1791504001_appointment_kind_colors.js` ; les tags AO historiques sont conservés, leur onglet de paramétrage est remplacé par ces couleurs.
 
-Contrainte :
+### `crm_tender_appointments`
+
+Rendez-vous multiples liés à `tender` : `kind` = `visit / hearing`, `start`, `end` (instants UTC), `timezone`, `location` (adresse ou lien), `notes`, `participants` → `hr_employees`, `status` = `planned / done / cancelled`, timestamps. Visites et soutenances partagent ce contrat, remplaçant les deux tables prospectives séparées visites / timeline. Les participants sont des ressources métier, pas obligatoirement des comptes Horizon. Leur sélection nécessite les droits Employés sur chaque ressource ; les noms ne sont pas exposés sans ces droits. Pas de suppression physique : annuler pour conserver l’historique.
+
+### `crm_tender_submissions`
+
+Dépôts immuables liés à `tender` : `creation_key` unique cachée, `version` entier serveur unique par dossier, `submitted_at` instant réel UTC, `timezone`, `submitted_by` → `core_users`, `notes`, `documents` JSON snapshot de références `{event_id, filename}`, `created`. Les pièces proviennent de `core_activity_events` du dossier AO ou de son opportunité liée (stockage protégé partagé). Les fichiers référencés par un dépôt ne sont plus supprimables. Les remises ultérieures créent une nouvelle version ; l’échéance de remise reste indépendante. Aucun PATCH / DELETE REST ni route de modification. Le numéro de version est calculé dans la transaction du dépôt, pas dans React.
+
+### Autorisations et cohérence du lot AO
+
+Lecture selon compte / rôle actifs et `crm.read` ; données sources filtrées avant retour. Toute écriture métier passe par les routes CRM avec `crm.write`, validation serveur, contrôle de version et transaction incluant audit + événement dans le fil de l’opportunité. Création AO autonome idempotente ; promotion transactionnelle à la décision de répondre. Le fil AO utilise `source_entity = crm_tenders` avant et après promotion ; le fil historique de l’opportunité reste conservé. Type convertible avec crm.write : AO → direct archive l’extension par archived_at sans supprimer ses relations ; direct → AO crée ou réactive l’unique extension, dans la même transaction. Identifiants, numéro et compte analytique conservés. Pas d’écriture REST directe sur dossiers, rendez-vous ou dépôts. `core_tasks` et `core_activity_events` sont réutilisés pour préparation / documents / échanges.
+
+### Création et décision transactionnelles
 
 ```text
-opportunity UNIQUE
+À analyser / No go → crm_tenders seul
+En préparation → crm_tenders + crm_opportunities + accounting_analytic_accounts
 ```
 
-Les informations déjà portées par `crm_opportunities` ne sont pas dupliquées :
-
-```text
-client / société
-contact
-responsable
-description
-valeur estimée
-```
-
-Elles sont lues depuis l’opportunité liée.
-
-Suppression :
-
-- possible uniquement selon les règles CRM ;
-- archivage préféré pour les dossiers historiques.
-
-Audit :
-
-- création AO ;
-- changement statut AO ;
-- modification échéance ;
-- archivage ;
-- restauration ;
-- résultat.
-
-### `crm_tender_statuses`
-
-```text
-label
-color
-order
-is_closed
-outcome
-active
-```
-
-`outcome` :
-
-```text
-none
-won
-lost
-cancelled
-```
-
-### `crm_tender_visits`
-
-```text
-tender
-date
-location
-notes
-status
-```
-
-Une collection dédiée permet plusieurs visites sans stocker un tableau JSON de dates.
-
-### `crm_tender_tags`
-
-```text
-label
-color
-active
-```
-
-### `crm_tender_timeline_events`
-
-```text
-tender
-type
-date
-label
-description
-created_by
-```
-
-Timeline métier lisible.
-
-Distincte de `core_audit`.
-
-### Création transactionnelle
-
-La création d’un AO depuis Horizon doit créer :
-
-```text
-crm_opportunities
-+
-crm_tenders
-```
-
-dans une même opération métier côté serveur.
-
-L’utilisateur manipule un seul objet fonctionnel : **l’opportunité AO**.
+Le serveur contrôle les versions et les permissions CRM. Une conversion depuis une opportunité directe déjà existante réutilise cette affaire et ne crée pas de seconde opportunité.
 
 ---
 
 # 12. Ventes
+
+## Devis — premier lot livré
+
+Création de brouillons rattachés à une opportunité active, numéros serveur atomiques `opportunity_number-quote_sequence`, idempotence par acteur + creation_key cachés, version updated pour les modifications. Société, contact, devise et compte analytique repris à la création ; rattachement et numéro immuables ensuite. Titre et lignes libres HT (description, quantité, unité, prix unitaire) modifiables en draft ; subtotal et line_total calculés côté Pricing Service serveur en centimes. TVA, validation, PDF et conversion en commande restent pour les lots suivants : aucune action ne simule un document validé. Annulation draft → cancelled avec motif, sans suppression ni réutilisation du numéro. Champs additionnels title, notes, cancelled_at, creation_key, created_by ; révisions initialisées à 1.
+
+`sales_orders` réserve dès ce lot le contrat relationnel quote/opportunity/analytic_account/company/contact/currency/subtotal/tax/total/status/owner/order_date ; aucune écriture publique tant que Commandes n’est pas livré. Le revenu prévisionnel HT de l’opportunité consolide par devise les devis hors cancelled/rejected et les commandes confirmed/in_progress/completed ; la contribution restante d’un devis lié est max(0, subtotal devis − subtotal commandes confirmées liées). Draft commandes exclues ; aucun mélange de devises ni recalcul des historiques. Le revenu prévisionnel n’est pas du chiffre d’affaires comptabilisé. Lecture des montants uniquement avec sales.read, pas par crm.read seul. Migration additive 1791504002_sales_quotes.js.
 
 ## `sales_quotes`
 
@@ -1003,6 +913,14 @@ interdite après validation.
 Plusieurs devis d’une même opportunité peuvent être `validated`, `sent` ou `accepted` simultanément.
 
 L’acceptation d’un devis n’impose aucune unicité sur l’opportunité.
+
+## Édition structurée des devis — lot S02
+
+Migration additive `1791504003_sales_quote_editor.js` : lignes `kind` (item / section / subsection / note), `brand`, `reference`, `unit_cost`, remise en pourcentage `discount` (0–100), `is_option`, `show_total`, totaux de section `section_total` / `section_options_total`, coût total de ligne. Les sections s’étendent jusqu’au prochain titre de même niveau ou supérieur ; une section niveau 1 inclut ses sous-sections. Les options sont exclues de subtotal / revenu prévisionnel et regroupées dans `options_total` ; coûts et marges du devis excluent aussi les options. Toute valorisation est serveur, arrondi au centime par ligne après remise. Les lignes existantes deviennent item sans perte des montants. Numéro # = position ordonnée de toutes les lignes, titres / notes compris. La colonne Commande est réservée au futur objet d’approvisionnement ; aucun statut d’achat mutable ou simulé dans ce lot.
+
+`settings_sales` : singleton key=default, `column_widths` JSON avec clés allowlist et valeurs 40–800 px, `validity_days` entier 1–365 (30 par défaut), created / updated. Lecture sales.read ou settings.references, écriture uniquement Admin / Superuser avec settings.references, contrôle de version serveur et audit. Pas de modèles de devis dans ce lot ; futur modèle réutilisera ces lignes / sections. `core_activity_events` / `core_tasks` acceptent sales_quotes, permissions sales.read / sales.write effectives côté serveur.
+
+Devis S07 : remise de pied `sales_quotes.discount` en pourcentage (0–100), `discount_amount` et `subtotal_before_discount` snapshots serveur. `subtotal` devient le HT net après remise de pied ; `margin_amount = subtotal − cost_total`, `margin_percent = margin_amount / cost_total × 100` (coût nul : 0, UI affiche —). Les options restent hors remise de pied, TVA et marge principales. Chaque article non option reçoit un `tax_base` net après allocation proportionnelle de la remise au centime par arrondi cumulatif dans l’ordre des lignes ; la somme des bases est exactement le HT net. PTV et sous-totaux de sections restent avant remise de pied. Migration additive `1791504007_quote_footer_discount.js` initialise les nouveaux champs depuis les montants existants sans réécrire HT / TVA / TTC historiques. Écriture draft uniquement via service serveur, aucun nouveau droit.
 
 ## `sales_quote_lines`
 
@@ -3745,7 +3663,21 @@ CRM — révision pipeline : six étapes initiales `new` Nouveau, `qualified` Qu
 
 CRM — paramètres et qualification multiple, 7 octobre 2026 : `crm_stages.tone` et `crm_market_types.tone` utilisent la palette partagée blue / violet / pink / green / amber / navy. La couleur configurée est la source unique des colonnes et tags ; elle ne se déduit plus du code métier. `crm_opportunities.market_types` remplace la relation unique `market_type` par une relation multiple facultative (maximum 50), sans doublon ; la migration copie chaque ancien rattachement avant de retirer le champ unique. Une référence inactive reste conservable sur une fiche déjà liée mais ne peut être ajoutée. Le fil trace les libellés des marchés ajoutés / retirés.
 
-`settings_crm` appartient à Paramètres : singleton `code = crm` immuable et unique, `default_view` (kanban / list, obligatoire), created / updated. Lecture CRM ou administration des référentiels, mise à jour avec settings.references ; création et suppression par API utilisateur interdites. Vue initiale globale, URL explicite prioritaire. Paramètres CRM possède ses onglets Présentation / Étapes / Types de marché ; Référentiels ne présente que les données transversales. Migration additive `1791331200_crm_settings.js`, sans modification des opportunités ni des numéros hors migration des rattachements de marché.
+`settings_crm` appartient à Paramètres : singleton `code = crm` immuable et unique, `default_view` (kanban / list / last, obligatoire), created / updated. Lecture CRM ou administration des référentiels, mise à jour avec settings.references ; création et suppression par API utilisateur interdites. Vue initiale globale, URL explicite prioritaire. Avec `last` (Dernier état), la préférence locale Kanban / Liste par utilisateur et navigateur (`horizon.crm.view.[userId]`) est reprise ; sans préférence, Kanban est utilisé. Avec `kanban` / `list`, le réglage fixe est appliqué à chaque ouverture sans vue explicite dans l’URL. La dernière bascule reste mémorisée dans tous les cas ; Calendrier AO ne la remplace pas. Migration additive `1791504009_crm_last_view.js` : ajout du choix `last`, valeurs existantes conservées, rollback vers Kanban pour les réglages `last`. Paramètres CRM possède ses onglets Présentation / Étapes / Types de marché ; Référentiels ne présente que les données transversales. Migration additive `1791331200_crm_settings.js`, sans modification des opportunités ni des numéros hors migration des rattachements de marché.
 
 
 Tags utilisateurs — 7 octobre 2026 : `settings_identity_tags` appartient à Paramètres. Sept enregistrements fixes : admin, superuser, user, viewer (profils ERP), direction, manager, collaborator (responsabilités). Champs : code unique immuable, label immuable, sort_order immuable, active=true immuable, tone (palette partagée), color (vide ou #RRGGBB), created / updated. Aucun ajout, suppression ni archivage par API. Lecture pour les comptes core_users actifs avec rôle actif ; écriture réservée aux profils admin / superuser possédant settings.references, validation serveur et audit transactionnel. Les couleurs ne modifient ni les permissions ni la hiérarchie. Valeurs initiales : admin/direction navy, superuser/manager violet, user/viewer/collaborator blue. Migration additive `1791331206_identity_tag_colors.js`.
+
+
+Devis S03 : migration `1791504004_quote_column_actions.js` ajoutant la largeur `is_option` (52 px) au JSON settings_sales, conservant les largeurs existantes et relevant uniquement les colonnes # / Actions trop étroites (52 / 64 px minimum). Pas de modification de valorisation ou du modèle de lignes : le drag and drop change leur position ordonnée ; la colonne Option édite is_option existant.
+
+Devis S04 : `sales_quote_lines.margin_percent` (taux sur coût avant remise), `price_source` manual / margin. En mode margin, PUV = coût × (1 + taux / 100), arrondi au centime côté Pricing ; en mode manual, taux dérivé du PUV / coût (coût nul : taux 0, saisie de marge indisponible). TVA de brouillon : `sales_quotes.tax_rate`, `sales_quote_lines.tax_rate` / `tax_amount`, taux explicite 0–100, nouveau devis initialisé via `settings_sales.default_tax_rate` (20 % CVS). TaxService serveur valorise chaque article après remise, exclut les options du total fiscal, conserve les valeurs historiques à la migration ; anciens devis à tax_rate 0 jusqu’à édition explicite. Aucun nouveau workflow de validation ou de facturation. Migration `1791504005_quote_margin_tax.js`.
+
+Devis S05 : kind ajoute subsection3 pour titre niveau 3, via migration `1791504006_quote_heading_level3.js`. Sous-totaux jusqu’au titre de niveau égal / supérieur. TVA des brouillons exclusivement déterminée par settings_sales.default_tax_rate ; taux et montants snapshotés à chaque sauvegarde, sans modification automatique des documents historiques. Pas de taux éditable dans la fiche. Le repli des titres et les largeurs ajustées sont des préférences de présentation, sans suppression de données.
+
+Devis longs : core_audit.metadata accepte 2 Mio pour conserver les lignes avant / après (maximum 200 lignes de 2000 caractères plus données de pricing). Avant / après de la fiche restent séparés ; aucune ouverture des API Rules. Cette borne remplace 10 Ko, insuffisante pour un devis long. Migration S05.
+
+Devis S09 : `sales_quotes.discount_mode` percent / amount (percent pour les anciens devis), `discount` valeur saisie (0–100 si percent, montant HT en devise du devis si amount, au plus le HT avant remise). Remise nette allouée au centime comme S07. `terms_id`, `terms_label`, `terms_content` snapshots des CGV choisies ; seule la clé est fournie par le client, libellé / contenu fournis par Paramètres côté serveur et conservés si le choix reste identique. `settings_sales.terms` JSON (max. 30 entrées `{id, label, content, active}`, identifiant technique stable, label 120 / contenu texte 20 000 caractères, aucun HTML), réservé aux administrateurs de paramètres. Aucune CGV juridique inventée à l’amorçage.
+`inventory_units` devient le référentiel central des unités : code unique immuable, label, active, sort_order et champs réservés category / ratio_to_base / rounding. Valeurs de base u / h / j / m ; unités historiques de devis conservées au démarrage. Administration dans Paramètres / Référentiels, lecture Sales et Paramètres ; aucun second catalogue d’unités spécifique aux devis. `sales_quote_lines.unit` conserve le code snapshot, validation contre unité active (ancienne valeur inchangée conservable). Aucune conversion implicite introduite. Migration additive `1791504008_quote_terms_units.js` sans réécriture des totaux historiques.
+
+Devis S10 : is_option existant est aussi conservé sur les titres. Pricing applique une section optionnelle à ses descendants jusqu’au titre de niveau égal ou supérieur, y compris les titres imbriqués. Les articles concernés sont hors HT / TVA / coûts / marge et revenu CRM principaux ; total Options HT distinct. Aucun champ ni migration supplémentaires ; aucune modification rétroactive des devis sauvegardés. Remise globale : les champs montant / pourcentage sont deux représentations liées, le dernier champ saisi détermine discount_mode existant.

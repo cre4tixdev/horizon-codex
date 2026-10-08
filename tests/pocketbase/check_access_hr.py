@@ -68,7 +68,9 @@ class AccessHrTests(unittest.TestCase):
     def test_viewer_and_functional_settings_cannot_escalate(self):
         self.assertEqual(self.account('bad-viewer@local.invalid', 'viewer', grants={'crm': {'actions': ['read', 'write'], 'scope': 'all'}})[0], 400)
         self.assertEqual(self.account('unsupported@local.invalid', grants={'crm': {'actions': ['read'], 'scope': 'reports'}})[0], 400)
-        self.assertEqual(self.account('future@local.invalid', grants={'sales': {'actions': ['read'], 'scope': 'all'}})[0], 400)
+        self.assertEqual(self.account('future@local.invalid', grants={'projects': {'actions': ['read'], 'scope': 'all'}})[0], 400)
+        self.assertEqual(self.account('sales-reader@local.invalid', grants={'sales': {'actions': ['read'], 'scope': 'all'}})[0], 200)
+        self.assertEqual(self.account('bad-sales-viewer@local.invalid', 'viewer', grants={'sales': {'actions': ['read', 'write'], 'scope': 'all'}})[0], 400)
         status, viewer = self.account('viewer-crm@local.invalid', 'viewer', grants={'crm': {'actions': ['read'], 'scope': 'all'}})
         self.assertEqual(status, 200, viewer)
         token = self.pb.login('viewer-crm@local.invalid')[1]['token']

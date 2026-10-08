@@ -1,3 +1,5 @@
+import { salesRoutes } from '../modules/sales'
+import { calendarRoutes } from '../modules/calendar'
 import { createBrowserRouter } from 'react-router'
 import { settingsRoutes } from '../modules/settings'
 import { crmRoutes } from '../modules/crm'
@@ -9,12 +11,13 @@ import { RouteErrorPage } from './pages/RouteErrorPage'
 import { navigationItems } from './navigation'
 import { WorkspacePage } from './pages/WorkspacePage'
 import { RequireSession } from './components/RequireSession'
+import { HLoadingIndicator } from '../shared/ui/HLoadingIndicator'
 
 export const router = createBrowserRouter([
-  { path: '/login', lazy: async () => ({ Component: (await import('./pages/LoginPage')).LoginPage }), hydrateFallbackElement: <p role="status">Chargement d’Horizon…</p>, errorElement: <RouteErrorPage /> },
+  { path: '/login', lazy: async () => ({ Component: (await import('./pages/LoginPage')).LoginPage }), hydrateFallbackElement: <HLoadingIndicator label="Chargement d’Horizon…" />, errorElement: <RouteErrorPage /> },
   {
     element: <RequireSession />,
-    hydrateFallbackElement: <p role="status">Chargement d’Horizon…</p>,
+    hydrateFallbackElement: <HLoadingIndicator label="Chargement d’Horizon…" />,
     children: [{
     lazy: async () => ({ Component: (await import('./components/AppFrame')).AppFrame }),
     errorElement: <RouteErrorPage />,
@@ -23,9 +26,11 @@ export const router = createBrowserRouter([
       ...dashboardRoutes,
       ...contactsRoutes,
       ...crmRoutes,
+      ...salesRoutes,
+      ...calendarRoutes,
       ...hrRoutes,
       ...settingsRoutes,
-      ...navigationItems.filter((item) => !['/', '/contacts', '/settings', '/crm', '/hr'].includes(item.href)).map((item) => ({ path: item.href, element: <WorkspacePage item={item} /> })),
+      ...navigationItems.filter((item) => !['/', '/contacts', '/settings', '/crm', '/hr', '/calendar', '/sales'].includes(item.href)).map((item) => ({ path: item.href, element: <WorkspacePage item={item} /> })),
       { path: '*', element: <NotFoundPage /> },
     ],
     }],

@@ -1,0 +1,8 @@
+routerAdd('GET', '/api/horizon/sales/quotes', (event) => require(`${__hooks}/lib/sales.js`).list(event), $apis.requireAuth('core_users'))
+routerAdd('GET', '/api/horizon/sales/choices', (event) => require(`${__hooks}/lib/sales.js`).choices(event), $apis.requireAuth('core_users'))
+routerAdd('GET', '/api/horizon/sales/quotes/{id}', (event) => require(`${__hooks}/lib/sales.js`).record(event), $apis.requireAuth('core_users'))
+routerAdd('POST', '/api/horizon/sales/quotes/save', (event) => require(`${__hooks}/lib/sales.js`).save(event), $apis.requireAuth('core_users'))
+routerAdd('POST', '/api/horizon/sales/quotes/cancel', (event) => require(`${__hooks}/lib/sales.js`).cancel(event), $apis.requireAuth('core_users'))
+routerAdd('GET', '/api/horizon/sales/opportunities/{id}', (event) => require(`${__hooks}/lib/sales.js`).related(event), $apis.requireAuth('core_users'))
+routerAdd('GET', '/api/horizon/sales/settings', (event) => require(`${__hooks}/lib/sales-settings.js`).read(event), $apis.requireAuth('core_users'))
+routerAdd('POST', '/api/horizon/sales/settings', (event) => require(`${__hooks}/lib/sales-settings.js`).save(event), $apis.requireAuth('core_users'))

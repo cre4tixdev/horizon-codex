@@ -1,6 +1,6 @@
 import { Check, SlidersHorizontal, X, ListFilter } from 'lucide-react'
 import { Popover } from 'radix-ui'
-import { useId, type ReactNode } from 'react'
+import { useId, type ReactNode, type CSSProperties } from 'react'
 import type { SearchFilter } from './filters'
 import { HCombobox } from '../ui/HCombobox'
 
@@ -20,7 +20,7 @@ export function SearchFilterChips({ selections, onChange }: Pick<Props, 'selecti
   return <div className="search-filter-chips" role="group" aria-label="Filtres appliqués">{active.map(({ filter, value }) => {
     const option = filter.options.find((option) => option.value === value)
     const label = option?.label
-    return <button key={filter.key} type="button" className="search-filter-chip" data-tone={option?.tone} data-compact={filter.appearance === 'compact'} aria-label={`Retirer le filtre ${filter.label} : ${label}`} onClick={() => onChange(filter, filter.defaultValue)} title={`${filter.label} : ${label}`}><span>{label}</span><X size={12} aria-hidden="true" /></button>
+    return <button key={filter.key} type="button" className="search-filter-chip h-tone" data-tone={option?.tone} style={option?.color ? { '--tag-color': option.color } as CSSProperties : undefined} data-compact={filter.appearance === 'compact'} aria-label={`Retirer le filtre ${filter.label} : ${label}`} onClick={() => onChange(filter, filter.defaultValue)} title={`${filter.label} : ${label}`}><span>{label}</span><X size={12} aria-hidden="true" /></button>
   })}</div>
 }
 

@@ -12,6 +12,7 @@ export class ActivityService {
     catch (error) {
       console.error('[activity] Operation failed', { status: error instanceof ClientResponseError ? error.status : 0 })
       if (error instanceof ClientResponseError && error.status === 404) throw new Error('Fil indisponible : vérifiez la fiche et l’installation du lot Activité sur PocketBase.', { cause: error })
+      if (error instanceof ClientResponseError && error.status === 409) throw new Error(error.response.message || 'Cette pièce doit être conservée.', { cause: error })
       if (error instanceof ClientResponseError && error.status === 400) throw new Error('Publication refusée. Vérifiez le message, les fichiers, les destinataires et l’état de la fiche.', { cause: error })
       throw new Error('Le fil d’activité est indisponible. Réessayez.', { cause: error })
     }
@@ -32,6 +33,6 @@ export class ActivityService {
 }
 export const activityService = new ActivityService(environment.pocketBaseUrl ? createActivityRepository(environment.pocketBaseUrl) : undefined, (write, source) => {
   const session = sessionService.getSnapshot()
-  const modules = source ? [source.entity === 'crm_opportunities' ? 'crm' : 'contacts'] : ['contacts', 'crm']
+  const modules = source ? [source.entity.startsWith('sales_') ? 'sales' : source.entity.startsWith('crm_') ? 'crm' : 'contacts'] : ['contacts', 'crm', 'sales']
   return session.status === 'authenticated' && modules.some((module) => session.user.role.permissions.includes(`${module}.read`) && (!write || session.user.role.permissions.includes(`${module}.write`)))
 })

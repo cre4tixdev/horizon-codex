@@ -1,0 +1,13 @@
+migrate((app) => {
+  const lines = app.findCollectionByNameOrId('sales_quote_lines')
+  for (const field of [new NumberField({ name: 'margin_percent', min: -100, max: 10000000000000 }), new NumberField({ name: 'tax_rate', min: 0, max: 100 }), new NumberField({ name: 'tax_amount', min: 0 })]) lines.fields.add(field)
+  app.save(lines)
+  app.db().newQuery('UPDATE sales_quote_lines SET margin_percent = CASE WHEN unit_cost > 0 THEN (unit_price / unit_cost - 1) * 100 ELSE 0 END').execute()
+  const quotes = app.findCollectionByNameOrId('sales_quotes')
+  quotes.fields.add(new NumberField({ name: 'tax_rate', min: 0, max: 100 })); app.save(quotes)
+  const settings = app.findCollectionByNameOrId('settings_sales')
+  settings.fields.add(new NumberField({ name: 'default_tax_rate', min: 0, max: 100 })); app.save(settings)
+  const record = app.findFirstRecordByData('settings_sales', 'key', 'default')
+  const widths = JSON.parse(record.getString('column_widths') || '{}')
+  record.set('column_widths', { ...widths, margin_percent: 75 }); record.set('default_tax_rate', 20); app.save(record)
+}, () => { throw new Error('Restore a coherent backup to revert quote margin and tax snapshots.') })

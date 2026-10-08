@@ -119,8 +119,11 @@ Fonctions :
 - échéances ;
 - visites ;
 - rendez-vous ;
+- soutenances AO ;
 - congés ;
 - jalons projet.
+
+Le calendrier général et la vue calendrier du volet AO réutilisent les mêmes composants et le même service d’agrégation. La vue AO applique un contexte CRM / appels d’offres ; les dates restent possédées par le CRM. Les droits sont contrôlés sur les objets sources avant de retourner les événements.
 
 ---
 
@@ -332,12 +335,13 @@ En complément des informations communes de l’opportunité :
 - date limite de remise ;
 - visite obligatoire ;
 - plusieurs dates de visite ;
+- une ou plusieurs soutenances ;
 - tags ;
 - documents ;
 - archivage ;
 - résultat gagné / perdu à terme.
 
-Le client, le responsable, la description et la valeur estimée proviennent de l’opportunité CRM et ne doivent pas être dupliqués sans raison.
+Avant décision de répondre, le dossier AO porte le client, le responsable, la description et la valeur estimée. Après promotion, ces valeurs proviennent de l’opportunité CRM liée.
 
 ### Planning AO
 
@@ -356,7 +360,41 @@ Marqueurs :
 publication
 visite
 remise
+soutenance
+résultat attendu
 ```
+
+### Calendrier AO et calendrier Horizon — cadrage validé le 7 octobre 2026
+
+Le CRM possède deux types d’opportunités, `direct` et `tender`. Son volet AO reprend les fonctions utiles d’AOBoard et réutilise le socle commun (société, responsable, documents, tâches, fil d’activité et étapes commerciales). Le volet est accessible par un lien depuis le CRM (`/crm?area=ao`), sans nouvel onglet de navigation principal.
+
+Les visites et soutenances peuvent être multiples. Chaque rendez-vous doit pouvoir préciser date, heure, durée / fin, lieu ou lien de visioconférence, participants et état (prévu, réalisé, annulé). La remise distingue l’échéance avec son fuseau horaire du dépôt effectif ; ces deux dates ne s’écrasent pas. Les modalités détaillées et champs complémentaires seront contractualisés dans le Data Model avant leurs migrations.
+
+Le calendrier AO est une vue spécialisée du calendrier partagé Horizon, filtrée sur les AO et leurs événements. Il réutilise navigation temporelle, rendu, filtres et accès aux événements ; les modes semaine / mois / trimestre / année sont partagés. Publication, visites, échéance de remise, soutenances et résultat attendu sont aussi visibles dans le calendrier général selon les filtres et les permissions. Les tâches de préparation réutilisent les tâches Horizon.
+
+Une date métier reste enregistrée dans son objet CRM source, sans copie systématique dans `calendar_events`. Une modification est reflétée dans les deux vues ; l’annulation ou l’archivage suit le même principe. Depuis un événement, ouvrir le dossier AO concerné. Si l’édition depuis le calendrier est proposée, elle passe par le service CRM et ses permissions, jamais par une écriture parallèle du module Calendrier. Les rappels passent par le service Notifications commun.
+
+Le premier lot est implémenté localement le 7 octobre 2026 ; son périmètre et ses limites sont précisés ci-dessous.
+
+### Décision de réponse AO — 8 octobre 2026
+
+À analyser : dossier seul. No go : dossier conservé sans nouvelle opportunité. En préparation : création de l’affaire liée, puis étapes commerciales indépendantes. Aucun numéro commercial n’est consommé pendant l’analyse. Les dossiers existants et leur historique restent conservés ; revenir en No go après promotion ne supprime pas l’affaire. No go n’est pas Perdue. Les documents, échanges, tâches et rendez-vous fonctionnent dès l’analyse.
+
+Les vues AO utilisent les dossiers comme racine : Kanban de préparation avec No go, liste dédiée (référence, société, titre, tags, publication, visites, préparation, remise, montant, documents, responsable) et planning par dossier. Le planning réutilise les dates et la navigation du calendrier Horizon, sans copier les événements.
+
+### Premier lot AO livré — 7 octobre 2026
+
+Périmètre historique : la création immédiate, la liste et le calendrier AO de ce lot sont remplacés par la décision du 8 octobre ci-dessus. La duplication d’un dossier autonome n’est pas proposée ; la duplication d’une affaire liée reste le parcours CRM.
+
+- Types `direct` / `tender` choisis à la création et convertibles à la sauvegarde avec crm.write. AO → direct archive uniquement l’extension AO ; retour vers AO réactive le même dossier ou le crée s’il n’existe pas. Numéro, compte analytique et historique préservés. Les opportunités existantes restent directes. Une AO reprend société, responsable, montant, devise, description, compte analytique, étapes commerciales et fil de l’opportunité.
+- Volet Appels d’offres : mêmes cartes / Kanban avec glissement automatique, colonnes repliables mémorisées par utilisateur, totaux globaux par devise, liste et calendrier. La préparation dispose initialement de À analyser / En préparation / À vérifier / Prête / Déposée ; déplacer la préparation ne modifie pas l’étape commerciale.
+- Paramètres → CRM : onglets Préparation AO / Tags AO, libellés, couleurs (palette 24 + personnalisée), ordre, activation et ajout. Administration réservée Admin / Superuser avec permission de paramétrage. Les étapes commerciales conservent leur nombre fixe de six.
+- Recherche et filtres dans la top bar transverse : état commercial, archives, préparation AO et tag ; recherche par titre / numéro / société / référence AO, tri partagé et regroupement de la liste par société. Liste paginée à 100 cartes / lignes ; regroupement sur la page courante, totaux Kanban sur l’ensemble filtré.
+- Dossier : référence, lien de consultation, publication, date / heure / fuseau de remise, résultat attendu, tags et visite obligatoire. Rendez-vous multiples de type Visite / Soutenance, avec début, fin facultative, lieu / lien, notes, participants employés et état Prévu / Réalisé / Annulé. Les noms de participants sont visibles selon les droits RH.
+- Réponses déposées : date réelle de dépôt, acteur authentifié, notes et pièces du fil. Versions atomiques immuables, reprises idempotentes ; impossible de supprimer une pièce référencée par un dépôt. Le dépôt effectif ne remplace pas l’échéance de remise et ne déplace pas silencieusement l’étape de préparation.
+- Calendrier général et vue AO : mêmes dates source, navigation semaine / mois / trimestre / année, ouverture du dossier, mises à jour Realtime. Les rendez-vous annulés sont retirés, les dossiers archivés apparaissent avec le filtre Archives. Les tâches de préparation et documents réutilisent le fil Core.
+
+Ce lot ne livre pas les rappels automatiques, la synchronisation de calendriers externes, les autres fournisseurs Projets / Congés, des événements manuels de calendrier, la rédaction de réponses Tiptap / PDF ou l’export de dossier. Les pièces acceptées restent celles du fil Core (PDF, PNG, JPEG, WebP, texte, 10 Mio) ; un dépôt trace une réponse déjà envoyée, il ne l’envoie pas. Le rang visuel des cartes reprend le tri courant au rafraîchissement. Duplication : nouvelle affaire, nouveau compte et dossier AO vide, sans visites / dépôts / fil copiés. Recette sur le NAS encore à effectuer après installation du backend et du frontend.
 
 ### Liste AO
 
@@ -1901,6 +1939,77 @@ Aucune dépendance à un provider de signature n’est imposée en V1.
 
 ---
 
+
+## 17.1 Studio de modèles de pièces — cadrage du 8 octobre 2026
+
+État : cadrage validé par l’utilisateur le 8 octobre 2026, pas encore implémenté. Choix confirmés : composition par blocs avec pagination automatique ; modèles communs dans Paramètres (Admin / Superuser), sélection par les utilisateurs depuis leur devis ; premier lot Devis, socle réutilisable pour les autres pièces. Le studio appartient à `documents` et sert plusieurs modules ; son premier fournisseur de données est Ventes / Devis.
+
+### Demande et références examinées
+
+Créer un modèle nommé et associé à un type de pièce (devis, bon de commande, autres types activés ensuite), choisir A4 portrait ou paysage, glisser des blocs depuis une bibliothèque, régler leur présentation et les relier à des champs métier. Tableau de lignes dynamique avec colonnes sélectionnables ; en-tête, pied de page ; aperçu sur un véritable devis et téléchargement PDF depuis le studio.
+
+Références locales : `docs/example/Devis - #11616-5.pdf` (A4 portrait, deux pages) et `docs/example/Devis - #11799-1.pdf` (A4 portrait, une page). Les deux montrent :
+
+- en-tête CVS récurrent : logo, coordonnées, slogan ;
+- corps initial : adresses de facturation / livraison, client / interlocuteur / TVA, numéro du devis, affaire, dates et commercial ;
+- tableau : désignation, marque, référence, quantité / unité, prix unitaire et montant ;
+- descriptions multilignes, sections et notes en italique dans le devis long ;
+- totaux HT / TVA / TTC après la dernière ligne, sur la dernière page ;
+- pied légal et pagination « page X sur Y » sur chaque page ;
+- fond graphique discret, distinct du contenu.
+
+Ces fichiers sont des références de composition, pas des modèles éditables importés automatiquement. La précision de devise reste celle validée pour Horizon (deux décimales), même si les exemples utilisent trois décimales pour certains prix unitaires.
+
+### Composition proposée
+
+Bibliothèque à gauche, feuille A4 au centre avec zoom, propriétés du bloc sélectionné à droite. Actions communes Horizon en haut : sauvegarder le brouillon du modèle, aperçu, téléchargement PDF ; publication d’une version explicite. Liste des modèles avec recherche / filtres partagés.
+
+Choix validé : composition structurée par blocs en flux, lignes de mise en page et colonnes ajustables. Déplacement par drag and drop, largeur, alignement, espacements, police, taille, couleur et bordure réglables. Un tableau de longueur variable pousse les blocs suivants et crée les pages nécessaires. En-tête / pied / fond sont des zones dédiées. Les blocs et champs restent positionnables et redimensionnables au pixel dans leur zone de composition : coordonnées X / Y, largeur / hauteur et espacements ajustables, déplacement précis au clavier. Pendant un glisser-déposer ou redimensionnement, les valeurs modifiées sont mises en surbrillance dans le panneau de propriétés, avec indication des deltas de déplacement et guides d’alignement. Les positions sont mesurées dans le repère du document, indépendamment du zoom ; conversion contrôlée en unités d’impression pour le PDF. Cette précision complète le flux paginé : le tableau pousse les blocs suivants et ne doit jamais recouvrir les totaux ou le pied de page.
+
+Bibliothèque initiale proposée : texte enrichi, champ métier avec libellé facultatif, image / logo, adresse, ligne de mise en page, séparateur, espace, tableau dynamique, totaux, CGV, bloc de signature visuelle, saut de page et numéro de page. Le fond graphique utilise une image contrôlée. La signature visuelle ne constitue pas une signature électronique.
+
+### Styles de titres
+
+Le studio gère les titres de pièce et les niveaux 1 / 2 / 3 : police, taille, graisse, italique, casse, couleur du texte, fond, bordures, alignement et espacements avant / après. Des styles nommés propres au modèle garantissent un rendu homogène ; le panneau de propriétés permet leur réglage visuel. Les titres de section / sous-section des lignes du devis sont raccordés à ces styles selon leur niveau, sans modifier les descriptions métier. Leur éventuel sous-total et leur statut Option restent gérés par le rendu du tableau. Les titres restent avec le contenu suivant lorsque la pagination le permet.
+
+### Liaison aux données
+
+Chaque modèle choisit un type métier. Les champs disponibles viennent d’un registre fourni par le module propriétaire, avec noms compréhensibles : « Devis → Numéro », « Opportunité → Titre », « Client → Nom », etc. Pas de saisie libre de chemin PocketBase, de requête, de JavaScript ou de formule métier. Les relations permises sont résolues côté serveur selon les droits sur la source.
+
+Le tableau choisit une collection métier autorisée (« Lignes du devis »), puis ses colonnes : libellé, champ, ordre, largeur relative, alignement et format. Une ligne de modèle est répétée pour chaque ligne réelle. Le contenu du tableau est obligatoirement issu du devis sélectionné : descriptions, marques, références, quantités, unités, prix, remises, montants, titres et notes. Le studio configure la présentation et les liaisons, pas un deuxième jeu de lignes commerciales ; aperçu et PDF consomment le même contexte du devis. Les titres niveaux 1 / 2 / 3 et les notes ont des rendus distincts, sans devenir de faux articles. Les sections, sous-totaux, options et remises reprennent les valeurs métier calculées côté serveur ; la mise en page ne recalcule ni prix ni taxes. Le repli utilisé dans l’écran d’édition du devis ne masque pas les lignes imprimées.
+
+Le modèle destiné au client exclut par défaut les coûts d’achat et les marges internes. Un éventuel modèle interne doit être explicitement identifié et protégé par les permissions appropriées. Le simple accès au studio ne donne aucun accès supplémentaire au devis choisi pour l’aperçu.
+
+L’identité CVS doit provenir du paramétrage Organisation. Les adresses de facturation / livraison et le contact doivent être explicites dans le contexte du devis ; le schéma livré ne fournit pas encore tous les champs / snapshots nécessaires aux exemples. Les compléter proprement avec le module propriétaire avant de promettre la reproduction entière. Une donnée manquante est signalée, jamais remplacée par une valeur inventée.
+
+### Pagination et aperçu
+
+Réserver l’espace de l’en-tête et du pied en millimètres ; format A4 portrait / paysage, marges réglables. Options de répétition : toutes les pages / première page pour l’en-tête et les blocs d’identité. En-tête du tableau répétable sur les pages suivantes, même si l’exemple long ne le répète pas.
+
+Conserver un titre avec au moins sa première ligne quand ils tiennent sur une page ; éviter de couper une ligne ordinaire. Prévoir explicitement le cas d’une description plus haute qu’une page pour ne pas perdre de texte. Les totaux restent ensemble lorsque possible et suivent le tableau ; les CGV / annexes peuvent commencer sur une nouvelle page. Aucune hauteur fixe correspondant au nombre de lignes du devis.
+
+L’éditeur fournit une représentation visuelle de travail. L’aperçu de référence affiche le PDF réellement produit par le moteur serveur, avec le même rendu que le téléchargement. Choisir un devis autorisé depuis la combobox / fiche transverse, sans dupliquer le formulaire de devis. L’aperçu ne modifie ni le devis ni son état et n’est pas un document finalisé.
+
+### Architecture, droits et versions
+
+Conserver le flux canonique : contenu structuré JSON / Tiptap pour les textes → rendu HTML contrôlé → Gotenberg → PDF. Tiptap partagé pour l’édition du texte ; drag and drop existant pour les blocs. La configuration des blocs utilise un schéma borné et une allowlist d’attributs. Aucun HTML / CSS / script arbitraire exécutable dans un modèle.
+
+Réutiliser les collections cibles `documents_templates`, `documents_template_versions`, `documents_generated` et `documents_links`, en précisant le contrat dans le Data Model avant migration. Le module Documents rend et archive ; Ventes fournit un contexte de données métier via son service. Calculs financiers et accès restent côté serveur.
+
+Proposition de droits : conception / publication des modèles par Admin ou Superuser avec `documents.template.manage` ; utilisation d’un modèle et génération selon les permissions métier et documentaires de la source. Publication d’une version immuable ; modification suivante dans un nouveau brouillon. Un document finalisé / envoyé conserve version du modèle, données nécessaires à sa relecture historique, HTML, PDF, auteur et date ; changer le modèle ne modifie pas les documents existants.
+
+### Lots et critères de recette proposés
+
+1. Socle Documents : contrat, migrations, permissions, registre de données Devis, identité / adresses nécessaires, versions de modèles et connexion Gotenberg.
+2. Studio : A4, zones en-tête / corps / pied, bibliothèque, déplacement des blocs, propriétés et tableau dynamique.
+3. Rendu : sélection d’un vrai devis, PDF d’aperçu / téléchargement, pagination et premier modèle CVS inspiré des exemples.
+4. Intégration Ventes : choix du modèle depuis la fiche Devis, génération et historique figé ; autres types alimentés ensuite par leurs services propriétaires.
+
+Recette indispensable : 0 / 1 / 50 / 200 lignes, descriptions longues, trois niveaux de titres, notes, options, remise globale, CGV longues, portrait / paysage, page X/Y, images, absence d’adresse, permissions refusées, préservation d’un PDF finalisé après changement de modèle. Comparer visuellement le PDF court et le PDF multipage aux deux références.
+
+Arbitrages confirmés : blocs avec pagination automatique ; modèles communs dans Paramètres ; devis en premier avec architecture transverse. Pas de modèle local redessiné dans chaque devis ni de commandes fictives pour anticiper un module non livré. Les lots ci-dessus constituent l’ordre de réalisation ; aucune nouvelle collection ou dépendance n’est créée dans ce cadrage.
+
+
 # 18. Paramètres
 
 Le module Paramètres regroupe tout ce que CVS doit raisonnablement pouvoir faire évoluer **sans modification du code**, tout en préservant les règles structurantes de Horizon.
@@ -2948,7 +3057,7 @@ Numéro d’affaire et compte analytique alloués ensemble côté serveur. Séqu
 
 Le fil réutilise commentaires, PJ protégées / suppression confirmée, mentions, tâches et historique. Archivage par saisie ARCHIVER, réactivation dans le menu de fiche. La suppression d’une affaire possédant son compte analytique est refusée côté serveur ; l’archivage conserve la traçabilité et ne constitue pas une clôture comptable. Les raccourcis Opportunités des sociétés clientes affichent le nombre réel d’opportunités ouvertes et ouvrent la liste filtrée.
 
-Non inclus dans ce premier lot : appels d’offres, planning AO, intégration e-mail, activités commerciales spécialisées Appel / Rendez-vous, vues CRM enregistrées et regroupements personnalisés, transitions vers devis / commandes / projets et comptabilité financière. Les vues enregistrées Contacts existantes restent inchangées. La navigation entre fiches porte sur la page courante de la liste ; utiliser la pagination pour changer de page.
+Non inclus dans le premier lot CRM classique (AO ajouté ensuite, voir section 5) : intégration e-mail, activités commerciales spécialisées Appel / Rendez-vous, vues CRM enregistrées et regroupements personnalisés, transitions vers devis / commandes / projets et comptabilité financière. Les vues enregistrées Contacts existantes restent inchangées. La navigation entre fiches porte sur la page courante de la liste ; utiliser la pagination pour changer de page.
 
 
 CRM — révision du 6 octobre 2026 : colonnes repliables conservant titre, nombre et totaux, présentation ouverte avec séparations fines, cartes ≥ 280 px. Glissement avec source estompée, emplacement destination selon le même ordre que les cartes et animation entre positions réelles ; mouvements réduits respectés. Menu clavier et sauvegarde automatique au dépôt conservés. Les colonnes fermées commercialement acceptent également des déplacements explicites pour corriger ou rouvrir une affaire ; le serveur applique l’état associé à l’étape. Terminé reste un état CRM, sans clôture de projet ou comptable automatique.
@@ -2959,7 +3068,7 @@ Kanban CRM : glissement dnd-kit validé par l’utilisateur, aperçu de destinat
 
 CRM — 7 octobre 2026 : les cartes et la liste affichent les initiales du responsable (`owner`), avec son nom au survol, et le petit logo de la société cliente. Aucun affichage du créateur ni duplication de son identité. Les cartes n’ont plus de menu à double flèche ni de badge Gagné / Terminé : la colonne indique leur étape ; la liste conserve sa colonne d’état.
 
-CRM — réglages dédiés du 7 octobre 2026 : Paramètres → CRM possède Présentation (vue initiale Kanban / Liste commune), Étapes (six étapes fixes, noms, ordre et couleur) et Types de marché (noms, ordre, activation et couleur de tag). Référentiels conserve uniquement Pays / Langues / Devises ; les anciennes URL de référentiels CRM redirigent vers la page dédiée. Un clic sur le titre d’une colonne ouvre son réglage pour les utilisateurs disposant de settings.references. La liste affiche l’étape en tag de la même couleur que sa colonne. Plusieurs types de marché peuvent être sélectionnés et retirés dans le brouillon de la fiche, affichés comme tags dans la fiche et la liste ; ils sont enregistrés seulement avec la fiche. Une référence inactive liée reste lisible et retirable. Vue de départ appliquée quand aucun choix explicite n’est fourni dans l’URL ; changer de vue ne modifie pas le réglage global.
+CRM — réglages dédiés du 7 octobre 2026 : Paramètres → CRM possède Présentation (vue initiale Kanban / Liste fixe ou Dernier état par utilisateur et navigateur), Étapes (six étapes fixes, noms, ordre et couleur) et Types de marché (noms, ordre, activation et couleur de tag). Référentiels conserve uniquement Pays / Langues / Devises ; les anciennes URL de référentiels CRM redirigent vers la page dédiée. Un clic sur le titre d’une colonne ouvre son réglage pour les utilisateurs disposant de settings.references. La liste affiche l’étape en tag de la même couleur que sa colonne. Plusieurs types de marché peuvent être sélectionnés et retirés dans le brouillon de la fiche, affichés comme tags dans la fiche et la liste ; ils sont enregistrés seulement avec la fiche. Une référence inactive liée reste lisible et retirable. Vue de départ appliquée quand aucun choix explicite n’est fourni dans l’URL ; changer de vue ne modifie pas le réglage global.
 
 
 CRM — décision du 7 octobre 2026 : Nouveau, Qualifié, Gagné, Terminé, Perdue et Annulé constituent les six étapes fixes. Aucun ajout, suppression, désactivation ou changement de signification ; seuls les titres, couleurs et ordre sont personnalisables. Couleur libre #RRGGBB en complément des six tons Horizon pour étapes et marchés, commune aux colonnes et tags. Les anciennes étapes supplémentaires sont conservées inactives, leurs affaires reprises dans une des six étapes selon leur état commercial.
@@ -2992,3 +3101,31 @@ Présentation Employés / Équipes — 7 octobre 2026 : titre et description uni
 
 
 Employés et équipes / ouverture des fiches — 7 octobre 2026 : cliquer sur toute la ligne ouvre le popup, pas uniquement le nom ; pas d’engrenage de fin de ligne pour l’ouverture. Le même tableau partagé que Contacts applique les fonds alternés et le focus clavier. Un lecteur peut consulter une équipe sans modifier les champs, archiver ou enregistrer. Les boutons de configuration restent adaptés aux véritables paramètres. Aucun changement des droits ou du backend.
+
+
+## Création et consultation liées — premier raccordement du 8 octobre 2026
+
+Depuis Société / Contact d’une opportunité, ou Société d’une personne : créer via le `+` du sélecteur, consulter / modifier la sélection via la petite flèche adjacente. Réutilisation de la fiche complète Contacts dans une fenêtre commune ; préremplissage du nom recherché et de la société du contact selon le contexte. Enregistrer crée / modifie par les services Contacts, puis reprend la référence dans le champ sans sauvegarder la pièce d’origine. Son brouillon reste conservé. Si la société du contact est changée, le CRM reprend la société effective pour éviter une association incohérente.
+
+Ouvertures imbriquées supportées (contact depuis société, société depuis contact), fermeture protégée et consultation lecteur sans écriture. Aucun nouveau champ ou changement de collection. Module Produits à raccorder au même contrat lorsqu’il sera livré ; les réglages et valeurs structurelles restent soumis à leurs permissions et invariants. Le bouton de création est masqué pendant chargement / erreur et sans permission d’écriture Contacts ; l’ouverture d’une sélection nécessite la lecture Contacts. Les contrôles serveur habituels restent appliqués.
+
+Badge de fiche CRM — 8 octobre 2026 : une opportunité active affiche son étape commerciale enregistrée (libellé et couleur paramétrés), comme la liste et le Kanban. Ne pas afficher l’état agrégé « Ouverte » à la place de Nouveau / Qualifié. Le serveur continue de dériver `status` depuis l’étape ; les deux étapes ouvertes correspondent à `open`. Une fiche archivée conserve un badge Archivée, sans modifier son étape.
+
+Devis — premier lot du 8 octobre 2026 : module Ventes livré avec liste de devis, recherche top bar / filtres / regroupement / tri partagés, fiche de brouillon et lignes HT libres. Opportunité obligatoire à la création (directe ou AO déjà promu), héritage société / contact / devise / compte analytique, numéro serveur atomique code opportunité + rang propre au devis. Création depuis l’opportunité et depuis la liste générale ; compteur Devis dans le breadcrumb de l’opportunité ouvre tous ses devis, même annulés. Revenu prévisionnel HT par devise : devis actifs (brouillons inclus) plus commandes confirmées, sans compter deux fois la part déjà commandée du devis. Annulation d’un brouillon avec motif, numéro conservé et exclu du revenu ; pas de suppression. Aucun envoi, validation, TVA, catalogue, PDF ou conversion en commande livré dans ce premier lot. Ces workflows restent des prochains lots et ne sont pas simulés par des changements de statut UI.
+
+
+Devis S02 — édition structurée, 8 octobre 2026 : fil d’activité partagé sous la fiche ; retour à la liste par le fil d’Ariane, sans bouton doublon. Colonnes # / Description / Marque / Référence / Qté / Unité / Coût unitaire HT / PUV HT / Remise % / PTV HT / Commande / Actions. Duplication, montée / descente et suppression confirmée d’une ligne, appliquées au brouillon puis persistées par Enregistrer. Articles, sections niveau 1, sous-sections niveau 2 et notes. Sous-total de section affichable / masquable, calculé jusqu’au titre de même niveau ou supérieur. Les options sont exclues du total principal et du revenu CRM, avec total Options HT distinct ; remise et coût calculés côté serveur. Validité 30 jours par défaut, configurable en jours avec les largeurs globales de colonnes dans Paramètres → Ventes. Texte descriptif sur plusieurs lignes en fonction de la largeur. Consultation / édition de l’opportunité dans le popup transversal utilisant OpportunityPage, brouillon du devis conservé. Colonne Commande réservée au futur suivi Achats : aucun statut simulé. Modèles de devis, catalogue, validation, TVA effective, PDF et commandes restent les lots suivants.
+
+Devis S03 — édition de grille : déplacer les lignes par glisser-déposer, ajouter les nouvelles lignes en pied de tableau, choisir Option dans sa colonne et dupliquer / supprimer par actions directes. L’ordre est sauvegardé avec le brouillon et reste continu après rechargement ; aucune modification des règles de calcul, des droits ou des lignes validées.
+
+Devis S04 — Marge % exprime le taux sur coût avant remise : (PUV − coût) / coût × 100. Saisir le taux passe la ligne en price_source margin et recalcule le PUV lorsque le coût varie ; saisir le PUV repasse en manual et affiche le taux dérivé. Coût nul : taux dérivé 0, saisie de taux désactivée. Remise appliquée après ce prix ; marge totale du document reste après remise et hors options. TVA explicite du brouillon, 20 % par défaut CVS via Paramètres Ventes, modifiable sur le devis (dont 0 %), calcul fiscal côté TaxService serveur par article au centime, options exclues des totaux principaux. HT / TVA / TTC immédiatement sous la grille. Les règles fiscales contextuelles France / UE / export, codes TVA datés et validation restent le lot A01 ; ce calcul de brouillon ne simule pas une facture validée.
+
+Devis S05 : trois niveaux de titres et repli des descendants jusqu’au titre de niveau égal ou supérieur ; le repli ne change ni montants ni contenu. Confirmation de retrait de ligne Annuler / Supprimer sans texte à recopier (confirmation forte conservée sur les autres fiches). TVA réglée uniquement dans Paramètres → Devis, initialement 20 %, appliquée côté serveur à chaque sauvegarde de brouillon ; aucune saisie ni surcharge de taux depuis la fiche. Le taux historique des documents déjà sauvegardés reste conservé tant qu’ils ne sont pas réenregistrés ; les futurs documents validés restent immuables.
+
+Devis S07 : remise globale en pourcentage sous les lignes, après remises de ligne, hors options ; montant soustrait visible et HT / TVA / TTC recalculés. PTV et sous-totaux de sections restent avant remise globale. Total achats HT = somme des quantités × coûts unitaires arrondis, hors options ; ce coût estimé ne représente pas des commandes fournisseurs. Marge globale HT en devise = HT net − total achats, pourcentage sur coût identique à la convention de ligne (coût nul : —). Pricing et TaxService serveur assurent les snapshots et la mise à jour du revenu CRM net.
+
+Devis S08 : remise globale absente par défaut, ajout explicite par bouton ; une remise enregistrée non nulle reste visible. Tout replier / Tout déplier en tête de grille masque les descendants de sections sans changer les calculs. Dupliquer un titre propose titre seul ou titre avec descendants jusqu’au prochain niveau égal / supérieur, sous-sections et notes comprises, limite totale 200 lignes. Annuler les modifications restaure la dernière sauvegarde (ou le formulaire initial en création), lignes / saisies / remise / notes comprises, sans requête de sauvegarde.
+
+Devis S09 : remise globale en pourcentage ou montant HT, conversion de la saisie lors du changement de mode, montant borné au HT avant remise, options exclues. Unités de lignes choisies par combobox depuis inventory_units (Paramètres → Référentiels → Unités), code visible et recherche par libellé ; unité historique conservable mais valeurs inconnues / inactives non ajoutables. Paramètres → Devis → Conditions de vente configure plusieurs textes avec intitulé et archivage. Sélection CGV dans le devis à gauche des totaux, contenu affiché en dessous, libellé / texte snapshotés serveur et inchangés après mise à jour du modèle si le choix est conservé ; aucun texte juridique par défaut.
+
+Devis S10 : Option disponible sur les trois niveaux de titre ; cocher / décocher applique le choix à tout le contenu de la section. Les options héritées du parent ne se modifient pas séparément tant que celui-ci reste en option. Héritage recalculé et imposé côté serveur. Remise globale en deux champs simultanés et synchronisés, montant HT et pourcentage, retirable via corbeille ; ajout toujours explicite, retrait appliqué au brouillon puis Enregistrer.

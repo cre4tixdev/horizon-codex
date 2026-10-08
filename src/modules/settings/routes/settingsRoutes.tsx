@@ -1,6 +1,8 @@
 import { redirect, type RouteObject } from 'react-router'
 export const settingsRoutes: RouteObject[] = [{ path: '/settings', lazy: async () => ({ Component: (await import('../components/SettingsLayout')).SettingsLayout }), children: [
   { index: true, lazy: async () => ({ Component: (await import('../pages/SettingsPage')).SettingsPage }) },
+  { path: 'ventes', lazy: async () => ({ Component: (await import('../pages/SalesSettingsPage')).SalesSettingsPage }) },
+  { path: 'modules/ventes', loader: () => redirect('/settings/ventes') },
   { path: 'crm', lazy: async () => ({ Component: (await import('../pages/CrmSettingsPage')).CrmSettingsPage }) },
   { path: 'sequences', lazy: async () => ({ Component: (await import('../pages/SequencesPage')).SequencesPage }) },
   { path: 'users', lazy: async () => ({ Component: (await import('../pages/UsersAccessPage')).UsersAccessPage }) },
