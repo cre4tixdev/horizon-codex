@@ -1,9 +1,11 @@
+import { DocumentPreview } from '../../documents'
 import { ActivityPanel } from '../../../shared/activity/ActivityPanel'
 import { HRecordPicker } from '../../../shared/records/HRecordPicker'
+import { useRecordSession } from '../../../shared/records/recordContext'
 import { QuoteLines } from '../components/QuoteLines'
 import { quoteValidity } from '../services/quotePreview'
 import { HRecordActions } from '../../../shared/ui/HRecordActions'
-import { useState } from 'react'
+import { useEffect, useState, useId } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm, useWatch } from 'react-hook-form'
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router'
@@ -24,7 +26,9 @@ import { salesService } from '../services/SalesService'
 import { useSalesAccess } from '../hooks/useSalesAccess'
 import { quoteInputSchema, quoteStatusLabels, type Quote, type QuoteInput, type SalesSettings } from '../schemas/quotes'
 export function QuotePage() {
-  const { id = 'new' } = useParams()
+  const embedded = useRecordSession()
+  const { id: routeId = 'new' } = useParams()
+  const id = embedded ? embedded.id || 'new' : routeId
   const access = useSalesAccess()
   const record = useQuery({ queryKey: ['sales', 'quote', id], queryFn: () => salesService.record(id), enabled: access.canRead && id !== 'new', retry: false })
   const settings = useQuery({ queryKey: ['settings', 'sales'], queryFn: () => salesService.settings(), enabled: access.canRead, retry: false })
@@ -34,9 +38,12 @@ export function QuotePage() {
   return <QuoteEditor settings={settings.data} key={`${id}:${record.data?.updated || ''}`} record={record.data} />
 }
 function QuoteEditor({ record, settings }: { record: Quote | undefined; settings: SalesSettings }) {
+  const embedded = useRecordSession()
+  const formId = useId()
   const access = useSalesAccess()
   const [params] = useSearchParams(), location = useLocation(), navigate = useNavigate(), client = useQueryClient()
   const [discardVersion, setDiscardVersion] = useState(0)
+  const [pdfPreview, setPdfPreview] = useState(false)
   const [notesOpen, setNotesOpen] = useState(false)
   const [key] = useState(() => crypto.randomUUID())
   const [search, setSearch] = useState(''), [error, setError] = useState(''), [cancelling, setCancelling] = useState(false), [reason, setReason] = useState('')
@@ -56,16 +63,17 @@ function QuoteEditor({ record, settings }: { record: Quote | undefined; settings
   const currency = record?.currency || selectedChoice?.currency || 'EUR'
   const listQuery = typeof location.state?.quoteListQuery === 'string' ? location.state.quoteListQuery : params.get('opportunity') ? `opportunity=${params.get('opportunity')}` : ''
   const listHref = `/sales/quotes${listQuery ? `?${listQuery}` : ''}`
-  async function updated(saved: Quote) { client.setQueryData(['sales', 'quote', saved.id], saved); await Promise.all([client.invalidateQueries({ queryKey: ['sales', 'quotes'] }), client.invalidateQueries({ queryKey: ['sales', 'related'] }), client.invalidateQueries({ queryKey: ['activity', 'sales_quotes'] })]); if (!record) navigate(`/sales/quotes/${saved.id}`, { replace: true, state: { quoteListQuery: listQuery } }) }
+  async function updated(saved: Quote) { client.setQueryData(['sales', 'quote', saved.id], saved); await Promise.all([client.invalidateQueries({ queryKey: ['sales', 'quotes'] }), client.invalidateQueries({ queryKey: ['sales', 'related'] }), client.invalidateQueries({ queryKey: ['activity', 'sales_quotes'] })]); if (embedded) embedded.onSaved({ id: saved.id, label: `${saved.quote_number} · ${saved.title}` }); else if (!record) navigate(`/sales/quotes/${saved.id}`, { replace: true, state: { quoteListQuery: listQuery } }) }
   const save = useMutation({ mutationFn: (input: QuoteInput) => salesService.save(input, key, record?.id, record?.updated), onSuccess: updated })
   const cancel = useMutation({ mutationFn: () => salesService.cancel(record!.id, record!.updated, reason), onSuccess: async (saved) => { await updated(saved); setCancelling(false) } })
   const pending = save.isPending || cancel.isPending
+  useEffect(() => { embedded?.report({ dirty, busy: pending }) }, [embedded, dirty, pending])
   const title = record ? record.quote_number : 'Nouveau devis'
   return <div className="contact-record sales-quote-record"><HPageBreadcrumb items={[{ label: 'Accueil', href: '/' }, { label: 'Devis', href: listHref }, { label: title }]} />
-    <HRecordPageActions><HButton variant="ghost" size="icon" title="Annuler les modifications non enregistrées" aria-label="Annuler les modifications" disabled={!editable || pending || !dirty} onClick={() => { form.reset(initial); setError(''); save.reset(); setDiscardVersion((version) => version + 1) }}><Undo2 size={14} /></HButton><HSaveButton form="sales-quote-form" hasChanges={dirty} pending={save.isPending} disabled={!editable || pending}>Enregistrer</HSaveButton>{record?.status === 'draft' && editable && <HRecordActions itemName={title} active disabled={pending || dirty} actions={[{ label: 'Annuler le devis', icon: Ban, onSelect: () => setCancelling(true) }]} />}</HRecordPageActions>
+    <HRecordPageActions>{record && <HButton size="small" disabled={dirty || pending} title={dirty ? "Enregistrez le devis avant de générer un PDF" : "Aperçu et PDF du devis"} onClick={() => setPdfPreview(true)}><FileText size={14} />PDF</HButton>}<HButton variant="ghost" size="icon" title="Annuler les modifications non enregistrées" aria-label="Annuler les modifications" disabled={!editable || pending || !dirty} onClick={() => { form.reset(initial); setError(''); save.reset(); setDiscardVersion((version) => version + 1) }}><Undo2 size={14} /></HButton><HSaveButton form={formId} hasChanges={dirty} pending={save.isPending} disabled={!editable || pending}>Enregistrer</HSaveButton>{record?.status === 'draft' && editable && <HRecordActions itemName={title} active disabled={pending || dirty} actions={[{ label: 'Annuler le devis', icon: Ban, onSelect: () => setCancelling(true) }]} />}</HRecordPageActions>
     <div className="contact-record-toolbar"><div className="contact-page-heading"><h1>{title}</h1><HTag tone={record?.status === 'cancelled' ? 'navy' : 'blue'}>{quoteStatusLabels[record?.status || 'draft']}</HTag></div></div>
     {record && <p className="contact-muted">{record.company_name} · <Link to={`/crm/opportunities/${record.opportunity}`}>{record.opportunity_number} · {record.opportunity_name}</Link></p>}
-    <form id="sales-quote-form" onSubmit={form.handleSubmit((input) => { const parsed = quoteInputSchema.safeParse(input); if (!parsed.success) { setError(parsed.error.issues[0]?.message || 'Vérifiez les lignes du devis.'); return }; setError(''); if (dirty && editable) save.mutate(parsed.data) })}>
+    <form id={formId} onSubmit={form.handleSubmit((input) => { const parsed = quoteInputSchema.safeParse(input); if (!parsed.success) { setError(parsed.error.issues[0]?.message || 'Vérifiez les lignes du devis.'); return }; setError(''); if (dirty && editable) save.mutate(parsed.data) })}>
       <fieldset className="access-fieldset" disabled={!editable || pending}>
         <section className="contact-panel"><HSectionHeading title="Informations du devis" icon={FileText} /><div className="contact-fields">
           <label><HFieldLabel required>Opportunité</HFieldLabel><HRecordPicker resource="opportunity" createLabel="Nouvelle opportunité" canCreate={false} canInspect={access.canReadCrm} ready={Boolean(choices.data)} recordHref={(id) => `/crm/opportunities/${id}`} onSaved={async () => { await Promise.all([client.invalidateQueries({ queryKey: ['sales', 'opportunity-choices'] }), client.invalidateQueries({ queryKey: ['sales', 'chosen-opportunity'] }), client.invalidateQueries({ queryKey: ['sales', 'quote'] })]) }} label="Opportunité du devis" required value={values.opportunity || ''} options={options} onSearchChange={setSearch} showCodes={false} disabled={Boolean(record) || !editable} onChange={(id) => form.setValue('opportunity', id, { shouldDirty: true })} /></label>
@@ -81,6 +89,7 @@ function QuoteEditor({ record, settings }: { record: Quote | undefined; settings
     {record?.status === 'cancelled' && <p className="contact-muted">Motif d’annulation : {record.lost_reason}</p>}
     {(choices.error || selected.error) && <p role="alert" className="field-error">{choices.error?.message || selected.error?.message}</p>}
     {record && <ActivityPanel source={{ entity: 'sales_quotes', id: record.id }} editable={access.canWrite && record.status !== 'cancelled'} />}
+    {pdfPreview && record && <DocumentPreview quoteId={record.id} onClose={() => setPdfPreview(false)} />}
     {cancelling && <HDialog open title="Annuler le devis" description="Le devis et son numéro resteront dans l’historique. Son montant sera retiré du revenu prévisionnel." onOpenChange={(open) => { if (!open && !cancel.isPending) setCancelling(false) }}><label className="h-form-field"><HFieldLabel required>Motif d’annulation</HFieldLabel><textarea className="h-input" rows={3} value={reason} onChange={(event) => setReason(event.target.value)} disabled={cancel.isPending} /></label>{cancel.error && <p role="alert" className="field-error">{cancel.error.message}</p>}<HDialogFooter><HButton disabled={cancel.isPending} onClick={() => setCancelling(false)}>Retour</HButton><HButton variant="primary" disabled={!reason.trim() || cancel.isPending} onClick={() => cancel.mutate()}>Confirmer l’annulation</HButton></HDialogFooter></HDialog>}
   </div>
 }

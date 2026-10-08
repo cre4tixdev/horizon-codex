@@ -1,4 +1,5 @@
 import { salesRoutes } from '../modules/sales'
+import { documentsRoutes } from '../modules/documents'
 import { calendarRoutes } from '../modules/calendar'
 import { createBrowserRouter } from 'react-router'
 import { settingsRoutes } from '../modules/settings'
@@ -27,6 +28,7 @@ export const router = createBrowserRouter([
       ...contactsRoutes,
       ...crmRoutes,
       ...salesRoutes,
+      ...documentsRoutes,
       ...calendarRoutes,
       ...hrRoutes,
       ...settingsRoutes,

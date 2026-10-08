@@ -2869,23 +2869,31 @@ Le passage de Sage vers Horizon ne doit pas nécessiter une refonte du module Fa
 
 ```text
 name
-type
+document_type
 module
 language
 status
+content_json
 current_version
+created_by
+created
+updated
 ```
 
 ## `documents_template_versions`
 
 ```text
 template
+name
 version
 content_json
-styles
 published_at
 published_by
+created
+updated
 ```
+
+Les styles font partie du `content_json` versionné ; aucun champ CSS libre. D01 implémente ces deux collections. Les collections de documents finalisés ci-dessous restent prévues pour le raccordement à la validation / émission.
 
 ## `documents_generated`
 
@@ -3681,3 +3689,25 @@ Devis S09 : `sales_quotes.discount_mode` percent / amount (percent pour les anci
 `inventory_units` devient le référentiel central des unités : code unique immuable, label, active, sort_order et champs réservés category / ratio_to_base / rounding. Valeurs de base u / h / j / m ; unités historiques de devis conservées au démarrage. Administration dans Paramètres / Référentiels, lecture Sales et Paramètres ; aucun second catalogue d’unités spécifique aux devis. `sales_quote_lines.unit` conserve le code snapshot, validation contre unité active (ancienne valeur inchangée conservable). Aucune conversion implicite introduite. Migration additive `1791504008_quote_terms_units.js` sans réécriture des totaux historiques.
 
 Devis S10 : is_option existant est aussi conservé sur les titres. Pricing applique une section optionnelle à ses descendants jusqu’au titre de niveau égal ou supérieur, y compris les titres imbriqués. Les articles concernés sont hors HT / TVA / coûts / marge et revenu CRM principaux ; total Options HT distinct. Aucun champ ni migration supplémentaires ; aucune modification rétroactive des devis sauvegardés. Remise globale : les champs montant / pourcentage sont deux représentations liées, le dernier champ saisi détermine discount_mode existant.
+
+### Studio Documents D01 — contrat de réalisation
+
+`documents_templates` (propriétaire Documents) : name, document_type=quote, module=sales, language=fr, status=draft/published/archived, content_json (brouillon structuré version 1, zones header/body/footer, A4 portrait/paysage, blocs bornés et tableaux en allowlist), current_version facultative, created_by, created/updated. `documents_template_versions` : template, name snapshot, version entière unique par modèle, content_json snapshot, published_by, published_at ; CRUD API verrouillé, versions immuables. Lecture des modèles publiés aux utilisateurs sales.read ; lecture des brouillons, sauvegarde / publication / archive réservées Admin / Superuser avec documents.template.manage. Les administrateurs déjà actifs reçoivent cette permission à la migration ; aucune élévation des profils métier.
+
+D01 : les aperçus sur devis sont éphémères et ne créent pas un document finalisé. La génération historique réutilisera documents_generated et documents_links lors du raccordement aux transitions validées / envoyées, sans modifier un PDF finalisé. Aucun coût / marge interne n’entre dans le contexte de rendu client. HTML et PDF sont produits côté serveur à partir de la même version de contenu et du même contexte Ventes ; chemins de champs et styles strictement autorisés. Les textes enrichis utilisent le contrat Tiptap JSON partagé ; les images sont des fichiers PNG / JPEG / WebP intégrés, jamais des URLs arbitraires.
+
+D01 — disposition v1 : marges en mm, mesures en pixels CSS à 96 dpi, zones fixes en-tête / pied et corps en flux. Dans le corps, X est un retrait et Y un espace avant relatif au bloc précédent ; les tableaux augmentent leur hauteur et repoussent les suivants. L’en-tête et le pied utilisent X / Y locaux absolus. Largeurs des colonnes en pourcentages totalisant 100 %, champs et polices en allowlist (Inter / Montserrat / Arial en D01, étendus en D02). Styles des trois niveaux de sections dans headings. Pas de position absolue globale qui chevaucherait un tableau multipage.
+
+D01 — contexte public Ventes : projection autorisée du devis, des lignes et totaux sauvegardés, société / TVA / interlocuteur / responsable et affaire ; aucun coût / marge interne. Les adresses de facturation / livraison snapshotées et l’identité légale Organisation ne sont pas encore disponibles dans le devis ; elles ne sont pas inventées ou sélectionnées arbitrairement. Un logo et des textes d’identité peuvent être intégrés au modèle dans ce premier lot.
+
+Studio D02 — extension compatible du JSON v1 : `sameLine?: boolean` relie un bloc du corps à la ligne précédente ; X reste une position horizontale en pixels, Y son décalage dans la ligne, et la hauteur de ligne est celle de son contenu le plus haut. Les tableaux et sauts de page restent seuls sur leur ligne pour préserver la pagination. `tableSource?: "sales.quote_lines"` identifie explicitement les lignes du devis. Propriétés absentes = comportement D01 ; aucune réécriture des versions publiées ni migration de collection. Les huit polices autorisées sont Inter, Montserrat, Arial, Roboto, Open Sans, Lato, Source Sans 3 et Noto Serif.
+
+La projection d’aperçu expose aussi la raison sociale, les coordonnées publiques, le SIRET, l’adresse client et la durée de validité calculée depuis les dates sauvegardées. Contacts choisit une adresse postale principale de facturation, puis principale du siège, puis une adresse postale unique de ces usages ; une ambiguïté laisse l’adresse vide et produit un avertissement. Les adresses sont vivantes dans cet aperçu éphémère : leur snapshot à validation reste requis avant génération d’une pièce historique finalisée.
+
+Studio D03 — ancrages optionnels du JSON v1 : `anchorX?: left|center|right`, `anchorY?: top|bottom`. Absence = coordonnées D01/D02. L’ancrage horizontal utilise la largeur imprimable ; le vertical utilise la hauteur des zones fixes. Dans le corps, Haut / Bas placent la ligne au début / à la fin du flux ; Bas utilise l’espace libre de l’aperçu, sans superposition absolue à un tableau. Le déplacement manuel libère les ancrages. Aucun changement de collection ni de publication historique.
+
+Studio D04 — bibliothèque de composition générique : texte, champ lié, image, tableau à source autorisée, séparateur, espacement, saut et numéro de page. Les anciens types `totals` / `terms` restent lisibles dans les snapshots publiés ; l’éditeur les développe en champs liés dans sa copie de travail, avec sauvegarde explicite. Nouveaux modèles : HT / TVA / TTC et CGV sont des champs liés indépendants. Images : `imageRatio?: number` (ratio naturel contrôlé), `lockAspect?: boolean` ; import ajusté aux dimensions naturelles, borné par la zone et la largeur minimale de 20 px et redimensionnement proportionnel par défaut. Données absentes = comportement historique. Aucun changement de collection.
+
+Studio D05 — extensions optionnelles du JSON v1 : `background?: {color: #RRGGBB, image: data URI PNG/JPEG/WebP ou chaîne vide, opacity: 0..1, fit: contain|cover}` pour le fond de page ; `style.backgroundOpacity?: 0..1` pour le fond des blocs / titres uniquement (jamais l’opacité du texte). Absence = page blanche et fond de bloc historique opaque. Images embarquées bornées à 1 Mo par image et modèle limité à 2,8 Mo. Aucun changement de collection ni réécriture des versions publiées. Les largeurs de panneaux sont une préférence locale de présentation, hors modèle documentaire.
+
+Studio D07 — `block.tableHeadings?: TextStyle[3]`, autorisé uniquement sur un tableau : styles des sections des lignes de sa source. Absence = styles historiques `layout.headings`, conservés pour les anciens modèles et titres de texte ; nouveaux réglages contextualisés par tableau. Aucun changement de collection ni réécriture de publication.

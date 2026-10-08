@@ -1,0 +1,29 @@
+# Ajouter ce service au projet Container Manager Horizon existant.
+# PocketBase et Gotenberg doivent partager le même réseau Docker privé.
+services:
+  gotenberg:
+    image: gotenberg/gotenberg:8.37.0
+    restart: unless-stopped
+    init: true
+    shm_size: 256m
+    mem_limit: 1g
+    expose:
+      - "3000"
+    command:
+      - gotenberg
+      - --api-timeout=60s
+      - --api-body-limit=25MB
+      - --chromium-auto-start=true
+      - --chromium-max-concurrency=2
+      - --chromium-max-queue-size=10
+      - --chromium-disable-javascript=true
+      - --chromium-deny-private-ips=true
+      - --chromium-deny-public-ips=true
+      - --libreoffice-disable-routes=true
+      - --webhook-disable=true
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "--max-time", "5", "http://127.0.0.1:3000/health"]
+      interval: 30s
+      timeout: 6s
+      start_period: 30s
+      retries: 3

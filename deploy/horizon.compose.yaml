@@ -1,0 +1,63 @@
+version: "3.9"
+
+services:
+
+  horizon-portal:
+    image: nginx:alpine
+    container_name: horizon-portal
+    restart: unless-stopped
+
+    ports:
+      - "5080:80"
+
+    volumes:
+      - /volume1/docker/horizon/portal:/usr/share/nginx/html:ro
+
+
+  horizon-pocketbase:
+    image: ghcr.io/muchobien/pocketbase:latest
+    container_name: horizon-pocketbase
+    restart: unless-stopped
+
+    command:
+      - "--migrationsDir=/pb_migrations"
+      - "--automigrate=false"
+
+    ports:
+      - "50190:8090"
+
+    volumes:
+      - /volume1/docker/horizon/pocketbase:/pb_data
+      - /volume1/docker/horizon/pb_hooks:/pb_hooks:ro
+      - /volume1/docker/horizon/pb_migrations:/pb_migrations:ro
+
+    environment:
+      HORIZON_INITIAL_ADMIN_EMAIL: "guillaume.clairardin@cvs.fr"
+
+
+  gotenberg:
+      image: gotenberg/gotenberg:8.37.0
+      restart: unless-stopped
+      init: true
+      shm_size: 256m
+      mem_limit: 1g
+      expose:
+        - "3000"
+      command:
+        - gotenberg
+        - --api-timeout=60s
+        - --api-body-limit=25MB
+        - --chromium-auto-start=true
+        - --chromium-max-concurrency=2
+        - --chromium-max-queue-size=10
+        - --chromium-disable-javascript=true
+        - --chromium-deny-private-ips=true
+        - --chromium-deny-public-ips=true
+        - --libreoffice-disable-routes=true
+        - --webhook-disable=true
+      healthcheck:
+        test: ["CMD", "curl", "--fail", "--silent", "--max-time", "5", "http://127.0.0.1:3000/health"]
+        interval: 30s
+        timeout: 6s
+        start_period: 30s
+        retries: 3

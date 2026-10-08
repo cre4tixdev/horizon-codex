@@ -45,13 +45,13 @@ const validateGrants = (profile, grants) => {
     if (key === 'hr' && grant.actions.includes('organisation.manage') && !grant.actions.includes('write')) throw new BadRequestError('La gestion de hiérarchie nécessite la contribution Employés.')
     for (const action of grant.actions) rights.add(`${key}.${action}`)
   }
-  if (['admin', 'superuser'].includes(profile)) rights.add('settings.references')
+  if (['admin', 'superuser'].includes(profile)) { rights.add('settings.references'); rights.add('documents.template.manage') }
   if (profile === 'admin') { for (const module of modules.filter((item) => item.available)) for (const action of module.actions) rights.add(`${module.key}.${action}`); for (const right of ['settings.users', 'settings.roles', 'core.views.manage']) rights.add(right) }
   return [...rights]
 }
 const audit = (app, entity, id, actor, before, after, action) => {
   const record = new Record(app.findCollectionByNameOrId('core_audit'))
-  for (const [key, value] of Object.entries({ user: actor, module: entity.startsWith('hr_') ? 'hr' : 'core', entity, entity_id: id, action, before, after, metadata: { source: 'server' } })) record.set(key, value)
+  for (const [key, value] of Object.entries({ user: actor, module: entity.startsWith('hr_') ? 'hr' : entity.startsWith('documents_') ? 'documents' : 'core', entity, entity_id: id, action, before, after, metadata: { source: 'server' } })) record.set(key, value)
   app.save(record)
 }
 module.exports = { modules, permissions, admin, settings, hrAllowed, grantsFor, validateGrants, audit }

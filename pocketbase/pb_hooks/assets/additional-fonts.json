@@ -1,0 +1,37 @@
+[
+  {
+    "family": "Roboto",
+    "package": "@fontsource/roboto",
+    "version": "5.3.0",
+    "source": "https://fontsource.org/fonts/roboto",
+    "license": "roboto-LICENSE.txt"
+  },
+  {
+    "family": "Open Sans",
+    "package": "@fontsource/open-sans",
+    "version": "5.3.0",
+    "source": "https://fontsource.org/fonts/open-sans",
+    "license": "open-sans-LICENSE.txt"
+  },
+  {
+    "family": "Lato",
+    "package": "@fontsource/lato",
+    "version": "5.3.0",
+    "source": "https://fontsource.org/fonts/lato",
+    "license": "lato-LICENSE.txt"
+  },
+  {
+    "family": "Source Sans 3",
+    "package": "@fontsource/source-sans-3",
+    "version": "5.3.0",
+    "source": "https://fontsource.org/fonts/source-sans-3",
+    "license": "source-sans-3-LICENSE.txt"
+  },
+  {
+    "family": "Noto Serif",
+    "package": "@fontsource/noto-serif",
+    "version": "5.3.0",
+    "source": "https://fontsource.org/fonts/noto-serif",
+    "license": "noto-serif-LICENSE.txt"
+  }
+]

@@ -18,7 +18,7 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
-    "test:backend": "python3 tests/pocketbase/check_auth.py && python3 tests/pocketbase/check_contacts.py && python3 tests/pocketbase/check_notifications.py && python3 tests/pocketbase/check_activity.py && python3 tests/pocketbase/check_views.py && python3 tests/pocketbase/check_crm.py && python3 tests/pocketbase/check_tenders.py && python3 tests/pocketbase/check_sales.py && python3 tests/pocketbase/check_access_hr.py",
+    "test:backend": "python3 tests/pocketbase/check_auth.py && python3 tests/pocketbase/check_contacts.py && python3 tests/pocketbase/check_notifications.py && python3 tests/pocketbase/check_activity.py && python3 tests/pocketbase/check_views.py && python3 tests/pocketbase/check_crm.py && python3 tests/pocketbase/check_tenders.py && python3 tests/pocketbase/check_sales.py && python3 tests/pocketbase/check_documents.py && python3 tests/pocketbase/check_access_hr.py",
     "test:e2e:auth": "playwright test --config=playwright.auth.config.ts"
   },
   "dependencies": {

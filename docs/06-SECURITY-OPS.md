@@ -1132,3 +1132,51 @@ Devis S10 : remplacer le hook lib/pricing.js avec le frontend correspondant pour
 Lot NAS S10 `/private/tmp/horizon-devis-options-sections.zip` : 72 fichiers hooks / migrations vérifiés octet par octet, SHA-256 `f3a3d7a6345c452d5cd39381565ebe6f6f2141ad84c43fb18d0d0d2b60555e53`. Remplace le lot S09 pour les options de section. Même installation avec sauvegarde de pb_data, conteneur arrêté puis redémarré et frontend correspondant ; aucune intervention distante effectuée.
 
 CRM — choix Dernier état : installer `pocketbase/pb_migrations/1791504009_crm_last_view.js` avant le frontend correspondant. Migration additive du Select `settings_crm.default_view` : Kanban / Liste / Dernier état ; valeurs et permissions existantes conservées. Seul le réglage de départ est administré ; la dernière vue Kanban / Liste reste locale par utilisateur et navigateur.
+
+### Gotenberg — préparation du NAS pour le studio Documents
+
+L’utilisateur confirme le 8 octobre 2026 qu’aucun service Gotenberg n’est installé. Configuration préparée dans `deploy/gotenberg.compose.yaml`, image épinglée `gotenberg/gotenberg:8.37.0` ; aucune installation distante réalisée. Ce fichier est un complément au projet Horizon existant, pas un remplacement de son YAML PocketBase.
+
+Dans Container Manager → Projet Horizon → YAML, ajouter l’entrée `gotenberg` sous les `services` existants. Conserver les montages, le port et les arguments actuels de PocketBase. Les deux services doivent partager le même réseau bridge privé : réseau par défaut du projet, ou réseau explicitement commun si PocketBase utilise un réseau dédié. Gotenberg n’expose aucun port sur le NAS : `expose: 3000` sert au réseau Docker uniquement. Aucun reverse proxy ou accès direct depuis le navigateur.
+
+Redéployer le projet puis vérifier que le service passe healthy. Depuis le terminal du conteneur Gotenberg :
+
+```bash
+curl --fail --silent http://127.0.0.1:3000/health
+```
+
+D01 raccorde le Document Service à `http://gotenberg:3000` via `HORIZON_GOTENBERG_URL`, variable serveur PocketBase uniquement, jamais `VITE_*`. Sans cette variable, l’aperçu HTML fonctionne et la génération PDF renvoie une erreur compréhensible.
+
+Configuration initiale : plafond 1 Gio, sans quota CPU CFS (non pris en charge par le noyau du NAS signalé par l’utilisateur), mémoire partagée 256 Mio, deux conversions simultanées, file bornée et limite de requête 60 s / 25 Mio. Les ajuster après recette des devis volumineux. JavaScript, accès HTTP(S) sortants privés / publics et webhooks désactivés ; les images et polices du modèle devront être transmises avec l’HTML ou intégrées dans le document, sans récupération de ressources distantes par Chromium. Conversion LibreOffice désactivée pour ce lot HTML → PDF.
+
+La conversion de recette complète (vrai devis → PDF) sera réalisée avec le Document Service. Docker n’est pas disponible dans le poste d’exécution de l’agent : configuration contrôlée statiquement, démarrage et conversion réels encore à vérifier sur le NAS. Sources officielles : [configuration](https://gotenberg.dev/docs/configuration), [version 8.37.0](https://github.com/gotenberg/gotenberg/releases/tag/v8.37.0).
+
+Gotenberg — preuve de démarrage fournie par l’utilisateur le 8 octobre 2026 : export HTML des logs du conteneur `horizon-gotenberg-1`, version 8.37.0, Chromium démarré automatiquement et API en écoute sur le port 3000. Les avertissements de connexions Google bloquées correspondent au filtrage des adresses publiques configuré ; aucun échec de démarrage visible dans cet export. Ces logs ne prouvent pas encore l’état healthy, la communication depuis PocketBase ni une conversion PDF. Aucun accès distant effectué par l’agent.
+
+
+### Installation NAS — Documents D01
+
+1. Sauvegarder `pb_data` de manière cohérente et arrêter PocketBase. Copier le lot `pb_hooks` (y compris `assets` et ses polices intégrées) et `pb_migrations` sous les montages actuels `/volume1/docker/horizon`, sans remplacer ou supprimer `pb_data`.
+2. Dans l’environnement du **service PocketBase**, ajouter `HORIZON_GOTENBERG_URL=http://gotenberg:3000`. Gotenberg est déjà lancé selon les logs fournis ; conserver son service et le réseau commun. Le fichier `deploy/gotenberg.compose.yaml` sert de complément, jamais de remplacement au projet existant.
+3. Redémarrer PocketBase avec ses arguments habituels et vérifier l’application de `1791504010_documents_studio.js`. Installer le frontend correspondant. La migration verrouille le CRUD direct des modèles, ajoute les versions et attribue documents.template.manage seulement aux profils administratifs déjà autorisés dans Paramètres. Les futures accréditations Admin / Superuser reçoivent cette capacité via la policy serveur.
+4. Dans Paramètres → Modèles de pièces, créer / enregistrer un modèle, choisir un vrai devis pour l’aperçu HTML puis PDF ; publier et vérifier le bouton PDF depuis le devis. Tester un devis multipage et les pieds / en-têtes répétés. La conversion réelle sur NAS n’est pas attestée par les tests locaux.
+
+Les ressources du document sont embarquées (images PNG / JPEG / WebP, polices Inter / Montserrat sous SIL OFL). Aucun chargement de ressources externes par Chromium. Endpoint de conversion défini uniquement par l’environnement serveur ; aucun URL serveur, chemin de fichier ou HTML libre fourni par le navigateur. Réponse PDF bornée à 25 Mo, entête no-store et validation du type de contenu / signature PDF. Les aperçus ne créent pas de document finalisé. Les versions publiées sont immuables, y compris via les hooks de modification / suppression ; les modèles s’archivent.
+
+### Installation NAS — Documents D02
+
+Lot consolidé `horizon-documents-studio-D02.zip` : `pb_hooks` (avec toutes les polices / licences), `pb_migrations`, configuration Gotenberg et manifeste d’intégrité. Remplacer les hooks / assets et installer le frontend D02 ensemble, après sauvegarde et arrêt de PocketBase, puis redémarrer. Aucune migration supplémentaire à D01 : le nouveau JSON reste v1 et les anciennes versions publiées restent lisibles. La migration 1791504010 reste nécessaire si D01 n’a pas été installé. Conserver les montages et `HORIZON_GOTENBERG_URL` sur PocketBase ; ne pas toucher à `pb_data`. Vérifier un modèle contenant une adresse client, plusieurs blocs sur une ligne et une nouvelle police. Aucun déploiement NAS effectué par l’agent.
+
+### Installation NAS — Documents D03
+
+Le lot `horizon-documents-studio-D03.zip` remplace D02 (hooks, assets / polices, migrations consolidées et manifeste). Le défaut de position et de styles dans l’aperçu HTML était côté serveur : il faut mettre à jour `pb_hooks/lib/document-renderer.js` et `document-layout.js` avec le frontend D03, puis redémarrer PocketBase, pour voir la correction. Installer le lot complet après sauvegarde et arrêt du conteneur sans toucher à `pb_data` ; aucune migration supplémentaire à D01/D02. Les nouvelles valeurs d’ancrage sont en allowlist et les versions publiées ne sont pas réécrites. Gotenberg et `HORIZON_GOTENBERG_URL` restent identiques. Aucun déploiement NAS exécuté par l’agent.
+
+### Installation NAS — Documents D04
+
+Le lot `horizon-documents-studio-D04.zip` remplace D03 : hooks, assets / polices, migrations consolidées, complément Gotenberg et manifeste. Installer avec le frontend correspondant, puis redémarrer PocketBase. La validation serveur accepte les métadonnées de ratio / verrou d’image bornées ; aucun URL externe ni HTML libre ajouté. Aucune migration supplémentaire à D01. Les anciens types Totaux / CGV restent lisibles pour les publications historiques ; leur conversion en champs liés se fait dans la copie de travail et exige une sauvegarde explicite. Ne pas toucher à `pb_data` ; aucun déploiement NAS exécuté par l’agent.
+
+### Installation NAS — Documents D05
+
+Lot consolidé `horizon-documents-studio-D05.zip` : installer les hooks / assets avec le frontend correspondant, puis redémarrer PocketBase. Aucune migration supplémentaire à D01. Les propriétés facultatives des fonds restent dans le JSON v1 contrôlé : couleurs hexadécimales, opacités 0–1, ajustement contain / cover, images PNG / JPEG / WebP intégrées sous les mêmes bornes ; URLs distantes interdites. Le fond est isolé du texte dans le HTML et les documents de conversion PDF. Vérifier sur le vrai Gotenberg NAS la répétition / couverture des fonds et des zones d’en-tête / pied avant émission officielle. Aucun déploiement NAS effectué par l’agent.
+
+Studio D07 : synchroniser frontend et hooks Documents pour le champ JSON facultatif `block.tableHeadings` (trois styles, uniquement sur un tableau). Validation serveur stricte et rendu HTML dédié ; aucune migration supplémentaire, anciens modèles inchangés et fallback sur `layout.headings`. Redémarrer PocketBase après remplacement des hooks.

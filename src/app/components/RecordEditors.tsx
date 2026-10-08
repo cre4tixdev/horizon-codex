@@ -4,7 +4,9 @@ import { RecordWorkspace } from '../../shared/records/RecordWorkspace'
 import type { RecordAdapter } from '../../shared/records/recordContext'
 const ContactPage = lazy(async () => ({ default: (await import('../../modules/contacts/pages/ContactPage')).ContactPage }))
 const OpportunityPage = lazy(async () => ({ default: (await import('../../modules/crm/pages/OpportunityPage')).OpportunityPage }))
+const QuotePage = lazy(async () => ({ default: (await import('../../modules/sales/pages/QuotePage')).QuotePage }))
 const recordAdapters: Record<string, RecordAdapter> = {
+  quote: { path: '/sales/quotes', createTitle: 'Nouveau devis', viewTitle: 'Fiche devis', render: () => <QuotePage /> },
   opportunity: { path: '/crm/opportunities', createTitle: 'Nouvelle opportunité', viewTitle: 'Fiche opportunité', render: () => <OpportunityPage /> },
   company: { path: '/contacts/companies', createTitle: 'Créer une société', viewTitle: 'Fiche société', render: () => <ContactPage kind="companies" /> },
   person: { path: '/contacts/people', createTitle: 'Créer un contact', viewTitle: 'Fiche contact', render: () => <ContactPage kind="people" /> },
