@@ -17,7 +17,7 @@ export const navigationGroups: NavigationGroup[] = [
     ] },
     { label: 'Ventes', href: '/sales', icon: FileText, description: 'Devis et commandes clients', children: [{ label: 'Devis', href: '/sales/quotes', icon: FileText, description: 'Tous les devis commerciaux' }] },
     { label: 'Achats', href: '/purchasing', icon: ShoppingCart, description: 'Demandes et commandes fournisseurs' },
-    { label: 'Stock', href: '/inventory', icon: Package, description: 'Catalogue, disponibilités et mouvements' },
+    { label: 'Stock', href: '/inventory', icon: Package, description: 'Catalogue, disponibilités et mouvements', children: [{ label: 'Produits', href: '/inventory', icon: Package, description: 'Catalogue produits et tarifs fournisseurs' }] },
     { label: 'Projets', href: '/projects', icon: FolderKanban, description: 'Exécution, jalons et recettes' },
     { label: 'SAV', href: '/service', icon: Headset, description: 'Parc installé, interventions et maintenance' },
   ] },

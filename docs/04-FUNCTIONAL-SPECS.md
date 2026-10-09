@@ -725,6 +725,16 @@ consumable
 
 Les règles logistiques restent configurables séparément.
 
+## Matériel interne et location — cadrage du catalogue
+
+Décision utilisateur du 9 octobre 2026 : prévoir dès le socle les équipements destinés à l’usage interne et leur rattachement aux immobilisations ; la location est rare et reste un parcours ultérieur.
+
+Le catalogue produit reste unique. La destination appartient au besoin d’achat et aux quantités / exemplaires affectés, pas à une duplication de fiche produit : un même modèle peut être vendu et utilisé en interne. Distinguer l’affectation opérationnelle (stock commercial / parc interne) et le rattachement comptable à une immobilisation. La sortie du stock commercial vers le parc interne est explicite, validée et auditée ; elle réduit les quantités commerciales sans perdre la présence physique, l’emplacement, la réception, le coût historique et le numéro de série. Une simple modification de catégorie produit ou un transfert d’emplacement ne réalise pas cette opération.
+
+Le parc interne conserve des objets identifiés, reliés au produit et, si sérialisés, à `inventory_serials`, sans deuxième numéro de série source de vérité. Affectation à une équipe / ressource / site, disponibilité et historique de maintenance sont à cadrer avant implémentation. Le lien comptable passe par Accounting Service et son provider ; Sage reste la vérité comptable en phase 1. Aucune immobilisation n’est créée automatiquement par le simple choix « usage interne » dans une fiche produit.
+
+Prévoir la possibilité future de louer un équipement du parc sans le réintégrer au stock commercial. L’état physique, l’affectation et la disponibilité doivent rester distincts ; réservation datée, sortie et retour de location réutiliseront les exemplaires et services existants. Tarifs de location, contrats, planning de location et facturation sont différés ; aucun workflow livré dans ce cadrage.
+
 ## Catégories
 
 Les produits peuvent être classés dans des catégories hiérarchiques.
@@ -3162,3 +3172,38 @@ Studio D14 — aperçu HTML paginé : réutilise le contenu enregistré et les s
 Documents D16 (9 octobre 2026) : aperçu ouvert directement dans sa grande fenêtre, zone grise en attente du devis / modèle, sans changement de taille lors de la génération. Aperçu HTML : zoom − / + (10 à 200 %) et Ajuster à la fenêtre pour afficher une page entière ; format, orientation et dimensions physiques en haut à droite. Paramètres → Modèles de pièces → Noms des PDF : format propre à chaque type, tokens {number} obligatoire, {date}, {company}, extension automatique. Nommage effectif des devis calculé côté serveur et transmis au téléchargement. Commandes client / fournisseur et bons de livraison configurables pour leur futur raccordement, sans génération de ces pièces dans D16.
 
 Documents D17 : formats PDF enrichis de champs Client, Opportunité (titre / numéro), Pièce (titre / numéro / date), Responsable et Interlocuteur. Dans l’onglet Noms des PDF, le titre répété est supprimé ; Enregistrer reste en haut à droite. Choix du format à compléter et sélecteur de champs avec provenance ; insertion à la position du curseur et retour au champ de format, exemple mis à jour immédiatement. {company} reste compatible avec les formats existants ; {client} est son alias lisible.
+
+
+## Catalogue P01 — périmètre validé du 9 octobre 2026
+
+Premier lot : catalogue vide, familles tarifaires configurables dans Paramètres → Catalogue, onglet Achats multi-fournisseurs, fournisseur favori visible par étoile, fiche / images et sélection depuis les devis via le même formulaire embarqué. Aucun stock réel, réception, parc interne, immobilisation ou location dans ce lot. Import Excel avec mapping / matching / dry run / conflits / apply prévu ultérieurement ; aucun import automatique de l’ancienne base.
+
+Une variante achetable est un produit distinct, avec regroupement facultatif par un libellé de groupe. La fiche propose un seul classement visible « Famille de produit » (`category`), commun au catalogue, aux filtres et au coefficient de vente. Le sélecteur redondant « Type de produit » est retiré ; le champ technique `kind` existant reste conservé pour la compatibilité des données, sans deuxième classement présenté à l’utilisateur. Son coefficient positif produit PUV = coût net par unité de base × coefficient, sans confusion avec la marge sur vente. Familles initiales Équipements 1,20, Fournitures 1,35 et Services 1,00, toutes administrables. Une seule offre active favorite au maximum ; aucune sélection silencieuse du fournisseur le moins cher.
+
+Chaque offre conserve prix liste HT, remise %, prix net calculé, devise, référence fournisseur, conditionnement en unités de base, délai et dates de validité. Exemple : touret 1 000 m à 800 € net = 0,80 €/m, vendable en mètres. La fiche distingue prix du conditionnement et coût par unité ; les futurs achats / réceptions utiliseront ces mêmes unités sans simuler de stock maintenant. Prix unitaires jusqu’à six décimales, totaux arrondis au centime. Les lignes de devis libres restent possibles ; prix / coût restent modifiables dans le brouillon et calculés serveur. Le choix d’une autre offre doit être explicite. Pas de conversion de devise implicite : une offre incompatible avec la devise commerciale ne sert pas au calcul sans taux explicite.
+
+Photos chargées dans le brouillon puis persistées à Enregistrer, galerie, identité compacte, onglets Informations / Achats / Logistique / Photos, avec coût, coefficient et prix de vente dès Informations ; navigation et champs partagés Horizon. Catalogue en liste illustrée, recherche dans la top bar et panneau SearchFilters partagé ; regroupement par famille, critères URL conservés. Stock et parc restent des propriétés préparatoires, aucun badge de quantité fictif.
+
+Le fil d’activité partagé est disponible sous la fiche produit (changements, notes, pièces jointes, mentions et tâches selon les droits). Les onglets restent consultables en lecture seule et restent sélectionnés après enregistrement. Les dates de validité du tarif se règlent depuis le calendrier de la ligne, pour conserver une hauteur compacte.
+
+Catalogue P01 — reprise UX : photo principale et galerie réutilisent `shared/images/ImageSearch` (Google Images / collage, Wikimedia, import), avec recherche préremplie marque / référence / nom. Tableau Fournisseurs réutilisant `HDataTable`, prix d’achat et coût unitaire distincts, favori magenta Horizon et actions compactes. Aucun formulaire d’image parallèle. Fil d’activité commun sous tous les onglets d’une fiche enregistrée, publication de notes vérifiée dans le navigateur.
+
+Catalogue P02 — marques, coût manuel et logistique : Marque en combobox avant les références, référentiel Inventory distinct, création depuis la fiche avec sélection automatique, même nom normalisé réutilisé. Le coût manuel est une option explicite sauvegardée ; elle remplace le coût favori pour le calcul du PUV sans changer les offres fournisseurs. Une sélection explicite d’offre dans un devis reste possible. Logistique : poids kg, volume m³, code SH 6 / 8 / 10 chiffres et pays d’origine (référentiel pays partagé). Photo principale unique avec recherche d’images partagée, centrée dans l’identité ; retrait de l’onglet et des photos complémentaires de l’UI sans purge des données existantes. Nom et champs bornés en largeur, grilles compactes. Onglet Comptabilité présent, raccordement comptes / TVA / Accounting Service ultérieur.
+
+
+Catalogue P03 : coefficient manuel propre au produit, sauvegardé indépendamment de la famille ; retour automatique par action dédiée ou désactivation du mode manuel. Coût effectif × coefficient effectif = PUV, calcul et contrôles côté serveur. Les devis déjà associés conservent leur snapshot. Identité illustrée en deux rangées, informations et calcul côte à côte ; logistique en deux zones complémentaires.
+
+
+Catalogue P04 : une seule Référence produit visible, portée par sku et utilisée lors des nouvelles associations au devis. Les anciens manufacturer_ref et snapshots sont conservés sans nouvelle saisie distincte. Marge affichée sur vente = (PUV − coût) / PUV × 100, distincte de la majoration sur coût utilisée par le moteur de saisie des devis ; pas de taux si PUV nul. Retour coefficient auto par décochage du mode manuel. Retrait de ligne fournisseur par suppression confirmée, historique conservé. Groupe de variantes : libellé facultatif regroupant des produits distincts, sans génération automatique ni mutualisation de stock / prix.
+
+
+Produits — passage au coût manuel : reprendre le coût effectif actuellement affiché, y compris celui du fournisseur favori, sans remettre le prix à zéro. Le coût saisi est ensuite sauvegardé normalement. Coefficient manuel : flèches de saisie par pas de 0,1, valeurs positives personnalisées conservées.
+
+
+Catalogue : marque requise à l’enregistrement, avec astérisque Horizon et création depuis la combobox. Les anciens produits sans marque restent consultables ; une modification nécessite de compléter la marque. Validation également côté serveur.
+
+
+Ajout / remplacement d’un produit dans un devis : reprise directe du coût et du PUV de la fiche, sans sélecteur de tarif, avec résolution automatique côté serveur (coût manuel ou fournisseur favori, coefficient manuel ou famille). Ne pas forcer le coût de référence ou une ancienne offre depuis le sélecteur. Le rappel coût / PUV reste affiché dans le sélecteur de produit. Les valeurs de la ligne restent éditables ensuite dans le brouillon du devis. Les lignes déjà enregistrées ne sont pas resynchronisées silencieusement.
+
+
+PDF depuis une fiche devis : le devis courant est imposé à l’aperçu. Un seul modèle publié non archivé disponible est choisi automatiquement et déclenche le rendu HTML, sans demander une sélection inutile. Avec plusieurs modèles publiés, choix de modèle conservé ; aucun modèle draft ou archivé choisi arbitrairement. Sans modèle publié, indication explicite et invitation à publier dans Paramètres.

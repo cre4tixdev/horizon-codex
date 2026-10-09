@@ -33,6 +33,6 @@ export class ActivityService {
 }
 export const activityService = new ActivityService(environment.pocketBaseUrl ? createActivityRepository(environment.pocketBaseUrl) : undefined, (write, source) => {
   const session = sessionService.getSnapshot()
-  const modules = source ? [source.entity.startsWith('sales_') ? 'sales' : source.entity.startsWith('crm_') ? 'crm' : 'contacts'] : ['contacts', 'crm', 'sales']
+  const modules = source ? [source.entity.startsWith('inventory_') ? 'inventory' : source.entity.startsWith('sales_') ? 'sales' : source.entity.startsWith('crm_') ? 'crm' : 'contacts'] : ['contacts', 'crm', 'sales', 'inventory']
   return session.status === 'authenticated' && modules.some((module) => session.user.role.permissions.includes(`${module}.read`) && (!write || session.user.role.permissions.includes(`${module}.write`)))
 })

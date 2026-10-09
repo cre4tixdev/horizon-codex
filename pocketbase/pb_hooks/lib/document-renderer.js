@@ -15,7 +15,7 @@ module.exports = (layout, context) => {
   require(`${__hooks}/lib/document-layout.js`).validate(layout)
   const data = context.fields, currency = String(data['quote.currency'] || 'EUR')
   // JSVM has no Intl; explicit formatting is deterministic on the server.
-  const money = (value) => `${Number(value || 0).toFixed(2).replace('.', ',')} ${({ EUR: '€', USD: '$', GBP: '£', CHF: 'CHF', CAD: '$ CA' })[currency] || escape(currency)}`
+  const money = (value, unit = false) => { const parts = Number(value || 0).toFixed(6).split('.'); const amount = unit ? parts[0] + ',' + parts[1].replace(/0+$/, '').padEnd(2, '0') : Number(value || 0).toFixed(2).replace('.', ','); return `${amount} ${({ EUR: '€', USD: '$', GBP: '£', CHF: 'CHF', CAD: '$ CA' })[currency] || escape(currency)}` }
   const date = (value) => String(value || '').slice(0, 10).split('-').reverse().join('/')
   const value = (key) => ['quote.quote_date', 'quote.valid_until'].includes(key) ? date(data[key]) : ['quote.subtotal_before_discount', 'quote.discount_amount', 'quote.subtotal', 'quote.tax', 'quote.total', 'quote.options_total'].includes(key) ? money(data[key]) : escape(data[key])
   const table = (block) => {
@@ -26,7 +26,7 @@ module.exports = (layout, context) => {
         const amount = line.show_total ? `${money(line.section_total)}${line.section_options_total ? ` (${money(line.section_options_total)})` : ''}` : ''
         return `<tr class="section"><td colspan="${block.columns.length}" style="${level >= 0 ? cssStyle((block.tableHeadings || layout.headings)[level]) : block.tableNote ? cssStyle(block.tableNote) : 'font-style:italic;'}"><span>${escape(line.description)}</span>${amount ? `<span style="float:right">${amount}</span>` : ''}</td></tr>`
       }
-      return `<tr>${block.columns.map((column) => `<td class="${['unit_price', 'line_total', 'quantity', 'discount'].includes(column.field) ? 'number' : ''}"${block.tableLine ? ` style="${cssStyle(block.tableLine)}${['unit_price', 'line_total', 'quantity', 'discount'].includes(column.field) ? 'text-align:right;' : ''}"` : ''}>${column.field === 'description' ? `${escape(line.description)}${line.is_option ? ' <small>(option)</small>' : ''}` : ['unit_price', 'line_total'].includes(column.field) ? money(line[column.field]) : escape(line[column.field])}</td>`).join('')}</tr>`
+      return `<tr>${block.columns.map((column) => `<td class="${['unit_price', 'line_total', 'quantity', 'discount'].includes(column.field) ? 'number' : ''}"${block.tableLine ? ` style="${cssStyle(block.tableLine)}${['unit_price', 'line_total', 'quantity', 'discount'].includes(column.field) ? 'text-align:right;' : ''}"` : ''}>${column.field === 'description' ? `${escape(line.description)}${line.is_option ? ' <small>(option)</small>' : ''}` : ['unit_price', 'line_total'].includes(column.field) ? money(line[column.field], column.field === 'unit_price') : escape(line[column.field])}</td>`).join('')}</tr>`
     }).join('')
     return `<table class="lines">${head}<tbody>${body}</tbody></table>`
   }

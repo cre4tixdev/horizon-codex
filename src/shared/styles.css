@@ -1933,3 +1933,9 @@
 .image-search-sources [role=tab],
 .contact-tabs a,
 .activity-filter-row nav button { font-weight:700; }
+
+.h-data-table[data-resizable] { table-layout: fixed; }
+.h-data-table th .h-table-column-resizer { position: absolute; top: 0; right: -3px; width: 7px; height: 100%; cursor: col-resize; touch-action: none; z-index: 2; }
+.h-table-column-resizer:hover, .h-table-column-resizer:focus-visible { background: var(--theme-border, #dce5f0); outline: none; }
+
+.quote-description-cell .h-button[data-product-linked=true] { color: var(--theme-rose-text, #e90072); }

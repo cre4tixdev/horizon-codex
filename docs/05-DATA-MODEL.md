@@ -1264,10 +1264,16 @@ default_tax_code
 default_sale_price
 sale_currency
 reference_cost
+cost_override
 cost_currency
 barcode
+brand
 manufacturer
 manufacturer_ref
+weight_kg
+volume_m3
+hs_code
+origin_country
 primary_image
 images
 min_stock
@@ -1307,6 +1313,14 @@ none
 lot
 serial
 ```
+
+### Cadrage prospectif — stock commercial, parc interne et immobilisations
+
+Le produit est commun à la vente et à l’usage interne. La destination des quantités / exemplaires appartient aux besoins d’achat et à leurs affectations, indépendamment de `kind`, `stock_policy` et `tracking`. Les soldes commerciaux doivent exclure le matériel transféré au parc interne ; sa présence physique et sa localisation restent traçables. Ce passage produit un mouvement validé, lié à l’origine d’achat et à l’objet du parc, sans modifier les réceptions historiques.
+
+L’objet du parc interne et le registre d’immobilisations sont à définir avant leurs migrations : lien au produit, référence facultative vers le même `inventory_serials`, origine d’achat / réception, affectation et lien comptable. Un exemplaire identifié conserve son identité même lorsqu’il sort du stock commercial. Le suivi opérationnel ne doit ni recopier le numéro de série ni se confondre avec le parc installé client du module Service. Le lien à l’immobilisation est séparé de l’affectation et passe par Accounting Service ; aucune écriture Sage directe depuis Inventory.
+
+La location future peut mobiliser un objet du parc sans changer sa classification comptable : affectation, état physique et disponibilité datée ne sont pas un statut unique. Les champs / collections exacts et transitions feront l’objet d’un contrat et de migrations lors du lot concerné ; ce cadrage ne crée aucune collection ni quantité réelle.
 
 ## `inventory_product_components`
 
@@ -3722,3 +3736,30 @@ Documents D17 — extension compatible des formats PDF : `{client}` alias de `{c
 
 
 Suppression Documents : les modèles sans aucune version publiée peuvent être supprimés par Admin / Superuser habilité, après contrôle serveur de concurrence et audit transactionnel. Toute version publiée interdit la suppression du modèle, même revenu en brouillon ; archivage requis. Les versions restent immuables. Aucun changement de schéma.
+
+
+## Contrat P01 — catalogue / familles / offres fournisseur
+
+Migration additive `1791504012_inventory_catalog.js`, propriétaire Inventory : `inventory_product_categories` (code unique, label, coefficient positif ≤100, active, updated), `inventory_products` (sku unique saisi, name, description, category, kind, composition_mode=none dans ce lot, sale_enabled, purchase_enabled, stock_policy, replenishment_policy, tracking, base_unit/sale_unit, manufacturer, manufacturer_ref, barcode, variant_group, reference_cost, sale_currency, active, primary_image et images protégées, created_by, creation_key unique, dates). Base / vente dans la même unité active pour P01, unité d’achat décrite par offre et quantité de conditionnement.
+
+`inventory_product_suppliers` : product, supplier → contacts_companies ayant un rôle Fournisseur actif, supplier_sku, list_price, discount, purchase_price calculé serveur, purchase_quantity >0 en unité de base, currency, lead_time_days, valid_from / valid_until, is_preferred, active, dates. Une offre favorite active au maximum par produit, contrôlée en transaction et index partiel unique. Suppression d’une offre dans le brouillon = archivage de sa relation conservée. `inventory_supplier_price_history` conserve chaque création / changement de tarif ou conditionnement (snapshot JSON, prix / devise / effective_at, acteur), immuable et privé.
+
+Prix catalogue indicatif calculé serveur depuis l’offre favorite valide et compatible avec sale_currency, sinon coût de référence en l’absence de favori ; coefficient de la famille. Les prix fournisseurs sont pour le conditionnement, le coût commercial pour l’unité de base. Aucune conversion FX silencieuse. Les soldes de stock / actifs ne sont pas créés par ce lot.
+
+`sales_quote_lines` reçoit product et product_supplier facultatifs, catalog_snapshot JSON serveur (identité, fournisseur, tarif / conditionnement, coefficient / devise à la première sauvegarde de l’association produit / offre, conservés lors des éditions sans changement d’association). Les montants saisis dans le devis restent ses snapshots historiques et ne sont jamais recalculés automatiquement depuis un catalogue futur. Les références structurées sont contrôlées côté serveur ; aucun lien produit sur une ligne de titre / note. Historique de catalogue distinct du snapshot commercial.
+
+La réponse de fiche expose `unit_locked` calculé, sans quantité de stock : l’unité de base est figée dès qu’une offre fournisseur (même archivée) existe, pour préserver son historique. Le coût de référence peut être explicitement choisi dans le devis à la place d’une offre ; ce choix conserve un product_supplier vide.
+
+Catalogue P01 — présentation : `category` est le seul classement proposé dans la fiche et le répertoire. Le sélecteur UI `kind` est retiré sans supprimer le champ technique ni réinterpréter les enregistrements existants ; aucune migration destructive de classification.
+
+Catalogue P02 — marques et logistique : migration additive `1791504013_product_brands_logistics.js`. Collection propriétaire Inventory `inventory_brands` : name (160), name_key normalisé trim / espaces / minuscules, unique et masqué, active, created / updated. `inventory_products.brand` relation facultative ; manufacturer reste le libellé serveur pour compatibilité / recherche et snapshots historiques. Backfill des marques existantes sans perte des références. Création via route Inventory autorisée inventory.write ; lecture inventory.read, CRUD REST verrouillé. Une création répétée du même nom normalisé renvoie la même marque.
+
+Produits : `cost_override` bool (false par défaut) sélectionne reference_cost comme coût proposé même avec un fournisseur favori, sans modifier ses prix ni son historique. Une offre explicitement choisie dans un devis reste prioritaire. Ajout `weight_kg` / `volume_m3` nombres positifs ou nuls, `hs_code` texte chiffres (6 / 8 / 10), `origin_country` code référentiel settings_countries. Valeurs initiales 0 / texte vide. Le devis conserve ses snapshots existants. Une seule photo visible ; les anciennes images de galerie restent conservées en base. Onglet Comptabilité réservé au raccordement ultérieur Accounting / TaxService, sans écriture comptable dans Inventory.
+
+Catalogue P03 : `coefficient_override` bool false par défaut et `manual_coefficient` nombre positif ≤100 (1 par défaut), via migration 1791504014_product_pricing_coefficient.js. Coefficient effectif = manuel si activé, sinon coefficient courant de la famille. Calcul / validation serveur ; retour automatique sans modifier la famille. Les snapshots des devis existants restent conservés ; une nouvelle association utilise le coefficient effectif.
+
+
+Catalogue P04 : sku est la Référence unique de la fiche et la référence proposée aux nouveaux devis. manufacturer_ref historique conservé en base et dans les snapshots existants, sans champ de saisie distinct. Aucun changement de schéma. Le DTO pricing expose margin_rate calculé serveur (marge sur vente, nullable si prix nul ou indisponible). La suppression utilisateur d’une ligne fournisseur retire l’offre courante de la fiche sans purger son historique ni ses relations historiques.
+
+
+Produit : marque obligatoire à la création et à toute nouvelle sauvegarde via le service Catalogue. Les fiches historiques sans marque restent consultables et doivent être complétées avant modification. Aucune marque fictive attribuée ni migration destructive ; relation existante conservée.

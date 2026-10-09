@@ -327,4 +327,15 @@ class DocumentsTests(unittest.TestCase):
         self.assertIn(b'footer.html', Converter.payloads[-1])
         self.assertIn(b'Int', Converter.payloads[-1])
 
+
+    def test_fractional_unit_prices_remain_readable_in_html(self):
+        status, quote = self.quote_save(key='fractional-document-price', lines=[{'description': 'Composant au mètre', 'quantity': 500, 'unit_price': .0054, 'unit_cost': .004, 'unit': 'm'}])
+        self.assertEqual(status, 200, quote)
+        content = layout()
+        content['blocks'][1]['columns'] = [dict(field='description', label='Description', width=50), dict(field='unit_price', label='PU HT', width=25), dict(field='line_total', label='Total HT', width=25)]
+        status, preview = self.call('preview', dict(quote_id=quote['id'], content_json=content, format='html'))
+        self.assertEqual(status, 200, preview)
+        self.assertIn('0,0054 €', preview['html'])
+        self.assertIn('2,70 €', preview['html'])
+
 if __name__ == '__main__': unittest.main()

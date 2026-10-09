@@ -10,10 +10,10 @@ const allowed = (app, user, write = false, module = 'contacts') => {
   if (write && user.getString('erp_profile') === 'viewer') return false
   const role = app.findRecordById('core_roles', user.getString('role'))
   const permissions = JSON.parse(role.getString('permissions') || '[]')
-  return role.getBool('active') && ['contacts', 'crm', 'sales'].includes(module) && permissions.includes(`${module}.read`) && (!write || permissions.includes(`${module}.write`))
+  return role.getBool('active') && ['contacts', 'crm', 'sales', 'inventory'].includes(module) && permissions.includes(`${module}.read`) && (!write || permissions.includes(`${module}.write`))
 }
 const source = (app, entity, id, writable = false) => {
-  if (!['contacts_companies', 'contacts_people', 'crm_opportunities', 'crm_tenders', 'sales_quotes'].includes(entity) || !/^[a-z0-9]{15}$/.test(id)) throw new BadRequestError('Fiche invalide.')
+  if (!['contacts_companies', 'contacts_people', 'crm_opportunities', 'crm_tenders', 'sales_quotes', 'inventory_products'].includes(entity) || !/^[a-z0-9]{15}$/.test(id)) throw new BadRequestError('Fiche invalide.')
   let record
   try { record = app.findRecordById(entity, id) } catch { throw new ApiError(404, 'Fiche introuvable.') }
   if (writable && entity === 'crm_tenders') {
@@ -42,7 +42,7 @@ const publish = (app, root, actor, type, body, metadata, operation = '') => {
     return existing
   }
   const record = new Record(app.findCollectionByNameOrId('core_activity_events'))
-  for (const [key, value] of Object.entries({ source_module: entity.startsWith('sales_') ? 'sales' : entity.startsWith('crm_') ? 'crm' : 'contacts', source_entity: entity, source_record_id: root.id, author: actor, type, body, metadata: { ...metadata, author: author(app, actor) }, operation_id: operation })) record.set(key, value)
+  for (const [key, value] of Object.entries({ source_module: entity.startsWith('inventory_') ? 'inventory' : entity.startsWith('sales_') ? 'sales' : entity.startsWith('crm_') ? 'crm' : 'contacts', source_entity: entity, source_record_id: root.id, author: actor, type, body, metadata: { ...metadata, author: author(app, actor) }, operation_id: operation })) record.set(key, value)
   app.save(record)
   return record
 }

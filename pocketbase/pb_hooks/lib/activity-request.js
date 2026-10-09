@@ -40,7 +40,7 @@ module.exports = {
     const module = record.getString('source_module')
     if (!activity.allowed(event.app, event.auth, true, module)) throw new ForbiddenError('Accès refusé.')
     const root = activity.source(event.app, record.getString('source_entity'), record.getString('source_record_id'), true)
-    if ((root.collection().name.startsWith('sales_') ? 'sales' : root.collection().name.startsWith('crm_') ? 'crm' : 'contacts') !== module || !['note', 'message', 'document', 'task'].includes(record.getString('type'))) throw new BadRequestError('Type de publication invalide.')
+    if ((root.collection().name.startsWith('inventory_') ? 'inventory' : root.collection().name.startsWith('sales_') ? 'sales' : root.collection().name.startsWith('crm_') ? 'crm' : 'contacts') !== module || !['note', 'message', 'document', 'task'].includes(record.getString('type'))) throw new BadRequestError('Type de publication invalide.')
     const body = record.getString('body').trim()
     const attachments = record.getUploadedFiles('attachments')
     if (!body && !attachments.length) throw new BadRequestError('Ajoutez un message ou une pièce jointe.')

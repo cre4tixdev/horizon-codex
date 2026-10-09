@@ -146,6 +146,10 @@ Objectif :
 - audit ;
 - réconciliation.
 
+### Parc interne et immobilisations — cadrage
+
+L’affectation de matériel à l’usage interne est pilotée par Inventory ; son rattachement à une immobilisation est une opération comptable distincte. Prévoir des références stables vers le produit, l’exemplaire, la réception et l’actif comptable. Toute synchronisation vers Sage passe par Accounting Service / AccountingProvider / SageAccountingProvider et conserve les exigences de traçabilité, idempotence et rejeu. Aucune intégration ou écriture comptable n’est livrée dans ce cadrage du catalogue.
+
 ## Évolution
 
 À terme :

@@ -1,3 +1,5 @@
+import { useQuery } from '@tanstack/react-query'
+import { catalogService, catalogFilters, catalogSortFilter, catalogGroupingFilter } from '../../modules/inventory'
 import { quoteFilters, quoteSortFilter, quoteGroupingFilter } from '../../modules/sales'
 import { useReferences } from '../../modules/settings/hooks/useReferences'
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
@@ -25,10 +27,12 @@ export function WorkspaceSearch() {
   const { pathname, state } = useLocation()
   const [params, setParams] = useSearchParams()
   const identityTags = pathname === '/settings/users' && (params.get('tab') === 'tags' || session.status === 'authenticated' && session.user.erpProfile !== 'admin')
+  const inventory = pathname === '/inventory'
+  const categories = useQuery({ queryKey: ['inventory', 'categories'], queryFn: () => catalogService.categories(), enabled: inventory && session.status === 'authenticated' && hasPermission(session.user, 'inventory.read'), retry: false })
   const quotes = pathname === '/sales' || pathname === '/sales/quotes'
   const users = pathname === '/settings/users' && !identityTags
   const teams = pathname === '/hr' && params.get('tab') === 'teams'
-  const scope = quotes ? 'Devis' : pathname === '/contacts' ? 'Sociétés' : pathname === '/contacts/people' ? 'Personnes' : pathname === '/calendar' ? 'Calendrier' : pathname === '/crm' ? params.get('area') === 'ao' ? 'Appels d’offres' : 'Opportunités' : pathname === '/hr' ? teams ? 'Équipes' : 'Employés' : identityTags ? 'Tags' : users ? 'Utilisateurs' : pathname === '/settings' ? 'Paramètres' : undefined
+  const scope = inventory ? 'Produits' : quotes ? 'Devis' : pathname === '/contacts' ? 'Sociétés' : pathname === '/contacts/people' ? 'Personnes' : pathname === '/calendar' ? 'Calendrier' : pathname === '/crm' ? params.get('area') === 'ao' ? 'Appels d’offres' : 'Opportunités' : pathname === '/hr' ? teams ? 'Équipes' : 'Employés' : identityTags ? 'Tags' : users ? 'Utilisateurs' : pathname === '/settings' ? 'Paramètres' : undefined
   const navigate = useNavigate()
   const [mode, setMode] = useState<{ pathname: string; scope: string }>({ pathname, scope: 'contacts' })
   const explicitScope = params.get('scope')
@@ -39,15 +43,15 @@ export function WorkspaceSearch() {
   const ao = pathname === '/crm' && params.get('area') === 'ao'
   const aoStages = useReferences('crm_tender_statuses', ao)
   const aoTags = useReferences('crm_tender_tags', ao)
-  const filters = quotes ? quoteFilters : pathname === '/contacts' || pathname === '/contacts/people' ? contactSearchFilters : pathname === '/crm' ? params.get('area') === 'ao' ? tenderSearchFilters(aoStages.data || [], aoTags.data || []) : crmSearchFilters : pathname === '/calendar' ? aoSearchFilters : teams ? [teamStateFilter] : pathname === '/hr' ? [employeeTeamFilter(hrDirectory.data?.teams || []), employeeStatusFilter] : users ? [userProfileFilter] : []
+  const filters = inventory ? catalogFilters(categories.data || []) : quotes ? quoteFilters : pathname === '/contacts' || pathname === '/contacts/people' ? contactSearchFilters : pathname === '/crm' ? params.get('area') === 'ao' ? tenderSearchFilters(aoStages.data || [], aoTags.data || []) : crmSearchFilters : pathname === '/calendar' ? aoSearchFilters : teams ? [teamStateFilter] : pathname === '/hr' ? [employeeTeamFilter(hrDirectory.data?.teams || []), employeeStatusFilter] : users ? [userProfileFilter] : []
   const selections = filters.map((filter) => ({ filter, value: filterValue(params, filter) }))
   const directory = pathname === '/contacts' || pathname === '/contacts/people'
   const scopeLabel = global ? 'Tout Horizon' : directory ? selectedScope === 'companies' ? 'Sociétés' : selectedScope === 'people' ? 'Personnes' : 'Contacts' : scope
-  const groupFilter = quotes ? quoteGroupingFilter : pathname === '/crm' && params.get('view') === 'list' ? crmGroupingFilter : teams ? teamGroupingFilter : directory ? contactGroupingFilter(pathname === '/contacts/people') : pathname === '/hr' && params.get('view') !== 'org' ? employeeGroupingFilter : users ? userGroupingFilter : undefined
-  const sortFilter = quotes ? quoteSortFilter : teams ? teamSortFilter : directory ? contactSortFilter(pathname === '/contacts/people') : pathname === '/crm' ? ao ? tenderSortFilter : crmSortFilter : pathname === '/hr' ? employeeSortFilter : users ? userSortFilter : undefined
+  const groupFilter = inventory ? catalogGroupingFilter : quotes ? quoteGroupingFilter : pathname === '/crm' && params.get('view') === 'list' ? crmGroupingFilter : teams ? teamGroupingFilter : directory ? contactGroupingFilter(pathname === '/contacts/people') : pathname === '/hr' && params.get('view') !== 'org' ? employeeGroupingFilter : users ? userGroupingFilter : undefined
+  const sortFilter = inventory ? catalogSortFilter : quotes ? quoteSortFilter : teams ? teamSortFilter : directory ? contactSortFilter(pathname === '/contacts/people') : pathname === '/crm' ? ao ? tenderSortFilter : crmSortFilter : pathname === '/hr' ? employeeSortFilter : users ? userSortFilter : undefined
   const definitions = [...filters, ...(groupFilter ? [groupFilter] : []), ...(sortFilter ? [sortFilter] : []), ...(pathname === '/hr' && !groupFilter ? [employeeGroupingFilter] : [])]
-  const searchLabel = quotes ? 'Rechercher un devis' : teams ? 'Rechercher une équipe' : pathname === '/hr' ? 'Rechercher un employé' : identityTags ? 'Rechercher un tag' : users ? 'Rechercher un utilisateur' : scope === 'Paramètres' ? 'Rechercher dans les paramètres' : pathname === '/calendar' ? 'Rechercher dans le calendrier' : pathname === '/crm' ? params.get('area') === 'ao' ? 'Rechercher dans les appels d’offres' : 'Rechercher dans les opportunités' : 'Rechercher dans les contacts'
-  const searchPlaceholder = quotes ? 'Rechercher un devis, une opportunité, une société…' : teams ? 'Rechercher une équipe…' : pathname === '/hr' ? 'Nom, poste ou e-mail…' : identityTags ? 'Nom du profil ou de la responsabilité…' : users ? 'Nom, e-mail ou employé…' : scope === 'Paramètres' ? 'Rechercher un paramétrage…' : pathname === '/crm' ? ao ? 'Rechercher un AO, une société, une référence…' : 'Rechercher une opportunité, une société, un numéro…' : selectedScope === 'contacts' ? 'Rechercher une société, une personne, un e-mail…' : pathname === '/contacts' ? 'Rechercher une société, un e-mail…' : 'Rechercher une personne, une société…'
+  const searchLabel = inventory ? 'Rechercher un produit' : quotes ? 'Rechercher un devis' : teams ? 'Rechercher une équipe' : pathname === '/hr' ? 'Rechercher un employé' : identityTags ? 'Rechercher un tag' : users ? 'Rechercher un utilisateur' : scope === 'Paramètres' ? 'Rechercher dans les paramètres' : pathname === '/calendar' ? 'Rechercher dans le calendrier' : pathname === '/crm' ? params.get('area') === 'ao' ? 'Rechercher dans les appels d’offres' : 'Rechercher dans les opportunités' : 'Rechercher dans les contacts'
+  const searchPlaceholder = inventory ? 'Nom, référence, marque ou code-barres…' : quotes ? 'Rechercher un devis, une opportunité, une société…' : teams ? 'Rechercher une équipe…' : pathname === '/hr' ? 'Nom, poste ou e-mail…' : identityTags ? 'Nom du profil ou de la responsabilité…' : users ? 'Nom, e-mail ou employé…' : scope === 'Paramètres' ? 'Rechercher un paramétrage…' : pathname === '/crm' ? ao ? 'Rechercher un AO, une société, une référence…' : 'Rechercher une opportunité, une société, un numéro…' : selectedScope === 'contacts' ? 'Rechercher une société, une personne, un e-mail…' : pathname === '/contacts' ? 'Rechercher une société, un e-mail…' : 'Rechercher une personne, une société…'
   const savedParams: Record<string, string> = {}
   if (params.get('q')) savedParams.q = params.get('q')!.slice(0, 200)
   if (params.get('view') === 'list') savedParams.view = 'list'

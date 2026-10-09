@@ -216,15 +216,17 @@ test('Devis : aperçu réel, modèle publié et téléchargement PDF', async ({ 
   await page.getByRole('button', { name: 'PDF', exact: true }).click()
   const dialog = page.getByRole('dialog', { name: 'Aperçu du devis', exact: true })
   expect((await dialog.boundingBox())!.height).toBe(936)
-  await expect(dialog.getByText('Choisissez un modèle pour afficher le devis.')).toBeVisible()
+  await expect(dialog.getByRole('combobox', { name: 'Devis de l’aperçu', exact: true })).toHaveCount(0)
   const selectorBounds = (await dialog.getByRole('combobox', { name: 'Modèle du devis', exact: true }).boundingBox())!
   const htmlButtonBounds = (await dialog.getByRole('button', { name: 'Aperçu HTML', exact: true }).boundingBox())!
   expect(selectorBounds.width).toBeLessThanOrEqual(340)
   expect(htmlButtonBounds.height).toBe(selectorBounds.height)
   expect(htmlButtonBounds.y).toBe(selectorBounds.y)
   await expect(dialog.getByRole('button', { name: 'Télécharger PDF', exact: true })).toHaveClass(/h-button--primary/)
-  await dialog.getByRole('combobox', { name: 'Modèle du devis', exact: true }).click()
-  await page.getByRole('option', { name: 'Modèle PDF recette · v1', exact: true }).click()
+  const models = await (await page.request.get(root + 'horizon/documents/templates', { headers })).json()
+  const usableModels = models.items.filter((item: { current_version: string; status?: string }) => item.current_version && item.status !== 'archived')
+  if (usableModels.length === 1) await expect(dialog.getByRole('combobox', { name: 'Modèle du devis', exact: true })).toContainText('Modèle PDF recette')
+  else { await dialog.getByRole('combobox', { name: 'Modèle du devis', exact: true }).click(); await page.getByRole('option', { name: 'Modèle PDF recette · v1', exact: true }).click() }
   await expect(dialog.locator('iframe[title="Aperçu du devis enregistré"]')).toBeVisible()
   await expect(dialog.getByRole('button', { name: 'Aperçu HTML', exact: true })).toHaveAttribute('aria-pressed', 'true')
   await expect(dialog.getByRole('alert')).toHaveCount(0)

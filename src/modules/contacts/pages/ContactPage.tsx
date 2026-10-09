@@ -65,7 +65,7 @@ function ContactEditor({ kind, record, addresses, accounts, canWrite, duplicateS
   const [files, setFiles] = useState<ContactFiles>({})
   const source = record ?? duplicateSource
   const initialRoles = source && 'name' in source ? source.expand?.contacts_company_roles_via_company?.filter((role) => role.active).map((role) => role.role) ?? [] : []
-  const [draftRoles, setDraftRoles] = useState<(typeof roleValues[number])[]>(initialRoles)
+  const [draftRoles, setDraftRoles] = useState<(typeof roleValues[number])[]>(!record && embedded?.initial?.roles === 'supplier' ? ['supplier'] : initialRoles)
   const rolesChanged = kind === 'companies' && roleValues.some((role) => initialRoles.includes(role) !== draftRoles.includes(role))
   const [stagedCompany, setStagedCompany] = useState<Company>()
   const readiness = useQuery({ queryKey: ['contacts', 'revision'], queryFn: () => contactsService.ready(), retry: false })

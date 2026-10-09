@@ -1422,3 +1422,25 @@ Suppression des modèles : test serveur du droit, conflit de concurrence, suppre
 
 
 Tableaux Paramètres : parcours sur référentiels, séquences, CRM, utilisateurs / tags, devis / CGV et noms PDF, avec vérification des séparateurs, centrage, densité et compteurs partagés. Contrôle supplémentaire sombre à 900 px et ouverture de la configuration depuis une ligne compacte.
+
+
+Catalogue P01 — recette : `tests/pocketbase/check_catalog.py` couvre la migration sur base existante (droits d’un rôle partagé préservés), tarifs par conditionnement, coefficients, favoris / historique, archivage, prix fractionnaires dans les devis, snapshots et accès aux photos protégées. `tests/auth/catalog.spec.ts` couvre le parcours complet de création, création d’un fournisseur en popup, sélection produit / devis, maintien de l’onglet, clair / sombre / écran étroit et consultation de tous les onglets en profil Viewer. Les fixtures démarrent une base locale jetable ; aucune donnée NAS n’est modifiée. Le renderer HTML est aussi vérifié avec un prix unitaire inférieur au centime ; le convertisseur de test ne remplace pas une recette Gotenberg sur le NAS.
+
+Catalogue — reprise visuelle P01 : recette navigateur étendue à la présence des prix dès Informations, classement unique Famille, choix d’une photo depuis ImageSearch (collage Google Images → validation → sauvegarde), saisie continue dans le tableau partagé sans perte de focus, publication d’une note et relecture du fil dans la fiche embarquée depuis le devis. Contrôle des captures en clair / sombre et de la lecture seule.
+
+Catalogue P02 : tests serveur création / dédoublonnage / permissions marques, coût manuel face au favori et sélection explicite d’offre, validation poids / volume / SH / origine, migration d’une base P01 avec marques texte et prix fournisseur conservé. Parcours navigateur création inline de marque, coût manuel après refresh, caractéristiques logistiques persistées, onglet Comptabilité et lecture seule.
+
+
+Catalogue P03 : recette serveur du coefficient manuel, retour automatique, validation des bornes et conservation du snapshot devis ; migrations neuves et upgrade P01/P02. Parcours navigateur coefficient manuel enregistré puis rechargé, retour auto, contrôle PUV et rendu clair / sombre / écran étroit. Vérification locale : 152 tests unitaires, 23 tests serveur catalogue / devis et 2 parcours Playwright ; lint, TypeScript et build passent.
+
+
+Catalogue P04 : test unitaire marge sur vente (coef 1,20 → 16,67 %, vente nulle sans taux et marge négative), test serveur référence sku proposée au devis et taux pricing. Parcours Playwright référence unique, marge sur vente, retour auto par décochage, déplacement réel d’une séparation de colonne, confirmation fournisseur annulée puis suppression d’une ligne. Contrôles : lint, TypeScript, 153 tests unitaires, 23 tests serveur et 2 parcours navigateur.
+
+
+Produit → devis : recette navigateur sans sélecteur de tarif, rappel coût / PUV et reprise immédiate des prix favori puis coût / coefficient manuels (1,40 € × 1,60 = 2,24 €). Sauvegarde et rechargement vérifiés, anciennes lignes au prix précédent conservées.
+
+
+Remise globale devis : régression navigateur sur montant saisi donnant un pourcentage calculé à quatre décimales (14,33 € sur 300 € = 4,7767 % affiché). Validité native, enregistrement, rechargement et remise exacte en euros vérifiés. Le champ pourcentage accepte step=any ; aucune modification du calcul serveur ou des arrondis comptables.
+
+
+Bouton PDF devis : recette navigateur du devis courant sans sélecteur de devis, choix automatique du modèle publié unique et génération HTML immédiate ; téléchargement PDF et erreur Gotenberg conservés. Avec plusieurs modèles, changement de modèle et HTML multipage portrait / paysage vérifiés. Resélectionner le modèle actif ne vide pas l’aperçu.

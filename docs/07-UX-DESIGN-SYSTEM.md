@@ -2088,3 +2088,6 @@ Tableaux Paramètres : enveloppe partagée `HSettingsTable` pour les référenti
 
 
 Titres d’onglets : gras 700 pour les onglets actifs et inactifs, via les styles partagés (fiches, listes, paramètres, recherche d’images et filtres du fil). Même poids pour Page / Bloc dans le studio ; l’état sélectionné reste indiqué par sa couleur et son soulignement / fond, sans variation de poids.
+
+
+Catalogue Produits — fiche compacte avec photo principale et recherche d’images partagée, identité et prix visibles dans Informations, onglets Achats / Logistique / Comptabilité et fil d’activité commun. Marque obligatoire avant la référence unique. Fournisseurs en tableau partagé à colonnes ajustables, favori visible et suppression confirmée. Coût et coefficient disposent d’un mode manuel ; marge calculée sur le prix de vente. La fiche en popup réutilise ProductPage et conserve ses actions dans la barre supérieure à droite.

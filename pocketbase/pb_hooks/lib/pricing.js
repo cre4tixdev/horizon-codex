@@ -13,17 +13,18 @@ module.exports = {
       if (level) while (optionSections.length && optionSections[optionSections.length - 1].level >= level) optionSections.pop()
       const isOption = Boolean(line.is_option) || optionSections.some((section) => section.is_option)
       if (level) optionSections.push({ level, is_option: isOption })
-      const base = { position: index + 1, kind, description, unit: '', brand: '', reference: '', quantity: 0, unit_price: 0, unit_cost: 0, margin_percent: 0, discount: 0, line_total: 0, cost_total: 0, section_total: 0, section_options_total: 0, is_option: isOption, show_total: ['section', 'subsection', 'subsection3'].includes(kind) && Boolean(line.show_total), price_source: 'manual' }
+      const base = { product: '', product_supplier: '', catalog_snapshot: null, position: index + 1, kind, description, unit: '', brand: '', reference: '', quantity: 0, unit_price: 0, unit_cost: 0, margin_percent: 0, discount: 0, line_total: 0, cost_total: 0, section_total: 0, section_options_total: 0, is_option: isOption, show_total: ['section', 'subsection', 'subsection3'].includes(kind) && Boolean(line.show_total), price_source: 'manual' }
       if (kind !== 'item') return base
       const quantity = Number(line.quantity), cost = Number(line.unit_cost || 0), discount = Number(line.discount || 0)
       const source = line.price_source || 'manual', margin = Number(line.margin_percent || 0)
-      if (!['manual', 'margin'].includes(source) || !Number.isFinite(margin) || margin < -100 || margin > 10000000000000 || source === 'margin' && Math.round(cost * 100) <= 0) throw new BadRequestError('Marge invalide ou coût absent.')
-      const price = source === 'margin' ? Math.round(cost * 100) / 100 * (1 + margin / 100) : Number(line.unit_price)
+      if (!['manual', 'margin'].includes(source) || !Number.isFinite(margin) || margin < -100 || margin > 10000000000000 || source === 'margin' && cost <= 0) throw new BadRequestError('Marge invalide ou coût absent.')
+      const price = source === 'margin' ? cost * (1 + margin / 100) : Number(line.unit_price)
       if (!Number.isFinite(quantity) || quantity < 0.001 || quantity > 1000000 || !Number.isFinite(price) || price < 0 || price > 1000000000 || !Number.isFinite(cost) || cost < 0 || cost > 1000000000 || !Number.isFinite(discount) || discount < 0 || discount > 100) throw new BadRequestError('Quantité, coût, prix ou remise de ligne invalide.')
-      const unitCents = Math.round(price * 100), costCents = Math.round(cost * 100), lineCents = Math.round(quantity * unitCents * (1 - discount / 100)), lineCost = Math.round(quantity * costCents)
+      const unitPrice = Math.round(price * 1e6) / 1e6, unitCost = Math.round(cost * 1e6) / 1e6, lineCents = Math.round(quantity * unitPrice * 100 * (1 - discount / 100)), lineCost = Math.round(quantity * unitCost * 100)
       if (![lineCents, lineCost, cents + lineCents, options + lineCents, costs + lineCost].every(Number.isSafeInteger)) throw new BadRequestError('Montant hors limites.')
       if (isOption) options += lineCents; else { cents += lineCents; costs += lineCost }
-      return { ...base, unit, brand, reference, quantity, unit_price: unitCents / 100, unit_cost: costCents / 100, discount, price_source: source, margin_percent: source === 'margin' ? margin : costCents > 0 ? (unitCents / costCents - 1) * 100 : 0, line_total: lineCents / 100, cost_total: lineCost / 100, is_option: isOption }
+      if (typeof (line.product || '') !== 'string' || typeof (line.product_supplier || '') !== 'string' || line.product_supplier && !line.product) throw new BadRequestError('Produit fournisseur invalide.')
+      return { ...base, product: line.product || '', product_supplier: line.product_supplier || '', unit, brand, reference, quantity, unit_price: unitPrice, unit_cost: unitCost, discount, price_source: source, margin_percent: source === 'margin' ? margin : unitCost > 0 ? (unitPrice / unitCost - 1) * 100 : 0, line_total: lineCents / 100, cost_total: lineCost / 100, is_option: isOption }
     })
     for (const [index, line] of lines.entries()) {
       if (!['section', 'subsection', 'subsection3'].includes(line.kind)) continue

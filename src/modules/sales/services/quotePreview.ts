@@ -9,9 +9,9 @@ export function quotePreview(input: readonly Partial<QuoteLineInput>[], discount
     const optionInherited = optionSections.some((section) => section.is_option)
     line.is_option ||= optionInherited
     if (level) optionSections.push({ level, is_option: line.is_option })
-    if (line.price_source === 'margin') line.unit_price = Math.round(Math.round((line.unit_cost || 0) * 100) * (1 + (line.margin_percent || 0) / 100)) / 100
-    else line.margin_percent = Math.round(line.unit_cost * 100) > 0 ? (Math.round(line.unit_price * 100) / Math.round(line.unit_cost * 100) - 1) * 100 : 0
-    const total = line.kind === 'item' ? Math.round((line.quantity || 0) * Math.round((line.unit_price || 0) * 100) * (1 - (line.discount || 0) / 100)) : 0
+    if (line.price_source === 'margin') line.unit_price = Math.round((line.unit_cost || 0) * (1 + (line.margin_percent || 0) / 100) * 1e6) / 1e6
+    else line.margin_percent = line.unit_cost > 0 ? (line.unit_price / line.unit_cost - 1) * 100 : 0
+    const total = line.kind === 'item' ? Math.round((line.quantity || 0) * (Math.round((line.unit_price || 0) * 1e6) / 1e6 * 100) * (1 - (line.discount || 0) / 100)) : 0
     return { ...line, optionInherited, line_total: total / 100, section_total: 0, section_options_total: 0, tax_base: total / 100 }
   })
   for (const [index, line] of lines.entries()) {
@@ -26,7 +26,7 @@ export function quotePreview(input: readonly Partial<QuoteLineInput>[], discount
   }
   const items = lines.filter((line) => line.kind === 'item' && !line.is_option)
   const cents = items.reduce((sum, line) => sum + Math.round(line.line_total * 100), 0)
-  const costs = items.reduce((sum, line) => sum + Math.round((line.quantity || 0) * Math.round((line.unit_cost || 0) * 100)), 0)
+  const costs = items.reduce((sum, line) => sum + Math.round((line.quantity || 0) * (Math.round((line.unit_cost || 0) * 1e6) / 1e6 * 100)), 0)
   const discountCents = mode === 'amount' ? Math.round((Number.isFinite(discount) ? discount : 0) * 100) : Math.round(cents * (Number.isFinite(discount) ? discount : 0) / 100), net = cents - discountCents
   let cumulative = 0, allocated = 0
   for (const line of items) {

@@ -1192,3 +1192,27 @@ Documents D16 — installation NAS : recopier les hooks et ajouter la migration 
 Documents D17 — installation : mettre à jour les hooks (documents.js et document-filenames.js), puis redémarrer PocketBase ; aucune migration supplémentaire par rapport à D16. settings_document_files et sa migration D16 doivent déjà être installées. L’insertion des champs et la présentation sont frontend.
 
 Documents — suppression des modèles jamais publiés : mettre à jour `pb_hooks/documents.pb.js` et `pb_hooks/lib/documents.js`, puis redémarrer PocketBase. Route POST `/api/horizon/documents/templates/delete`, réservée Admin / Superuser habilité documents.template.manage, updated obligatoire, contrôle transactionnel des versions et audit. Aucune migration supplémentaire. Toute version publiée interdit également la suppression via le hook de collection.
+
+
+## Catalogue P01 — permissions et installation
+
+Module Inventory devient disponible avec inventory.read / inventory.write, périmètre all ; aucune élévation des profils métier existants. Les administrateurs reçoivent l’accréditation du module à la migration. Viewer reste en consultation. Familles tarifaires : lecture inventory.read ou settings.references, écriture uniquement Admin / Superuser habilité settings.references. Produits / offres écrits par routes serveur, allowlist, validation, concurrence updated, transaction, audit, unicité du favori et historique de tarifs ; CRUD REST d’écriture verrouillé. Images protégées : accès inventory.read, extensions / MIME PNG JPEG WebP, tailles bornées, pas de téléchargement serveur d’URL distante.
+
+
+
+Installation NAS — Catalogue P01 : installer les hooks complets et la migration additive `1791504012_inventory_catalog.js` avec le frontend correspondant. Le paquet `horizon-catalogue-P01-nas.zip` contient les dossiers `pb_hooks` et `pb_migrations`, les fichiers de déploiement et ce document ; il ne contient aucune base, clé ou configuration privée.
+
+1. Sauvegarder la base PocketBase de manière cohérente et les hooks actuels.
+2. Recopier `pb_hooks/` et `pb_migrations/` dans `/volume1/docker/horizon/`, aux emplacements déjà montés par le conteneur.
+3. Appliquer les migrations avec le binaire PocketBase du conteneur, en précisant `--dir=/pb_data --migrationsDir=/pb_migrations`. `automigrate=false` reste conservé : un redémarrage seul ne crée pas le catalogue. Le chemin du binaire dépend de l’image Docker ; réutiliser celui de l’installation existante.
+4. Redémarrer PocketBase pour charger les hooks puis utiliser le frontend mis à jour. Se reconnecter pour recharger les droits.
+
+La migration crée trois familles configurables et zéro produit ; elle ajoute les liens facultatifs aux lignes de devis sans réécrire leurs prix. Les Admin existants reçoivent inventory.read / inventory.write. Si leur rôle est partagé avec un compte métier, un rôle séparé est créé pour l’Admin ; aucun droit n’est étendu au compte métier. Superusers et utilisateurs reçoivent les accréditations Catalogue / Stock explicitement via Utilisateurs et accès. Paramétrage des familles : settings.references et profil Admin / Superuser. API de catalogue en lecture / écriture contrôlée ; photos protégées, audit serveur et historique des prix immuable. Aucun déploiement NAS effectué par l’agent.
+
+Catalogue P02 — installer les hooks mis à jour et `1791504013_product_brands_logistics.js`, après P01, appliquer les migrations explicitement puis redémarrer PocketBase et mettre à jour le frontend. Les anciennes marques texte sont raccordées à des marques uniques, les offres et devis historiques ne sont pas recalculés. Marques : inventory.read / inventory.write, création serveur transactionnelle avec nom normalisé unique et audit, REST privé, viewer sans écriture. Coût manuel et caractéristiques logistiques validés côté serveur. Les anciennes photos de galerie sont conservées ; aucune purge. Aucun droit comptable ni appel externe ajouté par l’onglet préparatoire.
+
+
+Catalogue P03 : appliquer la migration additive `1791504014_product_pricing_coefficient.js` après P02 avec les hooks mis à jour, puis redémarrer PocketBase et mettre à jour le frontend. Anciennes fiches en mode coefficient automatique, valeur manuelle initiale 1. Modification réservée à inventory.write ; coefficient manuel strictement positif, maximum 100, contrôlé côté serveur. Modification du coefficient famille sans effet sur les produits en mode manuel ; snapshots devis conservés.
+
+
+Catalogue — synchronisation NAS après coefficient manuel : le paquet P02 n’accepte pas les champs coefficient_override / manual_coefficient. Un frontend récent face à ces hooks renvoie 400 « Champs non autorisés. ». Installer le paquet consolidé `horizon-catalogue-nas.zip` (hooks complets et migrations, dont 1791504014_product_pricing_coefficient.js), appliquer les migrations explicitement avec les chemins existants puis redémarrer PocketBase. Aucun assouplissement de l’allowlist : synchroniser le contrat serveur / frontend. Le paquet ne contient ni base ni secret ; aucun déploiement automatique exécuté.
