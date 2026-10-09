@@ -19,14 +19,14 @@ module.exports = (layout, context) => {
   const date = (value) => String(value || '').slice(0, 10).split('-').reverse().join('/')
   const value = (key) => ['quote.quote_date', 'quote.valid_until'].includes(key) ? date(data[key]) : ['quote.subtotal_before_discount', 'quote.discount_amount', 'quote.subtotal', 'quote.tax', 'quote.total', 'quote.options_total'].includes(key) ? money(data[key]) : escape(data[key])
   const table = (block) => {
-    const head = `<colgroup>${block.columns.map((column) => `<col style="width:${column.width}%">`).join('')}</colgroup><thead><tr>${block.columns.map((column) => `<th>${escape(column.label)}</th>`).join('')}</tr></thead>`
+    const head = `<colgroup>${block.columns.map((column) => `<col style="width:${column.width}%">`).join('')}</colgroup><thead><tr>${block.columns.map((column) => `<th${block.tableHeader ? ` style="${cssStyle(block.tableHeader)}"` : ''}>${escape(column.label)}</th>`).join('')}</tr></thead>`
     const body = context.lines.map((line) => {
       if (['section', 'subsection', 'subsection3', 'note'].includes(line.kind)) {
         const level = ['section', 'subsection', 'subsection3'].indexOf(line.kind)
         const amount = line.show_total ? `${money(line.section_total)}${line.section_options_total ? ` (${money(line.section_options_total)})` : ''}` : ''
-        return `<tr class="section"><td colspan="${block.columns.length}" style="${level >= 0 ? cssStyle((block.tableHeadings || layout.headings)[level]) : 'font-style:italic;'}"><span>${escape(line.description)}</span>${amount ? `<span style="float:right">${amount}</span>` : ''}</td></tr>`
+        return `<tr class="section"><td colspan="${block.columns.length}" style="${level >= 0 ? cssStyle((block.tableHeadings || layout.headings)[level]) : block.tableNote ? cssStyle(block.tableNote) : 'font-style:italic;'}"><span>${escape(line.description)}</span>${amount ? `<span style="float:right">${amount}</span>` : ''}</td></tr>`
       }
-      return `<tr>${block.columns.map((column) => `<td class="${['unit_price', 'line_total', 'quantity', 'discount'].includes(column.field) ? 'number' : ''}">${column.field === 'description' ? `${escape(line.description)}${line.is_option ? ' <small>(option)</small>' : ''}` : ['unit_price', 'line_total'].includes(column.field) ? money(line[column.field]) : escape(line[column.field])}</td>`).join('')}</tr>`
+      return `<tr>${block.columns.map((column) => `<td class="${['unit_price', 'line_total', 'quantity', 'discount'].includes(column.field) ? 'number' : ''}"${block.tableLine ? ` style="${cssStyle(block.tableLine)}${['unit_price', 'line_total', 'quantity', 'discount'].includes(column.field) ? 'text-align:right;' : ''}"` : ''}>${column.field === 'description' ? `${escape(line.description)}${line.is_option ? ' <small>(option)</small>' : ''}` : ['unit_price', 'line_total'].includes(column.field) ? money(line[column.field]) : escape(line[column.field])}</td>`).join('')}</tr>`
     }).join('')
     return `<table class="lines">${head}<tbody>${body}</tbody></table>`
   }
@@ -60,8 +60,10 @@ module.exports = (layout, context) => {
   // Each print document receives the same full-page layer, cropped in the repeated header/footer.
   const backdrop = (position, top = 0, left = 0) => layout.background ? `<div aria-hidden="true" class="document-paper-background" style="position:${position};top:${top}px;left:${left}px;width:${width}px;height:${pageHeight}px;opacity:${layout.background.opacity};background:${layout.background.color};pointer-events:none;z-index:-1;">${layout.background.image ? `<img alt="" src="${layout.background.image}" style="width:100%;height:100%;object-fit:${layout.background.fit};">` : ''}</div>` : ''
   const html = (body) => `<!doctype html><html lang="fr"><head><meta charset="utf-8"><style>${css}</style></head><body>${body}</body></html>`
-  const header = html(`<div style="position:relative;isolation:isolate;width:${width - margin * 2}px;height:${layout.headerHeight}px;margin:0 ${margin}px">${backdrop('absolute', 0, -margin)}${zone('header')}</div>`)
-  const footer = html(`<div style="position:relative;isolation:isolate;width:${width - margin * 2}px;height:${layout.footerHeight}px;margin:0 ${margin}px">${backdrop('absolute', -(pageHeight - margin - layout.footerHeight), -margin)}${zone('footer')}</div>`)
+  // Chromium prints these templates above the body. Clip their full-page background
+  // to each reserved zone so the footer cannot paint over the document or its logo.
+  const header = html(`<div style="position:relative;isolation:isolate;overflow:hidden;width:${width}px;height:${layout.headerHeight}px;padding-inline:${margin}px">${backdrop('absolute', -margin)}<div style="position:relative;height:100%">${zone('header')}</div></div>`)
+  const footer = html(`<div style="position:relative;isolation:isolate;overflow:hidden;width:${width}px;height:${layout.footerHeight}px;padding-inline:${margin}px">${backdrop('absolute', -(pageHeight - margin - layout.footerHeight))}<div style="position:relative;height:100%">${zone('footer')}</div></div>`)
   const body = html(`<main style="position:relative;isolation:isolate;min-height:${Math.floor((layout.orientation === 'portrait' ? 1122 : 793) - margin * 2 - layout.headerHeight - layout.footerHeight)}px;display:flex;flex-direction:column">${backdrop('fixed', -(margin + layout.headerHeight), -margin)}${zone('body')}</main>`)
   const preview = html(`<main style="position:relative;isolation:isolate;background:#fff;width:${width}px;min-height:${layout.orientation === 'portrait' ? 1123 : 794}px;padding:${margin}px;margin:auto;display:flex;flex-direction:column">${backdrop('absolute')}<header style="height:${layout.headerHeight}px;position:relative;flex:none">${zone('header')}</header><section style="flex:1;display:flex;flex-direction:column">${zone('body')}</section><footer style="height:${layout.footerHeight}px;position:relative;flex:none">${zone('footer')}</footer></main>`)
   return { body, header, footer, preview }

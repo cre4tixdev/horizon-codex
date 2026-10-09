@@ -1,3 +1,4 @@
+import { HSettingsTable } from '../../../shared/ui/HSettingsTable'
 import { TagColorDialog } from './TagColorDialog'
 import { useState, useSyncExternalStore } from 'react'
 import { useSearchParams } from 'react-router'
@@ -24,7 +25,7 @@ export function IdentityTagsPanel() {
   return <section>
     {query.error && <p role="alert">{query.error.message} <HButton onClick={() => void query.refetch()}>Réessayer</HButton></p>}
     {query.isPending && <p role="status">Chargement des couleurs…</p>}
-    {query.data && [{ title: 'Profils ERP', icon: ShieldCheck, codes: ['admin', 'superuser', 'user', 'viewer'] }, { title: 'Responsabilités', icon: Network, codes: ['direction', 'manager', 'collaborator'] }].filter((group) => tags.some((tag) => group.codes.includes(tag.code))).map((group) => <section className="contact-panel" key={group.title}><HSectionHeading icon={group.icon} title={group.title} /><div className="settings-reference-table"><table className="reference-table"><thead><tr><th>Tag</th><th>Aperçu</th><th className="settings-action-cell"><span className="sr-only">Configurer</span></th></tr></thead><tbody>{tags.filter((tag) => group.codes.includes(tag.code)).map((tag) => <tr key={tag.id}><td>{tag.label}</td><td><HTag tone={tag.tone || 'blue'} color={tag.color}>{tag.label}</HTag></td><td className="settings-action-cell"><SettingsEditButton label={tag.label} onClick={() => setEditor(tag)} /></td></tr>)}</tbody></table></div></section>)}
+    {query.data && [{ title: 'Profils ERP', icon: ShieldCheck, codes: ['admin', 'superuser', 'user', 'viewer'] }, { title: 'Responsabilités', icon: Network, codes: ['direction', 'manager', 'collaborator'] }].filter((group) => tags.some((tag) => group.codes.includes(tag.code))).map((group) => <section className="contact-panel" key={group.title}><HSectionHeading icon={group.icon} title={group.title} /><HSettingsTable count={tags.filter((tag) => group.codes.includes(tag.code)).length} noun="tag"><table className="reference-table"><thead><tr><th>Tag</th><th>Aperçu</th><th className="settings-action-cell">Actions</th></tr></thead><tbody>{tags.filter((tag) => group.codes.includes(tag.code)).map((tag) => <tr key={tag.id}><td>{tag.label}</td><td><HTag tone={tag.tone || 'blue'} color={tag.color}>{tag.label}</HTag></td><td className="settings-action-cell"><SettingsEditButton label={tag.label} onClick={() => setEditor(tag)} /></td></tr>)}</tbody></table></HSettingsTable></section>)}
     {query.data && tags.length === 0 && <p className="contact-muted">Aucun tag correspondant.</p>}
     {editor && <TagColorDialog catalog="settings_identity_tags" record={editor} onClose={() => setEditor(undefined)} />}
   </section>

@@ -19,6 +19,33 @@ describe('Document layout contract', () => {
     layout.blocks[0]!.tableHeadings = layout.headings
     expect(layoutSchema.safeParse(layout).success).toBe(false)
   })
+  it('accepts a separate table header style and validates its colors and ownership', () => {
+    const layout = defaultLayout(), table = layout.blocks.find((block) => block.kind === 'table')!
+    table.tableHeader = { ...table.style, color: '#FFFFFF', background: '#091C3A', size: 14 }
+    expect(layoutSchema.safeParse(layout).success).toBe(true)
+    expect(table.tableHeadings).toBeUndefined()
+    table.tableHeader.color = 'red'
+    expect(layoutSchema.safeParse(layout).success).toBe(false)
+    table.tableHeader.color = '#FFFFFF'
+    layout.blocks[0]!.tableHeader = table.tableHeader
+    expect(layoutSchema.safeParse(layout).success).toBe(false)
+  })
+  it('keeps line and note styles separate and restricted to tables', () => {
+    const layout = defaultLayout(), table = layout.blocks.find((block) => block.kind === 'table')!
+    table.tableLine = { ...table.style, color: '#7B3FC7', size: 13 }
+    table.tableNote = { ...table.style, color: '#091C3A', size: 11, italic: true }
+    expect(layoutSchema.safeParse(layout).success).toBe(true)
+    expect(table.tableLine.italic).toBe(false)
+    for (const property of ['tableLine', 'tableNote'] as const) {
+      layout.blocks[0]![property] = table[property]
+      expect(layoutSchema.safeParse(layout).success).toBe(false)
+      delete layout.blocks[0]![property]
+      const valid = table[property]!
+      table[property] = { ...valid, backgroundOpacity: 2 }
+      expect(layoutSchema.safeParse(layout).success).toBe(false)
+      table[property] = valid
+    }
+  })
   it('rejects blocks outside the printable width and fixed zones', () => {
     const layout = defaultLayout()
     layout.blocks[0]!.x = printableWidth(layout)

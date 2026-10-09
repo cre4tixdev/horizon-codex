@@ -1,5 +1,7 @@
 # Ajouter ce service au projet Container Manager Horizon existant.
 # PocketBase et Gotenberg doivent partager le même réseau Docker privé.
+# Dans environment du service PocketBase existant :
+#   HORIZON_GOTENBERG_URL: "http://gotenberg:3000"
 services:
   gotenberg:
     image: gotenberg/gotenberg:8.37.0

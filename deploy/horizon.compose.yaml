@@ -33,6 +33,7 @@ services:
 
     environment:
       HORIZON_INITIAL_ADMIN_EMAIL: "guillaume.clairardin@cvs.fr"
+      HORIZON_GOTENBERG_URL: "http://gotenberg:3000"
 
 
   gotenberg:

@@ -1,3 +1,4 @@
+import { HSettingsTable } from '../../../shared/ui/HSettingsTable'
 import { HFieldLabel } from '../../../shared/ui/HFieldLabel'
 import { hasPermission } from '../../../core/auth/types/session'
 import { useId, useState, useSyncExternalStore } from 'react'
@@ -23,7 +24,7 @@ export function SequencesPage() {
   return <section><div className="settings-crm-heading"><HSectionHeading icon={ListOrdered} title="Séquences" description="Numéros de départ, prochains numéros et formats des pièces Horizon." /></div>
     <p className="contact-muted">Les séquences apparaissent à mesure que les modules sont activés. Les changements concernent uniquement les futures pièces.</p>
     {query.isPending && <p role="status">Chargement…</p>}{query.error && <p role="alert">{query.error.message} <HButton size="small" onClick={() => void query.refetch()}>Réessayer</HButton></p>}
-    {query.data && <div className="settings-reference-table"><table className="reference-table"><thead><tr><th>Pièce</th><th>Départ</th><th>Suivante</th><th>Prochain numéro</th><th>État</th><th className="settings-action-cell"><span className="sr-only">Configurer</span></th></tr></thead><tbody>{query.data.map((record) => <tr key={record.id}><td>{sequenceLabel(record.entity_type)}</td><td>{record.start_value}</td><td>{record.next_value}</td><td><strong>{sequencePreview(record)}</strong></td><td>{record.active ? 'Active' : 'Inactive'}</td><td className="settings-action-cell"><SettingsEditButton label={sequenceLabel(record.entity_type)} onClick={() => setEditor(record)} /></td></tr>)}</tbody></table>{query.data.length === 0 && <p className="contact-muted">Aucune séquence disponible.</p>}</div>}
+    {query.data && <HSettingsTable count={query.data.length} noun="séquence"><table className="reference-table"><thead><tr><th>Pièce</th><th>Départ</th><th>Suivante</th><th>Prochain numéro</th><th className="settings-state-cell">État</th><th className="settings-action-cell">Actions</th></tr></thead><tbody>{query.data.map((record) => <tr key={record.id}><td>{sequenceLabel(record.entity_type)}</td><td>{record.start_value}</td><td>{record.next_value}</td><td><strong>{sequencePreview(record)}</strong></td><td className="settings-state-cell">{record.active ? 'Active' : 'Inactive'}</td><td className="settings-action-cell"><SettingsEditButton label={sequenceLabel(record.entity_type)} onClick={() => setEditor(record)} /></td></tr>)}</tbody></table>{query.data.length === 0 && <p className="contact-muted">Aucune séquence disponible.</p>}</HSettingsTable>}
     {editor && <SequenceEditor record={editor} onClose={() => setEditor(undefined)} />}
   </section>
 }

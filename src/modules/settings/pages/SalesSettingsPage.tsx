@@ -1,3 +1,4 @@
+import { HSettingsTable } from '../../../shared/ui/HSettingsTable'
 import { useState, useSyncExternalStore } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router'
@@ -44,25 +45,25 @@ function SalesPresentation({ record, editable, tab, onTabChange }: { record: Sal
             <HSaveButton hasChanges={dirty} pending={save.isPending}>Enregistrer</HSaveButton>
           </>}
         />
-        {tab === 'columns' ? <div className="settings-reference-table">
+        {tab === 'columns' ? <HSettingsTable count={quoteColumns.length} noun="colonne">
           <table className="reference-table">
             <thead><tr><th>Colonne</th><th>Largeur (px)</th></tr></thead>
             <tbody>{quoteColumns.map(([key, label]) => <tr key={key}><td>{label}</td><td><HInput type="number" min={key === 'actions' ? 64 : key === 'position' ? 52 : 40} max={800} step={1} aria-label={`Largeur ${label}`} value={widths[key] || 40} onChange={(event) => setWidths({ ...widths, [key]: Number(event.target.value) })} /></td></tr>)}</tbody>
           </table>
-        </div> : tab === 'defaults' ? <>
+        </HSettingsTable> : tab === 'defaults' ? <>
           <div className="contact-fields">
             <label className="h-form-field"><HFieldLabel>Validité des nouveaux devis (jours)</HFieldLabel><HInput type="number" min={1} max={365} step={1} value={days} onChange={(event) => setDays(Number(event.target.value))} /></label>
             <label className="h-form-field"><HFieldLabel>TVA par défaut (%)</HFieldLabel><HInput type="number" min={0} max={100} step="any" value={tax} onChange={(event) => setTax(Number(event.target.value))} /></label>
           </div>
           <p className="contact-muted">Les unités se configurent dans <a href="/settings/references?catalog=inventory_units">Référentiels → Unités</a>.</p>
-        </> : <div className="settings-reference-table">
+        </> : <HSettingsTable count={terms.length} noun="condition">
           <table className="reference-table">
-            <thead><tr><th>Intitulé</th><th>État</th><th className="settings-action-cell"><span className="sr-only">Configurer</span></th></tr></thead>
-            <tbody>{terms.map((term) => <tr key={term.id}><td>{term.label}</td><td>{term.active ? 'Actives' : 'Archivées'}</td><td className="settings-action-cell">{editable && <HButton size="icon" variant="ghost" aria-label={`Configurer ${term.label}`} title="Configurer" onClick={() => setEditingTerm({ ...term })}><Settings size={14} /></HButton>}</td></tr>)}
+            <thead><tr><th>Intitulé</th><th className="settings-state-cell">État</th><th className="settings-action-cell">Actions</th></tr></thead>
+            <tbody>{terms.map((term) => <tr key={term.id}><td>{term.label}</td><td className="settings-state-cell">{term.active ? 'Actives' : 'Archivées'}</td><td className="settings-action-cell">{editable && <HButton size="icon" variant="ghost" aria-label={`Configurer ${term.label}`} title="Configurer" onClick={() => setEditingTerm({ ...term })}><Settings size={14} /></HButton>}</td></tr>)}
               {!terms.length && <tr><td colSpan={3}>Ajoutez les conditions approuvées par votre entreprise.</td></tr>}
             </tbody>
           </table>
-        </div>}
+        </HSettingsTable>}
         {save.error && <p role="alert" className="field-error">{save.error.message}</p>}
       </section>
     </fieldset>

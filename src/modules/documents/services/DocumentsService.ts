@@ -4,6 +4,7 @@ import { sessionService } from '../../../core/auth/services/session'
 import { hasPermission } from '../../../core/auth/types/session'
 import { createDocumentsRepository, type PreviewInput } from '../repositories/DocumentsRepository'
 import { layoutSchema, type Layout } from '../schemas/templates'
+import type { FileSettings } from '../schemas/fileSettings'
 const repository = environment.pocketBaseUrl ? createDocumentsRepository(environment.pocketBaseUrl) : undefined
 async function run<T>(manage: boolean, action: (repo: NonNullable<typeof repository>) => Promise<T>): Promise<T> {
   const session = sessionService.getSnapshot()
@@ -15,8 +16,10 @@ async function run<T>(manage: boolean, action: (repo: NonNullable<typeof reposit
   }
 }
 export const documentsService = {
+  fileSettings: () => run(true, (repo) => repo.fileSettings()), saveFileSettings: (input: FileSettings) => run(true, (repo) => repo.saveFileSettings(input)),
   list: () => run(false, (repo) => repo.list()), record: (id: string) => run(true, (repo) => repo.record(id)),
   save: (name: string, layout: Layout, id?: string, updated?: string) => run(true, (repo) => repo.save(name, layoutSchema.parse(layout), id, updated)),
+  delete: (id: string, updated: string) => run(true, (repo) => repo.delete(id, updated)),
   publish: (id: string, updated: string) => run(true, (repo) => repo.publish(id, updated)), archive: (id: string, updated: string) => run(true, (repo) => repo.archive(id, updated)),
   preview: (input: PreviewInput) => run(Boolean(input.content_json), (repo) => repo.preview(input)), pdf: (input: PreviewInput) => run(Boolean(input.content_json), (repo) => repo.pdf(input)),
 }

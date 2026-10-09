@@ -8,6 +8,6 @@ export default defineConfig({
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: [
     { command: 'python3 tests/pocketbase/check_auth.py --serve', wait: { stdout: /Local PocketBase auth fixture ready/ }, reuseExistingServer: false },
-    { command: 'pnpm dev --port 4174 --strictPort', env: { VITE_POCKETBASE_URL: 'http://127.0.0.1:18090' }, url: 'http://127.0.0.1:4174', reuseExistingServer: false },
+    { command: process.env.HORIZON_E2E_PREVIEW === '1' ? 'pnpm preview --port 4174 --strictPort' : 'pnpm dev --port 4174 --strictPort', env: { VITE_POCKETBASE_URL: 'http://127.0.0.1:18090' }, url: 'http://127.0.0.1:4174', reuseExistingServer: false },
   ],
 })

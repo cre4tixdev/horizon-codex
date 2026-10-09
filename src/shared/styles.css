@@ -304,7 +304,7 @@
 /* Contacts and shared dense business tables. */
 .contact-tabs { display: flex; gap: 24px; border-bottom: 1px solid var(--theme-border, #e3e7ee); margin: 20px 0 14px; }
 .contact-tabs a { display: flex; align-items: center; gap: 7px; padding: 10px 2px; color: var(--theme-text-muted, #7b8794); border-bottom: 2px solid transparent; }
-.contact-tabs .selected { color: var(--theme-text, #091c3a); border-color: var(--theme-border-accent, #f52f96); font-weight: 500; }
+.contact-tabs .selected { color: var(--theme-text, #091c3a); border-color: var(--theme-border-accent, #f52f96); font-weight: 700; }
 .contact-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
 .contact-toolbar > input { width: min(380px, 100%); }
 .contact-toolbar > select { width: 135px; }
@@ -1908,3 +1908,28 @@
 .h-color-swatch:focus-within { outline:2px solid var(--theme-accent,#f52f96); outline-offset:2px; }
 .h-color-control>.h-input { flex:1; min-width:0; width:78px; height:30px; padding:4px 6px; font:400 11px/16px ui-monospace,monospace; letter-spacing:.2px; }
 .h-color-control>.h-input[aria-invalid=true] { border-color:var(--theme-danger,#dc2626); }
+
+/* Shared dense tables in Settings, including their count and action columns. */
+.settings-shell .settings-reference-table .reference-table th,
+.settings-shell .settings-reference-table .reference-table td { height:36px; padding:4px 12px; vertical-align:middle; }
+.settings-shell .settings-reference-table .reference-table th:not(:last-child),
+.settings-shell .settings-reference-table .reference-table td:not(:last-child),
+.settings-shell .access-grants-table .reference-table th:not(:last-child),
+.settings-shell .access-grants-table .reference-table td:not(:last-child) { border-right:1px solid var(--theme-border, #d4deeb); }
+.settings-shell .settings-reference-table .reference-table .settings-state-cell,
+.settings-shell .settings-reference-table .reference-table .settings-action-cell,
+.settings-shell .settings-reference-table .reference-table .settings-actions-cell { text-align:center; }
+.settings-shell .settings-reference-table .settings-action-cell .h-button,
+.settings-shell .settings-reference-table .settings-actions-cell .h-button { width:28px; height:28px; }
+.settings-shell .settings-reference-table .settings-actions-cell { width:88px; }
+.settings-shell .settings-reference-table .settings-actions-cell>div { display:flex; align-items:center; justify-content:center; gap:4px; }
+.settings-shell .settings-reference-table .h-input { height:28px; min-height:28px; font-size:12px; }
+.settings-shell .settings-reference-table .access-person .hr-initials { width:28px; height:28px; }
+.settings-table-count { margin:8px 0 0; padding-right:12px; text-align:right; font-size:11px; }
+
+/* The same bold label for selected and unselected tabs throughout Horizon. */
+[role=tab],
+.contact-record-navigation [role=tab],
+.image-search-sources [role=tab],
+.contact-tabs a,
+.activity-filter-row nav button { font-weight:700; }

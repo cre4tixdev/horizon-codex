@@ -1816,3 +1816,17 @@ Studio D06 — finition des outils : sections repliables des deux panneaux, éta
 Studio D07 : sections fermées par défaut, propriétés de Bloc réorganisées, styles de sections rattachés au tableau. Pas de nouvel onglet global Titres. Modèle générique conservé ; la seule source dynamique actuellement disponible est Devis, les autres pièces restent prévues.
 
 Studio D08 : réglages de colonnes sur une ligne (case / nom / largeur / ordre), source simplifiée et largeur totale unique ; ruban du modèle allégé. Changement frontend uniquement, aucun changement de données ou de hooks depuis D07.
+
+Studio D09 à D14 : styles indépendants d’en-tête, lignes, notes et sections, sélection et outils harmonisés, repères de marges et dimensions physiques de la feuille ; aperçu HTML paginé avec Paged.js embarqué et aperçu PDF conservé. Les publications existantes restent immuables. Les détails UX sont centralisés dans le document 07 et les instructions NAS dans le document 06.
+
+9 octobre 2026 — Documents D15 : PDF apparemment tronqué reproduit avec fond opaque : les couches répétées en pied de page recouvraient la feuille. Découpage de ces couches aux zones réservées, validé par impression Chromium et rasterisation locale. HTML : remplacement du cadre masqué par un voile de chargement, relance explicite et diagnostic de progression ; scénario avec images et tableau long vérifié. Le délai signalé sur l’instance utilisateur n’est pas reproduit par la fixture locale ; phases de diagnostic ajoutées pour identifier un éventuel blocage restant.
+
+9 octobre 2026 — Documents D16 : aperçu préparé en grand dès l’ouverture, zoom HTML et ajustement à la fenêtre, caractéristiques papier visibles. Noms PDF par type paramétrables dans un onglet commun, numéro de pièce obligatoire, date / société facultatives, validation et génération serveur, en-tête UTF-8 transmis au téléchargement. Devis raccordés ; formats des commandes et bons de livraison préparés pour la suite. Migration 1791504011_document_filenames.js, vérification PocketBase / tests purs / navigateur.
+
+9 octobre 2026 — finition de l’aperçu Documents : zoom et ajustement déplacés dans la zone d’aperçu ; format / dimensions / compteur de pages HTML à gauche. Sélecteurs plus courts, hauteur des boutons harmonisée et téléchargement PDF primaire séparé. Vérification navigateur du compteur, de l’alignement, du zoom et du téléchargement en clair / sombre et fenêtre étroite. Frontend uniquement, aucune migration supplémentaire.
+
+9 octobre 2026 — Documents D17 : noms PDF enrichis et sélecteur de champs avec provenance ; suppression du titre redondant de l’onglet. Noms calculés depuis le contexte métier autorisé, formats historiques conservés et textes longs raccourcis pour respecter le budget UTF-8 sans tronquer le numéro de pièce. Pas de migration supplémentaire.
+
+Documents — suppression : archivage et poubelle avec confirmation dans la liste des modèles, retirés du studio pour les modèles sans version publiée ; route serveur réservée Admin / Superuser habilité, contrôle de concurrence et audit transactionnel. Les modèles déjà publiés restent archivables, sans destruction des versions. Aucun changement de schéma.
+
+Paramètres — harmonisation : tableaux partagés avec `HSettingsTable`, bordures visibles, densité compacte, État / Actions centrés et compteurs communs. Reprise de la présentation validée des modèles de pièces dans tous les tableaux de configuration ; aucun changement serveur ou schéma.

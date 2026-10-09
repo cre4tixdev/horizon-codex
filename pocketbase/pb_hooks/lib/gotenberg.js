@@ -1,4 +1,4 @@
-module.exports = (event, layout, rendered) => {
+module.exports = (event, layout, rendered, filename) => {
   const url = $os.getenv('HORIZON_GOTENBERG_URL').replace(/\/$/, '')
   if (!/^https?:\/\/[a-zA-Z0-9.:[\]-]+$/.test(url)) throw new ApiError(503, 'La génération PDF n’est pas configurée sur le serveur.')
   const body = new FormData()
@@ -14,7 +14,10 @@ module.exports = (event, layout, rendered) => {
     event.app.logger().error('Gotenberg invalid response', 'status', response.statusCode)
     throw new ApiError(502, 'Le service PDF n’a pas produit un document valide.')
   }
-  event.response.header().set('Content-Disposition', 'attachment; filename="devis.pdf"')
+  const fallback = filename.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\x20-\x7e]|["\\]/g, '_')
+  const encoded = encodeURIComponent(filename).replace(/['()*]/g, (char) => '%' + char.charCodeAt(0).toString(16).toUpperCase())
+  event.response.header().set('Content-Disposition', `attachment; filename="${fallback}"; filename*=UTF-8''${encoded}`)
+  event.response.header().set('Access-Control-Expose-Headers', 'Content-Disposition')
   event.response.header().set('Cache-Control', 'no-store')
   return event.blob(200, 'application/pdf', response.body)
 }

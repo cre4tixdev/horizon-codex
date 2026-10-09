@@ -1,6 +1,6 @@
 import { Globe, Building2, ShieldCheck, UsersRound, Target, Package, ShoppingCart, Truck, Warehouse, Receipt, Landmark, FolderKanban, CalendarDays, Plug, ListOrdered, FileText } from 'lucide-react'
 export const settingsSections = [
-  { slug: 'documents', title: 'Modèles de pièces', group: 'Socle commun', icon: FileText, description: 'Studio de composition et génération PDF des pièces.', topics: ['Modèles de devis', 'En-têtes et pieds de page', 'Styles de titres', 'Tableaux dynamiques'], available: true },
+  { slug: 'documents', title: 'Modèles de pièces', group: 'Socle commun', icon: FileText, description: 'Studio de composition et génération PDF des pièces.', topics: ['Modèles de devis', 'En-têtes et pieds de page', 'Styles de titres', 'Tableaux dynamiques', 'Noms des PDF'], available: true },
   { slug: 'references', title: 'Référentiels', group: 'Socle commun', icon: Globe, description: 'Pays, langues et devises partagés par Horizon.', topics: ['Pays', 'Langues', 'Devises'], available: true },
   { slug: 'sequences', title: 'Séquences', group: 'Socle commun', icon: ListOrdered, description: 'Formats et compteurs des numéros de pièces.', topics: ['Numéro de départ', 'Prochain numéro', 'Préfixes et suffixes'], available: true },
   { slug: 'organisation', title: 'Organisation', group: 'Socle commun', icon: Building2, description: 'Identité de votre entreprise et préférences générales.', topics: ['Identité et logo', 'Coordonnées', 'Fuseau horaire et formats'], available: false },

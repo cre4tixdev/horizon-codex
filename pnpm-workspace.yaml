@@ -1,0 +1,4 @@
+# These transitive packages are consumed as published JavaScript; no install scripts are needed.
+allowBuilds:
+  core-js: false
+  es5-ext: false

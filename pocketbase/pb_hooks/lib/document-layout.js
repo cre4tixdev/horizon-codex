@@ -25,7 +25,7 @@ const validate = (layout) => {
   if (!Array.isArray(layout.blocks) || layout.blocks.length > 80) throw new BadRequestError('80 blocs maximum.')
   const ids = new Set(), width = (layout.orientation === 'portrait' ? 794 : 1123) - layout.margin * 96 / 25.4 * 2
   for (const block of layout.blocks) {
-    keys(block, ['id', 'sameLine', 'anchorX', 'anchorY', 'imageRatio', 'lockAspect', 'tableSource', 'tableHeadings', 'kind', 'zone', 'x', 'y', 'width', 'height', 'style', 'text', 'content', 'field', 'image', 'columns'])
+    keys(block, ['id', 'sameLine', 'anchorX', 'anchorY', 'imageRatio', 'lockAspect', 'tableSource', 'tableHeadings', 'tableHeader', 'tableLine', 'tableNote', 'kind', 'zone', 'x', 'y', 'width', 'height', 'style', 'text', 'content', 'field', 'image', 'columns'])
     if (!/^[a-zA-Z0-9-]{1,100}$/.test(block.id || '') || ids.has(block.id)) throw new BadRequestError('Identifiant de bloc invalide.')
     ids.add(block.id)
     if (!['text', 'field', 'image', 'table', 'totals', 'terms', 'separator', 'spacer', 'pageBreak', 'pageNumber'].includes(block.kind) || !['header', 'body', 'footer'].includes(block.zone)) throw new BadRequestError('Bloc invalide.')
@@ -41,6 +41,12 @@ const validate = (layout) => {
     if (block.tableHeadings !== undefined) {
       if (block.kind !== 'table' || !Array.isArray(block.tableHeadings) || block.tableHeadings.length !== 3) throw new BadRequestError('Les styles de sections appartiennent à un tableau et doivent comporter trois niveaux.')
       block.tableHeadings.forEach(style)
+    }
+    for (const property of ['tableHeader', 'tableLine', 'tableNote']) {
+      if (block[property] !== undefined) {
+        if (block.kind !== 'table') throw new BadRequestError('Les styles de lignes appartiennent à un tableau.')
+        style(block[property])
+      }
     }
     style(block.style)
     if (typeof block.text !== 'string' || block.text.length > 10000) throw new BadRequestError('Texte trop long.')

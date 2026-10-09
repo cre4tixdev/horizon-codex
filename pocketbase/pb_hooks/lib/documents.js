@@ -59,6 +59,17 @@ module.exports = {
       record.set('status', 'archived'); app.save(record); audit(app, event.auth, record, 'archive'); result = dto(app, record)
     }); return event.json(200, result)
   },
+  delete(event) {
+    guard(event); const body = event.requestInfo().body; exact(body, ['id', 'updated'])
+    event.app.runInTransaction((app) => {
+      if (!manage(app, event.auth)) throw new ForbiddenError('Accès refusé.')
+      const record = get(app, body.id)
+      if (record.getString('updated') !== body.updated) throw new ApiError(409, 'Le modèle a été modifié. Rechargez la fiche.')
+      if (record.getString('current_version') || app.findRecordsByFilter('documents_template_versions', 'template = {:id}', '', 1, 0, { id: record.id }).length) throw new BadRequestError('Ce modèle possède des versions publiées. Archivez-le pour conserver son historique.')
+      audit(app, event.auth, record, 'delete'); app.delete(record)
+    })
+    return event.json(200, { deleted: true })
+  },
   preview(event) {
     const body = event.requestInfo().body; exact(body, ['quote_id', 'template_id', 'content_json', 'format'])
     const context = require(`${__hooks}/lib/sales-document-context.js`)(event.app, event.auth, body.quote_id)
@@ -70,7 +81,8 @@ module.exports = {
     }
     if (!['html', 'pdf'].includes(body.format)) throw new BadRequestError('Format d’aperçu invalide.')
     const rendered = require(`${__hooks}/lib/document-renderer.js`)(layout, context)
-    if (body.format === 'pdf') return require(`${__hooks}/lib/gotenberg.js`)(event, layout, rendered)
-    return event.json(200, { html: rendered.preview, warnings: context.warnings })
+    const filename = require(`${__hooks}/lib/document-filenames.js`).filename(event.app, 'quote', { number: context.fields['quote.quote_number'], date: context.fields['quote.quote_date'], company: context.fields['company.name'], opportunity: context.fields['opportunity.title'], opportunity_number: context.fields['opportunity.number'], title: context.fields['quote.title'], owner: context.fields['owner.name'], contact: context.fields['contact.name'] })
+    if (body.format === 'pdf') return require(`${__hooks}/lib/gotenberg.js`)(event, layout, rendered, filename)
+    return event.json(200, { html: rendered.preview, warnings: context.warnings, filename, page: { format: 'A4', orientation: layout.orientation, width: layout.orientation === 'portrait' ? 210 : 297, height: layout.orientation === 'portrait' ? 297 : 210 } })
   },
 }

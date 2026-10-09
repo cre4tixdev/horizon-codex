@@ -68,6 +68,21 @@ class DocumentsTests(unittest.TestCase):
         self.assertEqual(self.pb.request('DELETE', f'collections/documents_template_versions/records/{version}', token=self.pb.admin_token)[0], 400)
         self.assertEqual(self.call('templates/archive', dict(id=published['id'], updated=published['updated']))[0], 200)
         self.assertEqual(self.pb.request('GET', 'horizon/documents/templates', token=self.token)[1]['items'], [])
+    def test_delete_unpublished_template_permissions_conflict_and_history(self):
+        template = self.template()
+        body = dict(id=template['id'], updated=template['updated'])
+        self.assertEqual(self.call('templates/delete', body, self.token)[0], 403)
+        self.assertEqual(self.call('templates/delete', dict(body, updated='stale'))[0], 409)
+        self.assertEqual(self.call('templates/delete', body)[0], 200)
+        self.assertEqual(self.pb.request('GET', f'horizon/documents/templates/{template["id"]}', token=self.manager)[0], 404)
+        template = self.template()
+        published = self.call('templates/publish', dict(id=template['id'], updated=template['updated']))[1]
+        # Saving a new draft must not make its published history deletable.
+        draft = self.call('templates/save', dict(self.payload, id=template['id'], updated=published['updated']))[1]
+        self.assertEqual(self.call('templates/delete', dict(id=draft['id'], updated=draft['updated']))[0], 400)
+        self.assertEqual(self.pb.request('DELETE', f'collections/documents_templates/records/{draft["id"]}', token=self.pb.admin_token)[0], 400)
+        self.assertEqual(self.pb.request('GET', f'horizon/documents/templates/{draft["id"]}', token=self.manager)[0], 200)
+
     def test_profiles_and_unpublished_access(self):
         template = self.template()
         self.assertEqual(self.call('templates/save', self.payload, self.token)[0], 403)
@@ -107,6 +122,46 @@ class DocumentsTests(unittest.TestCase):
         for bad in [dict(first, tableHeadings=first['tableHeadings'][:2]), dict(first, kind='field')]:
             invalid = layout(); invalid['blocks'][1] = bad
             self.assertEqual(self.call('templates/save', dict(self.payload, content_json=invalid))[0], 400)
+
+    def test_table_header_style_preview_and_validation(self):
+        content = layout()
+        content['blocks'][1]['tableHeader'] = dict(STYLE, font='Montserrat', size=14, color='#FFFFFF', background='#091C3A', backgroundOpacity=0.8, bold=True, align='center')
+        status, saved = self.call('templates/save', dict(self.payload, content_json=content))
+        self.assertEqual(status, 200, saved)
+        self.assertEqual(saved['content_json']['blocks'][1]['tableHeader'], content['blocks'][1]['tableHeader'])
+        status, preview = self.call('preview', dict(quote_id=self.quote_record['id'], content_json=content, format='html'))
+        self.assertEqual(status, 200, preview)
+        html = preview['html']
+        self.assertIn('<th style="font-family:\'Montserrat\',sans-serif;font-size:14px;color:#FFFFFF;background:rgba(9,28,58,0.8);text-align:center;font-weight:600', html)
+        self.assertIn('>Description</th>', html)
+        for change in [lambda item: item.update(color='red'), lambda item: item.update(backgroundOpacity=2)]:
+            bad = copy.deepcopy(content); change(bad['blocks'][1]['tableHeader'])
+            self.assertEqual(self.call('templates/save', dict(self.payload, content_json=bad))[0], 400)
+        bad = copy.deepcopy(content); bad['blocks'][0]['tableHeader'] = bad['blocks'][1]['tableHeader']
+        self.assertEqual(self.call('templates/save', dict(self.payload, content_json=bad))[0], 400)
+
+    def test_line_and_note_styles_are_independent_and_keep_numbers_aligned(self):
+        status, quote = self.quote_save(key='quote-line-note-styles-01', lines=[{'kind': 'section', 'description': 'Section distincte'}, {'description': 'Article', 'quantity': 1, 'unit_price': 10}, {'kind': 'note', 'description': 'Note distincte'}])
+        self.assertEqual(status, 200, quote)
+        content = layout()
+        table = content['blocks'][1]
+        table['tableLine'] = dict(STYLE, size=13, color='#7B3FC7', align='center')
+        table['tableNote'] = dict(STYLE, size=11, color='#E07800', italic=True)
+        status, saved = self.call('templates/save', dict(self.payload, content_json=content))
+        self.assertEqual(status, 200, saved)
+        status, preview = self.call('preview', dict(quote_id=quote['id'], content_json=content, format='html'))
+        self.assertEqual(status, 200, preview)
+        html = preview['html']
+        self.assertIn('font-size:13px;color:#7B3FC7', html)
+        self.assertIn('font-style:normal;text-transform:none;text-align:right;">10,00 €</td>', html)
+        self.assertIn('font-size:11px;color:#E07800', html)
+        self.assertIn('font-style:italic;text-transform:none;"><span>Note distincte</span>', html)
+        self.assertIn('font-size:12px;color:#091C3A', html)
+        for property in ['tableLine', 'tableNote']:
+            bad = copy.deepcopy(content); bad['blocks'][0][property] = table[property]
+            self.assertEqual(self.call('templates/save', dict(self.payload, content_json=bad))[0], 400)
+            bad = copy.deepcopy(content); bad['blocks'][1][property]['color'] = 'invalid'
+            self.assertEqual(self.call('templates/save', dict(self.payload, content_json=bad))[0], 400)
 
     def test_layout_validation(self):
         for modify in [lambda value: value.update(script='bad'), lambda value: value['blocks'][0].update(image='https://private.invalid/logo'), lambda value: value['blocks'][0].update(x=1000), lambda value: value['blocks'][0].update(style=dict(STYLE, color='red;display:none'))]:
@@ -226,6 +281,40 @@ class DocumentsTests(unittest.TestCase):
             self.assertEqual(self.call('templates/save', dict(self.payload, content_json=bad))[0], 400)
         content['blocks'][0]['style']['backgroundOpacity'] = 1.1
         self.assertEqual(self.call('templates/save', dict(self.payload, content_json=content))[0], 400)
+
+    def test_file_settings_permissions_validation_and_dynamic_filename(self):
+        status, settings = self.pb.request('GET', 'horizon/documents/file-settings', token=self.manager)
+        self.assertEqual(status, 200, settings)
+        self.assertEqual(self.pb.request('GET', 'horizon/documents/file-settings', token=self.token)[0], 403)
+        self.assertEqual(self.call('file-settings', dict(updated=settings['updated'], patterns=settings['patterns']), self.token)[0], 403)
+        patterns = dict(settings['patterns'], quote='Devis été_{number}_{company}_{date}.pdf')
+        self.assertEqual(self.call('file-settings', dict(updated='stale', patterns=patterns))[0], 409)
+        for pattern in ['sans-numéro', '../{number}', '{number}_{password}', '{number}\\suite']:
+            self.assertEqual(self.call('file-settings', dict(updated=settings['updated'], patterns=dict(patterns, quote=pattern)))[0], 400)
+        status, saved = self.call('file-settings', dict(updated=settings['updated'], patterns=patterns))
+        self.assertEqual(status, 200, saved)
+        self.assertFalse(saved['patterns']['quote'].endswith('.pdf'))
+        status, preview = self.call('preview', dict(quote_id=self.quote_record['id'], content_json=layout(), format='html'))
+        self.assertEqual(status, 200, preview)
+        self.assertTrue(preview['filename'].startswith('Devis été_' + self.quote_record['quote_number']))
+        self.assertEqual(preview['page'], dict(format='A4', orientation='portrait', width=210, height=297))
+        req = Request(self.pb.url + '/api/horizon/documents/preview', method='POST', headers={'Authorization': self.manager, 'Content-Type': 'application/json'}, data=json.dumps(dict(quote_id=self.quote_record['id'], content_json=layout(), format='pdf')).encode())
+        with urlopen(req, timeout=10) as response:
+            self.assertIn("filename*=UTF-8''Devis%20%C3%A9t%C3%A9_", response.headers['Content-Disposition'])
+            self.assertEqual(response.headers['Access-Control-Expose-Headers'], 'Content-Disposition')
+            self.assertTrue(response.read().startswith(b'%PDF-'))
+        self.assertEqual(self.pb.request('GET', 'collections/settings_document_files/records', token=self.manager)[0], 403)
+
+    def test_filename_fields_use_the_authorized_quote_context(self):
+        status, settings = self.pb.request('GET', 'horizon/documents/file-settings', token=self.manager)
+        self.assertEqual(status, 200, settings)
+        patterns = dict(settings['patterns'], quote='{number}_{client}_{opportunity}')
+        self.assertEqual(self.call('file-settings', dict(updated=settings['updated'], patterns=patterns))[0], 200)
+        status, preview = self.call('preview', dict(quote_id=self.quote_record['id'], content_json=layout(), format='html'))
+        self.assertEqual(status, 200, preview)
+        company = self.pb.request('GET', 'collections/contacts_companies/records/' + self.quote_record['company'], token=self.pb.admin_token)[1]
+        opportunity = self.pb.request('GET', 'collections/crm_opportunities/records/' + self.quote_record['opportunity'], token=self.pb.admin_token)[1]
+        self.assertEqual(preview['filename'], self.quote_record['quote_number'] + '_' + company['name'] + '_' + opportunity['title'] + '.pdf')
 
     def test_pdf_multipart_binary_transport(self):
         req = Request(self.pb.url + '/api/horizon/documents/preview', method='POST', headers={'Authorization': self.manager, 'Content-Type': 'application/json'}, data=json.dumps(dict(quote_id=self.quote_record['id'], content_json=layout(), format='pdf')).encode())
