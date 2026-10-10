@@ -3,7 +3,8 @@ import { searchNavigation } from './searchNavigation'
 
 describe('Recherche des espaces Horizon', () => {
   it('retrouve une entrée avec accents, casse et espaces différents', () => {
-    expect(searchNavigation('  DEPENSES  ').map((item) => item.href)).toEqual(['/expenses'])
+    expect(searchNavigation('  NOTES DE FRAIS  ').map((item) => item.href)).toEqual(['/expenses'])
+    expect(searchNavigation('  COMPTABILITE  ').map((item) => item.href)).toEqual(['/accounting'])
   })
 
   it('recherche aussi le vocabulaire métier des descriptions', () => {

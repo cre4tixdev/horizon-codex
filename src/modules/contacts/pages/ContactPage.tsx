@@ -16,6 +16,7 @@ import { HPageBreadcrumb } from '../../../shared/ui/HPageBreadcrumb'
 import { HSectionHeading } from '../../../shared/ui/HSectionHeading'
 import { HButton } from '../../../shared/ui/HButton'
 import { HSaveButton } from '../../../shared/ui/HSaveButton'
+import { HRecordDuplication } from '../../../shared/ui/HRecordDuplication'
 import { HRecordActions } from '../../../shared/ui/HRecordActions'
 import { companyDuplicate, personDuplicate } from '../schemas/contactDuplication'
 import { HCombobox } from '../../../shared/ui/HCombobox'
@@ -62,6 +63,7 @@ function ContactEditor({ kind, record, addresses, accounts, canWrite, duplicateS
   const [companySearch, setCompanySearch] = useState('')
   const [chosenCompany, setChosenCompany] = useState<Company>()
   const [changingRecord, setChangingRecord] = useState(false)
+  const [duplicating, setDuplicating] = useState(false)
   const [files, setFiles] = useState<ContactFiles>({})
   const source = record ?? duplicateSource
   const initialRoles = source && 'name' in source ? source.expand?.contacts_company_roles_via_company?.filter((role) => role.active).map((role) => role.role) ?? [] : []
@@ -153,8 +155,9 @@ function ContactEditor({ kind, record, addresses, accounts, canWrite, duplicateS
 
       {!embedded && !record && <HButton asChild><Link to={directoryHref(directory, kind)} state={directory ? { contactDirectory: directory } : undefined}>Annuler</Link></HButton>}
       {editable && <HSaveButton form={formId} hasChanges={hasChanges} pending={save.isPending} disabled={busy}>{save.isPending ? 'Enregistrement…' : 'Enregistrer'}</HSaveButton>}
-      {!embedded && canWrite && record && <HRecordActions itemName={title} active={record.active} disabled={busy || (hasChanges && record.active)} onArchive={() => archive.mutateAsync(false)} onRestore={() => { if (window.confirm('Réactiver cette fiche ?')) archive.mutate(true) }} onDuplicate={() => navigate(`/contacts/${kind}/new?duplicate=${record.id}`)} onDelete={() => deletion.mutateAsync()} />}
+      {!embedded && canWrite && record && <HRecordActions itemName={title} active={record.active} disabled={busy || (hasChanges && record.active)} onArchive={() => archive.mutateAsync(false)} onRestore={() => { if (window.confirm('Réactiver cette fiche ?')) archive.mutate(true) }} onDuplicate={() => setDuplicating(true)} onDelete={() => deletion.mutateAsync()} />}
     </HRecordPageActions></div>
+    {duplicating && record && <HRecordDuplication title={kind === 'companies' ? 'Dupliquer la société' : 'Dupliquer le contact'} itemName={title} onClose={() => setDuplicating(false)} onDuplicate={() => { setDuplicating(false); navigate(`/contacts/${kind}/new?duplicate=${record.id}`, { state: directory ? { contactDirectory: directory } : undefined }) }} />}
     <div className="contact-record-sheet">
     {!embedded && relatedCompany && <CompanyBusinessLinks company={relatedCompany} person={Boolean(person)} busy={busy || changingRecord} />}
     {readiness.isPending && <HLoadingIndicator inline label="Vérification du module Contacts…" />}

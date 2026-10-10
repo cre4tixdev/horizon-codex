@@ -2123,3 +2123,19 @@ Couleurs de statut Devis centralisées dans quoteStatusTones, identiques sur syn
 Fiche opportunité : frise HProgressSteps commune au devis, étapes du référentiel CRM triées, étape active en rose Horizon comme le devis, sans reprendre les couleurs des étapes. Présentation resserrée, largeur maximale de 960px. Étape actuelle issue du formulaire ; tag d’étape retiré de l’en-tête, badges AO / Archivée conservés. Gagné et Perdu sont des issues alternatives : Perdu ne coche pas Gagné ni les étapes ouvertes comme accomplies. Frise de lecture ; changement d’étape par le champ existant puis Enregistrer.
 
 Pictogrammes de la frise opportunité : Nouveau Crosshair, Qualifié sablier, Gagné Target (cible Lucide), Terminé check, Perdue visage triste, Annulé croix. Chaque étape conserve son pictogramme même lorsqu’elle est passée.
+
+Dupliquer un produit : entrée commune HRecordActions dans l’engrenage, HDialog centré avec une case « Reprendre les fournisseurs et les prix d’achat », un seul bouton Dupliquer et fermeture par la croix. Ouverture de ProductPage en création, focus sur la référence à renseigner ; même éditeur en page et en popup. Aucune fiche parallèle ni sauvegarde automatique.
+
+Contacts / Produits — popup de duplication commun HRecordDuplication, centré, nom de la source explicite, bouton Dupliquer rose et fermeture par X. Le clic de menu seul ne prépare aucune copie ; confirmer ouvre la création habituelle sans sauvegarde automatique. Les Contacts conservent le contexte de leur liste.
+
+Sidebar — sections distinctes : Ressources humaines (Employés, TimeReport, Congés, Notes de frais), Finance (Facturation, Comptabilité), Administration (Documents, Paramètres). Même regroupement partagé en navigation déployée et repliée.
+
+Sidebar compacte : liens principaux 30px, sous-liens 27px, intervalle entre sections 7px ; titres de section avec retraits verticaux 10px / 6px. Navigation repliée : séparateur de section 18px. Typographie et icônes conservées.
+
+Le pied de sidebar conserve uniquement Aide & raccourcis ; le bloc CVS Engineering / Espace interne est retiré pour laisser plus de hauteur à la navigation.
+
+Logo sidebar : bouton ouvrant le menu Modules Horizon en HDialog centré dans la zone de contenu. Modules en boutons compacts groupés comme la sidebar, mêmes pictogrammes et destinations ; aucun sous-menu dans le popup. Les deux vues consomment la même liste de groupes filtrée par canAccessNavigation ; aucun module supplémentaire exposé. Sélection ferme le popup et navigue, Dashboard reste accessible dans le menu. Support clavier, clair / sombre et navigation repliée.
+
+Menu Modules — surface bleu sombre identique à la sidebar (token commun), voile de fond assombri et flou léger ; tuiles carrées avec icône Lucide au-dessus du libellé, relief discret et état courant rose Horizon. Tuiles des modules uniquement, groupes et permissions inchangés ; sous-pages accessibles dans la sidebar. Mouvement léger au survol uniquement hors préférence de mouvement réduit. Ce menu reste sombre dans les deux thèmes.
+
+Tuiles Modules : pictogrammes 38px avec traits fins (1,35), texte 12px en graisse 400, fond et bordure plus contrastés que la surface bleu sidebar ; sélection rose plus visible.

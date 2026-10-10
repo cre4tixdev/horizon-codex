@@ -1,3 +1,4 @@
+import { productDuplicate } from './productDuplication'
 import { ZodError } from 'zod'
 import { ClientResponseError } from 'pocketbase'
 import { environment } from '../../../core/config/environment'
@@ -19,6 +20,7 @@ export const catalogService = {
       throw error
     }
   },
+  duplicateDraft: (id: string, includeSuppliers: boolean) => run('inventory.write', async (repo) => { const source = await repo.record(id); return { input: productDuplicate(source, includeSuppliers), files: { primary: await repo.duplicatePhoto(source), images: [], removePrimary: false, removeImages: [] } satisfies ProductFiles } }),
   createBrand: (name: string) => run('inventory.write', (repo) => repo.createBrand(name.trim())),
   list: (query: Record<string, string | number>) => run('inventory.read', (repo) => repo.list(query)),
   record: (id: string) => run('inventory.read', (repo) => repo.record(id)),

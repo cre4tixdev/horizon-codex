@@ -1,14 +1,14 @@
 import { RecordEditors } from './RecordEditors'
 import { useEffect, useState, useSyncExternalStore } from 'react'
-import { Link, Outlet, useLocation } from 'react-router'
+import { Outlet, useLocation } from 'react-router'
 import { SidebarItem } from './SidebarItem'
-import { Building2, PanelLeftClose, PanelLeftOpen, CircleHelp, Keyboard } from 'lucide-react'
+import { PanelLeftClose, PanelLeftOpen, CircleHelp, Keyboard } from 'lucide-react'
 import { navigationGroups, navigationItems } from '../navigation'
 import { NotificationBell } from './NotificationBell'
 import { ThemeToggle } from './ThemeToggle'
 import { UserMenu } from './UserMenu'
 import { WorkspaceSearch } from './WorkspaceSearch'
-import { HorizonMark } from '../../shared/branding/HorizonMark'
+import { ModuleLauncher } from './ModuleLauncher'
 import { HBreadcrumb } from '../../shared/ui/HBreadcrumb'
 import { BreadcrumbActionsContext } from '../../shared/ui/breadcrumbActionsContext'
 import { HButton } from '../../shared/ui/HButton'
@@ -41,23 +41,23 @@ export function AppFrame() {
   const [helpOpen, setHelpOpen] = useState(false)
   const { pathname } = useLocation()
   const currentItem = navigationItems.find((item) => item.href === pathname || (item.href !== '/' && pathname.startsWith(item.href + '/')))
+  const visibleGroups = navigationGroups.map((group) => ({ ...group, items: group.items.filter((item) => canAccessNavigation(item.href, user)) })).filter((group) => group.items.length > 0)
   const currentTitle = pathname === '/account' ? 'Mon compte' : currentItem?.label ?? 'Page introuvable'
 
   return (
     <RecordEditors><div className={`app-shell${collapsed ? ' app-shell--collapsed' : ''}`}>
       <a href="#main-content" className="skip-link">Aller au contenu</a>
       <aside className="sidebar" aria-label="Navigation Horizon">
-        <Link to="/" aria-label="Horizon — Accueil" className="sidebar-brand"><HorizonMark /><span>HORIZON</span></Link>
+        <ModuleLauncher groups={visibleGroups} />
         <nav className="sidebar-nav" aria-label="Navigation principale">
-          {navigationGroups.filter((group) => group.items.some((item) => canAccessNavigation(item.href, user))).map((group) => (
+          {visibleGroups.map((group) => (
             <div className="sidebar-group" key={group.label}>
               <p className="sidebar-group__title">{group.label}</p>
-              {group.items.filter((item) => canAccessNavigation(item.href, user)).map((item) => <SidebarItem key={item.href} item={item} />)}
+              {group.items.map((item) => <SidebarItem key={item.href} item={item} />)}
             </div>
           ))}
         </nav>
         <div className="sidebar-footer">
-          <div className="sidebar-company"><Building2 size={18} aria-hidden="true" /><span><strong>CVS Engineering</strong><small>Espace interne</small></span></div>
           <HDialog open={helpOpen} onOpenChange={setHelpOpen} title="Bienvenue dans Horizon" description="Vos repères pour naviguer dans votre espace de travail."
             trigger={<HButton variant="ghost" className="sidebar-help" aria-label="Aide et raccourcis"><CircleHelp size={17} /><span>Aide & raccourcis</span></HButton>}>
             <div className="help-content"><Keyboard size={25} aria-hidden="true" /><div><h3>Accédez à un espace en un instant</h3><p>Utilisez ⌘ K sur Mac ou Ctrl K sur Windows et Linux pour rechercher dans la liste Contacts ou accéder aux espaces depuis les autres pages.</p></div></div>

@@ -93,3 +93,6 @@
 .catalog-last-purchase-values strong { font-size: 13px; font-weight: 500; font-variant-numeric: tabular-nums; }
 .catalog-last-purchase-values > div:first-child strong { color: var(--theme-violet-text, #7b3fc7); font-size: 16px; font-weight: 600; }
 .catalog-last-purchase-values strong small { font-size: 11px; font-weight: 400; color: var(--theme-text-muted, #7b8794); }
+
+.catalog-barcode-field .h-field-label { display: inline-flex; align-items: center; gap: 5px; }
+.catalog-barcode-field .h-field-label svg { flex-shrink: 0; }

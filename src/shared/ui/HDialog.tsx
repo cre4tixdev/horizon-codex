@@ -5,6 +5,7 @@ import { HButton } from './HButton'
 
 type HDialogProps = {
   className?: string
+  overlayClassName?: string
   open: boolean
   onOpenChange: (open: boolean) => void
   title: string
@@ -17,12 +18,12 @@ type HDialogProps = {
   onOpenAutoFocus?: ComponentProps<typeof Dialog.Content>['onOpenAutoFocus']
 }
 
-export function HDialog({ open, onOpenChange, title, titleBadge, description, actions, trigger, children, onOpenAutoFocus, onCloseAutoFocus, className }: HDialogProps) {
+export function HDialog({ open, onOpenChange, title, titleBadge, description, actions, trigger, children, onOpenAutoFocus, onCloseAutoFocus, className, overlayClassName }: HDialogProps) {
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       {trigger && <Dialog.Trigger asChild>{trigger}</Dialog.Trigger>}
       <Dialog.Portal>
-        <Dialog.Overlay className="dialog-overlay" />
+        <Dialog.Overlay className={`dialog-overlay${overlayClassName ? ` ${overlayClassName}` : ''}`} />
         <Dialog.Content className={`dialog-content${className ? ` ${className}` : ''}`} onOpenAutoFocus={onOpenAutoFocus} onCloseAutoFocus={onCloseAutoFocus}>
           <div className="dialog-heading">
             <div><div className="dialog-title-row"><Dialog.Title>{title}</Dialog.Title>{titleBadge}</div><Dialog.Description>{description}</Dialog.Description></div>
