@@ -11,6 +11,7 @@ module.exports = {
       const root = activity.source(app, record.getString('source_entity'), record.getString('source_record_id'), true)
       const files = record.getStringSlice('attachments')
       if (!files.includes(input.filename)) throw new ApiError(404, 'Pièce jointe introuvable.')
+      if (app.findCollectionByNameOrId('sales_orders').fields.getByName('customer_order_event') && app.findRecordsByFilter('sales_orders', 'customer_order_event = {:id}', '', 1, 0, { id: record.id }).length) throw new ApiError(409, 'Cette pièce justifie une commande confirmée et doit être conservée.')
       const before = record.publicExport()
       if (record.getString('source_entity').startsWith('crm_') && app.findAllCollections().some((collection) => collection.name === 'crm_tender_submissions')) {
         const tender = record.getString('source_entity') === 'crm_tenders' ? app.findRecordById('crm_tenders', record.getString('source_record_id')) : require(`${__hooks}/lib/tenders.js`).find(app, record.getString('source_record_id'))

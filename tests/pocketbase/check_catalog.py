@@ -26,6 +26,17 @@ class CatalogTests(unittest.TestCase):
 
     quote_save = check_sales.SalesTests.quote_save
 
+    def test_quote_search_description_words_and_sale_filter(self):
+        status, sale = self.create_product(description='Connecteur vidéo coaxial 12G')
+        self.assertEqual(status, 200, sale)
+        status, internal = self.create_product(key='internal-only-product-key', sku='INTERNAL-12G', sale_enabled=False, description='Connecteur vidéo coaxial 12G')
+        self.assertEqual(status, 200, internal)
+        status, results = self.pb.request('GET', 'horizon/inventory/products?q=BELDEN%20coaxial&sale_enabled=true', token=self.token)
+        self.assertEqual(status, 200, results)
+        self.assertEqual([item['id'] for item in results['items']], [sale['id']])
+        self.assertEqual(self.pb.request('GET', 'horizon/inventory/products?q=coaxial', token=self.token)[1]['totalItems'], 2)
+        self.assertEqual(self.pb.request('GET', 'horizon/inventory/products?sale_enabled=bad', token=self.token)[0], 400)
+
     def test_catalog_prices_history_search_and_snapshots(self):
         status, product = self.create_product()
         self.assertEqual(status, 200, product)
@@ -40,6 +51,7 @@ class CatalogTests(unittest.TestCase):
         self.assertEqual(reference['product_supplier'], '')
         self.assertEqual(reference['unit_cost'], 0)
         self.assertEqual(len(product['price_history']), 1)
+        self.assertIsNone(product['last_purchase'])
         self.assertEqual(self.create_product()[1]['id'], product['id'])
         self.assertEqual(self.pb.request('GET', 'horizon/inventory/products?q=video', token=self.token)[1]['totalItems'], 0)
         self.assertEqual(self.pb.request('GET', 'horizon/inventory/products?q=BELDEN', token=self.token)[1]['items'][0]['id'], product['id'])
@@ -65,6 +77,38 @@ class CatalogTests(unittest.TestCase):
         history = self.pb.request('GET', 'horizon/inventory/products/' + product['id'], token=self.token)[1]
         self.assertEqual(len(history['price_history']), 2)
         self.assertEqual(history['offers'], [])
+
+    def test_product_quote_history_analytics_options_and_permissions(self):
+        product = self.create_product()[1]
+        line = self.pb.request('POST', 'horizon/inventory/quote-line', {'product': product['id'], 'offer': '', 'currency': 'EUR'}, self.token)[1]
+        status, quote = self.quote_save(lines=[{**line, 'quantity': 5}, {**line, 'quantity': 2}, {**line, 'quantity': 3, 'is_option': True}])
+        self.assertEqual(status, 200, quote)
+        path = 'horizon/inventory/products/' + product['id'] + '/quotes'
+        status, history = self.pb.request('GET', path, token=self.token)
+        self.assertEqual(status, 200, history)
+        self.assertEqual(history['totalItems'], 1)
+        item = history['items'][0]
+        self.assertEqual(item['quote_number'], quote['quote_number'])
+        self.assertEqual(item['analytic_code'], self.opp['opportunity_number'])
+        self.assertEqual(item['opportunity'], self.opp['id'])
+        self.assertEqual(item['quantity'], 7)
+        self.assertEqual(item['option_quantity'], 3)
+        self.assertEqual(item['subtotal'], 7.56)
+        status, cancelled = self.pb.request('POST', 'horizon/sales/quotes/cancel', {'id': quote['id'], 'updated': quote['updated'], 'reason': 'Historique conservé'}, self.token)
+        self.assertEqual(status, 200, cancelled)
+        retained = self.pb.request('GET', path, token=self.token)[1]
+        self.assertEqual(retained['totalItems'], 1)
+        self.assertEqual(retained['items'][0]['status'], 'cancelled')
+        self.assertEqual(self.pb.request('GET', path + '?page=0', token=self.token)[0], 400)
+        self.assertEqual(self.pb.request('GET', path, token=self.contacts_token)[0], 403)
+        self.pb.request('PATCH', 'collections/core_roles/records/' + self.user['role'], {'permissions': ['inventory.read', 'sales.read']}, self.pb.admin_token)
+        status, hidden = self.pb.request('GET', path, token=self.token)
+        self.assertEqual(status, 200, hidden)
+        self.assertEqual(hidden['items'][0]['analytic_code'], '')
+        self.assertEqual(hidden['items'][0]['opportunity'], '')
+        self.assertEqual(hidden['items'][0]['company_name'], '')
+        self.pb.request('PATCH', 'collections/core_roles/records/' + self.user['role'], {'permissions': ['inventory.read']}, self.pb.admin_token)
+        self.assertEqual(self.pb.request('GET', path, token=self.token)[0], 403)
 
     def test_brand_required_on_save(self):
         status, result = self.create_product(brand='', manufacturer='')

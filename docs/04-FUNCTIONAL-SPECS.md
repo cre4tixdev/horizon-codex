@@ -3207,3 +3207,27 @@ Ajout / remplacement d’un produit dans un devis : reprise directe du coût et 
 
 
 PDF depuis une fiche devis : le devis courant est imposé à l’aperçu. Un seul modèle publié non archivé disponible est choisi automatiquement et déclenche le rendu HTML, sans demander une sélection inutile. Avec plusieurs modèles publiés, choix de modèle conservé ; aucun modèle draft ou archivé choisi arbitrairement. Sans modèle publié, indication explicite et invitation à publier dans Paramètres.
+
+
+Fiche produit — smart boutons dans la barre commune : Devis raccordé aux devis enregistrés contenant le produit, regroupés par pièce, avec date, client autorisé, code / libellé analytique autorisé, quantité hors options, quantité en option, montant des lignes HT avant remise globale et état. Historique incluant brouillons et annulations ; ouverture du devis par clic sur sa ligne. Achats, Ventes (commandes), Livraisons et Stock présents avec état indisponible, sans compteur simulé, en attente des modules opérationnels. Stock cible : physique / réservé / disponible / entrant par entrepôt, avec traçabilité analytique des mouvements et distinction parc interne.
+
+
+Produit / Achats : zone Dernier prix d’achat au-dessus des fournisseurs, affichant prix unitaire HT, devise / unité, date d’achat et fournisseur. Elle correspond exclusivement à un achat réel ; les tarifs et leur historique ne servent jamais à l’alimenter. Tant que le workflow Achats n’est pas raccordé, indication Aucun achat enregistré et valeurs absentes.
+
+
+Devis — cycle commercial : frise Brouillon / Devis / Envoyé / Commande client. Finaliser prépare et fige le devis (draft → validated, libellé Devis) ; Confirmer apparaît uniquement après finalisation et réalise l’acceptation client (validated / sent → accepted) et crée atomiquement une commande confirmed avec les mêmes compte analytique / devise / commercial et snapshots de lignes, hors options. Aucun passage manuel à sent : réservé au futur envoi réel Messaging. Confirmation dans un popup avec référence de commande client facultative et document PDF / image facultatif ; absence des deux affichée Attente Commande. Preuve stockée une seule fois dans le fil protégé, consultable depuis le fil et près de la référence. Confirmation rejouée ne crée pas de doublon. Aucune réservation, livraison, facturation ou commande fournisseur automatique. Commercial = owner, compte Horizon actif sélectionnable dans le brouillon. Droits sales.quote.validate et sales.order.confirm distincts de sales.write.
+
+
+Retours : Devis / Envoyé → Brouillon avec sales.quote.validate ; Commande client → Devis avec sales.order.confirm, uniquement tant que toutes les commandes concernées sont confirmed sans exécution. Retour annule explicitement les commandes précédentes, sans suppression, et conserve preuves / snapshots. Une confirmation ultérieure crée le rang commande suivant, sans réutiliser le numéro. Toute transition est auditée et visible dans le fil.
+
+
+Devis — annulation, archivage et suppression : `cancelled` est un état métier distinct ; `archived_at` retire une pièce des listes courantes sans modifier son état ni ses engagements. Réactivation disponible. `sent_at` conserve le premier envoi, même après retour en brouillon. Suppression serveur autorisée avec `sales.write` uniquement sans envoi historique et sans aucune commande liée (même annulée) ; les autres pièces restent archivables. Une commande doit revenir en devis avant annulation du devis.
+
+
+Recherche de produit dans un devis : recherche dynamique multi-mots sur marque, référence, nom et description ; produits actifs vendables seulement, pagination serveur. Résultats structurés marque / référence-modèle / description / PUV. Fiche et création utilisent ProductPage embarquée existante ; coûts et PUV appliqués depuis le service de pricing.
+
+Copier un devis depuis la roue : recherche par numéro / titre / client / opportunité, sélection puis saisie exacte COPIER. Disponible sur Nouveau devis et sur un brouillon actif enregistré sans modifications en attente. En création, la roue propose uniquement Copier un devis ; le rattachement peut être choisi après la copie et reste obligatoire à l’enregistrement. Reprend titre, lignes et sections, notes, coûts / PUV, remises et choix CGV dans le formulaire ouvert ; conserve numéro, opportunité, dates, commercial et devise. Source relue avant copie, refus si modifiée ou de devise différente. La copie remplace le contenu du formulaire, reste annulable avant Enregistrer et utilise la validation / pricing serveur habituels ; aucun état, commande, document ou fil historique n’est copié.
+
+Nouveau devis : le sélecteur Opportunité propose Créer une opportunité aux utilisateurs disposant de crm.write / crm.read. Réutilise OpportunityPage dans RecordWorkspace, titre prérempli depuis la recherche, sélection automatique après sauvegarde ; le devis et ses saisies restent ouverts. Le rattachement d’un devis existant reste immuable.
+
+Liste Devis : bandeau de synthèse Brouillon / Devis / Envoyé / Commande client, compteurs serveur des pièces non archivées sur la recherche / société / opportunité courantes, indépendants du filtre de statut et de la pagination. Clic applique le statut à la liste existante en conservant les autres critères.

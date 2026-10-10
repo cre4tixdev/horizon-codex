@@ -20,6 +20,7 @@ import { canAccessNavigation } from '../navigationAccess'
 export function AppFrame() {
   const session = useSyncExternalStore(sessionService.subscribe, sessionService.getSnapshot)
   const user = session.status === 'authenticated' ? session.user : undefined
+  const [workflowActions, setWorkflowActions] = useState<HTMLDivElement | null>(null)
   const [recordActions, setRecordActions] = useState<HTMLDivElement | null>(null)
   const [breadcrumbActions, setBreadcrumbActions] = useState<HTMLDivElement | null>(null)
   const [breadcrumbTrail, setBreadcrumbTrail] = useState<HTMLDivElement | null>(null)
@@ -74,8 +75,8 @@ export function AppFrame() {
         </header>
         <main id="main-content" tabIndex={-1} className="main-content">
           {connectionError && <p role="alert" className="login-notice">{connectionError}</p>}
-          <div className="page-breadcrumb-row"><div className="page-breadcrumb-trail"><HBreadcrumb items={[{ label: 'Accueil', href: '/' }, { label: currentTitle }]} /><div ref={setBreadcrumbTrail} className="page-breadcrumb-custom" /></div><div ref={setBreadcrumbRelated} className="page-breadcrumb-related" /><div className="page-breadcrumb-controls"><div ref={setRecordActions} className="page-breadcrumb-record-actions" /><div ref={setBreadcrumbActions} className="page-breadcrumb-actions" /></div></div>
-          <BreadcrumbActionsContext.Provider value={{ actions: recordActions, navigation: breadcrumbActions, related: breadcrumbRelated, trail: breadcrumbTrail }}><Outlet /></BreadcrumbActionsContext.Provider>
+          <div className="page-breadcrumb-row"><div className="page-breadcrumb-leading"><div className="page-breadcrumb-trail"><HBreadcrumb items={[{ label: 'Accueil', href: '/' }, { label: currentTitle }]} /><div ref={setBreadcrumbTrail} className="page-breadcrumb-custom" /></div><div ref={setWorkflowActions} className="page-breadcrumb-workflow-actions page-breadcrumb-record-actions" /></div><div ref={setBreadcrumbRelated} className="page-breadcrumb-related" /><div className="page-breadcrumb-controls"><div ref={setRecordActions} className="page-breadcrumb-record-actions" /><div ref={setBreadcrumbActions} className="page-breadcrumb-actions" /></div></div>
+          <BreadcrumbActionsContext.Provider value={{ actions: recordActions, workflow: workflowActions, navigation: breadcrumbActions, related: breadcrumbRelated, trail: breadcrumbTrail }}><Outlet /></BreadcrumbActionsContext.Provider>
         </main>
       </div>
     </div></RecordEditors>

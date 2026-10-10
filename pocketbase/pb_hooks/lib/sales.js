@@ -12,19 +12,22 @@ const get = (app, id) => app.findRecordById('sales_quotes', id)
 const dto = (app, quote) => {
   const opp = app.findRecordById('crm_opportunities', quote.getString('opportunity'))
   const company = app.findRecordById('contacts_companies', quote.getString('company'))
-  return { ...quote.publicExport(), opportunity_name: opp.getString('title'), opportunity_number: opp.getString('opportunity_number'), company_name: company.getString('name'), lines: app.findRecordsByFilter('sales_quote_lines', 'quote = {:id}', 'position', 0, 0, { id: quote.id }).map((record) => record.publicExport()) }
+  const order = app.findRecordsByFilter('sales_orders', 'quote = {:id} && status != "cancelled"', '-order_sequence,created', 1, 0, { id: quote.id })[0]
+  const proof = order?.getString('customer_order_event') ? app.findRecordById('core_activity_events', order.getString('customer_order_event')) : null
+  return { ...quote.publicExport(), can_delete: !quote.getString('sent_at') && quote.getString('status') !== 'sent' && !app.findRecordsByFilter('sales_orders', 'quote = {:id}', '', 1, 0, { id: quote.id }).length, owner_name: app.findRecordById('core_users', quote.getString('owner')).getString('name'), order: order ? { id: order.id, number: order.getString('order_number'), customer_number: order.getString('customer_order_number'), event_id: proof?.id || '', files: proof?.getStringSlice('attachments') || [] } : null, opportunity_name: opp.getString('title'), opportunity_number: opp.getString('opportunity_number'), company_name: company.getString('name'), lines: app.findRecordsByFilter('sales_quote_lines', 'quote = {:id}', 'position', 0, 0, { id: quote.id }).map((record) => record.publicExport()) }
 }
 const audit = (app, record, before, actor, action, previousLines) => {
   const item = new Record(app.findCollectionByNameOrId('core_audit'))
   for (const [key, value] of Object.entries({ user: actor, module: 'sales', entity: 'sales_quotes', entity_id: record.id, action, before, after: record.publicExport(), metadata: { source: 'server', ...(previousLines ? { lines_before: previousLines, lines_after: app.findRecordsByFilter('sales_quote_lines', 'quote = {:id}', 'position', 0, 0, { id: record.id }).map((line) => line.publicExport()) } : {}) } })) item.set(key, value)
   app.save(item)
   const activity = require(`${__hooks}/lib/activity.js`)
-  const fields = { title: 'Titre', status: 'État', subtotal: 'Total HT', discount: 'Remise globale', discount_mode: 'Mode de remise', terms_label: 'Conditions générales de vente', discount_amount: 'Remise globale', cost_total: 'Total achats HT', margin_amount: 'Marge globale', margin_percent: 'Marge sur coût (%)', tax_rate: 'TVA (%)', tax: 'TVA', total: 'Total TTC', options_total: 'Total options HT', quote_date: 'Date du devis', valid_until: 'Validité', notes: 'Notes' }
+  const fields = { owner: 'Commercial', title: 'Titre', status: 'État', subtotal: 'Total HT', discount: 'Remise globale', discount_mode: 'Mode de remise', terms_label: 'Conditions générales de vente', discount_amount: 'Remise globale', cost_total: 'Total achats HT', margin_amount: 'Marge globale', margin_percent: 'Marge sur coût (%)', tax_rate: 'TVA (%)', tax: 'TVA', total: 'Total TTC', options_total: 'Total options HT', quote_date: 'Date du devis', valid_until: 'Validité', notes: 'Notes' }
   const after = record.publicExport()
   const display = (field, value) => {
     if (value === undefined || value === null || value === '') return ''
+    if (field === 'owner') return value ? app.findRecordById('core_users', value).getString('name') : ''
     if (field === 'discount_mode') return value === 'amount' ? 'Montant' : 'Pourcentage'
-    if (field === 'status') return ({ draft: 'Brouillon', validated: 'Validé', sent: 'Envoyé', accepted: 'Accepté', rejected: 'Refusé', cancelled: 'Annulé' })[value] || String(value)
+    if (field === 'status') return ({ draft: 'Brouillon', validated: 'Devis', sent: 'Envoyé', accepted: 'Commande client', rejected: 'Refusé', cancelled: 'Annulé' })[value] || String(value)
     if (['quote_date', 'valid_until'].includes(field)) return String(value).slice(0, 10).split('-').reverse().join('/')
     if (['subtotal', 'options_total', 'tax', 'total', 'discount_amount', 'cost_total', 'margin_amount'].includes(field)) return `${Number(value).toFixed(2).replace('.', ',')} ${({ EUR: '€', USD: '$', GBP: '£', CAD: '$ CA', CHF: 'CHF' })[record.getString('currency')] || record.getString('currency')}`
     return String(value).slice(0, 500)
@@ -33,6 +36,40 @@ const audit = (app, record, before, actor, action, previousLines) => {
   activity.publish(app, record, actor, action === 'cancel' ? 'status_change' : 'change', action === 'create' ? 'Fiche créée' : action === 'cancel' ? 'Devis annulé' : 'Lignes et informations du devis mises à jour', { action: action === 'cancel' ? 'update' : action, changes })
 }
 module.exports = {
+  dto,
+  summary(event) {
+    permissions(event.app, event.auth)
+    const query = event.requestInfo().query, conditions = ['archived_at = ""'], parameters = {}
+    const search = String(query.q || '').trim()
+    if (search.length > 200) throw new BadRequestError('Recherche trop longue.')
+    if (query.opportunity) { opportunity(event.app, query.opportunity, event.auth); conditions.push('opportunity = {:opportunity}'); parameters.opportunity = query.opportunity }
+    if (query.company) { if (!/^[a-z0-9]{15}$/.test(query.company)) throw new BadRequestError('Société invalide.'); conditions.push('company = {:company}'); parameters.company = query.company }
+    if (search) { conditions.push('(quote_number LIKE {:q} OR title LIKE {:q} OR company IN (SELECT id FROM contacts_companies WHERE name LIKE {:q}) OR opportunity IN (SELECT id FROM crm_opportunities WHERE title LIKE {:q}))'); parameters.q = `%${search}%` }
+    const rows = arrayOf(new DynamicModel({ status: '', count: 0 }))
+    event.app.db().newQuery(`SELECT status, COUNT(*) AS count FROM sales_quotes WHERE ${conditions.join(' AND ')} GROUP BY status`).bind(parameters).all(rows)
+    const result = { draft: 0, validated: 0, sent: 0, accepted: 0 }
+    for (const row of rows) if (Object.prototype.hasOwnProperty.call(result, row.status)) result[row.status] = row.count
+    return event.json(200, result)
+  },
+  salespeople(event) { permissions(event.app, event.auth); const activity = require(`${__hooks}/lib/activity.js`); return event.json(200, { items: event.app.findRecordsByFilter('core_users', 'active = true', 'name,id', 0, 0).filter((user) => activity.allowed(event.app, user, false, 'sales')).map((user) => ({ id: user.id, name: user.getString('name') })) }) },
+  productQuotes(event) {
+    permissions(event.app, event.auth)
+    const catalog = require(`${__hooks}/lib/catalog.js`)
+    if (!catalog.allowed(event.app, event.auth)) throw new ForbiddenError('Accès au produit refusé.')
+    const id = event.request.pathValue('id'), page = Number(event.requestInfo().query.page || 1)
+    if (!/^[a-z0-9]{15}$/.test(id || '') || !Number.isInteger(page) || page < 1 || page > 100000) throw new BadRequestError('Produit ou page invalide.')
+    catalog.get(event.app, 'inventory_products', id)
+    const lines = event.app.findRecordsByFilter('sales_quote_lines', 'product = {:id}', '-quote.quote_date,quote.id,position', 10001, 0, { id })
+    if (lines.length > 10000) throw new BadRequestError('Historique trop volumineux. Contactez un administrateur.')
+    const grouped = new Map()
+    for (const line of lines) { const quote = line.getString('quote'); if (!grouped.has(quote)) grouped.set(quote, []); grouped.get(quote).push(line) }
+    const activity = require(`${__hooks}/lib/activity.js`), crm = activity.allowed(event.app, event.auth, false, 'crm'), contacts = activity.allowed(event.app, event.auth, false, 'contacts')
+    const items = [...grouped.entries()].slice((page - 1) * 25, page * 25).map(([id, rows]) => {
+      const quote = get(event.app, id), analytic = crm ? event.app.findRecordById('accounting_analytic_accounts', quote.getString('analytic_account')) : null
+      return { id, quote_number: quote.getString('quote_number'), title: quote.getString('title'), status: quote.getString('status'), quote_date: quote.getString('quote_date'), currency: quote.getString('currency'), company_name: contacts ? event.app.findRecordById('contacts_companies', quote.getString('company')).getString('name') : '', analytic_code: analytic?.getString('code') || '', analytic_label: analytic?.getString('label') || '', opportunity: crm ? quote.getString('opportunity') : '', quantity: rows.filter((row) => !row.getBool('is_option')).reduce((sum, row) => sum + row.getFloat('quantity'), 0), option_quantity: rows.filter((row) => row.getBool('is_option')).reduce((sum, row) => sum + row.getFloat('quantity'), 0), unit: rows[0].getString('unit'), subtotal: rows.filter((row) => !row.getBool('is_option')).reduce((sum, row) => sum + Math.round(row.getFloat('line_total') * 100), 0) / 100 }
+    })
+    return event.json(200, { items, totalItems: grouped.size, page, totalPages: Math.ceil(grouped.size / 25) })
+  },
   record(event) { permissions(event.app, event.auth); return event.json(200, dto(event.app, get(event.app, event.request.pathValue('id')))) },
   choices(event) {
     permissions(event.app, event.auth); opportunityAccess(event.app, event.auth)
@@ -51,9 +88,10 @@ module.exports = {
     if (query.get('opportunity')) { opportunity(event.app, query.get('opportunity'), event.auth); parameters.opportunity = query.get('opportunity'); conditions.push('opportunity = {:opportunity}') }
     if (query.get('company')) { if (!/^[a-z0-9]{15}$/.test(query.get('company'))) throw new BadRequestError('Société invalide.'); parameters.company = query.get('company'); conditions.push('company = {:company}') }
     const status = query.get('status') || ''
-    if (status && !['active', 'draft', 'validated', 'sent', 'accepted', 'cancelled', 'rejected'].includes(status)) throw new BadRequestError('État invalide.')
+    if (status && !['active', 'archived', 'draft', 'validated', 'sent', 'accepted', 'cancelled', 'rejected'].includes(status)) throw new BadRequestError('État invalide.')
+    conditions.push(status === 'archived' ? 'archived_at != ""' : 'archived_at = ""')
     if (status === 'active') conditions.push('status != "cancelled" && status != "rejected"')
-    else if (status) { conditions.push('status = {:status}'); parameters.status = status }
+    else if (status && status !== 'archived') { conditions.push('status = {:status}'); parameters.status = status }
     if (search) { conditions.push('(quote_number ~ {:q} || title ~ {:q} || company.name ~ {:q} || opportunity.title ~ {:q})'); parameters.q = search }
     const page = Number(query.get('page') || 1)
     if (!Number.isSafeInteger(page) || page < 1) throw new BadRequestError('Page invalide.')
@@ -68,7 +106,7 @@ module.exports = {
     const body = event.requestInfo().body
     if (Object.keys(body).some((key) => !['id', 'updated', 'creation_key', 'input'].includes(key))) throw new BadRequestError('Champs non autorisés.')
     const input = body.input || {}
-    if (Object.keys(input).some((key) => !['opportunity', 'title', 'quote_date', 'valid_until', 'notes', 'lines', 'discount', 'discount_mode', 'terms_id'].includes(key))) throw new BadRequestError('Champs du devis non autorisés.')
+    if (Object.keys(input).some((key) => !['opportunity', 'title', 'quote_date', 'valid_until', 'notes', 'lines', 'discount', 'discount_mode', 'terms_id', 'owner'].includes(key))) throw new BadRequestError('Champs du devis non autorisés.')
     const title = String(input.title || '').trim(), notes = String(input.notes || '')
     if (!title || title.length > 200 || notes.length > 10000) throw new BadRequestError('Titre obligatoire (200 caractères maximum).')
     for (const name of ['quote_date', 'valid_until']) if (input[name] && !/^\d{4}-\d{2}-\d{2}$/.test(input[name])) throw new BadRequestError('Date invalide.')
@@ -83,7 +121,7 @@ module.exports = {
       if (body.id) {
         quote = get(app, body.id); before = quote.publicExport(); previousLines = app.findRecordsByFilter('sales_quote_lines', 'quote = {:id}', 'position', 0, 0, { id: quote.id }).map((line) => line.publicExport())
         if (quote.getString('updated') !== body.updated) throw new ApiError(409, 'Le devis a été modifié. Rechargez la fiche.')
-        if (quote.getString('status') !== 'draft') throw new BadRequestError('Seul un brouillon est modifiable.')
+        if (quote.getString('status') !== 'draft' || quote.getString('archived_at')) throw new BadRequestError('Seul un brouillon actif est modifiable.')
         if (quote.getString('opportunity') !== input.opportunity) throw new BadRequestError('Le rattachement du devis est immuable.')
         opportunity(app, input.opportunity, event.auth, true)
       } else {
@@ -92,10 +130,17 @@ module.exports = {
         if (existing.length) { if (existing[0].getString('opportunity') !== input.opportunity) throw new ApiError(409, 'Cette création est déjà rattachée.'); saved = dto(app, existing[0]); return }
         const opp = opportunity(app, input.opportunity, event.auth, true)
         const last = app.findRecordsByFilter('sales_quotes', 'opportunity = {:id}', '-quote_sequence', 1, 0, { id: opp.id })
-        const sequence = last.length ? last[0].getInt('quote_sequence') + 1 : 1
+        const counter = app.findRecordsByFilter('sales_quote_counters', 'opportunity = {:id}', '', 1, 0, { id: opp.id })[0] || new Record(app.findCollectionByNameOrId('sales_quote_counters'))
+        const sequence = Math.max(counter.getInt('last_value'), last[0]?.getInt('quote_sequence') || 0) + 1
+        counter.set('opportunity', opp.id); counter.set('last_value', sequence); app.save(counter)
         quote = new Record(app.findCollectionByNameOrId('sales_quotes'))
         for (const [key, value] of Object.entries({ opportunity: opp.id, quote_sequence: sequence, quote_number: `${opp.getString('opportunity_number')}-${sequence}`, analytic_account: opp.getString('analytic_account'), company: opp.getString('company'), contact: opp.getString('contact'), currency: opp.getString('currency'), owner: event.auth.id, created_by: event.auth.id, creation_key: body.creation_key, status: 'draft', revision: 1, exchange_rate: 0 })) quote.set(key, value)
       }
+      const owner = input.owner || quote.getString('owner')
+      if (typeof owner !== 'string' || !/^[a-z0-9]{15}$/.test(owner)) throw new BadRequestError('Choisissez un commercial.')
+      const salesperson = app.findRecordById('core_users', owner)
+      if (owner !== quote.getString('owner') && !require(`${__hooks}/lib/activity.js`).allowed(app, salesperson, false, 'sales')) throw new BadRequestError('Choisissez un commercial actif habilité aux ventes.')
+      quote.set('owner', owner)
       const catalog = require(`${__hooks}/lib/catalog.js`)
       const existingProducts = previousLines.filter((line) => line.product)
       for (const line of priced.lines.filter((line) => line.product)) {
@@ -145,7 +190,7 @@ module.exports = {
     const body = event.requestInfo().body, reason = String(body.reason || '').trim()
     if (!reason || reason.length > 2000) throw new BadRequestError('Indiquez le motif d’annulation.')
     let result
-    event.app.runInTransaction((app) => { permissions(app, event.auth, true); const quote = get(app, body.id); if (quote.getString('updated') !== body.updated) throw new ApiError(409, 'Le devis a été modifié.'); if (quote.getString('status') !== 'draft') throw new BadRequestError('Seul un brouillon peut être annulé dans ce lot.'); const before = quote.publicExport(); quote.set('status', 'cancelled'); quote.set('lost_reason', reason); quote.set('cancelled_at', new Date().toISOString()); app.save(quote); audit(app, quote, before, event.auth.id, 'cancel'); result = dto(app, quote) })
+    event.app.runInTransaction((app) => { permissions(app, event.auth, true); const quote = get(app, body.id); if (quote.getString('updated') !== body.updated) throw new ApiError(409, 'Le devis a été modifié.'); if (!['draft', 'validated', 'sent'].includes(quote.getString('status')) || quote.getString('archived_at')) throw new BadRequestError('Revenez en devis ou réactivez la pièce avant de l’annuler.'); const before = quote.publicExport(); quote.set('status', 'cancelled'); quote.set('lost_reason', reason); quote.set('cancelled_at', new Date().toISOString()); app.save(quote); audit(app, quote, before, event.auth.id, 'cancel'); result = dto(app, quote) })
     return event.json(200, result)
   },
   related(event) {

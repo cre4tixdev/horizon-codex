@@ -11,7 +11,7 @@ export function SidebarItem({ item }: { item: NavigationItem }) {
   const Icon = item.icon
   const link = <NavLink to={item.href} end={item.href === '/'} aria-label={item.label} title={item.label} className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`}><Icon size={17} aria-hidden="true" /><span>{item.label}</span></NavLink>
   if (!item.children?.length) return link
-  const queryKeys = new Set(item.children.flatMap((child) => [...new URLSearchParams(child.href.split('?')[1]).keys()]))
+  const queryKeys = new Set(item.children.flatMap((child) => [...new URLSearchParams(child.href.split('?')[1]).keys()].filter((key) => key !== 'view')))
   return <div className="sidebar-entry">
     <div className="sidebar-entry-row">{link}<button type="button" className="sidebar-submenu-toggle" aria-label={`${expanded ? 'Replier' : 'Déplier'} ${item.label}`} aria-expanded={expanded} aria-controls={id} onClick={() => setExpanded((value) => !value)}><ChevronRight size={14} aria-hidden="true" /></button></div>
     <div id={id} className="sidebar-submenu" hidden={!expanded}>{item.children.map((child) => {

@@ -13,7 +13,7 @@ export default defineConfig([
   },
   {
     files: ['pocketbase/pb_hooks/**/*.js'],
-    languageOptions: { globals: { FormData: 'readonly', $filesystem: 'readonly', onRecordValidate: 'readonly', BadRequestError: 'readonly', onRecordCreateRequest: 'readonly', onRecordUpdateRequest: 'readonly', onRecordCreate: 'readonly', onRecordUpdate: 'readonly', onRecordDelete: 'readonly', onRecordDeleteRequest: 'readonly', require: 'readonly', __hooks: 'readonly', Record: 'readonly', ForbiddenError: 'readonly', ApiError: 'readonly', $os: 'readonly', $http: 'readonly', $security: 'readonly', $apis: 'readonly', routerAdd: 'readonly', arrayOf: 'readonly', DynamicModel: 'readonly' } },
+    languageOptions: { globals: { FileField: 'readonly', FormData: 'readonly', $filesystem: 'readonly', onRecordValidate: 'readonly', BadRequestError: 'readonly', onRecordCreateRequest: 'readonly', onRecordUpdateRequest: 'readonly', onRecordCreate: 'readonly', onRecordUpdate: 'readonly', onRecordDelete: 'readonly', onRecordDeleteRequest: 'readonly', require: 'readonly', __hooks: 'readonly', Record: 'readonly', ForbiddenError: 'readonly', ApiError: 'readonly', $os: 'readonly', $http: 'readonly', $security: 'readonly', $apis: 'readonly', routerAdd: 'readonly', arrayOf: 'readonly', DynamicModel: 'readonly' } },
   },
   {
     files: ['**/*.{js,ts,tsx}'],

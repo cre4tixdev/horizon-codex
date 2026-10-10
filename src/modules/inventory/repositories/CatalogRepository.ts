@@ -1,11 +1,12 @@
 import { z } from 'zod'
 import { createPocketBaseClient } from '../../../core/pocketbase/client'
-import { brandSchema, categorySchema, productSchema, productPageSchema, choicesSchema, quoteProductSchema, type ProductInput, type ProductFiles, type Category, type Product } from '../schemas/catalog'
+import { productQuotesSchema, brandSchema, categorySchema, productSchema, productPageSchema, choicesSchema, quoteProductSchema, type ProductInput, type ProductFiles, type Category, type Product } from '../schemas/catalog'
 export function createCatalogRepository(url: string) {
   const client = createPocketBaseClient(url)
   async function photos(record: Product, existingToken?: string): Promise<Product> { if (!record.primary_image && !record.images.length) return record; const token = existingToken || await client.files.getToken(); return { ...record, image_url: record.primary_image ? client.files.getURL(record, record.primary_image, { token }) : '', image_urls: record.images.map((name) => client.files.getURL(record, name, { token })) } }
   async function read(value: unknown) { return photos(productSchema.parse(value)) }
   return {
+    async productQuotes(id: string, page: number) { return productQuotesSchema.parse(await client.send(`/api/horizon/inventory/products/${id}/quotes`, { method: 'GET', query: { page }, requestKey: null })) },
     async list(query: Record<string, string | number>) { const page = productPageSchema.parse(await client.send('/api/horizon/inventory/products', { method: 'GET', query, requestKey: null })); const token = page.items.some((item) => item.primary_image || item.images.length) ? await client.files.getToken() : undefined; return { ...page, items: await Promise.all(page.items.map((item) => photos(item, token))) } },
     async record(id: string) { return read(await client.send(`/api/horizon/inventory/products/${id}`, { method: 'GET', requestKey: null })) },
     async choices() { return choicesSchema.parse(await client.send('/api/horizon/inventory/choices', { method: 'GET', requestKey: null })) },

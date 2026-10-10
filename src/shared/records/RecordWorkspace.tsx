@@ -33,7 +33,7 @@ export function RecordWorkspace({ adapters, children }: { adapters: Record<strin
   return <RecordWorkspaceContext.Provider value={open}>{children}{entries.map((entry) => {
     const adapter = adapters[entry.session.resource]!
     return <HDialog key={entry.key} open title={entry.session.id ? adapter.viewTitle : adapter.createTitle} description="Votre saisie d’origine reste ouverte. Enregistrer reprend la fiche dans le champ." className="record-workspace-dialog" onCloseAutoFocus={(event) => { event.preventDefault(); entry.session.returnFocus?.() }} onOpenChange={(next) => { if (!next) close(entry) }}>
-      <BreadcrumbActionsContext.Provider value={{ actions: null, trail: null, related: null, navigation: null }}><RecordSessionContext.Provider value={entry.session}><div className="record-workspace-body" onClickCapture={(event) => {
+      <BreadcrumbActionsContext.Provider value={{ actions: null, workflow: null, trail: null, related: null, navigation: null }}><RecordSessionContext.Provider value={entry.session}><div className="record-workspace-body" onClickCapture={(event) => {
         const anchor = event.target instanceof Element ? event.target.closest<HTMLAnchorElement>('a[href]') : null
         if (!anchor || event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return
         const url = new URL(anchor.href)

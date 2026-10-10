@@ -13,3 +13,5 @@ onRecordDelete(() => { throw new BadRequestError('L’historique des prix doit �
 
 routerAdd('POST', '/api/horizon/inventory/brands/create', (event) => require(`${__hooks}/lib/catalog.js`).createBrand(event), $apis.requireAuth('core_users'))
 onRecordDelete(() => { throw new BadRequestError('Les marques liées au catalogue doivent être conservées.') }, 'inventory_brands')
+
+routerAdd('GET', '/api/horizon/inventory/products/{id}/quotes', (event) => require(`${__hooks}/lib/sales.js`).productQuotes(event), $apis.requireAuth('core_users'))

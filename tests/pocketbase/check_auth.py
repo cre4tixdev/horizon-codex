@@ -329,7 +329,7 @@ if __name__ == '__main__':
             pb.start()
             writer_role = pb.create('core_roles', {'name': 'contacts_writer', 'label': 'Contacts', 'active': True, 'permissions': ['contacts.read', 'contacts.write']})
             writer = pb.create_user('writer@local.invalid', writer_role['id'])
-            admin_role = pb.create('core_roles', {'name': 'erp_admin', 'label': 'Admin', 'active': True, 'permissions': ['settings.users', 'settings.references', 'documents.template.manage', 'contacts.read', 'contacts.write', 'crm.read', 'crm.write', 'hr.read', 'hr.write', 'hr.organisation.manage', 'sales.read', 'sales.write', 'inventory.read', 'inventory.write']})
+            admin_role = pb.create('core_roles', {'name': 'erp_admin', 'label': 'Admin', 'active': True, 'permissions': ['settings.users', 'settings.references', 'documents.template.manage', 'contacts.read', 'contacts.write', 'crm.read', 'crm.write', 'hr.read', 'hr.write', 'hr.organisation.manage', 'sales.read', 'sales.write', 'sales.quote.validate', 'sales.order.confirm', 'inventory.read', 'inventory.write']})
             admin_user = pb.create_user('erp-admin@local.invalid', admin_role['id'], 'admin')
             pb.request('PATCH', f'collections/core_users/records/{admin_user["id"]}', {'hr_scope': 'all'}, pb.admin_token)
             catalog_reader_role = pb.create('core_roles', {'name': 'catalog_reader', 'label': 'Catalogue lecture', 'active': True, 'permissions': ['inventory.read']})

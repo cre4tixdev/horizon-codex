@@ -1444,3 +1444,18 @@ Remise globale devis : régression navigateur sur montant saisi donnant un pourc
 
 
 Bouton PDF devis : recette navigateur du devis courant sans sélecteur de devis, choix automatique du modèle publié unique et génération HTML immédiate ; téléchargement PDF et erreur Gotenberg conservés. Avec plusieurs modèles, changement de modèle et HTML multipage portrait / paysage vérifiés. Resélectionner le modèle actif ne vide pas l’aperçu.
+
+
+Smart boutons produit : test serveur du regroupement des lignes par devis, quantités / options / montant HT et analytique, refus sans droits Ventes et masquage serveur CRM / Contacts. Parcours navigateur : compteur Devis, historique en tableau commun, ouverture de la fiche devis et état indisponible des achats non implémentés.
+
+Compatibilité catalogue : fiche et liste restent lisibles lorsque les anciens hooks ne renvoient pas encore last_purchase ; absence normalisée en null, sans fabriquer un achat. Tests unitaires de lecture ancienne / nouvelle réponse et refus de montant invalide. Les erreurs de contrat loggent uniquement chemin / code, sans données métier.
+
+
+Cycle devis / commande — 17 tests serveur Ventes couvrent les permissions dédiées, la concurrence, confirmation idempotente, lignes hors options, snapshots coût / taxe, analytique et revenu sans double compte, retours avec conservation des commandes, blocage dès exécution, annulation, archivage / réactivation, suppression sans envoi ni commande et non-réutilisation des numéros. Pièce cliente : contrôle MIME réel, fichier protégé, preuve conservée après retour. Les 4 parcours Playwright Ventes couvrent aussi la frise, le commercial, les dialogues de retour et l’aperçu de pièce depuis la fiche et le fil. Lint / TypeScript / 155 tests unitaires / build vérifiés.
+
+
+Recherche produit devis : régression serveur sur mots combinés marque + description et filtrage des produits non vendables avant pagination. Parcours Catalogue adapté au champ dynamique sans combobox, sélection par ligne, aperçu de la fiche existante et reprise des prix coût / PUV.
+
+Recherche produit — ajout direct par bouton + de ligne vérifié dans le parcours Catalogue : coût / PUV manuels repris, devis enregistré et relu sans modification des lignes précédentes. Action Ajouter après sélection également testée ; séparateurs et actions centrées contrôlés sur capture navigateur.
+
+Copie de contenu de devis : test unitaire des champs repris / identité conservée et suppression des identifiants de lignes ; Playwright vérifie recherche, blocage sans COPIER, reprise des coûts / prix, annulation locale, enregistrement puis rechargement sans changement de numéro.

@@ -1,4 +1,4 @@
-import { LayoutDashboard, Mail, CalendarDays, ContactRound, Target, FileText, ShoppingCart, Package, FolderKanban, Headset, UsersRound, Clock3, CalendarOff, Receipt, Wallet, Landmark, Files, Settings2, Columns3, ClipboardList, type LucideIcon } from 'lucide-react'
+import { LayoutDashboard, Mail, CalendarDays, ContactRound, Target, FileText, ShoppingCart, Package, FolderKanban, Headset, UsersRound, Clock3, CalendarOff, Receipt, Wallet, Landmark, Files, Settings2, Columns3, ClipboardList, Building2, Truck, type LucideIcon } from 'lucide-react'
 
 export type NavigationItem = { label: string; href: string; icon: LucideIcon; description: string; children?: NavigationItem[] }
 export type NavigationGroup = { label: string; items: NavigationItem[] }
@@ -10,7 +10,11 @@ export const navigationGroups: NavigationGroup[] = [
     { label: 'Calendrier', href: '/calendar', icon: CalendarDays, description: 'Rendez-vous, visites et échéances' },
   ] },
   { label: 'Activité', items: [
-    { label: 'Contacts', href: '/contacts', icon: ContactRound, description: 'Sociétés, contacts et adresses' },
+    { label: 'Contacts', href: '/contacts', icon: ContactRound, description: 'Sociétés, contacts et adresses', children: [
+      { label: 'Clients', href: '/contacts?role=customer&scope=companies&view=list', icon: Building2, description: 'Sociétés clientes' },
+      { label: 'Fournisseurs', href: '/contacts?role=supplier&scope=companies&view=list', icon: Truck, description: 'Sociétés fournisseurs' },
+      { label: 'Personnes', href: '/contacts/people?scope=people&view=list', icon: UsersRound, description: 'Tous les interlocuteurs' },
+    ] },
     { label: 'CRM', href: '/crm', icon: Target, description: 'Opportunités et appels d’offres', children: [
       { label: 'Pipeline', href: '/crm', icon: Columns3, description: 'Toutes les opportunités commerciales' },
       { label: 'Appels d’offres', href: '/crm?area=ao', icon: ClipboardList, description: 'Préparation et suivi des réponses AO' },

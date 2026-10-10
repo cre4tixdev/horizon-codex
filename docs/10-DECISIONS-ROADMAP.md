@@ -1846,3 +1846,14 @@ Paramètres — harmonisation : tableaux partagés avec `HSettingsTable`, bordur
 
 
 9 octobre 2026 — Catalogue P04 : référence produit unique, pictogrammes vendu / acheté côte à côte, retour coefficient auto par décochage, marge sur vente explicitement distinguée de la majoration sur coût. Tableau Fournisseurs : colonnes redimensionnables via HDataTable partagé, étoile centrée et suppression confirmée sans purge de l’historique. Groupe de variantes reste un libellé facultatif de regroupement de produits autonomes. Pas de migration de schéma supplémentaire ; hooks et frontend à mettre à jour.
+
+Catalogue — smart boutons produit : Devis opérationnel avec historique par produit / analytique et contrôles serveur de droits. Achats, commandes Ventes, Livraisons et Stock prévus dans la barre commune ; raccordement différé aux workflows correspondants, sans simuler des quantités ni considérer un devis comme une vente.
+
+
+Cycle commercial Devis : finalisation, confirmation client et preuve protégée, commercial visible et frise des quatre phases. Envoi réel via Messaging, commandes partielles, révisions, exécution / livraisons et facturation restent des lots ultérieurs. La confirmation complète courante respecte le modèle multi-devis / multi-commandes et l’analytique commun.
+
+
+Devis — annulation, archivage et suppression : `cancelled` est un état métier distinct ; `archived_at` retire une pièce des listes courantes sans modifier son état ni ses engagements. Réactivation disponible. `sent_at` conserve le premier envoi, même après retour en brouillon. Suppression serveur autorisée avec `sales.write` uniquement sans envoi historique et sans aucune commande liée (même annulée) ; les autres pièces restent archivables. Une commande doit revenir en devis avant annulation du devis.
+
+
+Livraison locale — cycle devis : frise, commercial, finalisation, confirmation avec vraie commande et preuve protégée ; reprises commande → devis → brouillon, annulation, archivage indépendant et suppression limitée. Compteur persistant par opportunité ; historique et analytique conservés. Envoi réel toujours en attente du module Messaging ; aucun faux envoi. Achats / livraisons / réservations ne sont pas déclenchés automatiquement.

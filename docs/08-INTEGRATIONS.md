@@ -613,3 +613,6 @@ Aperçu HTML Documents — Paged.js 0.4.3 local, validé le 9 octobre 2026 : ré
 Documents D15 — correction du 9 octobre 2026 : les fonds pleine page des templates Chromium d’en-tête / pied de page sont découpés à la hauteur de leur zone. Sans ce découpage, un fond opaque de pied de page recouvre le corps et masque presque entièrement le logo. Reproduit avec Chromium et contrôlé sur un PDF rasterisé, avec logo PNG et fond opaque. Le transport Gotenberg et ses marges sont conservés.
 
 Documents D16 : le provider PDF reçoit un nom sécurisé depuis Documents, issu du contexte métier sauvegardé et de settings_document_files. Content-Disposition fournit filename ASCII de secours et filename* UTF-8 ; l’en-tête est exposé au navigateur via CORS. Le repository retourne le Blob et le nom, le téléchargement utilise ce nom. Pas de changement du transport de conversion ni de nouvelle dépendance.
+
+
+Devis / Envoyé : statut réservé à un envoi effectivement réalisé par Messaging Service / MailProvider. Le présent lot n’expose aucune action simulant l’envoi. La confirmation client est indépendante du futur transport mail et crée la commande côté Sales, sans écriture comptable ni synchronisation Sage / PDP.

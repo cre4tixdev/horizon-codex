@@ -1846,3 +1846,28 @@ test('vues : personnelles et globales, auteur, collègues et administrateur', as
   await views.getByRole('button', { name: 'Supprimer', exact: true }).click()
   await expect(views.getByRole('button', { name: 'Clients globaux UX Partagée' })).toHaveCount(0)
 })
+
+
+test('Contacts : sous-menus Clients, Fournisseurs et Personnes dans la sidebar', async ({ page }) => {
+  await login(page, 'writer@local.invalid')
+  await page.goto('/contacts')
+  const navigation = page.getByRole('navigation', { name: 'Navigation principale' })
+  await navigation.getByRole('button', { name: 'Replier Contacts', exact: true }).click()
+  await expect(navigation.getByRole('link', { name: 'Clients', exact: true })).not.toBeVisible()
+  await navigation.getByRole('button', { name: 'Déplier Contacts', exact: true }).click()
+  for (const [label, path, role, scope] of [['Clients', '/contacts', 'customer', 'companies'], ['Fournisseurs', '/contacts', 'supplier', 'companies'], ['Personnes', '/contacts/people', '', 'people']] as const) {
+    await navigation.getByRole('link', { name: label, exact: true }).click()
+    await expect(navigation.getByRole('link', { name: label, exact: true })).toHaveAttribute('aria-current', 'page')
+    const url = new URL(page.url())
+    expect(url.pathname).toBe(path)
+    expect(url.searchParams.get('role') || '').toBe(role)
+    expect(url.searchParams.get('scope')).toBe(scope)
+    expect(url.searchParams.get('view')).toBe('list')
+    await expect(page.getByRole('button', { name: 'Vue liste', exact: true })).toHaveAttribute('aria-pressed', 'true')
+    await page.getByRole('button', { name: 'Vue cartes', exact: true }).click()
+    await expect(navigation.getByRole('link', { name: label, exact: true })).toHaveAttribute('aria-current', 'page')
+  }
+  await page.reload()
+  await expect(navigation.getByRole('link', { name: 'Personnes', exact: true })).toHaveAttribute('aria-current', 'page')
+  await page.screenshot({ path: '/private/tmp/horizon-sidebar-contacts.png' })
+})

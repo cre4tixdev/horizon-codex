@@ -2,7 +2,7 @@ const modules = [
   { key: 'contacts', label: 'Contacts', available: true, actions: ['read', 'write'], scopes: ['all'] },
   { key: 'crm', label: 'CRM', available: true, actions: ['read', 'write'], scopes: ['all'] },
   { key: 'inventory', label: 'Catalogue / Stock', available: true, actions: ['read', 'write'], scopes: ['all'] },
-  { key: 'sales', label: 'Ventes', available: true, actions: ['read', 'write'], scopes: ['all'] },
+  { key: 'sales', label: 'Ventes', available: true, actions: ['read', 'write', 'quote.validate', 'order.confirm'], scopes: ['all'] },
   { key: 'hr', label: 'Employés', available: true, actions: ['read', 'write', 'organisation.manage'], scopes: ['self', 'reports', 'team', 'all'] },
   ...[['purchasing', 'Achats'], ['projects', 'Projets'], ['planning', 'Planning'], ['time', 'TimeReport'], ['leave', 'Congés'], ['expenses', 'Dépenses'], ['billing', 'Facturation'], ['accounting', 'Comptabilité'], ['service', 'SAV'], ['messaging', 'Messagerie'], ['documents', 'Documents']].map(([key, label]) => ({ key, label, available: false, actions: [], scopes: [] })),
 ]

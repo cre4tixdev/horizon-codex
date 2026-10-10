@@ -1,4 +1,5 @@
 import { ClientResponseError } from 'pocketbase'
+import { copyQuoteContent } from './quoteCopy'
 import { environment } from '../../../core/config/environment'
 import { hasPermission } from '../../../core/auth/types/session'
 import { sessionService } from '../../../core/auth/services/session'
@@ -22,6 +23,22 @@ async function settingsRun(write: boolean, action: (repo: ReturnType<typeof crea
   try { return await action(repository) } catch (error) { console.error('[sales-settings] Operation failed', { status: error instanceof ClientResponseError ? error.status : 0 }); throw new Error(error instanceof ClientResponseError && [400, 403, 409].includes(error.status) ? error.response.message : 'Paramètres Ventes indisponibles.', { cause: error }) }
 }
 export const salesService = {
+  summary: (options: Pick<QuoteListOptions, 'q' | 'opportunity' | 'company'>) => run(false, (repo) => repo.summary(options)),
+  copyContent: (sourceId: string, sourceUpdated: string, target: QuoteInput, currency: string) => run(true, async (repo) => {
+    const source = await repo.record(sourceId)
+    if (source.updated !== sourceUpdated) throw new Error('Le devis source a changé. Recherchez-le à nouveau avant de copier.')
+    if (source.currency !== currency) throw new Error('Le devis source doit utiliser la même devise que le devis ouvert.')
+    return copyQuoteContent(source, target)
+  }),
+  manage: (id: string, updated: string, action: 'archive' | 'restore') => run(true, (repo) => repo.manage(id, updated, action)),
+  remove: (id: string, updated: string) => run(true, (repo) => repo.remove(id, updated)),
+  reopen: (id: string, updated: string, target: 'draft' | 'validated') => run(false, (repo) => repo.reopen(id, updated, target)),
+  salespeople: () => run(false, (repo) => repo.salespeople()),
+  finalize: (id: string, updated: string) => run(false, (repo) => repo.finalize(id, updated)),
+  confirm: (id: string, updated: string, number: string, file?: File) => {
+    if (file && (file.size > 10485760 || !['application/pdf', 'image/png', 'image/jpeg', 'image/webp'].includes(file.type))) throw new Error('Choisissez un PDF ou une image de 10 Mio maximum.')
+    return run(false, (repo) => repo.confirm(id, updated, number, file))
+  },
   settings: () => settingsRun(false, (repo) => repo.settings()),
   saveSettings: (record: SalesSettings) => settingsRun(true, (repo) => repo.saveSettings(record)),
   list: (options: QuoteListOptions) => run(false, (repo) => repo.list(options)),

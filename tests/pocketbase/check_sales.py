@@ -1,5 +1,9 @@
 """Sales draft numbering, pricing, cancellation, revenue and access policy."""
 import unittest
+import json
+import base64
+from urllib.request import Request, urlopen
+from urllib.error import HTTPError
 import shutil
 import subprocess
 from pathlib import Path
@@ -18,6 +22,133 @@ class SalesTests(unittest.TestCase):
 
     def quote_save(self, key='quote-creation-key-00001', **changes):
         return self.pb.request('POST', 'horizon/sales/quotes/save', {'creation_key': key, 'input': {**self.quote, **changes}}, self.token)
+
+    def grant_lifecycle(self):
+        self.pb.request('PATCH', 'collections/core_roles/records/' + self.user['role'], {'permissions': ['crm.read', 'crm.write', 'sales.read', 'sales.write', 'sales.quote.validate', 'sales.order.confirm', 'contacts.read']}, self.pb.admin_token)
+
+    def transition(self, route, quote, **values):
+        return self.pb.request('POST', 'horizon/sales/quotes/' + route, {'id': quote['id'], 'updated': quote['updated'], **values}, self.token)
+
+    def test_summary_counts_states_and_excludes_archives(self):
+        self.grant_lifecycle()
+        _, draft = self.quote_save(key='summary-draft-creation', title='Summary brouillon')
+        _, final = self.quote_save(key='summary-final-creation', title='Summary devis')
+        self.assertEqual(self.transition('finalize', final)[0], 200)
+        _, sent = self.quote_save(key='summary-sent-creation', title='Summary envoyé')
+        self.pb.request('PATCH', 'collections/sales_quotes/records/' + sent['id'], {'status': 'sent'}, self.pb.admin_token)
+        _, accepted = self.quote_save(key='summary-order-creation', title='Summary commande')
+        _, accepted = self.transition('finalize', accepted)
+        self.assertEqual(self.transition('confirm', accepted)[0], 200)
+        _, archived = self.quote_save(key='summary-archive-creation')
+        self.assertEqual(self.transition('manage', archived, action='archive')[0], 200)
+        path = 'horizon/sales/quotes/summary'
+        status, summary = self.pb.request('GET', path, token=self.token)
+        self.assertEqual(status, 200, summary)
+        self.assertEqual(summary, {'draft': 1, 'validated': 1, 'sent': 1, 'accepted': 1})
+        self.assertEqual(self.pb.request('GET', path + '?opportunity=' + self.opp['id'] + '&status=draft', token=self.token)[1], summary)
+        self.assertEqual(self.pb.request('GET', path + '?q=Summary%20devis', token=self.token)[1], {'draft': 0, 'validated': 1, 'sent': 0, 'accepted': 0})
+        self.assertEqual(self.pb.request('GET', path + '?company=' + self.company['id'], token=self.token)[1], summary)
+        self.assertEqual(self.pb.request('GET', path + '?company=invalid', token=self.token)[0], 400)
+        self.assertEqual(self.pb.request('GET', path)[0], 401)
+        self.pb.request('PATCH', 'collections/core_roles/records/' + self.user['role'], {'permissions': ['crm.read']}, self.pb.admin_token)
+        self.assertEqual(self.pb.request('GET', path, token=self.token)[0], 403)
+
+    def test_lifecycle_permissions_snapshots_and_return(self):
+        _, quote = self.quote_save(lines=[{'description': 'Article', 'quantity': 2, 'unit_price': 100, 'unit_cost': 60}, {'description': 'Option', 'quantity': 1, 'unit_price': 50, 'is_option': True}])
+        self.assertEqual(self.transition('finalize', quote)[0], 403)
+        self.assertEqual(self.transition('confirm', quote)[0], 403)
+        self.grant_lifecycle()
+        status, final = self.transition('finalize', quote)
+        self.assertEqual(status, 200, final)
+        self.assertEqual(final['status'], 'validated')
+        self.assertEqual(self.pb.request('PATCH', 'collections/sales_quotes/records/' + final['id'], {'subtotal': 1}, self.pb.admin_token)[0], 400)
+        self.assertEqual(self.transition('reopen', quote, target='draft')[0], 409)
+        status, draft = self.transition('reopen', final, target='draft')
+        self.assertEqual(status, 200, draft)
+        self.assertEqual(draft['status'], 'draft')
+        self.assertEqual(self.transition('confirm', draft)[0], 400)
+        status, final = self.transition('finalize', draft)
+        self.assertEqual(status, 200, final)
+        status, confirmed = self.transition('confirm', final, customer_order_number='PO-42')
+        self.assertEqual(status, 200, confirmed)
+        self.assertEqual(confirmed['status'], 'accepted')
+        self.assertEqual(confirmed['order']['customer_number'], 'PO-42')
+        self.assertFalse(confirmed['can_delete'])
+        retry = self.transition('confirm', final)[1]
+        self.assertEqual(retry['order']['id'], confirmed['order']['id'])
+        order = self.pb.request('GET', 'collections/sales_orders/records/' + confirmed['order']['id'], token=self.pb.admin_token)[1]
+        self.assertEqual(order['analytic_account'], self.opp['analytic_account'])
+        self.assertEqual(order['subtotal'], 200)
+        rows = self.pb.request('GET', 'collections/sales_order_lines/records?filter=order="' + order['id'] + '"', token=self.pb.admin_token)[1]['items']
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]['unit_cost'], 60)
+        self.assertEqual(self.pb.request('GET', 'horizon/sales/opportunities/' + self.opp['id'], token=self.token)[1]['revenue'][0]['amount'], 200)
+        self.assertEqual(self.transition('manage', confirmed, action='delete')[0], 400)
+        status, restored = self.transition('reopen', confirmed, target='validated')
+        self.assertEqual(status, 200, restored)
+        self.assertEqual(restored['status'], 'validated')
+        self.assertIsNone(restored['order'])
+        previous = self.pb.request('GET', 'collections/sales_orders/records/' + order['id'], token=self.pb.admin_token)[1]
+        self.assertEqual(previous['status'], 'cancelled')
+        self.assertEqual(previous['quote_snapshot'], order['quote_snapshot'])
+        _, again = self.transition('confirm', restored)
+        self.assertNotEqual(again['order']['id'], order['id'])
+        self.assertTrue(again['order']['number'].endswith('-2'))
+        self.assertEqual(self.pb.request('PATCH', 'collections/sales_orders/records/' + again['order']['id'], {'status': 'in_progress'}, self.pb.admin_token)[0], 200)
+        self.assertEqual(self.transition('reopen', again, target='validated')[0], 409)
+
+    def test_archive_cancel_delete_and_sent_history(self):
+        self.grant_lifecycle()
+        _, quote = self.quote_save()
+        _, archived = self.transition('manage', quote, action='archive')
+        self.assertTrue(archived['archived_at'])
+        self.assertEqual(archived['status'], 'draft')
+        self.assertEqual(self.pb.request('GET', 'horizon/sales/quotes', token=self.token)[1]['totalItems'], 0)
+        self.assertEqual(self.pb.request('GET', 'horizon/sales/quotes?status=archived', token=self.token)[1]['totalItems'], 1)
+        self.assertEqual(self.transition('finalize', archived)[0], 400)
+        _, restored = self.transition('manage', archived, action='restore')
+        _, final = self.transition('finalize', restored)
+        _, cancelled = self.transition('cancel', final, reason='Projet abandonné')
+        self.assertEqual(cancelled['status'], 'cancelled')
+        status, deleted = self.transition('manage', cancelled, action='delete')
+        self.assertEqual(status, 200, deleted)
+        self.assertEqual(deleted, {'deleted': True})
+        _, quote = self.quote_save(key='sent-history-quote-key')
+        self.assertEqual(quote['quote_sequence'], 2)
+        self.pb.request('PATCH', 'collections/sales_quotes/records/' + quote['id'], {'status': 'sent'}, self.pb.admin_token)
+        sent = self.pb.request('GET', 'horizon/sales/quotes/' + quote['id'], token=self.token)[1]
+        self.assertTrue(sent['sent_at'])
+        _, draft = self.transition('reopen', sent, target='draft')
+        self.assertEqual(draft['sent_at'], sent['sent_at'])
+        self.assertFalse(draft['can_delete'])
+        self.assertEqual(self.transition('manage', draft, action='delete')[0], 400)
+
+    def test_customer_order_evidence_is_validated_protected_and_preserved(self):
+        self.grant_lifecycle()
+        _, quote = self.quote_save()
+        status, quote = self.transition('finalize', quote)
+        self.assertEqual(status, 200, quote)
+        def upload(filename, data, mime):
+            boundary = 'horizon-command-proof-boundary'
+            parts = [f'--{boundary}\r\nContent-Disposition: form-data; name="{key}"\r\n\r\n{value}\r\n'.encode() for key, value in {'id': quote['id'], 'updated': quote['updated'], 'customer_order_number': 'PO-7'}.items()]
+            parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="command_file"; filename="{filename}"\r\nContent-Type: {mime}\r\n\r\n'.encode() + data + b'\r\n')
+            parts.append(f'--{boundary}--\r\n'.encode())
+            request = Request(self.pb.url + '/api/horizon/sales/quotes/confirm', data=b''.join(parts), headers={'Authorization': self.token, 'Content-Type': f'multipart/form-data; boundary={boundary}'}, method='POST')
+            try:
+                with urlopen(request) as response: return response.status, json.loads(response.read())
+            except HTTPError as error: return error.code, json.loads(error.read())
+        self.assertEqual(upload('fake.pdf', b'plain text', 'application/pdf')[0], 400)
+        png = base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZlVgAAAAASUVORK5CYII=')
+        status, confirmed = upload('commande.png', png, 'image/png')
+        self.assertEqual(status, 200, confirmed)
+        event_id, file = confirmed['order']['event_id'], confirmed['order']['files'][0]
+        path = self.pb.url + '/api/files/core_activity_events/' + event_id + '/' + file
+        with self.assertRaises(HTTPError): urlopen(path)
+        token = self.pb.request('POST', 'files/token', token=self.token)[1]['token']
+        with urlopen(path + '?token=' + token) as response: self.assertEqual(response.read(), png)
+        self.assertEqual(self.transition('reopen', confirmed, target='validated')[0], 200)
+        proof = self.pb.request('GET', 'collections/core_activity_events/records/' + event_id, token=self.pb.admin_token)[1]
+        self.assertEqual(proof['attachments'], [file])
 
     def test_numbering_pricing_and_atomic_retry(self):
         status, first = self.quote_save()

@@ -2,7 +2,7 @@
 
 Informations légales société : section toujours visible dans Informations, sans chevron ni action de repli. Les champs SIREN, SIRET, TVA et LEI restent dans la grille compacte existante.
 
-Finition du 5 octobre 2026 — largeur des fiches : les sociétés et contacts utilisent toute la largeur disponible du contenu, au lieu d’un bloc centré plafonné à 1080 px. La barre d’actions, les onglets, les sections et le fil d’activité restent alignés. Seules les marges du layout sont conservées : 25 px par côté sur desktop et 12 px sur mobile. Les grilles adaptatives et les dimensions des logos restent inchangées.
+Finition du 5 octobre 2026 — largeur des fiches : les sociétés et contacts utilisent toute la largeur disponible du contenu, au lieu d’un bloc centré plafonné à 1080 px. La barre d’actions, les onglets, les sections et le fil d’activité restent alignés. Seules les marges du layout sont conservées : 40 px par côté sur desktop et 12 px sur mobile. Les grilles adaptatives et les dimensions des logos restent inchangées.
 
 ## Base validée sur Contacts pour tous les modules
 
@@ -12,7 +12,7 @@ Ce contrat consolidé et les dernières décisions datées ci-dessous priment su
 
 | Élément | Règle validée à réutiliser |
 |---|---|
-| Layout | Top bar fixe, recherche centrée, sidebar du module active sur toutes ses sous-pages. Contenu sur la largeur disponible : marges 25 px sur PC, 12 px sur mobile. Aucun footer décoratif sous les pages. |
+| Layout | Top bar fixe, recherche centrée, sidebar du module active sur toutes ses sous-pages. Contenu sur la largeur disponible : marges 40 px sur PC, 12 px sur mobile. Aucun footer décoratif sous les pages. |
 | Navigation des fiches | Barre persistante sous la top bar pendant le défilement. Fil d’Ariane Accueil › module › nom courant en gras ; lien module restituant le contexte de liste. Raccourcis métier compacts au centre, compteur et chevrons à droite. Pagination de liste au même endroit, libellée « Page 1 / 3 ». |
 | Recherche et filtres | Une recherche contextuelle dans la top bar, contexte visible et mode Tout Horizon disponible. Filtres / Regrouper par / Trier par et vues personnelles ou partagées dans le panneau commun ; critères actifs retirables, archives discrètes. URL et contexte de navigation conservés. La bascule automatique Sociétés / Personnes est propre au répertoire Contacts, pas une règle à imposer à tous les modules. |
 | Typographie | Inter Latin 400 / 500 / 600 / 700 embarquées, Montserrat 600 pour les titres de page. En-têtes de section via HSectionHeading : titre 13 px, ligne 18 px, graisse 600 ; description / compteur 11 px, ligne 16 px, graisse 400. Pas de taille ou police locale différente pour un même niveau. |
@@ -2091,3 +2091,35 @@ Titres d’onglets : gras 700 pour les onglets actifs et inactifs, via les style
 
 
 Catalogue Produits — fiche compacte avec photo principale et recherche d’images partagée, identité et prix visibles dans Informations, onglets Achats / Logistique / Comptabilité et fil d’activité commun. Marque obligatoire avant la référence unique. Fournisseurs en tableau partagé à colonnes ajustables, favori visible et suppression confirmée. Coût et coefficient disposent d’un mode manuel ; marge calculée sur le prix de vente. La fiche en popup réutilise ProductPage et conserve ses actions dans la barre supérieure à droite.
+
+Smart boutons produit : HRecordLinks dans le bandeau de navigation commun, variante inline dans la même fiche embarquée. Historique Devis en HDialog large centré sur le contenu et HDataTable partagé, navigation par la ligne, code analytique consultable séparément, compteur / pagination au pied droit. Modules non raccordés : compteur absent (—), action indisponible et description explicite, sans chiffre fictif.
+
+
+Fiche devis — frise compacte partagée dans la page et sa fiche embarquée : Brouillon → Devis → Envoyé → Commande client. Pas de badge supérieur doublonnant la frise ; seuls Annulé / Refusé / Archivé restent en badge. Actions de transition en haut, dialogues Horizon, commercial dans Informations. Référence de commande et aperçu protégé à côté ; même aperçu accessible dans le fil. Annulation / archivage / suppression via engrenage commun, filtres d’archives dans SearchFilters.
+
+
+Recherche produit depuis devis : fenêtre dense avec champ de recherche dynamique autofocus, sans combobox préalable. Résultats dans HDataTable commun : marque, référence / modèle (référence unique), nom et description, PUV HT ; sélection par ligne au clavier, accès fiche produit via RecordWorkspace. Pagination et filtre vendable serveur, texte recherché sur marque / référence / description. Création depuis la même fiche produit, sélection après sauvegarde ; rappel coût / PUV et application sans sélecteur de tarif.
+
+
+Recherche produit devis : action « Ajouter » (plus de « Appliquer au devis ») et bouton + dans la colonne Actions de chaque résultat pour insertion directe. Coût / PUV restent issus du service pricing ; une mutation reçoit explicitement le produit de sa ligne. Séparateurs verticaux discrets via `HDataTable.columnBorders`, textes alignés à gauche, montants à droite, actions centrées, alignement vertical médian.
+
+Recherche produit devis — ajout uniquement par + de ligne, sans bouton ni rappel redondant en pied de fenêtre. Colonnes Coût HT puis PUV HT ; montants à droite, en-têtes centrés. Actions : flèche de fiche avant bouton + plein rose Horizon, compact, centré. Après création via la fiche canonique, recherche repositionnée sur la référence créée pour permettre son ajout.
+
+
+Règle transversale — hauteur et position des actions : dans une barre d’actions, tous les boutons texte / icône, primaires / secondaires / Enregistrer, ont la même hauteur. `HRecordPageActions` utilise `--record-action-height: 30px`, identique sur page et fiche embarquée ; aucune hauteur propre à Confirmer, PDF ou Finaliser. À côté d’un champ, bouton et champ partagent 34px ; les cellules compactes de tableau conservent leur gabarit commun. Le shell commun distingue les actions métier à gauche (Finaliser / Confirmer / PDF, emplacement workflow, retrait de 40px après le fil) des actions d’édition à droite (Annuler les modifications / Enregistrer / Settings, emplacement actions par défaut). Liens métier dans la zone centrale, navigation de fiche à droite. Sur écran étroit, le groupe revient à la ligne sans chevaucher le fil ni déborder.
+
+Devis : Confirmer est absent en brouillon ; il apparaît uniquement après Finaliser, aux états Devis / Envoyé. Le serveur refuse également la confirmation directe d’un brouillon.
+
+Copier un devis : action dans l’engrenage du brouillon, HDialog avec recherche et HDataTable partagés, sélection explicite et garde-fou COPIER. Enregistrement habituel après reprise du contenu ; Annuler les modifications permet de revenir au contenu précédent.
+
+Règle générale Horizon : toutes les pages du workspace utilisent 40 px de marge à gauche et à droite sur desktop via --workspace-content-gutter ; fil d’Ariane et contenus alignés sur ce token, aucun retrait local par module. Mobile : 12 px. Le fil d’activité conserve son fond pleine largeur.
+
+Contacts dans la sidebar : chevron commun et sous-entrées Clients / Fournisseurs / Personnes. Liens vers les listes existantes en vue Liste, filtrées via role=customer / supplier et scope=companies, ou scope=people sans filtre commercial. Recherche et filtres restent ceux du panneau partagé ; la sélection du sous-menu dépend du périmètre / rôle, pas du choix Liste / Cartes.
+
+Synthèses Contacts / Devis : même HSummaryCards partagé, mêmes styles, icônes, densité et grilles responsive. Quatre cartes cliquables avec compteurs serveur ; aucun deuxième panneau de filtres. Les cartes devis conservent les critères URL et appliquent seulement le statut.
+
+Couleurs de statut Devis centralisées dans quoteStatusTones, identiques sur synthèse et tags : Brouillon violet, Devis bleu, Envoyé orange, Commande client vert ; Annulé / Refusé / Archivé navy.
+
+Fiche opportunité : frise HProgressSteps commune au devis, étapes du référentiel CRM triées, étape active en rose Horizon comme le devis, sans reprendre les couleurs des étapes. Présentation resserrée, largeur maximale de 960px. Étape actuelle issue du formulaire ; tag d’étape retiré de l’en-tête, badges AO / Archivée conservés. Gagné et Perdu sont des issues alternatives : Perdu ne coche pas Gagné ni les étapes ouvertes comme accomplies. Frise de lecture ; changement d’étape par le champ existant puis Enregistrer.
+
+Pictogrammes de la frise opportunité : Nouveau Crosshair, Qualifié sablier, Gagné Target (cible Lucide), Terminé check, Perdue visage triste, Annulé croix. Chaque étape conserve son pictogramme même lorsqu’elle est passée.

@@ -1216,3 +1216,19 @@ Catalogue P03 : appliquer la migration additive `1791504014_product_pricing_coef
 
 
 Catalogue — synchronisation NAS après coefficient manuel : le paquet P02 n’accepte pas les champs coefficient_override / manual_coefficient. Un frontend récent face à ces hooks renvoie 400 « Champs non autorisés. ». Installer le paquet consolidé `horizon-catalogue-nas.zip` (hooks complets et migrations, dont 1791504014_product_pricing_coefficient.js), appliquer les migrations explicitement avec les chemins existants puis redémarrer PocketBase. Aucun assouplissement de l’allowlist : synchroniser le contrat serveur / frontend. Le paquet ne contient ni base ni secret ; aucun déploiement automatique exécuté.
+
+
+GET /api/horizon/inventory/products/{id}/quotes : nécessite inventory.read et sales.read, utilisateur Horizon actif. Exécution déléguée au service Ventes ; champs du compte analytique et lien CRM renvoyés uniquement avec crm.read, client uniquement avec contacts.read. DTO en allowlist, identifiant et pagination validés. Aucun CRUD ni élargissement des API Rules.
+
+Compteur Devis des produits : le frontend récent nécessite la route GET /api/horizon/inventory/products/{id}/quotes et le service Ventes correspondant. Une réponse 404 File not found avec fiche lisible indique notamment des hooks non synchronisés. Installer les hooks consolidés puis redémarrer PocketBase ; aucune migration nouvelle pour ce compteur. La mise à jour des seuls fichiers sans redémarrage ne recharge pas les routes JS.
+
+
+Cycle Devis : nouvelles permissions sales.quote.validate et sales.order.confirm, administrateurs habilités par migration additive sans élargir les rôles métier partagés. Routes dédiées de finalisation et confirmation contrôlant droits effectifs, profil non viewer, version updated, statut, lignes, opportunité active, identité du commercial et champs en allowlist. Confirmation transactionnelle avec snapshots, audit et événement utilisateur. Preuve PDF / PNG / JPEG / WebP de 10 Mio maximum dans le fil protégé, validée serveur ; lecture sales.read, pas de lien public permanent. Numéro / preuve facultatifs, aucun contournement de droits en cas d’absence.
+
+
+Devis — annulation, archivage et suppression : `cancelled` est un état métier distinct ; `archived_at` retire une pièce des listes courantes sans modifier son état ni ses engagements. Réactivation disponible. `sent_at` conserve le premier envoi, même après retour en brouillon. Suppression serveur autorisée avec `sales.write` uniquement sans envoi historique et sans aucune commande liée (même annulée) ; les autres pièces restent archivables. Une commande doit revenir en devis avant annulation du devis.
+
+
+Installation NAS — cycle devis / commandes : paquet consolidé `horizon-sales-lifecycle-nas.zip`, contenant les hooks et migrations jusqu’à `1791504015_quote_lifecycle.js`. Sauvegarder la base et les fichiers de façon cohérente, recopier les dossiers montés `pb_hooks` / `pb_migrations`, puis exécuter explicitement `migrate up --dir=/pb_data --migrationsDir=/pb_migrations` avec le binaire PocketBase de l’image existante. `automigrate=false` : redémarrer seul ne suffit pas. Redémarrer après migration, synchroniser le frontend et se reconnecter. Admins existants reçoivent les deux permissions dédiées sans élever les rôles métier partagés ; autres habilitations explicites dans Utilisateurs et accès. Migration sans purge de pièces ; retour arrière par sauvegarde cohérente. Aucun déploiement NAS effectué localement.
+
+Compteurs de devis : GET /api/horizon/sales/quotes/summary requiert sales.read, mêmes droits CRM pour un périmètre opportunité explicite. Agrégation SQL serveur sans pagination, pièces archivées exclues. Installer les hooks sales.pb.js et lib/sales.js mis à jour puis redémarrer PocketBase ; aucun changement de schéma pour ce bandeau.

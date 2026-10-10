@@ -3763,3 +3763,20 @@ Catalogue P04 : sku est la Référence unique de la fiche et la référence prop
 
 
 Produit : marque obligatoire à la création et à toute nouvelle sauvegarde via le service Catalogue. Les fiches historiques sans marque restent consultables et doivent être complétées avant modification. Aucune marque fictive attribuée ni migration destructive ; relation existante conservée.
+
+
+Smart boutons produit : aucune nouvelle collection ni quantité de stock stockée. Lecture croisée par le service propriétaire Ventes des sales_quote_lines.product et de leurs sales_quotes ; compte analytique hérité de la pièce. Regroupement calculé par devis, pagination de 25 pièces et options distinguées. Pas de déduction de vente, livraison ou stock depuis un devis.
+
+
+Le DTO Produit expose last_purchase nullable (unit_cost, date, currency, unit, supplier_name). Valeur null dans le lot catalogue actuel : aucun achat opérationnel enregistré. Futur calcul délégué au module Achats depuis ses pièces métier ; aucun champ mutable ni historique tarifaire utilisé comme preuve d’achat.
+
+
+Lot cycle Devis — migration additive 1791504015_quote_lifecycle.js : sales_quotes.validated_by / validated_at / accepted_at. sales_orders : order_sequence (entier par quote), customer_order_number (texte 120), customer_order_event → core_activity_events, validated_by / validated_at, quote_snapshot JSON figé. Numéro serveur issu du numéro devis et du rang commande, sans code affaire indépendant. sales_order_lines : order, source_line, position, kind, product, description, quantity, unit, unit_price, unit_cost, line_total, tax_base, tax_rate, tax_amount, snapshot JSON du détail original. Options exclues de la commande complète de ce lot ; snapshots de prix, coût, remises, taxe, devise et taux existant conservés. Les nouvelles lignes sont immuables ; plusieurs commandes par devis restent possibles dans le contrat futur. La confirmation idempotente verrouille la création courante par transition du devis et transaction, pas par unicité globale sur opportunity ou quote. Aucune écriture REST publique. Pièce de commande conservée dans les attachments protégés de core_activity_events, relation depuis la commande ; retrait bloqué tant que liée à une commande confirmée.
+
+
+Retour commande : sales_orders.cancelled_at / cancellation_reason ; lignes et quote_snapshot conservés. source_line sur sales_order_lines est un identifiant historique texte (15), accompagné du snapshot intégral, car la reprise de brouillon réécrit les lignes de travail ; aucune dépendance destructrice aux lignes révisées. Les preuves liées restent protégées même pour une commande annulée. Le stock, les livraisons et la facturation ne sont pas créés par ce lot.
+
+
+Devis — annulation, archivage et suppression : `cancelled` est un état métier distinct ; `archived_at` retire une pièce des listes courantes sans modifier son état ni ses engagements. Réactivation disponible. `sent_at` conserve le premier envoi, même après retour en brouillon. Suppression serveur autorisée avec `sales.write` uniquement sans envoi historique et sans aucune commande liée (même annulée) ; les autres pièces restent archivables. Une commande doit revenir en devis avant annulation du devis.
+
+`sales_quote_counters` (propriétaire Sales, REST verrouillé) conserve le dernier suffixe émis par opportunité : `opportunity` relation unique CRM, `last_value` entier positif. Allocation atomique dans la transaction de création ; une suppression ne réutilise jamais un numéro de devis. Migration initialise les compteurs depuis les pièces existantes.

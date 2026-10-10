@@ -79,3 +79,17 @@
 .catalog-usage svg { color: var(--theme-text-muted, #7b8794); flex-shrink: 0; }
 
 .catalog-record .catalog-identity-grid .catalog-usage { grid-column: span 2; }
+
+.catalog-inline-links { display: flex; justify-content: center; padding: 0 0 8px; }
+.dialog-content.catalog-product-history { top: 50%; transform: translate(-50%, -50%); width: min(1120px, calc(100vw - var(--workspace-sidebar-width) - 48px)); max-height: calc(100dvh - 64px); }
+.catalog-product-history-body { padding: 12px 18px; overflow: auto; }
+.catalog-history-pagination { display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-top: 8px; font-size: 12px; }
+.catalog-history-link { position: relative; z-index: 2; color: var(--theme-accent, #7b3fc7); }
+.catalog-history-link small, .catalog-option-quantity { display: block; color: var(--theme-text-muted, #7b8794); font-size: 11px; }
+.catalog-last-purchase { padding-bottom: 14px; margin-bottom: 14px; border-bottom: 1px solid var(--theme-border-subtle, #edf0f4); }
+.catalog-last-purchase-values { display: flex; align-items: center; flex-wrap: wrap; gap: 18px 32px; margin-top: 10px; }
+.catalog-last-purchase-values > div { display: grid; gap: 4px; min-width: 120px; }
+.catalog-last-purchase-values span { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--theme-text-muted, #7b8794); }
+.catalog-last-purchase-values strong { font-size: 13px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.catalog-last-purchase-values > div:first-child strong { color: var(--theme-violet-text, #7b3fc7); font-size: 16px; font-weight: 600; }
+.catalog-last-purchase-values strong small { font-size: 11px; font-weight: 400; color: var(--theme-text-muted, #7b8794); }

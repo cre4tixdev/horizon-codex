@@ -369,6 +369,10 @@ popups utilisent `HDialog`, `dialog-form` et `HDialogFooter`. Avant livraison,
 comparer visuellement les onglets voisins et vérifier ces trois points dans
 le navigateur ; ne pas attendre une reprise utilisateur pour les harmoniser.
 
+Dans une même barre d’actions, uniformiser les hauteurs des boutons texte / icône et primaires / secondaires via le composant partagé : 30px pour les actions de fiche et du fil d’Ariane, 34px à côté des champs de formulaire. Ne pas créer de hauteur locale par action. Les actions métier (Finaliser / Confirmer / PDF) sont placées près du fil d’Ariane ; Annuler les modifications / Enregistrer / Settings restent à droite ; consulter la règle canonique du Design System avant de modifier ce bandeau.
+
+Marges générales des pages Horizon : 40 px de chaque côté sur desktop, 12 px sur mobile via le token partagé `--workspace-content-gutter`. Ne pas ajouter de retrait propre à un module.
+
 Créer un composant local uniquement s'il est spécifique au module.
 
 Si un pattern est répété dans plusieurs modules, le déplacer vers le Design System ou `shared`.
