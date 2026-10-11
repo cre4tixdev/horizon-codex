@@ -32,7 +32,7 @@ class UxTests(unittest.TestCase):
         self.assertIn(self.save(updated=saved['updated'])[0], [401, 403])
 
     def test_bounds_unknown_fields_and_css_injection(self):
-        for patch in [{'row_height': 20}, {'row_height': 33.2}, {'page_margin': 101}, {'title_font': 100}, {'control_height': 5}, {'header_light': 'url(https://evil.invalid)'}, {'header_dark': '#fff'}, {'activity_light': 'red'}, {'accent_background': 'url(evil)'}, {'launcher_tile_size': 10}, {'smart_height': 10}, {'sidebar_group_gap': -1}, {'unknown': 1}]:
+        for patch in [{'row_height': 20}, {'row_height': 33.2}, {'page_margin': 101}, {'title_font': 100}, {'control_height': 5}, {'header_light': 'url(https://evil.invalid)'}, {'header_dark': '#fff'}, {'activity_light': 'red'}, {'accent_background': 'url(evil)'}, {'launcher_tile_size': 10}, {'smart_height': 10}, {'sidebar_group_gap': -1}, {'sidebar_width': 179}, {'sidebar_width': 361}, {'sidebar_font': 12.25}, {'sidebar_icon_size': 29}, {'sidebar_text_color': 'red'}, {'sidebar_background_top': 'url(evil)'}, {'sidebar_submenu_indent': -1}, {'unknown': 1}]:
             self.assertEqual(self.save({**self.record['config'], **patch})[0], 400, patch)
         self.assertEqual(self.pb.request('POST', 'horizon/settings/ux', {'updated': self.record['updated'], 'config': self.record['config'], 'css': 'body{}'}, self.admin_token)[0], 400)
         self.assertEqual(self.pb.request('GET', 'horizon/settings/ux', token=self.token)[1], self.record)
@@ -47,29 +47,38 @@ class UxTests(unittest.TestCase):
     def test_appearance_and_navigation_are_saved(self):
         self.assertEqual(self.record['config']['activity_light'], '#E5EBF3')
         self.assertEqual(self.record['config']['launcher_tile_size'], 104)
-        status, saved = self.save({**self.record['config'], 'activity_light': '#E0E8F0', 'button_height': 36, 'smart_height': 30, 'launcher_tile_size': 120, 'sidebar_group_gap': 12})
+        status, saved = self.save({**self.record['config'], 'activity_light': '#E0E8F0', 'button_height': 36, 'smart_height': 30, 'launcher_tile_size': 120, 'sidebar_group_gap': 12, 'sidebar_width': 260, 'sidebar_font': 13.5, 'sidebar_icon_size': 20, 'sidebar_radius': 8, 'sidebar_background_top': '#112233', 'sidebar_text_color': '#AABBCC'})
         self.assertEqual(status, 200, saved)
         self.assertEqual(saved['config']['activity_light'], '#E0E8F0')
         self.assertEqual(saved['config']['button_height'], 36)
         self.assertEqual(saved['config']['smart_height'], 30)
         self.assertEqual(saved['config']['launcher_tile_size'], 120)
+        self.assertEqual(saved['config']['sidebar_width'], 260)
+        self.assertEqual(saved['config']['sidebar_font'], 13.5)
+        self.assertEqual(saved['config']['sidebar_icon_size'], 20)
+        self.assertEqual(saved['config']['sidebar_background_top'], '#112233')
+        self.assertEqual(saved['config']['sidebar_text_color'], '#AABBCC')
 
     def test_upgrade_preserves_existing_configuration(self):
         self.pb.process.terminate()
         self.pb.process.wait(timeout=5)
-        result = subprocess.run(self.pb.args + ['migrate', 'down', '1'], input='y\n', text=True, capture_output=True)
-        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        # Simulate the pre-sidebar JSON only on this disposable DB, then replay its additive migration.
         with sqlite3.connect(self.pb.data / 'data.db') as connection:
             config = json.loads(connection.execute('SELECT config FROM settings_ux').fetchone()[0])
-            self.assertNotIn('button_height', config)
+            for key in ['sidebar_background_top', 'sidebar_background_middle', 'sidebar_background_bottom', 'sidebar_text_color', 'sidebar_icon_color', 'sidebar_title_color', 'sidebar_submenu_color', 'sidebar_active_start', 'sidebar_active_end', 'sidebar_active_text', 'sidebar_hover_color', 'sidebar_width', 'sidebar_font', 'sidebar_submenu_font', 'sidebar_title_font', 'sidebar_icon_size', 'sidebar_radius', 'sidebar_padding_x', 'sidebar_submenu_indent']:
+                config.pop(key)
             config.update({'row_height': 40, 'header_light': '#AABBCC'})
             connection.execute('UPDATE settings_ux SET config = ?', (json.dumps(config),))
+            connection.execute('DELETE FROM _migrations WHERE file = ?', ('1791710012_sidebar_appearance.js',))
         subprocess.run(self.pb.args + ['migrate', 'up'], check=True, stdout=subprocess.DEVNULL)
         self.pb.launch_and_authenticate(self.pb.args)
         saved = self.pb.request('GET', 'horizon/settings/ux', token=self.token)[1]['config']
         self.assertEqual(saved['row_height'], 40)
         self.assertEqual(saved['header_light'], '#AABBCC')
         self.assertEqual(saved['button_height'], 32)
+        self.assertEqual(saved['sidebar_width'], 216)
+        self.assertEqual(saved['sidebar_font'], 12.5)
+        self.assertEqual(saved['sidebar_background_top'], '#031C2C')
         self.assertEqual(saved['activity_light'], '#E5EBF3')
 
     def test_optimistic_lock_and_superuser(self):

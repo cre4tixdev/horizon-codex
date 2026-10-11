@@ -1310,3 +1310,7 @@ Calendrier manuel — migration `1791710010_calendar_events.js` avec hooks calen
 Courbes Dashboard : mettre à jour lib/dashboard.js et lib/dashboard-metrics.js puis redémarrer PocketBase. Aucune nouvelle migration pour les courbes. Séries agrégées côté serveur à partir des mêmes lectures déjà autorisées ; aucun détail de pièce ni montant d’un module privé supplémentaire. Plafond et contrôle de période existants conservés.
 
 AO — migration `1791710011_tender_download_stage.js` et hook lib/tender-cases.js à installer ensemble après sauvegarde puis migrate up / redémarrage. Étape À télécharger additive avant À analyser, ordres suivants décalés, dossiers / relations existants conservés. Aucun nouveau droit ; À télécharger ne crée ni opportunité ni compte analytique. Retour vers cette étape après promotion conserve l’affaire.
+
+Sidebar UX : migration additive `1791710012_sidebar_appearance.js` et hook lib/ux-settings.js à déployer ensemble après sauvegarde ; migrate up puis redémarrage. Aucun nouveau droit ou CSS libre. Largeurs / dimensions dans une allowlist bornée, textes d’entrées / sous-menus par pas de 0,5 px ; contrôle updated, validation et audit habituels. Les réglages antérieurs sont conservés.
+
+La migration 1791710012 inclut les couleurs sidebar en #RRGGBB ; seules les clés de couleur connues sont acceptées. Le gradient est construit par Horizon depuis ces valeurs, aucun CSS arbitraire ni URL autorisé.

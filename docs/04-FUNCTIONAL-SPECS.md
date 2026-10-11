@@ -3314,3 +3314,9 @@ Calendrier — événements manuels : bouton Ajouter un événement, fiche HDial
 Courbes des indicateurs du dashboard : tracés en arrière-plan des tuiles, période identique aux montants. Série non cumulative de montants HT : jours pour un mois (31 jours maximum), intervalles de sept jours pour un trimestre (100 jours maximum), mois pour une année. Même base de date, droits, annulations et snapshots que l’agrégat ; jours sans montant à zéro, coûts inconnus exclus de la marge. Devises affichées séparément avec échelles indépendantes, sans conversion. Facturé reste sans courbe avant raccordement des factures.
 
 AO — étape À télécharger (`to_download`) ajoutée avant À analyser. Le dossier reste autonome jusqu’à la décision de répondre ; création par défaut en À analyser conservée. Kanban desktop : colonnes ouvertes réparties dans la largeur restante entre les rails repliés, sans largeur minimale fixe de 280 px.
+
+Apparence → Sidebar : réglages communs de sidebar complétés par largeur dépliée, taille des textes des entrées / sous-menus / titres, taille des pictogrammes, arrondi / marge intérieure des entrées et retrait des sous-menus. Les hauteurs et espacements existants restent disponibles. Aperçu Dépliée / Repliée indépendant de la sidebar réelle ; application après Enregistrer, conservation des valeurs déjà réglées, mobile conservé en mode pictogrammes.
+
+Sidebar / Apparence : couleurs de fond (dégradé trois points), textes, icônes, titres, sous-menus, sélection (dégradé et texte), teinte de survol. Réglages communs aux utilisateurs et aux deux thèmes ; aperçu en direct limité à la zone d’exemple jusqu’à sauvegarde. Couleurs actuelles conservées par défaut.
+
+Apparence : six onglets Général / Tableaux / Champs et textes / Boutons / Sidebar / Menu des modules, avec aperçu propre au thème et sections de sidebar repliables. Réglages numériques sans slider : saisie directe et − / +, limites visibles.

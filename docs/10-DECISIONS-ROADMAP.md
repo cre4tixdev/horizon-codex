@@ -1905,3 +1905,9 @@ Réceptions fournisseur — validation BC crée désormais une attente IN prére
 11 octobre 2026 — Courbes financières en arrière-plan des indicateurs du dashboard, même période / données que les montants. Agrégation serveur par jour / semaine / mois, devises et pertes préservées. Facturé sans courbe jusqu’au raccordement Billing ; hooks mis à jour, pas de nouvelle collection ni migration.
 
 12 octobre 2026 — Appels d’offres : À télécharger avant À analyser, dossier autonome, valeur de départ existante conservée. Migration additive et Kanban desktop ajusté à la largeur disponible suivant les colonnes repliées / ouvertes ; composant partagé CRM / AO.
+
+12 octobre 2026 — Apparence / Sidebar : huit réglages sidebar supplémentaires, conservation des paramètres existants et aperçu déplié / replié isolé. Migration additive JSON settings_ux, validation serveur et tokens CSS communs.
+
+Sidebar — complément : réglages de couleurs prioritaires dans Sidebar, fond / textes / icônes / titres / sous-menus / sélection / survol ; charte initiale préservée et aperçu local partagé.
+
+Apparence — classement en six onglets, Sidebar distincte du menu des modules, aperçus contextuels et retrait des sliders numériques selon la demande utilisateur.

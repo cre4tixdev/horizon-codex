@@ -1,4 +1,6 @@
 const bounds = {
+  sidebar_width: [180, 360], sidebar_font: [9, 18], sidebar_submenu_font: [8, 18], sidebar_title_font: [8, 16],
+  sidebar_icon_size: [12, 28], sidebar_radius: [0, 20], sidebar_padding_x: [4, 24], sidebar_submenu_indent: [0, 40],
   button_height: [24, 56],
   button_small_height: [24, 56],
   button_radius: [0, 24],
@@ -28,7 +30,7 @@ const bounds = {
   section_gap: [0, 64],
   progress_gap: [0, 64],
 }
-const colorKeys = ["header_light", "header_dark", "background_light", "background_dark", "activity_light", "activity_dark", "row_odd_light", "row_odd_dark", "row_even_light", "row_even_dark", "accent_background", "accent_text", "button_background_light", "button_background_dark", "button_text_light", "button_text_dark", "button_border_light", "button_border_dark", "smart_background_light", "smart_background_dark", "smart_text_light", "smart_text_dark"]
+const colorKeys = ["sidebar_background_top", "sidebar_background_middle", "sidebar_background_bottom", "sidebar_text_color", "sidebar_icon_color", "sidebar_title_color", "sidebar_submenu_color", "sidebar_active_start", "sidebar_active_end", "sidebar_active_text", "sidebar_hover_color", "header_light", "header_dark", "background_light", "background_dark", "activity_light", "activity_dark", "row_odd_light", "row_odd_dark", "row_even_light", "row_even_dark", "accent_background", "accent_text", "button_background_light", "button_background_dark", "button_text_light", "button_text_dark", "button_border_light", "button_border_dark", "smart_background_light", "smart_background_dark", "smart_text_light", "smart_text_dark"]
 function allowed(app, user, write) {
   const policy = require(`${__hooks}/lib/access-policy.js`)
   if (!user || !user.getBool('active') || !app.findRecordById('core_roles', user.getString('role')).getBool('active') || write && !policy.settings(app, user)) throw new ForbiddenError('Paramétrage UX réservé aux administrateurs habilités.')
@@ -40,7 +42,7 @@ module.exports = {
     allowed(event.app, event.auth, true)
     const body = event.requestInfo().body, config = body.config
     const keys = [...Object.keys(bounds), ...colorKeys]
-    if (Object.keys(body).some((key) => !['updated', 'config'].includes(key)) || typeof body.updated !== 'string' || !config || typeof config !== 'object' || Array.isArray(config) || Object.keys(config).length !== keys.length || Object.keys(config).some((key) => !keys.includes(key)) || Object.entries(bounds).some(([key, range]) => !Number.isInteger(config[key]) || config[key] < range[0] || config[key] > range[1]) || colorKeys.some((key) => typeof config[key] !== 'string' || !/^#[a-f0-9]{6}$/i.test(config[key]))) throw new BadRequestError('Réglages UX invalides ou hors limites.')
+    if (Object.keys(body).some((key) => !['updated', 'config'].includes(key)) || typeof body.updated !== 'string' || !config || typeof config !== 'object' || Array.isArray(config) || Object.keys(config).length !== keys.length || Object.keys(config).some((key) => !keys.includes(key)) || Object.entries(bounds).some(([key, range]) => !(key === 'sidebar_font' || key === 'sidebar_submenu_font' ? Number.isFinite(config[key]) && Number.isInteger(config[key] * 2) : Number.isInteger(config[key])) || config[key] < range[0] || config[key] > range[1]) || colorKeys.some((key) => typeof config[key] !== 'string' || !/^#[a-f0-9]{6}$/i.test(config[key]))) throw new BadRequestError('Réglages UX invalides ou hors limites.')
     let result
     event.app.runInTransaction((app) => {
       allowed(app, event.auth, true)

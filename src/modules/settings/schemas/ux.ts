@@ -1,8 +1,15 @@
 import { z } from 'zod'
 import type { CSSProperties } from 'react'
-const dimension = (min: number, max: number) => z.number().int().min(min).max(max)
 const color = z.string().regex(/^#[a-f0-9]{6}$/i)
 export const uxLimits = {
+  sidebar_width: { min: 180, max: 360 },
+  sidebar_font: { min: 9, max: 18, step: .5 },
+  sidebar_submenu_font: { min: 8, max: 18, step: .5 },
+  sidebar_title_font: { min: 8, max: 16 },
+  sidebar_icon_size: { min: 12, max: 28 },
+  sidebar_radius: { min: 0, max: 20 },
+  sidebar_padding_x: { min: 4, max: 24 },
+  sidebar_submenu_indent: { min: 0, max: 40 },
   row_height: { min: 28, max: 64 },
   table_font: { min: 8, max: 24 },
   control_height: { min: 24, max: 56 },
@@ -32,8 +39,28 @@ export const uxLimits = {
   launcher_icon_size: { min: 20, max: 64 },
   launcher_gap: { min: 4, max: 32 },
 } as const
-const bounded = (key: keyof typeof uxLimits) => dimension(uxLimits[key].min, uxLimits[key].max)
+export const uxStep = (key: keyof typeof uxLimits) => { const limit = uxLimits[key]; return 'step' in limit ? limit.step : 1 }
+const bounded = (key: keyof typeof uxLimits) => z.number().min(uxLimits[key].min).max(uxLimits[key].max).multipleOf(uxStep(key))
 export const uxInputSchema = z.object({
+  sidebar_background_top: color.default('#031C2C'),
+  sidebar_background_middle: color.default('#071D35'),
+  sidebar_background_bottom: color.default('#0B1832'),
+  sidebar_text_color: color.default('#D5E2EF'),
+  sidebar_icon_color: color.default('#D5E2EF'),
+  sidebar_title_color: color.default('#93A0B6'),
+  sidebar_submenu_color: color.default('#AEBFD2'),
+  sidebar_active_start: color.default('#DC006A'),
+  sidebar_active_end: color.default('#7C185E'),
+  sidebar_active_text: color.default('#FFFFFF'),
+  sidebar_hover_color: color.default('#FFFFFF'),
+  sidebar_width: bounded('sidebar_width').default(216),
+  sidebar_font: bounded('sidebar_font').default(12.5),
+  sidebar_submenu_font: bounded('sidebar_submenu_font').default(11.5),
+  sidebar_title_font: bounded('sidebar_title_font').default(10),
+  sidebar_icon_size: bounded('sidebar_icon_size').default(16),
+  sidebar_radius: bounded('sidebar_radius').default(5),
+  sidebar_padding_x: bounded('sidebar_padding_x').default(11),
+  sidebar_submenu_indent: bounded('sidebar_submenu_indent').default(18),
   row_height: bounded('row_height'),
   table_font: bounded('table_font'),
   control_height: bounded('control_height'),
@@ -89,6 +116,25 @@ export type UxInput = z.infer<typeof uxInputSchema>
 export const uxSettingsSchema = z.object({ id: z.string(), updated: z.string(), config: uxInputSchema })
 export type UxSettings = z.infer<typeof uxSettingsSchema>
 export const uxDefaults: UxInput = {
+  sidebar_background_top: '#031C2C',
+  sidebar_background_middle: '#071D35',
+  sidebar_background_bottom: '#0B1832',
+  sidebar_text_color: '#D5E2EF',
+  sidebar_icon_color: '#D5E2EF',
+  sidebar_title_color: '#93A0B6',
+  sidebar_submenu_color: '#AEBFD2',
+  sidebar_active_start: '#DC006A',
+  sidebar_active_end: '#7C185E',
+  sidebar_active_text: '#FFFFFF',
+  sidebar_hover_color: '#FFFFFF',
+  sidebar_width: 216,
+  sidebar_font: 12.5,
+  sidebar_submenu_font: 11.5,
+  sidebar_title_font: 10,
+  sidebar_icon_size: 16,
+  sidebar_radius: 5,
+  sidebar_padding_x: 11,
+  sidebar_submenu_indent: 18,
   row_height: 32,
   table_font: 12,
   control_height: 32,
@@ -142,6 +188,23 @@ export const uxDefaults: UxInput = {
 }
 export function uxStyle(values: UxInput): CSSProperties & { [key: `--${string}`]: string } {
   return {
+    '--hz-sidebar-background': `linear-gradient(165deg, ${values.sidebar_background_top}, ${values.sidebar_background_middle} 65%, ${values.sidebar_background_bottom})`,
+    '--hz-sidebar-text-color': values.sidebar_text_color,
+    '--hz-sidebar-icon-color': values.sidebar_icon_color,
+    '--hz-sidebar-title-color': values.sidebar_title_color,
+    '--hz-sidebar-submenu-color': values.sidebar_submenu_color,
+    '--hz-sidebar-active-start': values.sidebar_active_start,
+    '--hz-sidebar-active-end': values.sidebar_active_end,
+    '--hz-sidebar-active-text': values.sidebar_active_text,
+    '--hz-sidebar-hover-color': values.sidebar_hover_color,
+    '--hz-sidebar-width': `${values.sidebar_width}px`,
+    '--hz-sidebar-font': `${values.sidebar_font}px`,
+    '--hz-sidebar-submenu-font': `${values.sidebar_submenu_font}px`,
+    '--hz-sidebar-title-font': `${values.sidebar_title_font}px`,
+    '--hz-sidebar-icon-size': `${values.sidebar_icon_size}px`,
+    '--hz-sidebar-radius': `${values.sidebar_radius}px`,
+    '--hz-sidebar-padding-x': `${values.sidebar_padding_x}px`,
+    '--hz-sidebar-submenu-indent': `${values.sidebar_submenu_indent}px`,
     '--hz-button-height': `${values.button_height}px`,
     '--hz-button-small-height': `${values.button_small_height}px`,
     '--hz-button-radius': `${values.button_radius}px`,

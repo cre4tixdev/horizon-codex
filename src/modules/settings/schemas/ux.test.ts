@@ -20,4 +20,9 @@ describe('Shared UX configuration', () => {
     expect(min['--hz-table-cell-height']).toBe('22px')
     expect(max['--hz-table-cell-height']).toBe('58px')
   })
+  it('preserves half-pixel sidebar typography and rejects smaller increments', () => {
+    expect(uxInputSchema.safeParse({ ...uxDefaults, sidebar_font: 12.5, sidebar_submenu_font: 11.5 }).success).toBe(true)
+    expect(uxInputSchema.safeParse({ ...uxDefaults, sidebar_font: 12.25 }).success).toBe(false)
+    expect(uxStyle({ ...uxDefaults, sidebar_width: 260 })['--hz-sidebar-width']).toBe('260px')
+  })
 })
