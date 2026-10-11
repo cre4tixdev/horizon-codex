@@ -1,6 +1,6 @@
-const widths = { position: 52, description: 280, brand: 100, reference: 110, quantity: 65, unit: 60, unit_cost: 110, unit_price: 110, margin_percent: 75, discount: 75, line_total: 110, purchase: 90, is_option: 52, actions: 64 }
+const widths = { position: 52, description: 280, brand: 100, reference: 110, quantity: 65, unit: 60, unit_cost: 110, unit_price: 110, margin_percent: 75, discount: 75, line_total: 110, purchase: 90, receipt: 80, delivery: 80, is_option: 52, actions: 64 }
 const allowed = (app, user, write) => { const policy = require(`${__hooks}/lib/access-policy.js`); if (!(write ? policy.settings(app, user) : policy.settings(app, user) || policy.permissions(app, user).includes('sales.read'))) throw new ForbiddenError('Accès aux paramètres Ventes refusé.') }
-const exportSettings = (app, record) => ({ ...record.publicExport(), units: app.findAllRecords('inventory_units').map((unit) => ({ code: unit.getString('code'), label: unit.getString('label'), active: unit.getBool('active') })) })
+const exportSettings = (app, record) => ({ ...record.publicExport(), column_widths: { ...widths, ...JSON.parse(record.getString('column_widths') || '{}') }, units: app.findAllRecords('inventory_units').map((unit) => ({ code: unit.getString('code'), label: unit.getString('label'), active: unit.getBool('active') })) })
 module.exports = {
   read(event) { allowed(event.app, event.auth, false); return event.json(200, exportSettings(event.app, event.app.findFirstRecordByData('settings_sales', 'key', 'default'))) },
   save(event) {

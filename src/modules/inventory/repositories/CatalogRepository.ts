@@ -6,6 +6,7 @@ export function createCatalogRepository(url: string) {
   async function photos(record: Product, existingToken?: string): Promise<Product> { if (!record.primary_image && !record.images.length) return record; const token = existingToken || await client.files.getToken(); return { ...record, image_url: record.primary_image ? client.files.getURL(record, record.primary_image, { token }) : '', image_urls: record.images.map((name) => client.files.getURL(record, name, { token })) } }
   async function read(value: unknown) { return photos(productSchema.parse(value)) }
   return {
+    async barcodePreview(brand: string, sku: string) { return z.object({ barcode: z.string() }).parse(await client.send('/api/horizon/inventory/barcode-preview', { method: 'GET', query: { brand, sku }, requestKey: null })).barcode },
     async duplicatePhoto(record: Product) {
       if (!record.image_url) return undefined
       const response = await fetch(record.image_url)

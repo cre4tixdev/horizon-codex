@@ -6,7 +6,9 @@ const ContactPage = lazy(async () => ({ default: (await import('../../modules/co
 const OpportunityPage = lazy(async () => ({ default: (await import('../../modules/crm/pages/OpportunityPage')).OpportunityPage }))
 const QuotePage = lazy(async () => ({ default: (await import('../../modules/sales/pages/QuotePage')).QuotePage }))
 const ProductPage = lazy(async () => ({ default: (await import('../../modules/inventory/pages/ProductPage')).ProductPage }))
+const PurchasePage = lazy(async () => ({ default: (await import('../../modules/purchasing/pages/PurchasePage')).PurchasePage }))
 const recordAdapters: Record<string, RecordAdapter> = {
+  'purchase-order': { path: '/purchasing/orders', createTitle: 'Nouvelle commande fournisseur', viewTitle: 'Commande fournisseur', render: () => <PurchasePage /> },
   product: { path: '/inventory/products', createTitle: 'Nouveau produit', viewTitle: 'Fiche produit', render: () => <ProductPage /> },
   quote: { path: '/sales/quotes', createTitle: 'Nouveau devis', viewTitle: 'Fiche devis', render: () => <QuotePage /> },
   opportunity: { path: '/crm/opportunities', createTitle: 'Nouvelle opportunité', viewTitle: 'Fiche opportunité', render: () => <OpportunityPage /> },

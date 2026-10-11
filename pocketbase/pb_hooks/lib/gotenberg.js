@@ -4,7 +4,7 @@ module.exports = (event, layout, rendered, filename) => {
   const body = new FormData()
   for (const [name, html] of [['index.html', rendered.body], ['header.html', rendered.header], ['footer.html', rendered.footer]]) body.append('files', $filesystem.fileFromBytes(html, name))
   const inches = (pixels) => String(pixels / 96)
-  for (const [key, value] of Object.entries({ paperWidth: '8.2677', paperHeight: '11.6929', landscape: String(layout.orientation === 'landscape'), marginLeft: String(layout.margin / 25.4), marginRight: String(layout.margin / 25.4), marginTop: inches(layout.margin * 96 / 25.4 + layout.headerHeight), marginBottom: inches(layout.margin * 96 / 25.4 + layout.footerHeight), printBackground: 'true' })) body.append(key, value)
+  for (const [key, value] of Object.entries({ paperWidth: layout.pageSize ? String(layout.pageSize.width / 25.4) : '8.2677', paperHeight: layout.pageSize ? String(layout.pageSize.height / 25.4) : '11.6929', landscape: String(layout.orientation === 'landscape'), marginLeft: String(layout.margin / 25.4), marginRight: String(layout.margin / 25.4), marginTop: inches(layout.margin * 96 / 25.4 + layout.headerHeight), marginBottom: inches(layout.margin * 96 / 25.4 + layout.footerHeight), printBackground: 'true' })) body.append(key, value)
   let response
   try { response = $http.send({ url: `${url}/forms/chromium/convert/html`, method: 'POST', body, timeout: 65 }) } catch (error) {
     event.app.logger().error('Gotenberg conversion failed', 'error', String(error).slice(0, 250))

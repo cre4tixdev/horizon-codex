@@ -14,12 +14,29 @@ class TenderTests(unittest.TestCase):
 
     def create(self, key='tender-creation-local-0001', standalone=False, **overrides):
         stage = self.pb.request('GET', 'collections/crm_tender_statuses/records?sort=sort_order', token=self.token)[1]['items'][0]
+        if standalone: stage = next(item for item in self.pb.request('GET', 'collections/crm_tender_statuses/records?sort=sort_order', token=self.token)[1]['items'] if item['code'] == 'todo')
         if not standalone: stage = next(item for item in self.pb.request('GET', 'collections/crm_tender_statuses/records?sort=sort_order', token=self.token)[1]['items'] if item['code'] == 'preparing')
         self.tender_input = {'reference': 'AO-2026-STUDIO', 'consultation_url': 'https://example.org/consultation', 'status': stage['id'], 'publication_date': '2026-10-01T00:00:00.000Z', 'submission_deadline': '2026-10-20T12:30:00.000Z', 'timezone': 'Europe/Paris', 'expected_result_date': '2026-11-10T00:00:00.000Z', 'visit_required': True, 'tags': []}
         status, result = self.pb.request('POST', 'horizon/crm/save', {'creation_key': key, 'input': {**self.input, 'type': 'tender'}, 'tender': {**self.tender_input, **overrides}}, self.token)
         if status == 200 and not standalone and result['tender']['opportunity']:
             return 200, {**self.pb.request('GET', f'collections/crm_opportunities/records/{result["tender"]["opportunity"]}', token=self.token)[1], 'tender': result['tender']}
         return status, result
+
+
+    def test_download_stage_precedes_analysis_and_keeps_dossier_standalone(self):
+        stages = self.pb.request('GET', 'collections/crm_tender_statuses/records?sort=sort_order', token=self.token)[1]['items']
+        codes = [stage['code'] for stage in stages]
+        self.assertEqual(codes.index('to_download') + 1, codes.index('todo'))
+        download = next(stage for stage in stages if stage['code'] == 'to_download')
+        status, record = self.create(standalone=True, status=download['id'])
+        self.assertEqual(status, 200, record)
+        self.assertEqual(record['tender']['opportunity'], '')
+        self.assertEqual(record['opportunity_number'], '')
+        self.assertEqual(self.pb.request('GET', 'collections/crm_opportunities/records', token=self.token)[1]['totalItems'], 0)
+        todo = next(stage for stage in stages if stage['code'] == 'todo')
+        payload = {'tender': record['id'], 'updated': record['updated'], 'status': todo['id']}
+        self.assertEqual(self.pb.request('POST', 'horizon/crm/tenders/stage', payload, self.token)[0], 200)
+        self.assertEqual(self.pb.request('GET', 'horizon/crm/tenders/' + record['id'], token=self.token)[1]['tender']['opportunity'], '')
 
     def test_appointment_kind_colors_are_fixed_and_admin_only(self):
         path = 'collections/crm_appointment_kinds/records'

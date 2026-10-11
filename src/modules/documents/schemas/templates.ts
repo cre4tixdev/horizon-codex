@@ -1,17 +1,24 @@
 import { z } from 'zod'
 import { richTextSchema, plainTextDocument, type RichTextNode } from '../../../shared/schemas/richText'
+export const documentTypes = { stock_operation: 'Pièce de stock', quote: 'Devis', purchase_order: 'Commande fournisseur', product_label: 'Étiquette produit' } as const
+export type DocumentType = keyof typeof documentTypes
 export const bindingLabels = {
+  'stock.purchase_number': 'Commande fournisseur', 'stock.supplier_name': 'Expéditeur', 'stock.supplier_address': 'Adresse expéditeur',
+  'stock.label': 'Nature de la pièce', 'stock.number': 'Numéro', 'stock.title': 'Titre', 'stock.document_date': 'Date', 'stock.planned_date': 'Date planifiée', 'stock.destination': 'Destination / chantier', 'stock.warehouse': 'Entrepôt', 'stock.state': 'État',
+  'purchase.buyer_name': 'Acheteur', 'purchase.buyer_email': 'E-mail acheteur', 'purchase.delivery_warehouse': 'Entrepôt de livraison', 'purchase.delivery_warehouse_code': 'Code entrepôt', 'purchase.number': 'Numéro de commande', 'purchase.title': 'Titre', 'purchase.document_date': 'Date d’émission', 'purchase.needed_date': 'Date de réception souhaitée', 'purchase.currency': 'Devise', 'purchase.subtotal': 'Total HT', 'purchase.tax_rate': 'Taux TVA', 'purchase.tax': 'TVA', 'purchase.total': 'Total TTC', 'purchase.notes': 'Notes',
+  'product.name': 'Nom du produit', 'product.reference': 'Référence', 'product.brand': 'Marque', 'product.barcode': 'Code-barres', 'product.description': 'Description', 'product.unit': 'Unité',
   'quote.quote_number': 'Numéro du devis', 'quote.title': 'Titre du devis', 'quote.quote_date': 'Date du devis', 'quote.valid_until': 'Date de validité', 'quote.validity_days': 'Durée de validité (jours)', 'quote.currency': 'Devise', 'quote.subtotal_before_discount': 'HT avant remise', 'quote.discount_amount': 'Remise globale', 'quote.subtotal': 'Total HT', 'quote.tax_rate': 'Taux de TVA', 'quote.tax': 'Montant TVA', 'quote.total': 'Total TTC', 'quote.options_total': 'Total options', 'quote.terms_label': 'Nom des conditions de vente', 'quote.terms_content': 'Conditions de vente', 'company.name': 'Société cliente', 'company.vat_number': 'TVA du client', 'company.legal_name': 'Raison sociale', 'company.email': 'E-mail', 'company.phone': 'Téléphone', 'company.siret': 'SIRET', 'company.address': 'Adresse complète', 'company.line1': 'Adresse — ligne 1', 'company.line2': 'Adresse — ligne 2', 'company.postal_code': 'Code postal', 'company.city': 'Ville', 'company.country': 'Pays (code)', 'company.country_name': 'Pays', 'company.state_region': 'Région', 'opportunity.title': 'Affaire', 'opportunity.number': 'Code opportunité', 'owner.name': 'Responsable', 'contact.name': 'Interlocuteur', 'contact.email': 'E-mail', 'contact.phone': 'Téléphone',
 } as const
-export const columnLabels = { description: 'Description', brand: 'Marque', reference: 'Référence', quantity: 'Qté', unit: 'u.', unit_price: 'PU HT', discount: 'Remise %', line_total: 'Total HT' } as const
+export const columnLabels = { affairs: 'Affaires', destination: 'Destination', description: 'Description', brand: 'Marque', reference: 'Référence', quantity: 'Qté', unit: 'u.', unit_price: 'PU HT', discount: 'Remise %', line_total: 'Total HT' } as const
 export const fonts = ['Inter', 'Montserrat', 'Arial', 'Roboto', 'Open Sans', 'Lato', 'Source Sans 3', 'Noto Serif'] as const
 export const anchorSchema = z.object({ anchorX: z.enum(['left', 'center', 'right']).optional(), anchorY: z.enum(['top', 'bottom']).optional() })
-export const bindingGroups = { quote: 'Ventes · Devis', company: 'Contacts · Société / adresse', opportunity: 'CRM · Opportunité', owner: 'Utilisateurs · Responsable', contact: 'Contacts · Interlocuteur' } as const
+export const bindingGroups = { stock: 'Stock · Opération', purchase: 'Achats · Commande fournisseur', product: 'Stock · Produit', quote: 'Ventes · Devis', company: 'Contacts · Société / adresse', opportunity: 'CRM · Opportunité', owner: 'Utilisateurs · Responsable', contact: 'Contacts · Interlocuteur' } as const
 const color = z.string().regex(/^#[a-f0-9]{6}$/i)
 export const styleSchema = z.strictObject({ font: z.enum(fonts), size: z.number().min(8).max(48), color, background: color, backgroundOpacity: z.number().min(0).max(1).optional(), align: z.enum(['left', 'center', 'right']), bold: z.boolean(), italic: z.boolean(), uppercase: z.boolean(), border: z.boolean() })
-export const blockSchema = z.strictObject({ id: z.string().min(1).max(100), sameLine: z.boolean().optional(), ...anchorSchema.shape, imageRatio: z.number().min(0.0001).max(10000).optional(), lockAspect: z.boolean().optional(), tableSource: z.literal('sales.quote_lines').optional(), tableHeadings: z.array(styleSchema).length(3).optional(), tableHeader: styleSchema.optional(), tableLine: styleSchema.optional(), tableNote: styleSchema.optional(), kind: z.enum(['text', 'field', 'image', 'table', 'totals', 'terms', 'separator', 'spacer', 'pageBreak', 'pageNumber']), zone: z.enum(['header', 'body', 'footer']), x: z.number().min(0), y: z.number().min(0).max(200), width: z.number().min(20), height: z.number().min(0).max(400), style: styleSchema, text: z.string().max(10000), content: richTextSchema.nullable(), field: z.enum(Object.keys(bindingLabels) as [keyof typeof bindingLabels, ...(keyof typeof bindingLabels)[]]), image: z.string(), columns: z.array(z.strictObject({ field: z.enum(Object.keys(columnLabels) as [keyof typeof columnLabels, ...(keyof typeof columnLabels)[]]), label: z.string().max(80), width: z.number().min(3).max(100) })).max(8) })
-export const layoutSchema = z.strictObject({ version: z.literal(1), orientation: z.enum(['portrait', 'landscape']), margin: z.number().min(8).max(30), headerHeight: z.number().min(0).max(150), footerHeight: z.number().min(0).max(100), background: z.strictObject({ color, image: z.string().max(1500000).refine((value) => !value || /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+=*$/.test(value), 'Utilisez une image PNG, JPEG ou WebP intégrée.'), opacity: z.number().min(0).max(1), fit: z.enum(['contain', 'cover']) }).optional(), headings: z.array(styleSchema).length(3), blocks: z.array(blockSchema).max(80) }).superRefine((layout, ctx) => {
-  const width = printableWidth(layout)
+export const blockSchema = z.strictObject({ id: z.string().min(1).max(100), sameLine: z.boolean().optional(), ...anchorSchema.shape, imageRatio: z.number().min(0.0001).max(10000).optional(), lockAspect: z.boolean().optional(), tableSource: z.enum(['sales.quote_lines', 'purchasing.order_lines', 'inventory.operation_lines']).optional(), tableHeadings: z.array(styleSchema).length(3).optional(), tableHeader: styleSchema.optional(), tableLine: styleSchema.optional(), tableNote: styleSchema.optional(), kind: z.enum(['text', 'field', 'barcode', 'image', 'table', 'totals', 'terms', 'separator', 'spacer', 'pageBreak', 'pageNumber']), zone: z.enum(['header', 'body', 'footer']), x: z.number().min(0), y: z.number().min(0).max(200), width: z.number().min(20), height: z.number().min(0).max(400), style: styleSchema, text: z.string().max(10000), content: richTextSchema.nullable(), field: z.enum(Object.keys(bindingLabels) as [keyof typeof bindingLabels, ...(keyof typeof bindingLabels)[]]), image: z.string(), columns: z.array(z.strictObject({ field: z.enum(Object.keys(columnLabels) as [keyof typeof columnLabels, ...(keyof typeof columnLabels)[]]), label: z.string().max(80), width: z.number().min(3).max(100) })).max(8) })
+export const layoutSchema = z.strictObject({ version: z.literal(1), orientation: z.enum(['portrait', 'landscape']), pageSize: z.strictObject({ width: z.number().min(10).max(1000), height: z.number().min(10).max(1000), formatId: z.string().regex(/^[a-z0-9]{15}$/).optional(), name: z.string().min(1).max(80).optional() }).optional(), margin: z.number().min(0).max(30), headerHeight: z.number().min(0).max(150), footerHeight: z.number().min(0).max(100), background: z.strictObject({ color, image: z.string().max(1500000).refine((value) => !value || /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+=*$/.test(value), 'Utilisez une image PNG, JPEG ou WebP intégrée.'), opacity: z.number().min(0).max(1), fit: z.enum(['contain', 'cover']) }).optional(), headings: z.array(styleSchema).length(3), blocks: z.array(blockSchema).max(80) }).superRefine((layout, ctx) => {
+  const width = printableWidth(layout), page = pageDimensions(layout)
+  if (width < 20 || page.height * 96 / 25.4 - layout.margin * 96 / 25.4 * 2 - layout.headerHeight - layout.footerHeight < 20) ctx.addIssue({ code: 'custom', message: 'Les marges et zones fixes ne laissent pas assez de place pour le contenu.' })
   const ids = new Set<string>()
   for (const block of layout.blocks) {
     if (ids.has(block.id)) ctx.addIssue({ code: 'custom', message: 'Identifiants de blocs dupliqués.' }); ids.add(block.id)
@@ -22,17 +29,30 @@ export const layoutSchema = z.strictObject({ version: z.literal(1), orientation:
     if (block.kind === 'table' && (!block.columns.some((column) => column.field === 'description') || Math.abs(block.columns.reduce((sum, column) => sum + column.width, 0) - 100) > 0.1)) ctx.addIssue({ code: 'custom', message: 'Largeurs du tableau : total attendu 100 %, avec une description.' })
   }
 })
-export const templateSchema = z.object({ id: z.string(), name: z.string(), status: z.enum(['draft', 'published', 'archived']), updated: z.string(), current_version: z.string(), version: z.number(), content_json: layoutSchema })
-export const templateChoiceSchema = z.object({ updated: z.string().optional(), id: z.string(), name: z.string(), version: z.number(), current_version: z.string(), status: z.enum(['draft', 'published', 'archived']).optional() })
+export const templateSchema = z.object({ id: z.string(), name: z.string(), document_type: z.enum(['quote', 'product_label', 'purchase_order', 'stock_operation']).default('quote'), status: z.enum(['draft', 'published', 'archived']), updated: z.string(), current_version: z.string(), version: z.number(), content_json: layoutSchema })
+export const templateChoiceSchema = z.object({ updated: z.string().optional(), id: z.string(), name: z.string(), document_type: z.enum(['quote', 'product_label', 'purchase_order', 'stock_operation']).default('quote'), version: z.number(), current_version: z.string(), status: z.enum(['draft', 'published', 'archived']).optional() })
 export type Layout = z.infer<typeof layoutSchema>
 export type Block = z.infer<typeof blockSchema>
 export type TextStyle = z.infer<typeof styleSchema>
 export type Template = z.infer<typeof templateSchema>
 export type TemplateChoice = z.infer<typeof templateChoiceSchema>
 export const baseStyle: TextStyle = { font: 'Inter', size: 12, color: '#091C3A', background: '#FFFFFF', backgroundOpacity: 0, align: 'left', bold: false, italic: false, uppercase: false, border: false }
-export function printableWidth(layout: { orientation: 'portrait' | 'landscape'; margin: number }) { return Math.floor((layout.orientation === 'portrait' ? 794 : 1123) - layout.margin * 96 / 25.4 * 2) }
+export function pageDimensions(layout: { orientation: 'portrait' | 'landscape'; pageSize?: { width: number; height: number; formatId?: string | undefined; name?: string | undefined } | undefined }) {
+  const size = layout.pageSize || { width: 210, height: 297 }
+  return { name: layout.pageSize?.name, format: layout.pageSize ? 'Personnalisé' as const : 'A4' as const, orientation: layout.orientation, width: layout.orientation === 'portrait' ? size.width : size.height, height: layout.orientation === 'portrait' ? size.height : size.width }
+}
+export function printableWidth(layout: { orientation: 'portrait' | 'landscape'; margin: number; pageSize?: { width: number; height: number; formatId?: string | undefined; name?: string | undefined } | undefined }) { return Math.floor((layout.pageSize ? pageDimensions(layout).width * 96 / 25.4 : layout.orientation === 'portrait' ? 794 : 1123) - layout.margin * 96 / 25.4 * 2) }
+export function defaultLabelLayout(): Layout {
+  const layout = { ...defaultLayout(), pageSize: { width: 95, height: 28 }, margin: 2, headerHeight: 0, footerHeight: 0, blocks: [] } satisfies Layout
+  const width = printableWidth(layout)
+  const field = (key: Block['field'], size: number, height: number) => ({ ...newBlock('field', width), field: key, y: 0, height, style: { ...baseStyle, size, color: '#000000' } })
+  const brand = { ...field('product.brand', 11, 16), width: Math.floor(width * 0.45) }
+  const reference = { ...field('product.reference', 11, 16), sameLine: true, x: brand.width + 12, width: width - brand.width - 12, style: { ...baseStyle, size: 11, color: '#000000', align: 'right' as const } }
+  const barcode = { ...newBlock('barcode', width), field: 'product.barcode' as const, y: 3, height: 47, style: { ...baseStyle, color: '#000000', align: 'center' as const } }
+  return { ...layout, blocks: [brand, reference, field('product.name', 9, 14), barcode] }
+}
 export function newBlock(kind: Block['kind'], width: number): Block {
-  return { id: crypto.randomUUID(), kind, zone: kind === 'pageNumber' ? 'footer' : 'body', x: 0, y: kind === 'pageNumber' ? 0 : 12, width: Math.floor(width), height: kind === 'image' ? 60 : kind === 'table' ? 0 : 24, style: { ...baseStyle }, text: kind === 'text' ? 'Votre texte' : '', content: null, field: 'company.name', image: '', columns: [ { field: 'description', label: 'Description', width: 42 }, { field: 'brand', label: 'Marque', width: 12 }, { field: 'reference', label: 'Référence', width: 12 }, { field: 'quantity', label: 'Qté', width: 7 }, { field: 'unit', label: 'u.', width: 5 }, { field: 'unit_price', label: 'PU HT', width: 10 }, { field: 'line_total', label: 'Total HT', width: 12 } ] }
+  return { id: crypto.randomUUID(), kind, zone: kind === 'pageNumber' ? 'footer' : 'body', x: 0, y: kind === 'pageNumber' ? 0 : 12, width: Math.floor(width), height: kind === 'image' ? 60 : kind === 'barcode' ? 50 : kind === 'table' ? 0 : 24, style: { ...baseStyle }, text: kind === 'text' ? 'Votre texte' : '', content: null, field: kind === 'barcode' ? 'product.barcode' : 'company.name', image: '', columns: [ { field: 'description', label: 'Description', width: 42 }, { field: 'brand', label: 'Marque', width: 12 }, { field: 'reference', label: 'Référence', width: 12 }, { field: 'quantity', label: 'Qté', width: 7 }, { field: 'unit', label: 'u.', width: 5 }, { field: 'unit_price', label: 'PU HT', width: 10 }, { field: 'line_total', label: 'Total HT', width: 12 } ] }
 }
 export function defaultLayout(): Layout {
   const layout: Layout = { version: 1, orientation: 'portrait', margin: 12, headerHeight: 80, footerHeight: 30, headings: [{ ...baseStyle, size: 15, bold: true, border: true, color: '#7B3FC7' }, { ...baseStyle, size: 13, bold: true, background: '#FCEAF3', backgroundOpacity: 1 }, { ...baseStyle, bold: true, background: '#F4F5F7', backgroundOpacity: 1 }], blocks: [] }
@@ -46,7 +66,7 @@ export function defaultLayout(): Layout {
   return layout
 }
 
-export const blockLabels = { text: 'Texte', field: 'Champ lié', image: 'Logo / image', table: 'Tableau', totals: 'Totaux', terms: 'Conditions de vente', separator: 'Séparateur', spacer: 'Espacement', pageBreak: 'Saut de page', pageNumber: 'Numérotation' }
+export const blockLabels = { text: 'Texte', field: 'Champ lié', barcode: 'Code-barres', image: 'Logo / image', table: 'Tableau', totals: 'Totaux', terms: 'Conditions de vente', separator: 'Séparateur', spacer: 'Espacement', pageBreak: 'Saut de page', pageNumber: 'Numérotation' }
 /** Keep the full table printable while changing one column's proportion. */
 export function resizeColumns(columns: Block['columns'], field: Block['columns'][number]['field'], requested: number): Block['columns'] {
   if (!columns.length) return []
@@ -132,7 +152,7 @@ export function reorderBlock(layout: Layout, id: string, target: string, after: 
   return { ...layout, blocks }
 }
 
-export const libraryKinds: Block['kind'][] = ['text', 'field', 'image', 'table', 'separator', 'spacer', 'pageBreak', 'pageNumber']
+export const libraryKinds: Block['kind'][] = ['text', 'field', 'barcode', 'image', 'table', 'separator', 'spacer', 'pageBreak', 'pageNumber']
 /** Expand only the editor's working copy. Published snapshots are never rewritten. */
 export function expandLegacyBlocks(layout: Layout): Layout {
   return { ...layout, blocks: layout.blocks.flatMap((block) => {

@@ -1,0 +1,8 @@
+routerAdd('GET', '/api/horizon/inventory/stock/choices', (e) => require(`${__hooks}/lib/stock.js`).choices(e), $apis.requireAuth('core_users'))
+routerAdd('GET', '/api/horizon/inventory/stock', (e) => require(`${__hooks}/lib/stock.js`).list(e), $apis.requireAuth('core_users'))
+routerAdd('POST', '/api/horizon/inventory/stock/adjust', (e) => require(`${__hooks}/lib/stock.js`).adjust(e), $apis.requireAuth('core_users'))
+routerAdd('GET', '/api/horizon/inventory/stock/reservations/{id}', (e) => require(`${__hooks}/lib/stock.js`).reservationChoices(e), $apis.requireAuth('core_users'))
+routerAdd('POST', '/api/horizon/inventory/stock/reservations', (e) => require(`${__hooks}/lib/stock.js`).saveReservations(e), $apis.requireAuth('core_users'))
+routerAdd('POST', '/api/horizon/inventory/stock/locations', (e) => require(`${__hooks}/lib/stock.js`).createLocation(e), $apis.requireAuth('core_users'))
+onRecordUpdate(() => { throw new BadRequestError('Un mouvement validé est immuable. Créez un mouvement de correction.') }, 'inventory_moves')
+onRecordDelete(() => { throw new BadRequestError('Les mouvements de stock sont conservés.') }, 'inventory_moves', 'inventory_reservations')

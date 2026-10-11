@@ -29,6 +29,8 @@ Composants à réutiliser : [HSectionHeading](../src/shared/ui/HSectionHeading.t
 
 Les cartes Contacts restent une implémentation du module : reprendre leur contrat de taille et leur structure dans les futurs modules, sans importer leurs données métier. Les permissions, compteurs, destinations et critères appartiennent au module concerné. Ne présenter comme actifs que les éléments effectivement raccordés ; les raccourcis intermodules encore indisponibles conservent leur état explicite.
 
+Les listes Demandes d’achat, Commandes fournisseurs et Disponibilités réutilisent `HSummaryCards`, comme Devis : quatre cartes cliquables au-dessus du tableau, mêmes dimensions et couleurs sémantiques que les tags. Le clic conserve la recherche et les relations filtrées, applique le statut / la disponibilité et remet la pagination à la première page. Les compteurs serveur couvrent toutes les pages, indépendamment du statut / de la disponibilité sélectionnés. Le stock compte des produits distincts, jamais une somme de quantités d’unités différentes.
+
 Avant de livrer un écran comparable : vérifier les mêmes dimensions, titres et espacements, la cohérence clair / sombre, l’absence de débordement mobile et la conservation des brouillons / critères. Les tests comparatifs existants des cinq onglets Contacts servent de référence de régression.
 
 ## Statut
@@ -399,8 +401,8 @@ Sidebar réduite        58–64 px
 Content padding        14–20 px
 Table header           32–36 px
 Table row              34–38 px
-Input standard         34–38 px
-Input compact          30–34 px
+Input standard         32 px
+Input compact          26–30 px
 Tabs                    36–40 px
 Section gap            12–16 px
 Panel padding          12–16 px
@@ -616,7 +618,7 @@ background      blanc
 border          fine / gris très clair
 radius          5–6 px
 shadow          none
-height          32–36 px
+height          32 px
 chevron         gris
 text            bleu nuit
 placeholder     gris texte
@@ -762,6 +764,8 @@ HDataTable
 - colonnes numériques alignées ;
 - sauvegarde de vues lorsque pertinente.
 
+Les en-têtes restent visibles pendant le défilement dans tous les modules : listes métier, lignes de pièces, tableaux intégrés et Paramètres. `HTableViewport`, utilisé par `HDataTable` et `HSettingsTable`, porte cette règle commune. Si les colonnes tiennent dans la largeur disponible, l’en-tête suit le défilement de la page sous la top bar et le fil d’Ariane, ou celui de la fiche en popup sous sa barre d’actions. Les décalages sont mesurés pour tenir compte des barres qui changent de hauteur. Si les colonnes débordent, le tableau défile dans son cadre (hauteur maximale 65 % de la fenêtre), avec en-tête fixe et défilement horizontal contenu. Les lignes d’en-tête multiples restent empilées. Les tableaux composant les documents dans le Studio / aperçu / PDF conservent leur mise en page documentaire.
+
 ## Style
 
 ```text
@@ -772,6 +776,8 @@ hover discret
 texte dense
 pas de zebra très marqué
 ```
+
+Les tableaux métier partagent la densité des lignes du devis : hauteur minimale 32 px (`--hz-table-row-height`), contrôles de cellule 26 px (`--hz-table-cell-height`), padding vertical 2 px. Cette règle couvre les listes, Paramètres, achats et fournisseurs ; les contenus multilignes s’étendent naturellement sans être tronqués. Les champs hors tableau restent à 32 px.
 
 ## Alignement
 
@@ -1021,11 +1027,7 @@ Cependant :
 - violet comme seconde série ;
 - couleurs sémantiques uniquement lorsque nécessaires.
 
-Éviter :
-
-```text
-une couleur différente pour chaque widget
-```
+Les accents peuvent différencier les cartes par rôle métier ; leurs fonds restent neutres. Éviter les grandes surfaces colorées et les couleurs sans signification.
 
 ## Structure recommandée
 
@@ -1500,7 +1502,7 @@ Exemple de socle :
   --hz-radius-md: 8px;
 
   --hz-control-h-compact: 32px;
-  --hz-control-h: 36px;
+  --hz-control-h: 32px;
   --hz-table-row-h: 36px;
 }
 ```
@@ -1577,7 +1579,7 @@ Composants partagés disponibles dans `src/shared/ui/` :
 | Composant | Usage actuel |
 |---|---|
 | `HButton` | Variantes primaire / secondaire / ghost, tailles standard / compacte / icône et composition lien via Slot |
-| `HInput` | Contrôle discret 34 px, focus léger et label accessible fourni par l'appelant |
+| `HInput` | Contrôle discret 32 px, focus léger et label accessible fourni par l'appelant |
 | `HBadge` | Libellés compacts, tons neutre / information / succès / vigilance |
 | `HBreadcrumb` | Ancêtres cliquables, page courante et niveaux intermédiaires accessibles au-delà de quatre niveaux |
 | `HPageHeader` | Titre Montserrat, description et actions |
@@ -2084,7 +2086,7 @@ Documents D17 : l’onglet Noms des PDF n’est pas répété comme titre de sec
 Modèles de pièces : état coloré via HBadge identique au studio (Brouillon / Publié / Archivé). Colonne Actions de la liste : Archiver pour les modèles actifs et poubelle pour les modèles jamais publiés, confirmation HDialog avec nom du modèle et bouton Supprimer, sans mot à recopier. Actions retirées du studio ; confirmation fermée et liste actualisée après réussite, erreur visible dans le popup en cas d’échec. Cliquer ou activer une icône au clavier n’ouvre pas la fiche.
 
 
-Tableaux Paramètres : enveloppe partagée `HSettingsTable` pour les référentiels, CRM, séquences, utilisateurs, tags, devis, modèles et noms PDF. Bordures verticales de 1 px avec fallback clair, lignes de 36 px minimum et padding 4 × 12 px, boutons / champs de tableau à 28 px ; les contenus multilignes conservent leur hauteur nécessaire. En-têtes et cellules État / Actions centrés. Compteur commun sous le tableau, 11 px, aligné à droite avec retrait 12 px et libellé métier, issu des lignes réellement affichées. Aucun style de tableau spécifique au studio ; les tableaux métiers hors Paramètres gardent leur contrat.
+Tableaux Paramètres : enveloppe partagée `HSettingsTable` pour les référentiels, CRM, séquences, utilisateurs, tags, devis, modèles et noms PDF. Bordures verticales de 1 px avec fallback clair, lignes de 32 px minimum et padding 2 × 12 px, boutons / champs de tableau à 26 px ; les contenus multilignes conservent leur hauteur nécessaire. En-têtes et cellules État / Actions centrés. Compteur commun sous le tableau, 11 px, aligné à droite avec retrait 12 px et libellé métier, issu des lignes réellement affichées. Aucun style de tableau spécifique au studio ; les tableaux métiers hors Paramètres gardent leur contrat.
 
 
 Titres d’onglets : gras 700 pour les onglets actifs et inactifs, via les styles partagés (fiches, listes, paramètres, recherche d’images et filtres du fil). Même poids pour Page / Bloc dans le studio ; l’état sélectionné reste indiqué par sa couleur et son soulignement / fond, sans variation de poids.
@@ -2139,3 +2141,119 @@ Logo sidebar : bouton ouvrant le menu Modules Horizon en HDialog centré dans la
 Menu Modules — surface bleu sombre identique à la sidebar (token commun), voile de fond assombri et flou léger ; tuiles carrées avec icône Lucide au-dessus du libellé, relief discret et état courant rose Horizon. Tuiles des modules uniquement, groupes et permissions inchangés ; sous-pages accessibles dans la sidebar. Mouvement léger au survol uniquement hors préférence de mouvement réduit. Ce menu reste sombre dans les deux thèmes.
 
 Tuiles Modules : pictogrammes 38px avec traits fins (1,35), texte 12px en graisse 400, fond et bordure plus contrastés que la surface bleu sidebar ; sélection rose plus visible.
+
+
+Étiquettes produit — action code-barres intégrée au bord droit du champ via HInputWithAction, même emplacement / style que les ouvertures de fiches liées ; aucun pictogramme doublé dans le libellé. Popup partagé DocumentPreview, centré dans l’espace de travail, aperçu gris bleu, modèle, HTML / PDF, Imprimer et téléchargement Horizon ; taille du papier et nombre de pages visibles. Studio inchangé : formats physiques en mm, blocs / valeurs liées du produit, aucun éditeur spécifique. Formats d’impression : onglet de Paramètres → Modèles de pièces, tableau partagé HSettingsTable, état et actions centrés, formulaire HDialog avec Enregistrer en haut. Le bloc Code-barres montre un repère dans le studio, le vrai symbole contrôlé est généré dans l’aperçu ; ne pas présenter le repère comme une étiquette imprimable.
+
+
+Produit — code-barres : même champ avec bouton d’étiquette intégré. En création, proposition issue du service serveur mise à jour après la saisie marque / référence ; aucun indicateur ou sélecteur de mode supplémentaire. L’utilisateur peut remplacer le code ; la valeur définitivement attribuée et son éventuel suffixe sont visibles dans la fiche après Enregistrer. Les erreurs de proposition restent visibles sans bloquer l’enregistrement serveur.
+
+
+Achats et disponibilités — listes principales utilisent WorkspaceSearch / SearchFilters et GroupedResults, critères et liens analytiques conservés dans l’URL. Tables HDataTable avec bordures fines, densité et marge desktop 40 px communes. Fiches DA / BC : breadcrumb, actions de workflow distinctes d’Enregistrer / Annuler / roue, tableau pleine largeur redimensionnable, totaux HT / TVA / TTC en dessous, fil ActivityPanel partagé. Les colonnes Description / Produit, Marque, Référence et Fournisseur sont alignées à gauche ; quantités et actions sont centrées, PUA HT et Total HT alignés à droite, avec largeurs ajustables. Les notes internes reprennent le panneau du devis, pictogramme et chevron, fermé par défaut. Les lignes manuelles utilisent les unités configurées ; la ventilation analytique et la préparation multi-fournisseurs utilisent HDialog. Aucun formulaire Contacts / Produits / Opportunités spécifique au module : HRecordPicker réutilise les fiches canoniques.
+La zone centrale des smart boutons (placement related) est réservée exclusivement aux liens de consultation : aucune action de création, sauvegarde ou workflow. « Nouveau devis » sur l’opportunité utilise HRecordPageActions placement workflow, à côté du fil d’Ariane ; Enregistrer / Annuler / roue gardent leur emplacement à droite. Smart boutons Produit / Opportunité / Commande = navigation vers les listes filtrées uniquement. Réserver le stock et Préparer les achats sont des actions explicites hors smart boutons. Confirmation client : sélection facultative du stock par ligne / emplacement / quantité ; confirmation sans réservation conservée, bouton Réserver disponible ensuite. Les trois colonnes opérationnelles sont masquées en brouillon / devis / envoyé et lors du retour en devis. Achat vert seulement si la quantité commandée couvre le besoin net du stock réservé. Réception / Livraison affichent une indisponibilité tant que leurs modules ne sont pas raccordés, jamais un faux état exécuté.
+
+Commande client — Réserver le stock et Préparer les achats sont regroupés à droite de la ligne de référence client / Attente Commande, sous la frise ; hauteur compacte commune, retour à la ligne sur espace réduit. Revenir en devis reste dans la barre de workflow juste avant Aperçu ; les actions de sauvegarde conservent leur emplacement.
+
+Achats — cycle du 11 octobre 2026 : la validation d’une DA prépare atomiquement ses BC brouillons par fournisseur / devise, avec fournisseur obligatoire par ligne ; aucun envoi n’est simulé. Frise DA Brouillon / Validée / Traitée ; `ordered` signifie désormais toutes les quantités réellement envoyées (`sent`, `acknowledged`, réception ou clôture), avec `partially_ordered` pour une partie envoyée. Le devis source est une projection Sales, sélectionnable sur DA manuelle et figée sur DA issue de commande ; sa numérotation est en lecture seule. Les BC utilisent la même frise (Brouillon / Validée / Envoyée / Réceptionnée). Retour DA en brouillon confirmé : retrait des préparations brouillon (annulation historique si le BC n’appartient qu’à cette DA ; retrait des lignes concernées et recalcul si partagé), sans toucher aux autres demandes. Tout BC validé doit d’abord revenir en brouillon ; aucun retour après envoi historique ou réception. Les snapshots retirés sont conservés. Retour BC avant envoi avec droit `purchasing.order.validate` et écriture ; retour DA avec `purchasing.request.validate` et écriture. Une annulation groupée demande + BC jamais envoyés est disponible avec les deux droits de validation et écriture ; elle est bloquée pour un BC partagé ou déjà envoyé / exécuté. La politique d’annulation après envoi reste à décider avant le module Messaging / Réceptions. Smart bouton Commandes fournisseurs = liste filtrée par demande, jamais une action de création. Migration `1791710000_purchasing_request_lifecycle.js` recalcule les états historiques des demandes sans simuler de nouveaux envois.
+
+
+BC fournisseur — en-tête : Titre et Fournisseur avec TVA de même largeur, puis Devise compacte (un douzième de la largeur). Ligne suivante, dans cet ordre : Acheteur, Date d’émission, Date de réception souhaitée, Entrepôt de livraison, chacun sur un quart de la largeur. Sur petit écran, ces champs se répartissent sur deux colonnes dans le même ordre. Les colonnes affichant les comptes / codes analytiques sont intitulées « Affaires » dans les listes, fiches et tableaux de préparation / ventilation des achats, avec le pictogramme Lucide ChartBar devant les codes / sélecteurs, comme sur les lignes de BC fournisseur. Colonnes BC : Affaires immédiatement après Qté, données textuelles à gauche, montants à droite, Actions centrées. Poubelle de ligne en brouillon avec confirmation partagée Horizon. Bouton « Valider ». Smart boutons de consultation dans la top bar, sans déclencher de préparation.
+
+
+Densité des formulaires — 11 octobre 2026 : référence Devis généralisée et resserrée. HInput / HCombobox standard : hauteur extérieure 32 px, valeur 12 px / interligne 18 px ; HFieldLabel : 11 px / interligne 16 px, poids normal ; espace libellé / champ 4 px. Tokens CSS partagés --hz-control-height, --hz-control-font-size, --hz-field-label-font-size, --hz-field-gap. Les contrôles composites avec bouton d’ouverture restent à 32 px au total (contrôle interne 30 px + bordure extérieure). Les cellules de tableau, zones multiligne et outils du Studio conservent leur densité spécifique. Aucun changement de titre de page.
+
+Les boutons standard adjacents aux champs utilisent la même hauteur de 32 px ; les variantes compactes des barres d’actions et des tableaux gardent leur taille définie.
+
+Cadres de zone : panneaux métier partagés avec bordure fine de 1 px, rayon 6 px, sans ombre ; padding vertical 12 px et horizontal 14 px via tokens --hz-panel-padding-block, --hz-panel-padding-inline, --hz-panel-radius. Achats réutilise contact-panel comme Devis pour ses informations, sans variante de cadre locale. Les espacements entre champs sont de 10 px verticalement dans les grilles communes.
+
+Titres et frises des fiches — 11 octobre 2026 : titre métier unique 22 px (Montserrat SemiBold, interligne 1,25), token --hz-record-title-font-size, commun à Contacts, Produit, Opportunité, Devis, DA et BC et à leurs fiches embarquées. Réduction de deux crans depuis le titre général 26 px, alignement des anciens titres 24 px. Frise sous le titre : espace symétrique de 16 px au-dessus et au-dessous, via --hz-record-progress-gap. Espacement réduit après revue visuelle utilisateur, porté par le seul composant de frise. Le toolbar n’ajoute pas de marge inférieure et le premier cadre Devis n’ajoute pas de marge supérieure. Le résumé de l’opportunité passe sous la frise. Les titres des listes, des sections et du contenu des documents gardent leur hiérarchie propre.
+
+Espacement Informations → lignes métier : 12 px via --hz-record-section-gap, référence Devis, identique en DA et BC. Ne pas cumuler le gap d’une grille et la marge supérieure du composant lignes : Achats laisse la grille gérer l’espacement et neutralise cette marge. Les champs Achats reprennent le même espacement de grille que Devis (10 px vertical, 14 px horizontal).
+
+Tableau Devis : même cadre que HDataTable, bordure fine 1 px et rayon extérieur 6 px, en-tête sur le fond gris partagé --theme-table-header (#dce5ef en clair, #364860 en sombre). Le grand écran conserve ces bordures et coins ; le conteneur reste overflow:visible pour que les en-têtes suivent le défilement de la page, avec arrondis des cellules de bord (5 px). Ce même gris, repris de l’ancien en-tête du devis, s’applique à tous les tableaux métier et de Paramètres, y compris en popup. Aucun fond d’en-tête spécifique au devis.
+
+
+Paramètres → Apparence et densité : configuration commune aux utilisateurs, avec réglages à gauche et aperçu des composants partagés à droite (empilement responsive). Tableaux, champs, libellés, titres des fiches, marges desktop, cadres, espacements et couleurs d’en-tête clair / sombre. Modifications limitées à l’aperçu jusqu’à Enregistrer en haut à droite ; Annuler local, restauration des valeurs par défaut à enregistrer. Pas de CSS libre ; les états métier et modèles PDF gardent leur configuration propre. Plages élargies (texte des tableaux et champs : 8–24 px), limites affichées sous chaque champ et erreur précisant le réglage concerné. Les dimensions peuvent être ajustées par curseur horizontal, boutons − / + (1 px par clic, désactivés aux bornes), saisie directe ou flèches du clavier. Hauteur de cellule dérivée pour garder une densité lisible. L’aperçu possède son propre choix Clair / Sombre et utilise HDataTable, HInput, HCombobox, HProgressSteps et les panneaux canoniques.
+
+Les valeurs sauvegardées sont chargées dans AppFrame et appliquées via tokens CSS partagés ; actualisation Realtime de settings_ux et rafraîchissement TanStack Query. Un échec de chargement / actualisation reste visible ; les valeurs canoniques servent de secours. Une édition ouverte garde sa copie et sa version : une modification concurrente ne la remplace pas silencieusement et bloque l’enregistrement périmé.
+
+Les réglages UX sont organisés par HRecordTabs (Général, Tableaux, Champs et textes, Boutons, Navigation), avec onglet conservé dans l’URL et brouillon conservé lors des changements d’onglet. Les actions Annuler / Enregistrer utilisent HRecordPageActions dans la barre du fil d’Ariane sticky. Les couleurs clair / sombre sont réglables séparément : fond général, fil d’actualité, lignes paires / impaires, boutons classiques et smart boutons. Les boutons accentués ont leurs couleurs de fond et texte communes. Hauteurs, texte, arrondi et padding des boutons sont centralisés, ainsi que les espacements de sidebar et la taille / icônes / espacement des tuiles du menu des modules. Les tuiles se redistribuent sans débordement. Les états métier et actions destructrices gardent leurs couleurs sémantiques. Les sections hiérarchiques de devis conservent leur apparence spécifique.
+
+Catalogue — vue Cartes : bascule Cartes / Liste partagée avec Contacts, contexte `view=cards|list` conservé dans l’URL et à la fermeture de fiche. Cartes Horizon compactes (112 px, rayon 12 px, grille adaptative), photo entière 72 px (64 px sur mobile), marque, nom sur deux lignes, référence / famille, prix HT par unité et stock disponible réel. Toute la carte ouvre la fiche ; aucun favori fictif. Prix à vérifier et Sans stock explicitement distingués de zéro.
+
+Cartes Produits — densité ajustée : hauteur 104 px, photo 64 px, grille à partir de 300 px ; nom en premier sur deux lignes, marque et référence réunies, prix et disponibilité alignés en pied.
+
+Sidebar Ventes — sous-menu Commandes : lien `/sales/quotes?status=accepted` vers la liste existante filtrée sur les commandes client confirmées. Même permission `sales.read`, sélection de sous-menu fondée sur le statut et filtres partagés ; aucune liste ou donnée dupliquée.
+
+Sous-menu Ventes → Devis : `status=quotes`, filtre libellé uniquement « Devis » ; affiche tous les états non archivés sauf les commandes client `accepted` (brouillons, finalisés, envoyés, annulés et refusés). Le filtre de statut `validated` porte le libellé « Finalisés » pour distinguer l’étape du périmètre Devis.
+
+Listes Devis / Commandes client : `HDataTable` avec séparateurs verticaux discrets, cadre et en-tête gris communs, hauteur de ligne commune. Alignements via `columnAlignments` : date / état centrés, montants à droite avec chiffres tabulaires ; mêmes règles en regroupement par société. Les alignements déclarés sont pris en charge par le CSS partagé, sans variante Sales.
+
+Liste Demandes d’achat : aucune colonne de sélection ni bouton de préparation groupée. La validation de la demande prépare ses commandes fournisseur brouillon ; la liste reste un accès aux fiches avec les cartes de synthèse et filtres partagés.
+
+Pictogrammes Achats : demandes d’achat = Lucide `ShoppingCartPlus` (sidebar, liens métier et section de fiche) ; commandes fournisseur = `ShoppingCart`. Les cartes de statut conservent leurs pictogrammes d’étape.
+
+Achats — saisie des lignes : la cellule Description / Produit comporte la description et un pictogramme de recherche produit sur le même axe, sans combobox empilée. La sélection du catalogue se fait dans un dialogue partagé, par marque / référence / description. Ajouter une ligne est disponible sous les lignes des DA manuelles et BC brouillons, avec focus description ; une affaire unique existante est proposée pour les compléments du BC, sinon la ventilation reste explicite. Les pièces validées restent en lecture seule.
+
+Liste Commandes fournisseur : action Nouvelle commande ouvre directement `/purchasing/orders/new`, dans la fiche commune, sans passage obligatoire par les demandes. Une affaire filtrée est conservée à la création.
+
+Fiches Achats : première ligne vide à la création manuelle (DA / BC), acheteur courant et entrepôt CVS proposés dans le BC. DA : Titre sur deux colonnes, Affaire, Devis source sélectionnable avec recherche ; Date / Date souhaitée / Devise sur la ligne suivante. La source issue d’une commande client est non modifiable.
+
+Recherche produit — Ventes et Achats utilisent le même `shared/catalog/ProductPicker`, extrait de la fenêtre validée des devis : recherche marque / référence / description, tableau, coût / PUV, ouverture de fiche, création, pagination et bouton +. Les modules fournissent uniquement le contexte vente / achat et leur service de pricing à l’ajout. Aucun second formulaire de recherche produit dans les DA / BC. Le catalogue filtre sale_enabled ou purchase_enabled côté serveur avant pagination.
+
+Tableaux de saisie — déplacement par poignée discret dans la première cellule,
+à la souris / au toucher et au clavier (Espace, flèches, Espace ; Échap annule),
+comme Devis. `HSortableRows`, `HSortableRow` et `HRowDragHandle` sont partagés ;
+`HDataTable.reordering` réutilise ce mécanisme. Le module conserve les identités,
+valeurs et relations des lignes et persiste les positions à Enregistrer. DA / BC
+brouillons appliquent cette règle, y compris aux lignes sources ; pièces validées
+et tableaux de consultation sans poignée. Les futurs bons de livraison et autres
+tableaux de lignes métier éditables doivent appliquer le même contrat.
+
+Stock S02 — réutiliser HPageBreadcrumb / HRecordPageActions pour les actions, HRecordLinks pour la consultation exclusivement, HProgressSteps pour le cycle, WorkspaceSearch / SearchFilters / GroupedResults pour les listes, HSummaryCards, HDataTable et HSettingsTable. Les fiches d’opérations utilisent la densité et les espacements Devis, le tableau pleine largeur avec colonnes ajustables et drag des lignes, ProductPicker partagé, confirmation de retrait simple et ActivityPanel. Les inventaires proposent Liste / Calendrier via HMonthCalendar et apparaissent dans le Calendrier métier selon les permissions. Les validations requièrent une confirmation explicite de la réalisation physique.
+
+Stock S03 remplace les onglets communs S02 : pages autonomes, entrée Stock sur son dashboard. Tuiles opérationnelles en grille dense, icône / nom / pièces ouvertes / description / Consulter / Créer, composants Horizon pour les actions. La méthode de valorisation n’est pas un filtre de présentation : la comparaison éventuelle doit rester explicitement une simulation.
+
+Stock V01 — les réglages de valorisation réutilisent la section et le tableau partagés de Paramètres. Coûts / valeurs alignés à droite, actions pictographiques centrées. Recherche courte intégrée à la section de coûts (liste secondaire de paramétrage), pagination et erreurs visibles. Révision de coût et changement de méthode via HDialog, avec motif, effets indiqués et confirmation simple ; aucun popup indépendant. La valeur connue du stock et le transit sont présentés dans une zone neutre compacte du dashboard, avec indication des reprises manquantes. Sur la fiche produit, un rappel compact de valorisation accompagne le prix de vente sans mélanger ses deux coûts.
+
+Paramètres Stock — harmonisation : HSettingsTable / reference-table pour les entrepôts (plein format, largeurs cohérentes, Actif centré), même en-tête gris et densité que les tableaux de valorisation / emplacements. Espacement régulier entre sections via le token commun ; numérotation et nombre d’entrepôts sous le tableau, règle de comptage séparée discrètement. Ajout d’emplacement avec libellés et champs alignés, bouton à hauteur des contrôles et aligné sur leur bas. Aucun cadre de tableau doublé.
+
+Paramètres Stock : onglet Entrepôts et emplacements (emplacements directement après les entrepôts), onglet Valorisation distinct ; HRecordTabs partagé, onglet conservé dans l’URL. Un seul champ Code pour les entrepôts.
+
+Catalogue : cartes de synthèse des catégories via HSummaryCards partagé, pictogrammes Lucide et tons Horizon : Équipements Monitor / bleu, Fournitures Cable / ambre, Services Wrench / violet ; catégories supplémentaires Package / bleu. Compteurs serveur pour tous les produits actifs (ou archivés dans cette vue), indépendants de la recherche, de la catégorie filtrée et de la pagination. Clic vers la catégorie, conservation Cartes / Liste et état, réinitialisation des autres critères pour correspondre au compteur. Catégories actives vides visibles ; catégories désactivées conservées si elles contiennent des produits.
+
+Ordre des cards Catalogue : Équipements, Fournitures, Services, puis éventuelles catégories supplémentaires par ordre alphabétique.
+
+BC : aucun bouton de préparation de réception vide. La réception créée automatiquement est accessible via le smart bouton Réceptions. Dans la liste et la frise de la fiche, une IN fournisseur draft est libellée En attente, puis Réceptionné après validation. Même éditeur Stock et tableau partagé.
+
+Réception fournisseur : identité expéditeur dans Informations, référence BC en lecture seule avec flèche de consultation. Affaires uniquement par ligne avec ChartBar ; quantités et destinations marquées obligatoires, pas de coût affiché ni destination chantier. Notes internes reprennent HSectionHeading / StickyNote, chevron à droite et textarea repliable du devis, fermé initialement.
+
+Identité d’affaire : HAffairTags partagé pour les cellules de tableaux Stock et Achats, code - client en tags navy discrets. En réception, quantité ventilée affichée sous la forme [ 5u ] à la suite du client. Les listes dédupliquent les tags sans afficher les quantités. La popup BC réutilise PurchasePage et les actions de fiche, avec protection contre la fermeture d’un brouillon modifié.
+
+Stock — dashboard opérationnel : quatre HSummaryCards de mouvements en cours, deux files compactes (réceptions et inventaires), disponibilités par produit distinct et entrepôts, valeur HT séparant entrepôts / transit. Pas de graphique ou quantité agrégée mélangeant des unités ; états vides, données indisponibles et erreurs visibles. Catalogue Opérations : quatre tuiles du quotidien, puis trois retours / opérations spécifiques ; cartes neutres plus aérées (environ 265 px de haut avec courbe, padding 14 px) avec pictogramme à gauche et accent par type inspiré des colonnes Kanban (trait supérieur 3 px, fond neutre, icône et compteur assortis), titre / description regroupés, compteurs liés au filtre En cours, bouton Créer partagé. Recherche et filtres demeurent dans la top bar commune.
+
+Courbes des tuiles Opérations : dix jours J−2 → J+7, tracé réalisé vert plein et prévu magenta pointillé, surfaces teintées à 7 %, repère Aujourd’hui et détail par jour au survol / flèches du clavier. Une courbe vide reste à zéro sans données fictives. Pièces sans date et en retard hors courbe signalées explicitement.
+
+Couleurs des cartes Opérations : réception bleu, livraison violet, chantier ambre, transfert navy, retour vert, livraison directe rose et rebut rouge. Tokens h-tone partagés avec Kanban ; les tracés réalisés / prévus conservent leur vert / magenta indépendamment de la carte.
+
+Dashboards — harmonisation avec les cartes Opérations : style partagé `src/shared/dashboard.css` (`h-dashboard-card` et tokens `h-tone`), fond neutre en clair / sombre, trait supérieur 3 px, pictogramme dans une petite surface teintée et compteurs assortis. Les cartes de synthèse Stock réutilisent HSummaryCards avec la présentation dashboard ; les listes principales conservent leur présentation habituelle. Réceptions bleu, livraisons violet, chantier ambre, transferts navy ; files et synthèses reprennent ces accents sans colorer leur fond. Le dashboard général utilise les mêmes cartes pour indicateurs, accès rapides et sections, avec une présentation allégée : cadres fins neutres sans liseré supérieur coloré, titres de carte en couleur de texte principale (noir / navy en clair, clair en sombre), y compris les indicateurs, et pictogrammes rose Horizon, sans colorer les fonds ; grands montants des indicateurs en rose Horizon (token rose partagé avec les pictogrammes, adapté en clair / sombre) ; suppression du sous-titre et du bandeau introductif. Ce choix sobre remplace les couleurs différentes par carte sur l’accueil, sans modifier les couleurs métier du dashboard Stock. Les indicateurs non raccordés restent explicitement indisponibles, sans données fictives. Les courbes Opérations conservent leur vert / magenta.
+
+Dashboard général — répartition desktop : colonne Opportunités / Pilotage à environ 58 %, colonne Planning / Activité récente à environ 42 %. Les accès rapides sont retirés ; les cartes inférieures récupèrent la place (zone desktop d’au moins 620 px). Les deux cartes de droite se partagent la hauteur disponible à parts égales (50 / 50), avec leur contenu centré dans la zone restante. La présentation responsive existante est conservée sous 901 px.
+
+Dashboard général — Suivi commercial : une carte réutilisant HDataTable présente les dernières Opportunités / Devis / Commandes / Factures. Données via les services CRM et Ventes avec leurs permissions ; Factures affiche explicitement À venir avant raccordement du module. Défilement automatique toutes les 10 s, pause / reprise, flèches, points et glissement manuel ; pause au survol / focus, fenêtre masquée et paramètres ouverts. Engrenage de la carte pour le mode automatique ou manuel, préférence personnelle locale par utilisateur. Aucune nouvelle collection ni action métier automatique.
+
+Dashboard — date du jour centrée dans l’en-tête et en gras ; sélecteur compact Mois / Trimestre / Année à droite, utilisant les boutons partagés et le groupe de changement de vue. Navigation par chevrons, période affichée dans le pilotage et bornes communes sous l’en-tête. Modes et navigation temporelle regroupés dans un seul cadre, de même hauteur que la date (36 px). Controls repliés sur plusieurs lignes sur mobile, sélection accessible via aria-pressed. Chaque ouverture ou rechargement repart sur le mois en cours.
+
+Dashboard connecté — indicateurs financiers réels avec montants distincts par devise ; marge intitulée Marge prévisionnelle et taux sur CA HT. Tooltips de périmètre et dates, pièces sans date / coût historique signalées. Planning personnel et activité en listes compactes avec liens source, auteur / date ; composants partagés pour chargement, erreur et reprise. Modules non raccordés restent À venir / indisponibles. Rafraîchissement à la réouverture et toutes les 60 secondes pour métriques / activité ; aucune valeur fictive.
+
+Dashboard — planning : sous-titre intégré dans la ligne d’en-tête en desktop, repère jour / mois à gauche de chaque échéance, date du jour soulignée par un cadre rose discret, type et horaire lisibles. Tags du planning : mêmes couleurs configurées pour Visite / Soutenance que dans les fiches AO ; composant HTag partagé pour les autres échéances. Activité : icône du type d’événement sans avatar d’initiales, action avant le contexte de la pièce et léger fil chronologique neutre. Listes compactes défilantes, liens source conservés, en-tête repliable sur mobile sans débordement.
+
+Calendrier — navigation Semaine / Mois / Trimestre / Année avec le groupe de boutons partagé contact-view-switch (comme Kanban / Liste), sélection aria-pressed avec texte rose Horizon. Grilles aux angles arrondis, noms des jours en couleur de texte principale (noir / navy en clair) et gras sur bandeau blanc en clair ; numéros dans les cases en gris et gras ; aujourd’hui repéré par son numéro en rose Horizon et un fond rose très léger. Légende réduite à pastilles et libellés, mêmes couleurs sur événements / tags / timeline ; Visite et Soutenance reprennent leurs couleurs configurées. Trimestre et année : mois en grille responsive sans largeur minimale débordante, événements condensés au code avec détail au survol et accès à la fiche ; saisies temporelles et liens métier conservés. En vue Année, cliquer sur le titre d’un mois ouvre la vue Mois à cette date ; bouton accessible au clavier. Navigation temporelle et légende restent visibles sous la top bar pendant le défilement.
+
+Événements manuels : HDialog, grille compacte issue des rendez-vous AO, HInput / HCombobox / HZonedDateInput et HTonePicker partagés. Ajouter dans la navigation du calendrier, popup au clic, accès en lecture seul pour les événements d’équipe d’un autre auteur ; HRecordConfirmation sans saisie obligatoire pour le retrait. Couleur propre à l’événement, type générique Événement dans la légende.
+
+Calendrier manuel : clic dans une journée (bouton de fond accessible au clavier) ouvre l’ajout avec cette date préremplie. Le bouton Ajouter reste visible, désactivé si les droits ne sont pas actifs. Les liens d’événements restent indépendants du clic d’ajout ; passage journée entière / horaire conserve le jour sélectionné.
+
+Dashboard — courbes des tuiles : tracé violet discret en arrière-plan, voile progressif vers la gauche pour garder les titres / grands montants rose lisibles, surface sous courbe très légère, coins contenus dans la carte. Séries séparées verticalement et échelles indépendantes quand plusieurs devises ; valeurs nulles sans fausse courbe, périodes vides à zéro. Montants / légendes / tailles de carte inchangés, clair / sombre et mobile.
+
+Kanban CRM / AO : colonnes desktop fluides (minmax(0, 1fr)), rails repliés de 52 px ; déplier / replier redistribue automatiquement l’espace. Carte compacte quand la colonne est étroite, identités sous le contenu, titre / référence tronqués proprement, montants et échéances contenus. Sur mobile, défilement interne et minimum 240 px pour garder les cartes utilisables. À télécharger précède À analyser ; présentation grise neutre initiale, configurable comme les autres étapes AO.

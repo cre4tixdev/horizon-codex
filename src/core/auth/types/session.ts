@@ -14,6 +14,6 @@ export function hasPermission(user: HorizonUser, permission: string): boolean {
   if (permission === 'documents.template.manage' && !['admin', 'superuser'].includes(user.erpProfile || 'user')) return false
   if (permission.startsWith('settings.') && !['admin', 'superuser'].includes(user.erpProfile || 'user')) return false
   if (['settings.users', 'settings.roles'].includes(permission) && user.erpProfile !== 'admin') return false
-  if (user.erpProfile === 'viewer' && /\.(write|create|update|validate|archive|delete|manage)$/.test(permission)) return false
+  if (user.erpProfile === 'viewer' && /\.(write|create|update|validate|archive|delete|manage|reserve|adjust)$/.test(permission)) return false
   return user.role.permissions.includes(permission)
 }

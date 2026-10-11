@@ -1,4 +1,4 @@
-import { LayoutDashboard, Mail, CalendarDays, ContactRound, Target, FileText, ShoppingCart, Package, FolderKanban, Headset, UsersRound, Clock3, CalendarOff, Receipt, Wallet, Landmark, Files, Settings2, Columns3, ClipboardList, Building2, Truck, type LucideIcon } from 'lucide-react'
+import { LayoutDashboard, Mail, CalendarDays, ContactRound, Target, FileText, ShoppingCart, ShoppingCartPlus, Package, FolderKanban, Headset, UsersRound, Clock3, CalendarOff, Receipt, Wallet, Landmark, Files, Settings2, Columns3, ClipboardList, Building2, Truck, ShoppingBag, type LucideIcon } from 'lucide-react'
 
 export type NavigationItem = { label: string; href: string; icon: LucideIcon; description: string; children?: NavigationItem[] }
 export type NavigationGroup = { label: string; items: NavigationItem[] }
@@ -19,9 +19,9 @@ export const navigationGroups: NavigationGroup[] = [
       { label: 'Pipeline', href: '/crm', icon: Columns3, description: 'Toutes les opportunités commerciales' },
       { label: 'Appels d’offres', href: '/crm?area=ao', icon: ClipboardList, description: 'Préparation et suivi des réponses AO' },
     ] },
-    { label: 'Ventes', href: '/sales', icon: FileText, description: 'Devis et commandes clients', children: [{ label: 'Devis', href: '/sales/quotes', icon: FileText, description: 'Tous les devis commerciaux' }] },
-    { label: 'Achats', href: '/purchasing', icon: ShoppingCart, description: 'Demandes et commandes fournisseurs' },
-    { label: 'Stock', href: '/inventory', icon: Package, description: 'Catalogue, disponibilités et mouvements', children: [{ label: 'Produits', href: '/inventory', icon: Package, description: 'Catalogue produits et tarifs fournisseurs' }] },
+    { label: 'Ventes', href: '/sales', icon: FileText, description: 'Devis et commandes clients', children: [{ label: 'Devis', href: '/sales/quotes?status=quotes', icon: FileText, description: 'Tous les devis commerciaux' }, { label: 'Commandes', href: '/sales/quotes?status=accepted', icon: ShoppingBag, description: 'Commandes client confirmées' }] },
+    { label: 'Achats', href: '/purchasing', icon: ShoppingCart, description: 'Demandes et commandes fournisseurs', children: [{ label: 'Demandes d’achat', href: '/purchasing/requests', icon: ShoppingCartPlus, description: 'Besoins et ventilation analytique' }, { label: 'Commandes fournisseur', href: '/purchasing/orders', icon: ShoppingCart, description: 'Commandes regroupées par fournisseur' }] },
+    { label: 'Stock', href: '/inventory/dashboard', icon: Package, description: 'Catalogue, disponibilités et mouvements', children: [{ label: 'Produits', href: '/inventory', icon: Package, description: 'Catalogue produits et tarifs fournisseurs' }, { label: 'Disponibilités', href: '/inventory/stock', icon: Package, description: 'Stock physique, réservé et disponible' }, { label: 'Opérations', href: '/inventory/operations', icon: Truck, description: 'Réceptions, livraisons, chantiers et transferts' }, { label: 'Inventaires', href: '/inventory/inventories', icon: ClipboardList, description: 'Comptages annuels et tournants' }] },
     { label: 'Projets', href: '/projects', icon: FolderKanban, description: 'Exécution, jalons et recettes' },
     { label: 'SAV', href: '/service', icon: Headset, description: 'Parc installé, interventions et maintenance' },
   ] },

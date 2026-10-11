@@ -14,7 +14,7 @@ const dto = (app, quote) => {
   const company = app.findRecordById('contacts_companies', quote.getString('company'))
   const order = app.findRecordsByFilter('sales_orders', 'quote = {:id} && status != "cancelled"', '-order_sequence,created', 1, 0, { id: quote.id })[0]
   const proof = order?.getString('customer_order_event') ? app.findRecordById('core_activity_events', order.getString('customer_order_event')) : null
-  return { ...quote.publicExport(), can_delete: !quote.getString('sent_at') && quote.getString('status') !== 'sent' && !app.findRecordsByFilter('sales_orders', 'quote = {:id}', '', 1, 0, { id: quote.id }).length, owner_name: app.findRecordById('core_users', quote.getString('owner')).getString('name'), order: order ? { id: order.id, number: order.getString('order_number'), customer_number: order.getString('customer_order_number'), event_id: proof?.id || '', files: proof?.getStringSlice('attachments') || [] } : null, opportunity_name: opp.getString('title'), opportunity_number: opp.getString('opportunity_number'), company_name: company.getString('name'), lines: app.findRecordsByFilter('sales_quote_lines', 'quote = {:id}', 'position', 0, 0, { id: quote.id }).map((record) => record.publicExport()) }
+  return { ...quote.publicExport(), can_delete: !require(`${__hooks}/lib/purchasing.js`).referencesQuote(app, quote.id) && !quote.getString('sent_at') && quote.getString('status') !== 'sent' && !app.findRecordsByFilter('sales_orders', 'quote = {:id}', '', 1, 0, { id: quote.id }).length, owner_name: app.findRecordById('core_users', quote.getString('owner')).getString('name'), order: order ? { id: order.id, number: order.getString('order_number'), customer_number: order.getString('customer_order_number'), event_id: proof?.id || '', files: proof?.getStringSlice('attachments') || [] } : null, opportunity_name: opp.getString('title'), opportunity_number: opp.getString('opportunity_number'), company_name: company.getString('name'), lines: app.findRecordsByFilter('sales_quote_lines', 'quote = {:id}', 'position', 0, 0, { id: quote.id }).map((record) => record.publicExport()) }
 }
 const audit = (app, record, before, actor, action, previousLines) => {
   const item = new Record(app.findCollectionByNameOrId('core_audit'))
@@ -87,10 +87,12 @@ module.exports = {
     if (search.length > 200) throw new BadRequestError('Recherche trop longue.')
     if (query.get('opportunity')) { opportunity(event.app, query.get('opportunity'), event.auth); parameters.opportunity = query.get('opportunity'); conditions.push('opportunity = {:opportunity}') }
     if (query.get('company')) { if (!/^[a-z0-9]{15}$/.test(query.get('company'))) throw new BadRequestError('Société invalide.'); parameters.company = query.get('company'); conditions.push('company = {:company}') }
+    if (query.get('product')) { if (!require(`${__hooks}/lib/catalog.js`).allowed(event.app, event.auth)) throw new ForbiddenError('Accès produit nécessaire.'); parameters.product = query.get('product'); conditions.push('sales_quote_lines_via_quote.product ?= {:product}') }
     const status = query.get('status') || ''
-    if (status && !['active', 'archived', 'draft', 'validated', 'sent', 'accepted', 'cancelled', 'rejected'].includes(status)) throw new BadRequestError('État invalide.')
+    if (status && !['active', 'quotes', 'archived', 'draft', 'validated', 'sent', 'accepted', 'cancelled', 'rejected'].includes(status)) throw new BadRequestError('État invalide.')
     conditions.push(status === 'archived' ? 'archived_at != ""' : 'archived_at = ""')
     if (status === 'active') conditions.push('status != "cancelled" && status != "rejected"')
+    else if (status === 'quotes') conditions.push('status != "accepted"')
     else if (status && status !== 'archived') { conditions.push('status = {:status}'); parameters.status = status }
     if (search) { conditions.push('(quote_number ~ {:q} || title ~ {:q} || company.name ~ {:q} || opportunity.title ~ {:q})'); parameters.q = search }
     const page = Number(query.get('page') || 1)

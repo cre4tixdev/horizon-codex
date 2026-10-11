@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { fitQuoteColumns, resizeQuoteColumn, quoteVisibleIndices, quoteSectionEnd } from './quoteColumns'
+import { fitQuoteColumns, resizeQuoteColumn, quoteVisibleIndices, quoteSectionEnd, visibleQuoteColumns } from './quoteColumns'
 import { quoteColumns } from '../schemas/quotes'
 const base = Object.fromEntries(quoteColumns.map(([key, , width]) => [key, width]))
 describe('quote presentation', () => {
@@ -28,4 +28,18 @@ it('bounds a section copy at the next heading of equal or higher level', () => {
   expect(quoteSectionEnd(kinds, 7)).toBe(9)
   expect(quoteSectionEnd(kinds, 9)).toBe(11)
   expect(quoteSectionEnd(kinds, 1)).toBe(2)
+})
+
+it('shows purchasing tracking only for customer orders and returns its space to other columns', () => {
+  for (const status of [undefined, 'draft', 'validated', 'sent', 'cancelled', 'rejected'] as const) {
+    const columns = visibleQuoteColumns(status)
+    for (const hidden of ['purchase', 'receipt', 'delivery']) expect(columns.some(([key]) => key === hidden)).toBe(false)
+    const fitted = fitQuoteColumns(base, 1200, columns)
+    for (const hidden of ['purchase', 'receipt', 'delivery']) expect(fitted).not.toHaveProperty(hidden)
+    expect(Object.values(fitted).reduce((sum, width) => sum + width, 0)).toBeCloseTo(1200)
+    const resized = resizeQuoteColumn(fitted, 'line_total', 40, columns)
+    expect(Object.values(resized).every(Number.isFinite)).toBe(true)
+    expect(Object.values(resized).reduce((sum, width) => sum + width, 0)).toBeCloseTo(1200)
+  }
+  for (const visible of ['purchase', 'receipt', 'delivery']) expect(visibleQuoteColumns('accepted').some(([key]) => key === visible)).toBe(true)
 })

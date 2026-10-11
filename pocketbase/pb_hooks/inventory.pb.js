@@ -15,3 +15,5 @@ routerAdd('POST', '/api/horizon/inventory/brands/create', (event) => require(`${
 onRecordDelete(() => { throw new BadRequestError('Les marques liées au catalogue doivent être conservées.') }, 'inventory_brands')
 
 routerAdd('GET', '/api/horizon/inventory/products/{id}/quotes', (event) => require(`${__hooks}/lib/sales.js`).productQuotes(event), $apis.requireAuth('core_users'))
+
+routerAdd('GET', '/api/horizon/inventory/barcode-preview', (event) => require(`${__hooks}/lib/catalog.js`).barcodePreview(event), $apis.requireAuth('core_users'))

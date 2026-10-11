@@ -90,7 +90,7 @@ export function OpportunityKanban({ rows, stages, totals, summaryReady, editable
     setPreview(null)
   }}>
     <InteractionState onChange={onBusyChange} />
-    <div className="crm-kanban-scroll"><div className="crm-kanban" style={{ gridTemplateColumns: stages.map((stage) => collapsed.has(stage.id) ? '52px' : 'minmax(280px, 1fr)').join(' ') }}>{stages.map((stage) => {
+    <div className="crm-kanban-scroll"><div className="crm-kanban" style={{ gridTemplateColumns: stages.map((stage) => collapsed.has(stage.id) ? '52px' : 'minmax(var(--crm-kanban-column-min, 0px), 1fr)').join(' ') }}>{stages.map((stage) => {
       const columnTotals = totals.filter((total) => total.stage === stage.id)
       const count = columnTotals.reduce((sum, total) => sum + total.count, 0)
       const amount = summaryReady ? columnTotals.map((total) => formatAmount(total.amount, total.currency)).join(' · ') || formatAmount(0, 'EUR') : '—'

@@ -1,0 +1,10 @@
+import { useState } from 'react'
+import { Link } from 'react-router'
+import { ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react'
+import { HButton } from './HButton'
+export type MonthCalendarEvent = { id: string; date: string; label: string; detail: string; href: string }
+/** Small shared month grid for planned business documents; data stays in its owner module. */
+export function HMonthCalendar({ events, label }: { events: MonthCalendarEvent[]; label: string }) {
+  const [anchor, setAnchor] = useState(() => new Date()), year = anchor.getFullYear(), month = anchor.getMonth(), first = new Date(year, month, 1), days = new Date(year, month + 1, 0).getDate()
+  return <section className="business-calendar" aria-label={label}><div className="calendar-toolbar"><div><HButton size="icon" aria-label="Mois précédent" onClick={() => setAnchor(new Date(year, month - 1, 1))}><ChevronLeft size={14} /></HButton><strong>{anchor.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}</strong><HButton size="icon" aria-label="Mois suivant" onClick={() => setAnchor(new Date(year, month + 1, 1))}><ChevronRight size={14} /></HButton><HButton size="small" onClick={() => setAnchor(new Date())}>Aujourd’hui</HButton></div><span className="contact-muted"><CalendarDays size={14} />{label}</span></div><div className="calendar-grid">{['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'].map((day) => <span key={day} className="calendar-weekday">{day}</span>)}{Array.from({ length: (first.getDay() + 6) % 7 }, (_, index) => <div key={`empty-${index}`} className="calendar-day calendar-day--empty" />)}{Array.from({ length: days }, (_, index) => { const date = `${year}-${String(month + 1).padStart(2, '0')}-${String(index + 1).padStart(2, '0')}`; return <div key={date} className="calendar-day" data-today={date === new Date().toLocaleDateString('sv-SE')}><time dateTime={date}>{index + 1}</time>{events.filter((event) => event.date === date).map((event) => <Link key={event.id} className="calendar-event" data-kind="inventory" to={event.href} title={event.detail}><strong>{event.label}</strong><span>{event.detail}</span></Link>)}</div> })}</div></section>
+}

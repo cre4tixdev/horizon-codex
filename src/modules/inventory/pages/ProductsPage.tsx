@@ -1,7 +1,8 @@
 import { useSearchParams, Link } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
-import { Package, Plus, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Package, Plus, ChevronLeft, ChevronRight, LayoutGrid, List, Monitor, Cable, Wrench } from 'lucide-react'
 import type { ColumnDef } from '@tanstack/react-table'
+import { HSummaryCards } from '../../../shared/ui/HSummaryCards'
 import { HPageHeader } from '../../../shared/ui/HPageHeader'
 import { HPageBreadcrumb } from '../../../shared/ui/HPageBreadcrumb'
 import { HBreadcrumbActions } from '../../../shared/ui/HBreadcrumbActions'
@@ -14,10 +15,17 @@ import { groupResults } from '../../../shared/search/listPresentation'
 import { formatUnitAmount as formatAmount } from '../../../shared/formatters/money'
 import { catalogService } from '../services/CatalogService'
 import { useCatalogAccess } from '../hooks/useCatalogAccess'
+import { ProductCards } from '../components/ProductCards'
 import { type Product } from '../schemas/catalog'
 import '../catalog.css'
+const categoryPresentation: Record<string, { icon: typeof Package; tone: 'blue' | 'amber' | 'violet' }> = {
+  equipment: { icon: Monitor, tone: 'blue' },
+  supplies: { icon: Cable, tone: 'amber' },
+  services: { icon: Wrench, tone: 'violet' },
+}
 export function ProductsPage() {
   const [params, setParams] = useSearchParams(), access = useCatalogAccess()
+  const view = params.get('view') === 'cards' ? 'cards' : 'list'
   const page = Math.max(1, Number(params.get('page')) || 1)
   const query = useQuery({ queryKey: ['inventory', 'products', params.toString()], queryFn: () => catalogService.list({ q: params.get('q') || '', state: params.get('state') || 'active', category: params.get('category') || '', sort: params.get('sort') || 'name', page }), enabled: access.canRead, retry: false })
   const columns: ColumnDef<Product>[] = [
@@ -29,10 +37,15 @@ export function ProductsPage() {
   ]
   if (!access.canRead) return <HEmptyState icon={Package} title="Catalogue" description="Vous ne disposez pas de la permission de consulter les produits." />
   const table = (items: Product[]) => <HDataTable data={items} columns={columns} getRowLink={(item) => ({ href: `/inventory/products/${item.id}`, label: `Ouvrir ${item.name}`, state: { productListQuery: params.toString() } })} />
+  const results = (items: Product[]) => view === 'cards' ? <ProductCards items={items} listQuery={params.toString()} /> : table(items)
   const groups = query.data && params.get('group') === 'category' ? groupResults(query.data.items, (item) => ({ key: item.category, label: item.category_label })) : undefined
   return <div className="contact-directory"><HPageBreadcrumb items={[{ label: 'Accueil', href: '/' }, { label: 'Catalogue' }]} /><HPageHeader title="Produits" description="Catalogue, prix de vente et fournisseurs." actions={access.canWrite && <HButton asChild variant="primary"><Link to="/inventory/products/new" state={{ productListQuery: params.toString() }}><Plus size={14} />Nouveau produit</Link></HButton>} />
     <HBreadcrumbActions><nav className="record-navigator" aria-label="Pagination des produits"><span className="record-navigator-count">Page {page} / {Math.max(1, query.data?.totalPages || 1)}</span><HButton variant="ghost" size="icon" aria-label="Page précédente" disabled={page <= 1 || query.isFetching} onClick={() => setParams((current) => { const next = new URLSearchParams(current); next.set('page', String(page - 1)); return next })}><ChevronLeft size={15} /></HButton><HButton variant="ghost" size="icon" aria-label="Page suivante" disabled={!query.data || page >= query.data.totalPages || query.isFetching} onClick={() => setParams((current) => { const next = new URLSearchParams(current); next.set('page', String(page + 1)); return next })}><ChevronRight size={15} /></HButton></nav></HBreadcrumbActions>
+    {query.data && <HSummaryCards label="Catégories de produits" items={query.data.categories.map((category) => {
+      const next = new URLSearchParams({ category: category.id, view, state: params.get('state') || 'active' })
+      return { label: category.label, ...(categoryPresentation[category.code] || { icon: Package, tone: 'blue' as const }), count: category.count, detail: params.get('state') === 'archived' ? 'Archivés' : 'Actifs', accessibleLabel: `Filtrer les produits : ${category.label}`, href: `/inventory?${next}` }
+    })} error={undefined} onRetry={() => { void query.refetch() }} />}
     {query.isPending && <HLoadingIndicator label="Chargement des produits" />}{query.error && <p role="alert" className="field-error">{query.error.message}<HButton onClick={() => void query.refetch()}>Réessayer</HButton></p>}
-    {query.data && <><p className="contact-muted">{query.data.totalItems} produit{query.data.totalItems > 1 ? 's' : ''}</p>{groups ? <GroupedResults groups={groups} icon={Package} noun="produits" render={table} /> : table(query.data.items)}{!query.data.totalItems && <HEmptyState icon={Package} title="Aucun produit" description="Créez votre premier produit ou adaptez les critères de recherche." />}</>}
+    {query.data && <><div className="contact-toolbar"><span className="contact-result-count">{query.data.totalItems} produit{query.data.totalItems > 1 ? 's' : ''}</span><div className="contact-view-switch" role="group" aria-label="Présentation des produits">{[{ value: 'cards', label: 'Vue cartes', icon: LayoutGrid }, { value: 'list', label: 'Vue liste', icon: List }].map(({ value, label, icon: Icon }) => <HButton key={value} aria-label={label} aria-pressed={view === value} size="small" variant="ghost" onClick={() => setParams((current) => { const next = new URLSearchParams(current); next.set('view', value); return next }, { replace: true })}><Icon size={15} /><span>{value === 'cards' ? 'Cartes' : 'Liste'}</span></HButton>)}</div></div>{groups ? <GroupedResults groups={groups} icon={Package} noun="produits" render={results} /> : results(query.data.items)}{!query.data.totalItems && <HEmptyState icon={Package} title="Aucun produit" description="Créez votre premier produit ou adaptez les critères de recherche." />}</>}
   </div>
 }

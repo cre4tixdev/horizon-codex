@@ -1,5 +1,6 @@
-import { Globe, Building2, ShieldCheck, UsersRound, Target, Package, ShoppingCart, Truck, Warehouse, Receipt, Landmark, FolderKanban, CalendarDays, Plug, ListOrdered, FileText } from 'lucide-react'
+import { SlidersHorizontal, Globe, Building2, ShieldCheck, UsersRound, Target, Package, ShoppingCart, Truck, Warehouse, Receipt, Landmark, FolderKanban, CalendarDays, Plug, ListOrdered, FileText } from 'lucide-react'
 export const settingsSections = [
+  { slug: 'ux', title: 'Apparence et densité', group: 'Socle commun', icon: SlidersHorizontal, description: 'Réglages UX partagés avec aperçu en direct.', topics: ['Tableaux', 'Champs et textes', 'Espacements', 'Couleurs des en-têtes'], available: true },
   { slug: 'documents', title: 'Modèles de pièces', group: 'Socle commun', icon: FileText, description: 'Studio de composition et génération PDF des pièces.', topics: ['Modèles de devis', 'En-têtes et pieds de page', 'Styles de titres', 'Tableaux dynamiques', 'Noms des PDF'], available: true },
   { slug: 'references', title: 'Référentiels', group: 'Socle commun', icon: Globe, description: 'Pays, langues et devises partagés par Horizon.', topics: ['Pays', 'Langues', 'Devises'], available: true },
   { slug: 'sequences', title: 'Séquences', group: 'Socle commun', icon: ListOrdered, description: 'Formats et compteurs des numéros de pièces.', topics: ['Numéro de départ', 'Prochain numéro', 'Préfixes et suffixes'], available: true },
@@ -9,8 +10,8 @@ export const settingsSections = [
   { slug: 'crm', title: 'CRM', group: 'Modules métier', icon: Target, description: 'Étapes et présentation du suivi commercial.', topics: ['Étapes commerciales', 'Ordre du Kanban', 'Couleurs des étapes', 'Types de marché'], available: true },
   { slug: 'catalogue', title: 'Catalogue', group: 'Modules métier', icon: Package, description: 'Structuration des produits, services et tarifs.', topics: ['Catégories et unités', 'Taxes', 'Tarification'], available: true },
   { slug: 'ventes', title: 'Devis', group: 'Modules métier', icon: ShoppingCart, description: 'Présentation et valeurs par défaut des devis.', topics: ['Colonnes des devis', 'Valeurs par défaut', 'Conditions générales de vente'], available: true },
-  { slug: 'achats', title: 'Achats', group: 'Modules métier', icon: Truck, description: 'Règles de préparation et suivi des achats.', topics: ['Numérotation des commandes', 'Conditions fournisseurs', 'Approvisionnement'], available: false },
-  { slug: 'stock', title: 'Stock', group: 'Modules métier', icon: Warehouse, description: 'Entrepôts, emplacements et suivi des mouvements.', topics: ['Entrepôts et emplacements', 'Types de mouvements', 'Inventaires'], available: false },
+  { slug: 'achats', title: 'Achats', group: 'Modules métier', icon: Truck, description: 'Règles de préparation et suivi des achats.', topics: ['Valeurs par défaut', 'TVA', 'Délai souhaité'], available: true },
+  { slug: 'stock', title: 'Stock', group: 'Modules métier', icon: Warehouse, description: 'Entrepôts, emplacements et suivi des mouvements.', topics: ['Entrepôts et emplacements', 'Types de mouvements', 'Inventaires'], available: true },
   { slug: 'facturation', title: 'Facturation', group: 'Modules métier', icon: Receipt, description: 'Factures, règlements et documents de facturation.', topics: ['Numérotation', 'Conditions de paiement', 'Modèles et mentions'], available: false },
   { slug: 'comptabilite', title: 'Comptabilité', group: 'Modules métier', icon: Landmark, description: 'Référentiels comptables et suivi analytique.', topics: ['Journaux et comptes', 'Axes analytiques', 'Devises et exports'], available: false },
   { slug: 'projets', title: 'Projets', group: 'Modules métier', icon: FolderKanban, description: 'Organisation des affaires et du suivi opérationnel.', topics: ['Types de projets', 'Étapes et modèles', 'Budgets'], available: false },
@@ -18,4 +19,4 @@ export const settingsSections = [
   { slug: 'integrations', title: 'Intégrations', group: 'Connexions', icon: Plug, description: 'Services externes et connexions à Horizon.', topics: ['Recherche d’entreprises (État)', 'Sage et SUPER PDP', 'Messagerie et génération PDF'], available: false },
 ] as const
 export const settingsGroups = ['Socle commun', 'Modules métier', 'Connexions'] as const
-export const settingsSectionPath = (slug: string) => ['references', 'crm', 'sequences', 'users', 'ventes', 'documents', 'catalogue'].includes(slug) ? `/settings/${slug}` : `/settings/modules/${slug}`
+export const settingsSectionPath = (slug: string) => ['ux', 'references', 'crm', 'sequences', 'users', 'ventes', 'documents', 'catalogue', 'achats', 'stock'].includes(slug) ? `/settings/${slug}` : `/settings/modules/${slug}`

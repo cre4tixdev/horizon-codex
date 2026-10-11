@@ -4,6 +4,7 @@ import json
 import base64
 import shutil
 import subprocess
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from check_auth import LocalPocketBase, ROOT
 from urllib.request import Request, urlopen
@@ -26,6 +27,81 @@ class CatalogTests(unittest.TestCase):
 
     quote_save = check_sales.SalesTests.quote_save
 
+    def test_category_cards_count_all_pages_and_keep_empty_categories(self):
+        for index in range(26):
+            status, product = self.create_product(key=f'category-count-key-{index:05d}', sku=f'CAT-{index}', barcode='')
+            self.assertEqual(status, 200, product)
+        other = next(item for item in self.categories if item['id'] != self.product['category'])
+        status, product = self.create_product(key='category-other-key-00001', sku='OTHER', category=other['id'])
+        self.assertEqual(status, 200, product)
+        for query in ['', '?page=2&category=' + self.product['category'], '?q=not-found']:
+            status, result = self.pb.request('GET', 'horizon/inventory/products' + query, token=self.token)
+            self.assertEqual(status, 200, result)
+            self.assertEqual([item['label'] for item in result['categories'][:3]], ['Équipements', 'Fournitures', 'Services'])
+            counts = {item['id']: item['count'] for item in result['categories']}
+            self.assertEqual(counts[self.product['category']], 26)
+            self.assertEqual(counts[other['id']], 1)
+            self.assertTrue(all(item['id'] in counts for item in self.categories if item['active']))
+        status, archived = self.pb.request('GET', 'horizon/inventory/products?state=archived', token=self.token)
+        self.assertEqual(status, 200, archived)
+        self.assertTrue(all(item['count'] == 0 for item in archived['categories']))
+
+    def test_automatic_barcodes_collisions_retries_and_concurrency(self):
+        base = 'RSP178-8331'
+        status, reserved = self.create_product(key='barcode-reserved-0001', sku='RESERVED', manufacturer='RS PRO', barcode=base)
+        self.assertEqual(status, 200, reserved)
+        brand = reserved['brand']
+        status, preview = self.pb.request('GET', f'horizon/inventory/barcode-preview?brand={brand}&sku=178-8331', token=self.token)
+        self.assertEqual(status, 200, preview)
+        self.assertEqual(preview['barcode'], base)
+        status, product = self.create_product(key='barcode-automatic-0001', sku='178-8331', manufacturer='RS PRO', barcode='')
+        self.assertEqual(status, 200, product)
+        self.assertEqual(product['barcode'], base + '1')
+        self.assertNotIn('barcode_requested', product)
+        status, retry = self.create_product(key='barcode-automatic-0001', sku='178-8331', manufacturer='RS PRO', barcode='')
+        self.assertEqual(status, 200, retry)
+        self.assertEqual(retry['id'], product['id'])
+        self.assertEqual(retry['barcode'], product['barcode'])
+        status, _ = self.create_product(key='barcode-automatic-0001', sku='CHANGED', manufacturer='RS PRO', barcode='')
+        self.assertEqual(status, 409)
+        status, _ = self.pb.request('POST', 'horizon/inventory/products/state', {'id': reserved['id'], 'updated': reserved['updated'], 'active': False}, self.token)
+        self.assertEqual(status, 200)
+        status, manual = self.create_product(key='barcode-manual-0001', sku='MANUAL', barcode=base)
+        self.assertEqual(status, 200, manual)
+        self.assertEqual(manual['barcode'], base + '2')
+        status, retry = self.create_product(key='barcode-manual-0001', sku='MANUAL', barcode=base)
+        self.assertEqual(status, 200, retry)
+        self.assertEqual(retry['id'], manual['id'])
+        status, _ = self.pb.request('PATCH', 'collections/inventory_products/records/' + manual['id'], {'barcode': product['barcode']}, self.pb.admin_token)
+        self.assertEqual(status, 400)
+        def create(index):
+            return self.create_product(key='barcode-concurrent-' + str(index), sku='CONCURRENT-' + str(index), barcode='SHARED')
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            results = list(pool.map(create, [1, 2]))
+        self.assertEqual([status for status, _ in results], [200, 200], results)
+        self.assertEqual({item['barcode'] for _, item in results}, {'SHARED', 'SHARED1'})
+
+    def test_product_label_context_permissions_and_barcode(self):
+        status, product = self.create_product(barcode='123456789012', name='Câble <vidéo>')
+        self.assertEqual(status, 200, product)
+        body = dict(product_id=product['id'], format='html')
+        status, preview = self.pb.request('POST', 'horizon/documents/preview', body, self.token)
+        self.assertEqual(status, 200, preview)
+        self.assertEqual(preview['page'], dict(format='Personnalisé', orientation='portrait', width=95, height=28))
+        self.assertIn('Câble &lt;vidéo&gt;', preview['html'])
+        self.assertIn('BELDEN', preview['html'])
+        self.assertIn('CABLE001', preview['html'])
+        self.assertIn('<svg', preview['html'])
+        self.assertIn('123456789012', preview['html'])
+        self.assertNotIn('unit_cost', preview['html'])
+        self.assertEqual(self.pb.request('POST', 'horizon/documents/preview', body, self.contacts_token)[0], 403)
+        self.assertEqual(self.pb.request('POST', 'horizon/documents/preview', dict(body, quote_id=self.opp['id']), self.token)[0], 400)
+        # An inventory-only viewer can print but cannot manage templates or read quotations.
+        self.pb.request('PATCH', 'collections/core_roles/records/' + self.user['role'], {'permissions': ['inventory.read']}, self.pb.admin_token)
+        self.assertEqual(self.pb.request('POST', 'horizon/documents/preview', body, self.token)[0], 200)
+        self.assertEqual(self.pb.request('GET', 'horizon/documents/templates', token=self.token)[0], 200)
+        self.assertEqual(self.pb.request('POST', 'horizon/documents/templates/save', {'name': 'Forbidden', 'document_type': 'product_label', 'content_json': {}}, self.token)[0], 403)
+
     def test_quote_search_description_words_and_sale_filter(self):
         status, sale = self.create_product(description='Connecteur vidéo coaxial 12G')
         self.assertEqual(status, 200, sale)
@@ -36,6 +112,17 @@ class CatalogTests(unittest.TestCase):
         self.assertEqual([item['id'] for item in results['items']], [sale['id']])
         self.assertEqual(self.pb.request('GET', 'horizon/inventory/products?q=coaxial', token=self.token)[1]['totalItems'], 2)
         self.assertEqual(self.pb.request('GET', 'horizon/inventory/products?sale_enabled=bad', token=self.token)[0], 400)
+        status, sale_only = self.create_product(key='sale-only-product-key', sku='SALE-ONLY', purchase_enabled=False, offers=[])
+        self.assertEqual(status, 200, sale_only)
+        status, purchasable = self.pb.request('GET', 'horizon/inventory/products?purchase_enabled=true', token=self.token)
+        self.assertEqual(status, 200, purchasable)
+        self.assertIn(internal['id'], [item['id'] for item in purchasable['items']])
+        self.assertNotIn(sale_only['id'], [item['id'] for item in purchasable['items']])
+        status, excluded = self.pb.request('GET', 'horizon/inventory/products?purchase_enabled=false', token=self.token)
+        self.assertEqual(status, 200, excluded)
+        self.assertEqual([item['id'] for item in excluded['items']], [sale_only['id']])
+        self.assertEqual(self.pb.request('GET', 'horizon/inventory/products?purchase_enabled=bad', token=self.token)[0], 400)
+
 
     def test_catalog_prices_history_search_and_snapshots(self):
         status, product = self.create_product()
@@ -242,6 +329,33 @@ class CatalogTests(unittest.TestCase):
 
 
 class CatalogMigrationTests(unittest.TestCase):
+    def test_upgrade_makes_legacy_barcodes_unique_without_overwriting_reserved_codes(self):
+        pb = LocalPocketBase(); self.addCleanup(pb.close)
+        previous = Path(pb.temp.name) / 'before_barcode'; previous.mkdir()
+        for path in (ROOT / 'pocketbase/pb_migrations').glob('*.js'):
+            if path.name < '1791630001': shutil.copy(path, previous)
+        original = pb.args[:]
+        pb.args = [arg for arg in pb.args if not arg.startswith('--migrationsDir=')] + [f'--migrationsDir={previous}']
+        pb.start()
+        role = pb.create('core_roles', {'name': 'barcode_upgrade', 'label': 'Catalogue', 'active': True, 'permissions': ['inventory.read', 'inventory.write']})
+        user = pb.create_user('barcode-upgrade@local.invalid', role['id'], 'admin')
+        category = pb.request('GET', 'collections/inventory_product_categories/records', token=pb.admin_token)[1]['items'][0]
+        unit = pb.request('GET', 'collections/inventory_units/records', token=pb.admin_token)[1]['items'][0]
+        products = []
+        for index, code in enumerate(['DUP', 'DUP', 'DUP1', '', '']):
+            products.append(pb.create('inventory_products', {'sku': 'BC-MIGRATE-' + str(index), 'name': 'Connecteur', 'category': category['id'], 'base_unit': unit['id'], 'sale_unit': unit['id'], 'kind': 'equipment', 'composition_mode': 'none', 'stock_policy': 'stocked', 'replenishment_policy': 'manual', 'tracking': 'none', 'reference_cost': 0, 'sale_currency': 'EUR', 'sale_enabled': True, 'purchase_enabled': True, 'active': True, 'created_by': user['id'], 'creation_key': 'migration-barcode-' + str(index), 'barcode': code}))
+        pb.process.terminate(); pb.process.wait(timeout=10)
+        result = subprocess.run(original + ['migrate', 'up'], env=pb.environment, capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        pb.args = original; pb.launch_and_authenticate(original)
+        codes = [pb.request('GET', 'collections/inventory_products/records/' + product['id'], token=pb.admin_token)[1]['barcode'] for product in products]
+        self.assertEqual(set(codes[:2]), {'DUP', 'DUP2'})
+        self.assertEqual(codes[2:], ['DUP1', '', ''])
+        status, audits = pb.request('GET', 'collections/core_audit/records?filter=entity%3D%22inventory_products%22', token=pb.admin_token)
+        self.assertEqual(status, 200)
+        self.assertEqual(len(audits['items']), 1)
+        self.assertEqual(audits['items'][0]['metadata']['reason'], 'duplicate_barcode')
+
     def test_upgrade_backfills_brands_without_changing_supplier_prices(self):
         pb = LocalPocketBase(); self.addCleanup(pb.close)
         previous = Path(pb.temp.name) / 'before_brands'; previous.mkdir()

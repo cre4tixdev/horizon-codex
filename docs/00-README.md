@@ -54,6 +54,8 @@ Le [cadrage Utilisateurs, droits, managers et organigramme](04-FUNCTIONAL-SPECS.
 
 Le volet **CRM / Appels d’offres** est accessible depuis `/crm` : opportunités directes ou AO après décision de répondre, dossiers AO autonomes en analyse / No go, préparation, visites / soutenances, dépôts et calendrier partagé. Voir le périmètre livré dans `04-FUNCTIONAL-SPECS.md`, le contrat dans `05-DATA-MODEL.md` et l’installation du lot AO dans `06-SECURITY-OPS.md`.
 
+Paramètres → Apparence et densité centralise les réglages UX communs avec aperçu en direct (Admin / Superuser). Le lot nécessite les migrations `1791710002_ux_settings.js` et `1791710003_ux_appearance.js` et les hooks UX décrits dans `06-SECURITY-OPS.md` ; les règles visuelles sont documentées dans `07-UX-DESIGN-SYSTEM.md`.
+
 ## Démarrage local du frontend
 
 Préférer Node 24 LTS (`.node-version`) et pnpm 12.9.1 (`packageManager` dans `package.json`). Les contraintes exactes sont déclarées dans `engines`.
@@ -391,3 +393,5 @@ CRM — premier lot du 6 octobre 2026 : liste / Kanban des opportunités classiq
 CRM — paramètres du 7 octobre 2026 : page dédiée Présentation / Étapes / Types de marché, couleurs partagées entre colonnes et tags, qualification multiple. Installer le lot PocketBase décrit dans le document 06 avant d’utiliser ce frontend.
 
 Paramètres — séquences et étapes fixes : rubrique Séquences pour les compteurs des modules activés, configuration par engrenage et couleurs personnalisées. Le CRM conserve les six étapes demandées, sans ajout / suppression ni changement de signification. Installer le lot consolidé Séquences décrit dans le document 06 ; numérotation et historique conservés.
+
+Stock S02 : les opérations physiques et les inventaires planifiés sont disponibles dans Stock → Opérations / Inventaires ; entrepôts et verrou de comptage dans Paramètres → Stock. Contrats et limites : docs/04 et docs/05 ; tests / déploiement : docs/09 et docs/06.

@@ -14,6 +14,7 @@ async function run<T>(permission: string, action: (repo: NonNullable<typeof repo
   try { return await action(repository) } catch (error) { console.error('[catalogue] Operation failed', { status: error instanceof ClientResponseError ? error.status : 0, ...(error instanceof ZodError ? { fields: error.issues.map((issue) => ({ path: issue.path.join('.'), code: issue.code })) } : {}) }); throw new Error(error instanceof ClientResponseError && [400, 403, 404, 409].includes(error.status) ? error.response.message : 'Catalogue indisponible. Réessayez.', { cause: error }) }
 }
 export const catalogService = {
+  barcodePreview: (brand: string, sku: string) => run('inventory.write', (repo) => repo.barcodePreview(brand, sku)),
   productQuotes: async (id: string, page = 1) => {
     try { return await run('inventory.read', (repo) => repo.productQuotes(id, page)) } catch (error) {
       if (error instanceof Error && error.cause instanceof ClientResponseError && error.cause.status === 404) throw new Error('L’historique des devis du produit n’est pas disponible sur ce serveur.', { cause: error })

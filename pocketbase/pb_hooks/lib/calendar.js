@@ -4,11 +4,12 @@ module.exports = (event) => {
   const from = dates.date(query.get('from'), true), to = dates.date(query.get('to'), true)
   if (from >= to || Date.parse(to) - Date.parse(from) > 370 * 86400000) throw new BadRequestError('Période du calendrier invalide (maximum un an).')
   if (!['all', 'tenders'].includes(query.get('scope') || 'all')) throw new BadRequestError('Filtres du calendrier invalides.')
-  if (!require(`${__hooks}/lib/activity.js`).allowed(event.app, event.auth, false, 'crm')) return event.json(200, { items: [], periods: [] })
+  const stockEvents = [...require(`${__hooks}/lib/stock-calendar.js`)(event, from, to), ...require(`${__hooks}/lib/calendar-manual.js`).projection(event, from, to)]
+  if (!require(`${__hooks}/lib/activity.js`).allowed(event.app, event.auth, false, 'crm')) return event.json(200, { items: stockEvents, periods: [] })
   const cases = require(`${__hooks}/lib/tender-cases.js`), { filter, parameters } = cases.filters(query)
   const tenders = event.app.findRecordsByFilter('crm_tenders', filter, '', 2001, 0, parameters)
   if (tenders.length > 2000) throw new BadRequestError('Trop de dossiers. Affinez les filtres du calendrier.')
-  const items = [], periods = []
+  const items = [...stockEvents], periods = []
   for (const tender of tenders) {
     const record = cases.linked(event.app, tender) || tender
     const company = event.app.findRecordById('contacts_companies', record.getString('company'))

@@ -57,6 +57,7 @@ module.exports = {
       if (orders.some((order) => order.getString('status') !== 'confirmed')) throw new ApiError(409, 'La commande est en cours d’exécution. Ce retour est bloqué.')
       if (body.target === 'draft' && orders.length) throw new ApiError(409, 'Revenez d’abord de Commande client à Devis.')
       for (const order of orders) {
+        require(`${__hooks}/lib/purchasing.js`).assertReturn(app, order); require(`${__hooks}/lib/stock.js`).release(app, event.auth, order);
         const previous = order.publicExport(); order.set('status', 'cancelled'); order.set('cancelled_at', new Date().toISOString()); order.set('cancellation_reason', 'Retour de la commande client en devis'); app.save(order)
         const entry = new Record(app.findCollectionByNameOrId('core_audit')); for (const [key, value] of Object.entries({ user: event.auth.id, module: 'sales', entity: 'sales_orders', entity_id: order.id, action: 'update', before: previous, after: order.publicExport(), metadata: { source: 'server', action: 'reopen_quote' } })) entry.set(key, value); app.save(entry)
       }
@@ -88,7 +89,8 @@ module.exports = {
   },
   confirm(event) {
     guard(event.app, event.auth, 'sales.order.confirm')
-    const body = event.requestInfo().body; exact(body, ['id', 'updated', 'customer_order_number', 'command_file'])
+    const body = event.requestInfo().body; exact(body, ['id', 'updated', 'customer_order_number', 'command_file', 'reservations'])
+    let reservations = body.reservations || []; if (typeof reservations === 'string') { try { reservations = JSON.parse(reservations) } catch { throw new BadRequestError('Réservations invalides.') } }; if (!Array.isArray(reservations)) throw new BadRequestError('Réservations invalides.');
     const reference = typeof body.customer_order_number === 'string' ? body.customer_order_number.trim() : ''
     if (reference.length > 120 || body.customer_order_number !== undefined && typeof body.customer_order_number !== 'string') throw new BadRequestError('Numéro de commande client invalide (120 caractères maximum).')
     let files = []
@@ -116,6 +118,7 @@ module.exports = {
         for (const key of ['kind', 'product', 'description', 'quantity', 'unit', 'unit_price', 'unit_cost', 'line_total', 'tax_base', 'tax_rate', 'tax_amount']) line.set(key, source.get(key))
         line.set('position', ++position); line.set('order', order.id); line.set('source_line', source.id); line.set('snapshot', source.publicExport()); app.save(line)
       }
+      require(`${__hooks}/lib/stock.js`).reserve(app, event.auth, order, reservations)
       if (!quote.getString('validated_at')) { quote.set('validated_at', now); quote.set('validated_by', event.auth.id) }
       quote.set('status', 'accepted'); quote.set('accepted_at', now); app.save(quote)
       audit(app, event.auth, quote, before, 'confirm', order)

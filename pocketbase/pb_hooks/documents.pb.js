@@ -13,3 +13,6 @@ onRecordDelete((event) => {
   if (event.record.getString('current_version') || event.app.findRecordsByFilter('documents_template_versions', 'template = {:id}', '', 1, 0, { id: event.record.id }).length) throw new BadRequestError('Archivez le modèle pour conserver ses versions publiées.')
   event.next()
 }, 'documents_templates')
+
+routerAdd('GET', '/api/horizon/documents/paper-formats', (event) => require(`${__hooks}/lib/documents.js`).formats(event), $apis.requireAuth('core_users'))
+routerAdd('POST', '/api/horizon/documents/paper-formats', (event) => require(`${__hooks}/lib/documents.js`).saveFormat(event), $apis.requireAuth('core_users'))

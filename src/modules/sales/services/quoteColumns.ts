@@ -1,9 +1,12 @@
-import { quoteColumns } from '../schemas/quotes'
-const minimums: Record<string, number> = { position: 42, description: 120, brand: 45, reference: 55, quantity: 40, unit: 36, unit_cost: 70, unit_price: 70, margin_percent: 48, discount: 48, line_total: 82, purchase: 55, is_option: 42, actions: 58 }
+import { quoteColumns, type Quote } from '../schemas/quotes'
+export function visibleQuoteColumns(status?: Quote['status']) {
+  return quoteColumns.filter(([key]) => !['purchase', 'receipt', 'delivery'].includes(key) || status === 'accepted')
+}
+const minimums: Record<string, number> = { position: 42, description: 120, brand: 45, reference: 55, quantity: 40, unit: 36, unit_cost: 70, unit_price: 70, margin_percent: 48, discount: 48, line_total: 82, purchase: 60, receipt: 60, delivery: 60, is_option: 42, actions: 58 }
 export const quoteMinimumWidth = Object.values(minimums).reduce((sum, value) => sum + value, 0)
-export function fitQuoteColumns(input: Record<string, number>, available: number) {
-  const widths = Object.fromEntries(quoteColumns.map(([key, , fallback]) => [key, Math.max(minimums[key]!, input[key] || fallback)]))
-  const budget = Math.max(available, quoteMinimumWidth)
+export function fitQuoteColumns(input: Record<string, number>, available: number, columns: ReadonlyArray<(typeof quoteColumns)[number]> = quoteColumns) {
+  const widths = Object.fromEntries(columns.map(([key, , fallback]) => [key, Math.max(minimums[key]!, input[key] || fallback)]))
+  const budget = Math.max(available, columns.reduce((sum, [key]) => sum + minimums[key]!, 0))
   let excess = Object.values(widths).reduce((sum, value) => sum + value, 0) - budget
   if (excess < 0) widths.description! -= excess
   while (excess > 0.01) {
@@ -14,8 +17,8 @@ export function fitQuoteColumns(input: Record<string, number>, available: number
   }
   return widths
 }
-export function resizeQuoteColumn(current: Record<string, number>, key: string, delta: number) {
-  const widths = { ...current }, keys = quoteColumns.map(([name]) => name), index = keys.findIndex((name) => name === key)
+export function resizeQuoteColumn(current: Record<string, number>, key: string, delta: number, columns: ReadonlyArray<(typeof quoteColumns)[number]> = quoteColumns) {
+  const widths = { ...current }, keys = columns.map(([name]) => name), index = keys.findIndex((name) => name === key)
   const others = [...keys.slice(index + 1), ...keys.slice(0, index).reverse()]
   if (delta < 0) { const amount = Math.min(-delta, widths[key]! - minimums[key]!); widths[key]! -= amount; widths[others[0]!]! += amount }
   else for (const name of others) { const amount = Math.min(delta, widths[name]! - minimums[name]!); widths[name]! -= amount; widths[key]! += amount; delta -= amount; if (delta <= 0) break }

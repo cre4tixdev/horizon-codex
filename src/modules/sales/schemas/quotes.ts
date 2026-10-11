@@ -10,10 +10,10 @@ export const opportunityChoiceSchema = z.object({ id: z.string(), number: z.stri
 export const relatedSalesSchema = z.object({ quoteCount: z.number(), orderCount: z.number(), revenue: z.array(z.object({ currency: z.string(), amount: z.number() })) })
 export type Quote = z.infer<typeof quoteSchema>
 export type QuoteInput = z.infer<typeof quoteInputSchema>
-export type QuoteListOptions = { q: string; opportunity: string; company: string; status: string; sort: string; page: number }
+export type QuoteListOptions = { product?: string; q: string; opportunity: string; company: string; status: string; sort: string; page: number }
 
 export const quoteColumns = [
-  ['position', '#', 52], ['description', 'Description', 280], ['brand', 'Marque', 100], ['reference', 'Référence', 110], ['quantity', 'Qté', 65], ['unit', 'Unité', 60], ['unit_cost', 'Coût', 110], ['margin_percent', 'Marge %', 75], ['unit_price', 'PUV', 110], ['discount', 'Remise %', 75], ['line_total', 'PTV', 110], ['purchase', 'Commande', 90], ['is_option', 'Option', 52], ['actions', 'Actions', 64],
+  ['position', '#', 52], ['description', 'Description', 280], ['brand', 'Marque', 100], ['reference', 'Référence', 110], ['quantity', 'Qté', 65], ['unit', 'Unité', 60], ['unit_cost', 'Coût', 110], ['margin_percent', 'Marge %', 75], ['unit_price', 'PUV', 110], ['discount', 'Remise %', 75], ['line_total', 'PTV', 110], ['is_option', 'Option', 52], ['actions', 'Actions', 64], ['purchase', 'Achats', 90], ['receipt', 'Réceptions', 80], ['delivery', 'Livraisons', 80],
 ] as const
 export const salesSettingsSchema = z.object({ terms: z.array(z.object({ id: z.string(), label: z.string(), content: z.string(), active: z.boolean() })), units: z.array(z.object({ code: z.string(), label: z.string(), active: z.boolean() })), id: z.string(), updated: z.string(), validity_days: z.number().int().min(1).max(365), default_tax_rate: z.number().min(0).max(100), column_widths: z.record(z.string(), z.number().int().min(40).max(800)) })
 export type SalesSettings = z.infer<typeof salesSettingsSchema>

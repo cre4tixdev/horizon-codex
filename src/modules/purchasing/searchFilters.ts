@@ -1,0 +1,9 @@
+import { Building2, List } from 'lucide-react'
+import type { SearchFilter } from '../../shared/search/filters'
+import { purchaseLabels, type PurchaseKind, type PurchaseChoices } from './schemas/purchasing'
+export function purchasingFilters(kind: PurchaseKind, choices?: PurchaseChoices): SearchFilter[] {
+  const states = kind === 'requests' ? ['draft', 'validated', 'partially_ordered', 'ordered', 'completed', 'cancelled'] : ['draft', 'validated', 'sent', 'acknowledged', 'partially_received', 'received', 'closed', 'cancelled']
+  return [{ key: 'status', label: 'État', defaultValue: '', options: [{ value: '', label: 'Non archivées' }, ...states.map((value) => ({ value, label: purchaseLabels[value]! })), { value: 'archived', label: 'Archivées' }] }, { key: 'supplier', label: 'Fournisseur', defaultValue: '', options: [{ value: '', label: 'Tous les fournisseurs' }, ...(choices?.suppliers || []).map((item) => ({ value: item.id, label: item.name }))] }, { key: 'opportunity', label: 'Opportunité', defaultValue: '', options: [{ value: '', label: 'Toutes les opportunités' }, ...(choices?.opportunities || []).map((item) => ({ value: item.id, label: item.name }))] }]
+}
+export const purchasingSortFilter: SearchFilter = { key: 'sort', label: 'Trier par', defaultValue: '-created', options: [{ value: '-created', label: 'Plus récentes' }, { value: 'title', label: 'Titre' }, { value: 'document_date', label: 'Date' }] }
+export const purchasingGroupingFilter: SearchFilter = { key: 'group', label: 'Regrouper par', defaultValue: 'none', options: [{ value: 'none', label: 'Aucun regroupement', icon: List }, { value: 'supplier_name', label: 'Fournisseur', icon: Building2 }] }

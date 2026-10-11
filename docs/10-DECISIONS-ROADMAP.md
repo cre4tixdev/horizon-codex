@@ -1857,3 +1857,51 @@ Devis — annulation, archivage et suppression : `cancelled` est un état métie
 
 
 Livraison locale — cycle devis : frise, commercial, finalisation, confirmation avec vraie commande et preuve protégée ; reprises commande → devis → brouillon, annulation, archivage indépendant et suppression limitée. Compteur persistant par opportunité ; historique et analytique conservés. Envoi réel toujours en attente du module Messaging ; aucun faux envoi. Achats / livraisons / réservations ne sont pas déclenchés automatiquement.
+
+
+10 octobre 2026 — Documents D18 : étiquettes produit dans le studio partagé, formats arbitraires en mm et référentiel Formats d’impression (A4 / Étiquette produit 95 × 28 initiaux), dimensions snapshotées dans le modèle. Bouton code-barres de la fiche produit, aperçu HTML / PDF et impression, champs Produit autorisés et Code 128 contrôlé. Migration additive 1791630000_product_labels.js, versions publiées préservées. Vérifications locales de droits, validation, conflits, pagination, dimensions physiques et parcours navigateur ; déploiement NAS et imprimante réelle restent à effectuer.
+
+
+10 octobre 2026 — Catalogue : proposition serveur du code-barres Marque (3 caractères sans espaces) + Référence, attribution atomique avec suffixes et unicité persistée, archivés inclus. Code existant conservé lors des modifications d’identité ; idempotence de création préservée. Migration 1791630001_product_barcode_unique.js audite la résolution d’éventuels doublons historiques. Vérifications pure / serveur / concurrence / migration existante et navigateur ; paquet NAS consolidé préparé, non déployé.
+
+
+10 octobre 2026 — Achats A01 et Stock S01 : premier lot DA manuelles / issues de commandes client, ventilation par compte analytique, préparation explicite de BC brouillons regroupés par fournisseur et devise, validation / annulation / archivage, fil et aperçu HTML / PDF réutilisant Documents. Réservation facultative lors de la confirmation client ou après, balances physique / réservé / disponible / entrant et ajustement audité initial par emplacement. Numéro de devis conservé et libellé Commande après acceptation ; colonnes opérationnelles uniquement dans cet état. Smart boutons strictement de navigation. Dernier achat produit issu d’un BC validé, sans assimilation du tarif préféré à un achat réel.
+Suite requise : réception / livraison avec brouillons distincts des états réalisés, lots / séries, inventaires complets et multi-entrepôts, valorisation / écritures comptables et Messaging. Aucune réalisation simulée ni e-mail envoyé. Les choix tarifaires sont explicites, pas de RFQ. Ce lot remplace les mentions antérieures « Achats / Stock indisponibles » pour les fonctions effectivement décrites ici.
+
+
+BC fournisseur — 11 octobre 2026 : acheteur core_users via owner, destination inventory_warehouses via delivery_warehouse ; validation exige des référentiels actifs. Aucun changement rétroactif des pièces validées. Les smart boutons restent des raccourcis de consultation ; Réceptions et Factures fournisseurs attendent leurs modules. Pas de workflow RFQ ajouté.
+
+
+11 octobre 2026 — Paramètres UX communs : décision de centraliser les dimensions / espacements et les couleurs d’en-tête en Paramètres avec aperçu en direct, réservés aux administrateurs habilités. Valeurs actuelles conservées à l’amorçage, publication uniquement par Enregistrer et lecture partagée par tous les modules. Les documents PDF gardent leurs modèles et les états métier leur palette.
+
+Livré pour ce lot : `/settings/ux`, singleton settings_ux et migration 1791710002, validation / audit serveur, aperçu des composants Horizon, chargement global et propagation Realtime, protection des éditions concurrentes, restauration des défauts et tests du parcours. Aucun déploiement distant implicite.
+
+11 octobre 2026 — Extension UX : onglets, fonds général et activité, couleurs alternées des tableaux, dimensions / couleurs des boutons et smart boutons, densité sidebar et taille des tuiles du menu. Actions déplacées dans la barre sticky partagée. Migration additive 1791710003 préservant les réglages existants.
+
+11 octobre 2026 — Stock S02 : opérations IN / OUT / RET / PREP / INT, Meudon et Sèvres, séquences continues par entrepôt/type, réceptions / livraisons partielles liées aux pièces sources, transfert en transit, retours, rebut, dropshipping et inventaires annuels / tournants planifiés, verrou facultatif au comptage. Réutilisation des listes et fiches Horizon, activité et Documents. Réservations après réception autorisées sans recréer de besoins d’achat ; une validation réalise le stock, un brouillon ne le réalise jamais.
+Périmètre de ce lot : produits non tracés, unités de base identiques aux pièces sources ; conversions et lots/séries sont explicitement bloqués avec explication. Transferts des quantités réservées, traçabilité lots/séries, valorisation comptable / FX, immobilisations et Messaging restent les lots suivants. Les coûts liés à une source sont conservés sans prétendre à un moteur de valorisation comptable. RET fournisseur sort physiquement sans modifier le statut de réception historique ni générer un avoir.
+
+Stock S03 : dashboard comme entrée du module, pages Stock indépendantes et catalogue de types d’opérations. Décision utilisateur du 11 octobre 2026 : coût standard pour tout le stock au démarrage ; prévoir CUMP et FIFO et un changement de méthode réservé aux administrateurs, daté, audité et sans réécriture des mouvements historiques. Le coût standard de valorisation est distinct du coût de calcul du prix de vente ; conserver les coûts d’achat réels par affaire et les écarts au standard. Le lot V01 ci-dessous implémente le calcul, le paramètre et les migrations ; les reprises d’ouverture restent explicitement validées par l’administrateur. Contrat fonctionnel dans 04-FUNCTIONAL-SPECS.md, section Valorisation.
+
+
+11 octobre 2026 — Stock V01 : moteurs standard / CUMP / FIFO et méthode globale administrateur réalisés. Standard par défaut ; référentiel de coûts de valorisation séparé du pricing commercial, reprises explicites des anciens stocks et révisions auditées. Journal de valorisation immuable, couches restantes, conservation de valeur en transit, corrections et retours, projection dans dashboard / disponibilités / fiche produit. Changement de méthode daté sans réécriture d’historique, régularisation vers standard, reprise moyenne vers CUMP/FIFO. EUR uniquement ; Sage, frais / change / factures et comptabilisation restent les prochains raccordements.
+
+Stock S04 — décision utilisateur : supprimer la distinction code / trigramme, conserver uniquement Code (MEU / SEV). Valorisation dans un onglet distinct des entrepôts et emplacements.
+
+Réceptions fournisseur — validation BC crée désormais une attente IN préremplie, remplaçant l’ancienne action Préparer une réception. Stock uniquement à réception effective ; reliquats et annulations conservés côté serveur. Migration de reprise 1791710009. Envoi e-mail reste distinct et non simulé.
+
+11 octobre — fiche et bon de réception fournisseur repris : expéditeur / BC source, affaires dans les lignes, entrepôt modifiable en attente, destinations et quantités requises, retrait des coûts / destination chantier / reprise de quantités, notes conformes au devis. Snapshot des libellés de bon à réalisation et parcours magasinier sans accès aux prix. Hooks PocketBase à actualiser ; pas de migration supplémentaire.
+
+11 octobre — tags code / client partagés sur les affaires Stock et Achats ; quantités de ventilation dans les réceptions, agrégation multi-affaires dans les listes, Provenance remplace Opération pour les réceptions. Proposition Stock principal au changement d’entrepôt et ouverture de la commande fournisseur dans la fiche partagée en popup. Pack PocketBase seulement ; aucune migration supplémentaire.
+
+11 octobre 2026 — Refonte dashboard Stock et catalogue Opérations : priorités de mouvements, files réceptions / inventaires, disponibilité, entrepôts et ventilation de la valeur HT ; catalogue quotidien séparé des opérations spécifiques. Filtre En cours côté serveur et tri des dates non renseignées en fin. Pas de nouvelle migration.
+
+11 octobre 2026 — Courbes intégrées aux sept tuiles Opérations : réalisé vert / prévu magenta sur J−2 à J+7, détails quotidiens, date d’exécution serveur et alertes sans date / retard. Projection agrégée indépendante de la pagination. Aucune migration supplémentaire.
+
+11 octobre 2026 — Dashboard général : premiers raccordements de lecture aux estimations CRM, commandes clients / marges historiques, achats engagés, tâches assignées, échéances CRM et activité des modules accessibles. La sélection Mois / Trimestre / Année pilote les agrégats serveur ; facturation / paiements / réalisé complet restent à connecter aux modules propriétaires. Aucun nouvel objet comptable, aucune conversion de devise implicite. Hooks à installer, aucune migration nouvelle.
+
+11 octobre 2026 — Calendrier : événements manuels personnels / équipe, propriétaire seul en écriture, ajout / modification / retrait en popup et Mon planning. Collection calendar_events indépendante des projections CRM / Stock, mutation serveur auditée et permissions calendar.read / calendar.write. Sans synchronisation Outlook ni invitations automatiques.
+
+11 octobre 2026 — Courbes financières en arrière-plan des indicateurs du dashboard, même période / données que les montants. Agrégation serveur par jour / semaine / mois, devises et pertes préservées. Facturé sans courbe jusqu’au raccordement Billing ; hooks mis à jour, pas de nouvelle collection ni migration.
+
+12 octobre 2026 — Appels d’offres : À télécharger avant À analyser, dossier autonome, valeur de départ existante conservée. Migration additive et Kanban desktop ajusté à la largeur disponible suivant les colonnes repliées / ouvertes ; composant partagé CRM / AO.

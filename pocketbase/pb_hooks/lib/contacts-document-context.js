@@ -17,3 +17,5 @@ module.exports = (app, company) => {
   fields['company.address'] = [fields['company.line1'], fields['company.line2'], [fields['company.postal_code'], fields['company.city']].filter(Boolean).join(' '), fields['company.state_region'], fields['company.country_name']].filter(Boolean).join('\n')
   return { fields, warnings }
 }
+
+module.exports.supplierIdentity = (company) => ({ name: company.getString('name'), vat_number: company.getString('vat_number') })

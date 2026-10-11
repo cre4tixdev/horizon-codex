@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { HLoadingIndicator } from '../../../shared/ui/HLoadingIndicator'
 import { createPaginatedHtml } from '../preview/createPaginatedHtml'
-export function PaginatedDocument({ html, zoom = 100, fit = false, onPaginated }: { html: string; zoom?: number; fit?: boolean; onPaginated?: (pages: number) => void }) {
-  const frame = useRef<HTMLIFrameElement>(null)
+export function PaginatedDocument({ html, zoom = 100, fit = false, printRequest = 0, title = 'Aperçu du devis enregistré', onPaginated }: { html: string; zoom?: number; fit?: boolean; printRequest?: number; title?: string; onPaginated?: (pages: number) => void }) {
+  const frame = useRef<HTMLIFrameElement>(null), printedRequest = useRef(printRequest)
   const document = useMemo(() => {
     const token = crypto.randomUUID().replaceAll('-', '')
     try { return { token, html: createPaginatedHtml(html, token), error: false } }
@@ -14,6 +14,9 @@ export function PaginatedDocument({ html, zoom = 100, fit = false, onPaginated }
   useEffect(() => {
     if (ready) frame.current?.contentWindow?.postMessage({ kind: 'horizon-document-zoom', token: document.token, zoom, fit }, '*')
   }, [ready, document.token, zoom, fit])
+  useEffect(() => {
+    if (ready && printRequest > printedRequest.current) { printedRequest.current = printRequest; frame.current?.contentWindow?.postMessage({ kind: 'horizon-document-print', token: document.token }, '*') }
+  }, [printRequest, ready, document.token])
   useEffect(() => {
     let stage = 'démarrage', pages = 0
     const timeout = setTimeout(() => { console.error('[documents] HTML pagination timed out', { stage, pages }); setStatus({ token: document.token, ready: false, error: true }) }, 30000)
@@ -30,6 +33,6 @@ export function PaginatedDocument({ html, zoom = 100, fit = false, onPaginated }
   return <div className="document-paginated-preview">
     {!ready && !failed && <HLoadingIndicator label="Pagination du document" />}
     {failed && <p role="alert" className="field-error">L’aperçu HTML n’a pas pu être paginé. Vous pouvez réouvrir l’aperçu ou utiliser le PDF.</p>}
-    <iframe ref={frame} title="Aperçu du devis enregistré" sandbox="allow-scripts" className="document-preview-frame" data-ready={ready} srcDoc={failed ? '' : document.html} />
+    <iframe ref={frame} title={title} sandbox="allow-scripts allow-modals" className="document-preview-frame" data-ready={ready} srcDoc={failed ? '' : document.html} />
   </div>
 }

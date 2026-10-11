@@ -1,9 +1,14 @@
 import { redirect, type RouteObject } from 'react-router'
 export const settingsRoutes: RouteObject[] = [{ path: '/settings', lazy: async () => ({ Component: (await import('../components/SettingsLayout')).SettingsLayout }), children: [
   { index: true, lazy: async () => ({ Component: (await import('../pages/SettingsPage')).SettingsPage }) },
+  { path: 'ux', lazy: async () => ({ Component: (await import('../pages/UxSettingsPage')).UxSettingsPage }) },
   { path: 'documents', lazy: async () => ({ Component: (await import('../../documents/pages/TemplatesPage')).TemplatesPage }) },
   { path: 'modules/catalogue', loader: () => redirect('/settings/catalogue') },
   { path: 'catalogue', lazy: async () => ({ Component: (await import('../../inventory/pages/CatalogSettingsPage')).CatalogSettingsPage }) },
+  { path: 'stock', lazy: async () => ({ Component: (await import('../../inventory/pages/StockSettingsPage')).StockSettingsPage }) },
+  { path: 'modules/stock', loader: () => redirect('/settings/stock') },
+  { path: 'achats', lazy: async () => ({ Component: (await import('../../purchasing/pages/PurchasingSettingsPage')).PurchasingSettingsPage }) },
+  { path: 'modules/achats', loader: () => redirect('/settings/achats') },
   { path: 'ventes', lazy: async () => ({ Component: (await import('../pages/SalesSettingsPage')).SalesSettingsPage }) },
   { path: 'modules/ventes', loader: () => redirect('/settings/ventes') },
   { path: 'crm', lazy: async () => ({ Component: (await import('../pages/CrmSettingsPage')).CrmSettingsPage }) },

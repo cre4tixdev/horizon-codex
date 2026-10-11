@@ -1,3 +1,4 @@
+import { purchasingRoutes } from '../modules/purchasing'
 import { inventoryRoutes } from '../modules/inventory'
 import { salesRoutes } from '../modules/sales'
 import { documentsRoutes } from '../modules/documents'
@@ -29,12 +30,13 @@ export const router = createBrowserRouter([
       ...contactsRoutes,
       ...crmRoutes,
       ...salesRoutes,
+      ...purchasingRoutes,
       ...inventoryRoutes,
       ...documentsRoutes,
       ...calendarRoutes,
       ...hrRoutes,
       ...settingsRoutes,
-      ...navigationItems.filter((item) => !['/', '/contacts', '/settings', '/crm', '/hr', '/calendar', '/sales', '/inventory'].includes(item.href)).map((item) => ({ path: item.href, element: <WorkspacePage item={item} /> })),
+      ...navigationItems.filter((item) => !['/', '/contacts', '/settings', '/crm', '/hr', '/calendar', '/sales', '/inventory', '/purchasing'].includes(item.href)).map((item) => ({ path: item.href, element: <WorkspacePage item={item} /> })),
       { path: '*', element: <NotFoundPage /> },
     ],
     }],

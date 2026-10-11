@@ -68,22 +68,39 @@ function validateProduct(app, input, previous) {
   }
 }
 module.exports = {
+  barcodePreview(event) {
+    guard(event.app, event.auth, true)
+    const query = event.requestInfo().query, brand = get(event.app, 'inventory_brands', query.brand)
+    if (typeof query.sku !== 'string' || !query.sku.trim() || query.sku.length > 80) throw new BadRequestError('Référence requise pour le code-barres.')
+    return event.json(200, { barcode: require(`${__hooks}/lib/catalog-barcode.js`).base(brand.getString('name'), query.sku) })
+  },
   allowed, productPrice, get, dto,
+  documentContext(app, user, id) {
+    guard(app, user)
+    const product = get(app, 'inventory_products', id)
+    const brand = product.getString('brand') ? get(app, 'inventory_brands', product.getString('brand')).getString('name') : product.getString('manufacturer')
+    return { fields: { 'product.name': product.getString('name'), 'product.reference': product.getString('sku'), 'product.brand': brand, 'product.barcode': product.getString('barcode'), 'product.description': product.getString('description'), 'product.unit': get(app, 'inventory_units', product.getString('base_unit')).getString('code') }, lines: [], warnings: [] }
+  },
   list(event) {
     guard(event.app, event.auth)
     const query = event.requestInfo().query, page = Number(query.page || 1), params = { active: query.state !== 'archived' }, filters = ['active = {:active}']
     if (!Number.isInteger(page) || page < 1 || page > 100000) throw new BadRequestError('Page invalide.')
     for (const [index, word] of String(query.q || '').slice(0, 200).split(/\s+/).filter(Boolean).entries()) { params['q' + index] = word; filters.push(`(name ~ {:q${index}} || sku ~ {:q${index}} || manufacturer ~ {:q${index}} || manufacturer_ref ~ {:q${index}} || barcode ~ {:q${index}} || description ~ {:q${index}})` ) }
     if (query.sale_enabled !== undefined) { if (!['true', 'false'].includes(query.sale_enabled)) throw new BadRequestError('Critère de vente invalide.'); params.sale = query.sale_enabled === 'true'; filters.push('sale_enabled = {:sale}') }
+    if (query.purchase_enabled !== undefined) { if (!['true', 'false'].includes(query.purchase_enabled)) throw new BadRequestError('Critère d’achat invalide.'); params.purchase = query.purchase_enabled === 'true'; filters.push('purchase_enabled = {:purchase}') }
     if (query.kind) { params.kind = query.kind; filters.push('kind = {:kind}') }
     if (query.category) { params.category = query.category; filters.push('category = {:category}') }
     const filter = filters.join(' && '), sort = ['name', '-name', 'sku', '-created'].includes(query.sort) ? query.sort : 'name'
     const matching = event.app.findRecordsByFilter('inventory_products', filter, sort + ',id', 10001, 0, params)
     if (matching.length > 10000) throw new BadRequestError('Affinez la recherche du catalogue.')
     const totalItems = matching.length
-    return event.json(200, { items: matching.slice((page - 1) * 25, page * 25).map((record) => dto(event.app, record, false)), page, totalItems, totalPages: Math.ceil(totalItems / 25) })
+    const records = matching.slice((page - 1) * 25, page * 25)
+    const stock = require(`${__hooks}/lib/stock.js`).availableByProduct(event.app, event.auth, records.filter((record) => record.getString('stock_policy') !== 'none').map((record) => record.id))
+    const categories = arrayOf(new DynamicModel({ id: '', code: '', label: '', count: 0 }))
+    event.app.db().newQuery("SELECT c.id, c.code, c.label, COUNT(p.id) AS count FROM inventory_product_categories c LEFT JOIN inventory_products p ON p.category = c.id AND p.active = {:active} GROUP BY c.id HAVING c.active = true OR COUNT(p.id) > 0 ORDER BY CASE c.code WHEN 'equipment' THEN 0 WHEN 'supplies' THEN 1 WHEN 'services' THEN 2 ELSE 3 END,c.label COLLATE NOCASE,c.id").bind({ active: params.active }).all(categories)
+    return event.json(200, { items: records.map((record) => ({ ...dto(event.app, record, false), available_quantity: record.getString('stock_policy') === 'none' ? null : stock.get(record.id) || 0 })), categories, page, totalItems, totalPages: Math.ceil(totalItems / 25) })
   },
-  record(event) { guard(event.app, event.auth); return event.json(200, dto(event.app, get(event.app, 'inventory_products', event.request.pathValue('id')))) },
+  record(event) { guard(event.app, event.auth); const product = get(event.app, 'inventory_products', event.request.pathValue('id')); return event.json(200, { ...dto(event.app, product), last_purchase: require(`${__hooks}/lib/purchasing.js`).lastPurchase(event.app, event.auth, product.id) }) },
   choices(event) {
     guard(event.app, event.auth)
     return event.json(200, { brands: event.app.findAllRecords('inventory_brands').map((item) => item.publicExport()), countries: event.app.findAllRecords('settings_countries').map((item) => ({ code: item.getString('code'), label: item.getString('label'), active: item.getBool('active') })), categories: event.app.findAllRecords('inventory_product_categories').map((item) => item.publicExport()), units: event.app.findAllRecords('inventory_units').map((item) => item.publicExport()), currencies: event.app.findRecordsByFilter('accounting_currencies', 'active = true', 'code', 0, 0).map((item) => ({ code: item.getString('code'), label: item.getString('label') })), suppliers: policy.permissions(event.app, event.auth).includes('contacts.read') ? event.app.findRecordsByFilter('contacts_company_roles', 'active = true && role = "supplier" && company.active = true', 'company.name', 0, 0).map((role) => { const item = get(event.app, 'contacts_companies', role.getString('company')); return { id: item.id, name: item.getString('name') } }) : [] })
@@ -117,13 +134,17 @@ module.exports = {
       guard(app, event.auth, true)
       input = normalizeInput(app, input, event.auth)
       if (!body.id && !/^[a-zA-Z0-9-]{16,100}$/.test(body.creation_key || '')) throw new BadRequestError('Clé de création invalide.')
-      if (!body.id) { const existing = app.findRecordsByFilter('inventory_products', 'creation_key = {:key} && created_by = {:actor}', '', 1, 0, { key: body.creation_key, actor: event.auth.id })[0]; if (existing) { exact(input, [...fields, 'offers']); if (fields.some((key) => existing.get(key) !== (typeof input[key] === 'string' ? input[key].trim() : input[key]))) throw new ApiError(409, 'Cette création existe déjà avec d’autres valeurs.'); result = dto(app, existing); return } }
+      if (!body.id) { const existing = app.findRecordsByFilter('inventory_products', 'creation_key = {:key} && created_by = {:actor}', '', 1, 0, { key: body.creation_key, actor: event.auth.id })[0]; if (existing) { exact(input, [...fields, 'offers']); if (fields.some((key) => (key === 'barcode' ? ![existing.getString('barcode'), existing.getString('barcode_requested')].includes(input.barcode.trim()) : existing.get(key) !== (typeof input[key] === 'string' ? input[key].trim() : input[key])))) throw new ApiError(409, 'Cette création existe déjà avec d’autres valeurs.'); result = dto(app, existing); return } }
       const record = body.id ? get(app, 'inventory_products', body.id) : new Record(app.findCollectionByNameOrId('inventory_products'))
       if (body.id && record.getString('updated') !== body.updated) throw new ApiError(409, 'Le produit a changé. Rechargez sa fiche.')
       if (body.id && !record.getBool('active')) throw new BadRequestError('Réactivez le produit avant de le modifier.')
       validateProduct(app, input, body.id ? record : null)
       const before = body.id ? record.publicExport() : null
       for (const key of fields) record.set(key, typeof input[key] === 'string' ? input[key].trim() : input[key])
+      const requestedBarcode = input.barcode.trim(), barcodes = require(`${__hooks}/lib/catalog-barcode.js`)
+      const barcode = requestedBarcode || (!body.id ? barcodes.base(input.manufacturer, input.sku) : '')
+      if (barcode) record.set('barcode', barcodes.allocate(barcode, (candidate) => app.findRecordsByFilter('inventory_products', 'barcode = {:barcode} && id != {:id}', '', 1, 0, { barcode: candidate, id: record.id }).length > 0))
+      if (!body.id) record.set('barcode_requested', requestedBarcode)
       record.set('sale_unit', input.base_unit); record.set('composition_mode', 'none')
       if (!body.id) { record.set('active', true); record.set('created_by', event.auth.id); record.set('creation_key', body.creation_key) }
       if (body.remove_image === true || body.remove_image === 'true') record.set('primary_image', '')
@@ -152,4 +173,11 @@ module.exports = {
   },
   state(event) { guard(event.app, event.auth, true); const body = event.requestInfo().body; exact(body, ['id', 'updated', 'active']); if (typeof body.active !== 'boolean') throw new BadRequestError('État invalide.'); let saved; event.app.runInTransaction((app) => { guard(app, event.auth, true); const record = get(app, 'inventory_products', body.id); if (record.getString('updated') !== body.updated) throw new ApiError(409, 'Le produit a changé. Rechargez sa fiche.'); const before = record.publicExport(); record.set('active', body.active); app.save(record); audit(app, event.auth, record, before, body.active ? 'restore' : 'archive'); saved = dto(app, record); require(`${__hooks}/lib/activity.js`).publish(app, record, event.auth.id, 'status_change', body.active ? 'Produit réactivé' : 'Produit archivé', { action: body.active ? 'restore' : 'archive' }) }); return event.json(200, saved) },
   quoteLine(event) { guard(event.app, event.auth); if (!policy.permissions(event.app, event.auth).includes('sales.read')) throw new ForbiddenError('Accès aux devis refusé.'); const body = event.requestInfo().body; exact(body, ['product', 'offer', 'currency']); const product = get(event.app, 'inventory_products', body.product); if (!product.getBool('active') || !product.getBool('sale_enabled')) throw new BadRequestError('Ce produit ne peut pas être vendu.'); if (!get(event.app, 'inventory_units', product.getString('base_unit')).getBool('active')) throw new BadRequestError('L’unité du produit est archivée.'); const price = productPrice(event.app, product, body.offer || ''); if (price.warning || body.currency !== price.currency) throw new BadRequestError(price.warning || 'La devise du produit est différente de celle du devis.'); return event.json(200, { product: product.id, product_supplier: price.product_supplier, description: product.getString('description') || product.getString('name'), brand: product.getString('manufacturer'), reference: product.getString('sku'), unit: get(event.app, 'inventory_units', product.getString('base_unit')).getString('code'), unit_cost: price.unit_cost, unit_price: price.unit_price, margin_percent: (price.coefficient - 1) * 100 }) },
+}
+
+// Initial suggestion only: Inventory freezes its own standard cost thereafter.
+module.exports.valuationCost = (app, id) => {
+  const price = productPrice(app, get(app, 'inventory_products', id))
+  if (price.currency !== 'EUR' || price.warning) return null
+  return price.unit_cost
 }

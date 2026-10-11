@@ -1,0 +1,42 @@
+import { useLocation, useSearchParams, Link } from 'react-router'
+import { useQuery } from '@tanstack/react-query'
+import type { ColumnDef } from '@tanstack/react-table'
+import { Plus, CalendarDays, List, ChevronLeft, ChevronRight, ClipboardList } from 'lucide-react'
+import { HSectionHeading } from '../../../shared/ui/HSectionHeading'
+import { HPageHeader } from '../../../shared/ui/HPageHeader'
+import { HPageBreadcrumb } from '../../../shared/ui/HPageBreadcrumb'
+import { HDataTable } from '../../../shared/ui/HDataTable'
+import { HButton } from '../../../shared/ui/HButton'
+import { HAffairTags } from '../../../shared/ui/HAffairTags'
+import { HTag } from '../../../shared/ui/HTag'
+import { HLoadingIndicator } from '../../../shared/ui/HLoadingIndicator'
+import { HBreadcrumbActions } from '../../../shared/ui/HBreadcrumbActions'
+import { HMonthCalendar } from '../../../shared/ui/HMonthCalendar'
+import { GroupedResults } from '../../../shared/search/GroupedResults'
+import { groupResults } from '../../../shared/search/listPresentation'
+import { displayDate } from '../../../shared/time/zonedDate'
+import '../stock-operations.css'
+import { OperationTiles } from '../components/OperationTiles'
+import { operationTiles } from '../operationPresentation'
+import { operationsService } from '../services/OperationsService'
+import { useStockAccess } from '../hooks/useStockAccess'
+import { operationLabels, operationStates, operationTones, type Operation, type OperationsQuery } from '../schemas/operations'
+export function OperationsPage() {
+  const { pathname } = useLocation(), inventories = pathname.endsWith('inventories'), [params, setParams] = useSearchParams(), access = useStockAccess(), calendar = inventories && params.get('view') === 'calendar'
+  const options: OperationsQuery = Object.fromEntries(['q', 'variant', 'status', 'warehouse', 'opportunity', 'product', 'purchase_order', 'sales_quote', 'group', 'sort'].map((key) => [key, params.get(key) || '']))
+  options.kind = inventories ? 'INV' : params.get('kind') || ''; options.page = Math.max(1, Number(params.get('page')) || 1); options.calendar = String(calendar); options.timeline = String(!inventories)
+  const query = useQuery({ queryKey: ['inventory', 'operations', options], queryFn: () => operationsService.list(options), enabled: access.canRead, retry: false })
+  const allFilters = new URLSearchParams(params)
+  allFilters.delete('kind'); allFilters.delete('variant'); allFilters.delete('page'); allFilters.set('view', 'list')
+  const listMode = inventories || params.size > 0
+  const selectedTile = operationTiles.find((tile) => tile.kind === options.kind && tile.variant === (options.variant || ''))
+  const title = inventories ? 'Inventaires' : selectedTile?.label || 'Opérations de stock'
+  const columns: ColumnDef<Operation>[] = [{ header: 'Numéro', accessorKey: 'number', size: 145 }, ...(options.kind === 'IN' ? [{ id: 'provenance', header: 'Provenance', size: 210, cell: ({ row }: { row: { original: Operation } }) => row.original.supplier_name || row.original.reason || 'Entrée manuelle' }] : [{ header: 'Opération', cell: ({ row }: { row: { original: Operation } }) => row.original.scrap ? 'Mise au rebut' : row.original.dropship ? 'Livraison directe' : operationLabels[row.original.kind], size: 150 }]), { header: 'Titre / Destination', cell: ({ row }) => row.original.title || row.original.destination || '—', size: 240 }, { header: 'Entrepôt', accessorKey: 'warehouse_name', size: 130 }, { id: 'affairs', header: 'Affaires', size: 220, cell: ({ row }) => <HAffairTags items={row.original.affair_tags} /> }, { header: inventories ? 'Planifié le' : 'Date', cell: ({ row }) => displayDate(inventories ? row.original.planned_date : row.original.document_date), size: 100 }, { id: 'state', header: 'État', size: 120, cell: ({ row }) => <HTag tone={row.original.archived_at ? 'navy' : operationTones[row.original.status] || 'blue'}>{row.original.archived_at ? 'Archivée' : row.original.kind === 'IN' && row.original.purchase_order && row.original.status === 'draft' ? 'En attente' : operationStates[row.original.status]}</HTag> }]
+  const table = (items: Operation[]) => <HDataTable resizable columnBorders columns={columns} data={items} columnAlignments={{ state: 'center' }} getRowLink={(item) => ({ href: `/inventory/operations/${item.id}`, label: `Ouvrir ${item.number}`, state: { stockListQuery: params.toString(), inventories } })} />
+  return <div className="contact-directory"><HPageBreadcrumb items={[{ label: 'Accueil', href: '/' }, { label: 'Stock', href: '/inventory/dashboard' }, { label: title }]} /><HPageHeader title={title} description={inventories ? 'Planifiez les comptages annuels ou tournants et contrôlez les écarts.' : selectedTile ? selectedTile.description : 'Réceptions, livraisons et transferts : organisez les mouvements de vos entrepôts.'} actions={access.canWrite && (inventories || selectedTile) && <HButton asChild variant="primary"><Link to={`/inventory/operations/new?kind=${inventories ? 'INV' : options.kind || 'IN'}${options.variant ? `&variant=${options.variant}` : ''}`}><Plus size={14} />{inventories ? 'Nouvel inventaire' : `Créer · ${selectedTile?.label}`}</Link></HButton>} />
+    {listMode && <HBreadcrumbActions><nav className="record-navigator"><span>Page {options.page} / {query.data?.totalPages || 1}</span><HButton size="icon" variant="ghost" aria-label="Page précédente" disabled={options.page <= 1} onClick={() => setParams((p) => { p.set('page', String(options.page! - 1)); return p })}><ChevronLeft size={14} /></HButton><HButton size="icon" variant="ghost" aria-label="Page suivante" disabled={!query.data || options.page >= query.data.totalPages} onClick={() => setParams((p) => { p.set('page', String(options.page! + 1)); return p })}><ChevronRight size={14} /></HButton></nav></HBreadcrumbActions>}
+    {!inventories && !selectedTile && access.canRead && <><HSectionHeading title="Choisir une opération" description="Ouvrez l’historique ou créez un mouvement depuis son type." actions={<HButton variant="ghost" size="small" asChild><Link to={`/inventory/operations?${allFilters}`}><List size={14} />Toutes les opérations</Link></HButton>} /><OperationTiles forecast={query.data?.forecast} summary={query.data?.summary} canCreate={access.canWrite} context={params.toString()} /></>}
+    {inventories && <div className="stock-view-actions"><HButton size="small" variant={!calendar ? 'primary' : 'ghost'} onClick={() => setParams((p) => { p.delete('view'); return p })}><List size={14} />Liste</HButton><HButton size="small" variant={calendar ? 'primary' : 'ghost'} onClick={() => setParams((p) => { p.set('view', 'calendar'); return p })}><CalendarDays size={14} />Calendrier</HButton></div>}
+    {!access.canRead ? <p className="contact-muted">Accès au stock nécessaire.</p> : query.isPending ? <HLoadingIndicator label="Chargement des opérations" /> : query.error ? <p role="alert" className="field-error">{query.error.message}<HButton onClick={() => void query.refetch()}>Réessayer</HButton></p> : query.data && listMode && <>{calendar ? <HMonthCalendar label="Inventaires planifiés" events={query.data.items.filter((item) => item.planned_date && item.status !== 'cancelled').map((item) => ({ id: item.id, date: item.planned_date, label: item.number, detail: `${item.title || 'Inventaire'} · ${item.warehouse_name}`, href: `/inventory/operations/${item.id}` }))} /> : options.group ? <GroupedResults icon={ClipboardList} noun="opérations" groups={groupResults(query.data.items, (item) => ({ key: options.group === 'kind' ? item.kind : item.warehouse, label: options.group === 'kind' ? operationLabels[item.kind] : item.warehouse_name }))} render={table} /> : table(query.data.items)}<p className="stock-table-footer contact-muted">{query.data.totalItems} {inventories ? 'inventaires' : 'opérations'}</p></>}
+  </div>
+}

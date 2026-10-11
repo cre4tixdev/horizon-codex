@@ -1,5 +1,5 @@
 /* Semantic theme tokens. Light mode keeps the existing colors through CSS fallbacks. */
-:root { color-scheme: light; --theme-activity-background: #e5ebf3; --theme-red-text: #dc2626; }
+:root { --theme-table-header: var(--hz-table-header-light, #dce5ef); color-scheme: light; --theme-activity-background: #e5ebf3; --theme-red-text: #dc2626; }
 :root[data-theme="dark"] {
   --theme-focus-ring: #8caada;
   color-scheme: dark;
@@ -23,6 +23,7 @@
   --theme-amber-text: #efbd86;
   --theme-green-text: #68d6ae;
   --theme-blue-text: #93bdff;
+  --theme-table-header: var(--hz-table-header-dark, #364860);
   --theme-border: #364860;
   --theme-border-subtle: #293a51;
   --theme-border-accent: #65517e;

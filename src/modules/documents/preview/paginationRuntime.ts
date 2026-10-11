@@ -15,12 +15,12 @@ export async function paginateDocument(token: string) {
     const main = source.content.querySelector<HTMLElement>('main')!
     const header = main.querySelector<HTMLElement>(':scope>header')!, footer = main.querySelector<HTMLElement>(':scope>footer')!
     const content = main.querySelector<HTMLElement>(':scope>section')!
-    const width = parseFloat(main.style.width), landscape = width > 1000
-    const height = landscape ? 794 : 1123, margin = parseFloat(main.style.padding)
+    const width = parseFloat(main.style.width)
+    const height = parseFloat(main.style.minHeight), margin = parseFloat(main.style.padding)
     const headerHeight = parseFloat(header.style.height), footerHeight = parseFloat(footer.style.height)
     const background = main.querySelector<HTMLElement>(':scope>.document-paper-background')
     const sourceCss = document.querySelector('#document-styles')!.textContent!
-    const printCss = `${sourceCss}\n@page { size:A4 ${landscape ? 'landscape' : 'portrait'}; margin:${margin + headerHeight}px ${margin}px ${margin + footerHeight}px; }\n.document-flow-row:has([style*="break-before:page"]) { break-before:page; }`
+    const printCss = `${sourceCss}\n@page { size:${width}px ${height}px; margin:${margin + headerHeight}px ${margin}px ${margin + footerHeight}px; }\n.document-flow-row:has([style*="break-before:page"]) { break-before:page; }`
     // Explicitly load the fonts used by detached blocks before measuring their content.
     progress('polices')
     await Promise.all([...main.querySelectorAll<HTMLElement>('[style]')].map((node) => {
@@ -70,6 +70,7 @@ export async function paginateDocument(token: string) {
     // Screen decoration is deliberately applied after pagination: it never changes measurements.
     const screenStyle = document.createElement('style')
     screenStyle.textContent = `html,body{background:#e8edf4}body{padding:20px 24px}.pagedjs_page{margin:0 auto 20px;background:white;box-shadow:0 2px 10px #091c3a15}.pagedjs_area{position:relative;z-index:1}.pagedjs_pagebox{isolation:isolate}.pagedjs_pages{width:max-content;margin:0 auto}`
+    screenStyle.textContent += `@media print{@page{size:${width}px ${height}px;margin:0}html,body{background:white!important;padding:0!important;margin:0!important}#document-pages{zoom:1!important}.pagedjs_pages{width:auto;margin:0}.pagedjs_page{margin:0!important;box-shadow:none!important;break-after:page}.pagedjs_page:last-child{break-after:auto}}`
     document.head.append(screenStyle)
     let zoom = 100, fit = false
     const applyZoom = () => {
@@ -79,6 +80,7 @@ export async function paginateDocument(token: string) {
       target.style.zoom = String(Math.max(0.1, Math.min(2, scale)))
     }
     window.addEventListener('message', (event: MessageEvent) => {
+      if (event.source === window.parent && event.data?.kind === 'horizon-document-print' && event.data.token === token) { window.print(); return }
       if (event.source !== window.parent || event.data?.kind !== 'horizon-document-zoom' || event.data.token !== token || !Number.isFinite(event.data.zoom) || typeof event.data.fit !== 'boolean') return
       zoom = Math.max(10, Math.min(200, event.data.zoom)); fit = event.data.fit
       applyZoom()

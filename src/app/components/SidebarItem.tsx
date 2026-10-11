@@ -5,11 +5,11 @@ import type { NavigationItem } from '../navigation'
 
 export function SidebarItem({ item }: { item: NavigationItem }) {
   const { pathname, search } = useLocation()
-  const active = item.href === '/' ? pathname === '/' : pathname === item.href || pathname.startsWith(`${item.href}/`)
+  const active = item.href === '/' ? pathname === '/' : pathname === item.href || pathname.startsWith(`${item.href}/`) || Boolean(item.children?.some((child) => pathname === child.href.split('?')[0] || pathname.startsWith(`${child.href.split('?')[0]}/`)))
   const [expanded, setExpanded] = useState(active)
   const id = useId()
   const Icon = item.icon
-  const link = <NavLink to={item.href} end={item.href === '/'} aria-label={item.label} title={item.label} className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`}><Icon size={17} aria-hidden="true" /><span>{item.label}</span></NavLink>
+  const link = <NavLink to={item.href} end={item.href === '/'} aria-label={item.label} title={item.label} className={({ isActive }) => `sidebar-link${(item.children?.length ? active : isActive) ? ' sidebar-link--active' : ''}`}><Icon size={17} aria-hidden="true" /><span>{item.label}</span></NavLink>
   if (!item.children?.length) return link
   const queryKeys = new Set(item.children.flatMap((child) => [...new URLSearchParams(child.href.split('?')[1]).keys()].filter((key) => key !== 'view')))
   return <div className="sidebar-entry">

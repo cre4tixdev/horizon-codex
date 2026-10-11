@@ -282,7 +282,8 @@ class AccessMigrationTests(unittest.TestCase):
         self.assertEqual(own['erp_profile'], 'admin')
         self.assertEqual(existing['erp_profile'], 'user')
         self.assertEqual(existing['role'], role['id'])
-        self.assertEqual(pb.request('GET', f'collections/core_roles/records/{role["id"]}', token=pb.admin_token)[1]['permissions'], role['permissions'])
+        # The Calendar rollout explicitly adds read access without altering historical grants.
+        self.assertEqual(pb.request('GET', f'collections/core_roles/records/{role["id"]}', token=pb.admin_token)[1]['permissions'], [*role['permissions'], 'calendar.read'])
         self.assertEqual(pb.login('untouched@local.invalid')[0], 200)
         token = pb.login()[1]['token']
         self.assertEqual(pb.request('GET', 'horizon/access/users', token=token)[0], 200)

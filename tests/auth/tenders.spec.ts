@@ -249,6 +249,23 @@ test('AO autonome : No go sans affaire, promotion depuis la liste et planning pa
   await page.getByRole('tab', { name: 'Informations', exact: true }).click()
   await expect(page.getByLabel('Numéro', { exact: true })).toHaveValue('')
   await page.goto('/crm?area=ao&view=kanban&q=AO-DECISION')
+  const downloadColumn = page.getByRole('region', { name: 'Étape À télécharger', exact: true })
+  const analysisColumn = page.getByRole('region', { name: 'Étape À analyser', exact: true })
+  await expect(downloadColumn).toBeVisible()
+  const downloadingBounds = (await downloadColumn.boundingBox())!
+  const analysisBounds = (await analysisColumn.boundingBox())!
+  expect(downloadingBounds.x).toBeLessThan(analysisBounds.x)
+  const assertKanbanFits = async () => {
+    expect(await page.locator('.crm-kanban-scroll').evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBe(true)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  }
+  await assertKanbanFits()
+  await downloadColumn.getByRole('button', { name: 'Replier À télécharger', exact: true }).click()
+  expect((await analysisColumn.boundingBox())!.width).toBeGreaterThan(analysisBounds.width)
+  await assertKanbanFits()
+  await downloadColumn.getByRole('button', { name: 'Déplier À télécharger', exact: true }).click()
+  await assertKanbanFits()
+  await page.screenshot({ path: '/private/tmp/horizon-ao-kanban-fit.png', fullPage: true })
   await expect(page.locator('.crm-card-footer .h-deadline')).toHaveAttribute('title', /^Remise/)
   await expect(page.locator('.crm-opportunity-card')).not.toContainText('%')
   await expect(page.locator('.crm-card-footer .h-deadline')).toHaveAttribute('data-state', 'urgent')
@@ -268,7 +285,8 @@ test('AO autonome : No go sans affaire, promotion depuis la liste et planning pa
   await expect(preparation.locator('xpath=ancestor::tr').getByRole('cell').nth(7)).toHaveText(/^\d{2}\/\d{2}\/\d{4}$/)
   const controlBox = await preparation.boundingBox()
   const cellBox = await preparation.locator('xpath=ancestor::td').boundingBox()
-  expect(controlBox!.height).toBe(28)
+  const cellControlHeight = await preparation.evaluate((element) => parseFloat(getComputedStyle(element).getPropertyValue('--hz-table-cell-height')))
+  expect(controlBox!.height).toBe(cellControlHeight)
   expect(Math.abs(controlBox!.y + controlBox!.height / 2 - cellBox!.y - cellBox!.height / 2)).toBeLessThanOrEqual(1)
   await page.screenshot({ path: '/private/tmp/horizon-ao-list-controls.png' })
   await preparation.click()
@@ -283,8 +301,7 @@ test('AO autonome : No go sans affaire, promotion depuis la liste et planning pa
   await page.goto('/crm?area=ao&view=calendar&q=AO-DECISION')
   await expect(page.locator('.calendar-timeline-identity')).toContainText('AO à décider')
   for (const period of ['Semaine', 'Trimestre', 'Année', 'Mois']) {
-    await page.getByRole('combobox', { name: 'Période du calendrier', exact: true }).click()
-    await page.getByRole('option', { name: period, exact: true }).click()
+    await page.getByRole('group', { name: 'Période du calendrier', exact: true }).getByRole('button', { name: period, exact: true }).click()
     await expect(page.locator('.calendar-timeline-identity')).toContainText('AO à décider')
   }
   await page.screenshot({ path: '/private/tmp/horizon-ao-planning.png', fullPage: true })

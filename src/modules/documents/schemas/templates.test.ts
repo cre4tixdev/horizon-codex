@@ -1,6 +1,6 @@
 import { textStyle } from '../components/textStyle'
 import { describe, it, expect } from 'vitest'
-import { defaultLayout, layoutSchema, printableWidth, newBlock, resizeColumns, setSameLine, bodyRows, fonts, dockBlock, placedBlock, duplicateBlock, reorderBlock, expandLegacyBlocks, fitImage, resizeBlock, libraryKinds } from './templates'
+import { defaultLayout, defaultLabelLayout, pageDimensions, layoutSchema, printableWidth, newBlock, resizeColumns, setSameLine, bodyRows, fonts, dockBlock, placedBlock, duplicateBlock, reorderBlock, expandLegacyBlocks, fitImage, resizeBlock, libraryKinds } from './templates'
 describe('Document layout contract', () => {
   it('starts with a printable flowing quotation and repeated page number', () => {
     const layout = defaultLayout()
@@ -164,5 +164,24 @@ describe('Document layout contract', () => {
     expect(resized.reduce((sum, column) => sum + column.width, 0)).toBeCloseTo(100)
     const single = resizeColumns([columns[0]!], 'description', 10)
     expect(single[0]?.width).toBe(100)
+  })
+})
+
+
+describe('Custom paper and product labels', () => {
+  it('keeps A4 as the legacy default and dimensions consistent when rotated', () => {
+    expect(pageDimensions(defaultLayout())).toMatchObject({ format: 'A4', width: 210, height: 297 })
+    const label = defaultLabelLayout()
+    expect(layoutSchema.safeParse(label).success).toBe(true)
+    expect(pageDimensions(label)).toMatchObject({ format: 'Personnalisé', width: 95, height: 28 })
+    expect(printableWidth(label)).toBe(343)
+    expect(pageDimensions({ ...label, orientation: 'landscape' })).toMatchObject({ width: 28, height: 95 })
+    expect(label.blocks.find((block) => block.kind === 'barcode')?.field).toBe('product.barcode')
+  })
+  it('rejects margins and repeated zones that leave no content area', () => {
+    const label = defaultLabelLayout()
+    expect(layoutSchema.safeParse({ ...label, margin: 20 }).success).toBe(false)
+    expect(layoutSchema.safeParse({ ...label, headerHeight: 150 }).success).toBe(false)
+    expect(layoutSchema.safeParse({ ...label, pageSize: { width: 0, height: 28 } }).success).toBe(false)
   })
 })

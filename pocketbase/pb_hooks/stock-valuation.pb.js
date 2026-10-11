@@ -1,0 +1,6 @@
+routerAdd('GET', '/api/horizon/inventory/valuation', (e) => require(`${__hooks}/lib/stock-valuation.js`).list(e), $apis.requireAuth('core_users'))
+routerAdd('GET', '/api/horizon/inventory/valuation/history', (e) => require(`${__hooks}/lib/stock-valuation.js`).history(e), $apis.requireAuth('core_users'))
+routerAdd('POST', '/api/horizon/inventory/valuation/cost', (e) => require(`${__hooks}/lib/stock-valuation.js`).save(e), $apis.requireAuth('core_users'))
+routerAdd('POST', '/api/horizon/inventory/valuation/method', (e) => require(`${__hooks}/lib/stock-valuation.js`).changeMethod(e), $apis.requireAuth('core_users'))
+onRecordUpdate(() => { throw new BadRequestError('Une valorisation historique est immuable.') }, 'inventory_valuation_entries')
+onRecordDelete(() => { throw new BadRequestError('La valorisation et son historique sont conservés.') }, 'inventory_valuation_entries', 'inventory_valuation_products')

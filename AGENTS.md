@@ -334,6 +334,10 @@ PocketBase
 
 Réutiliser le Design System.
 
+Avant de créer un composant, formulaire ou popup, rechercher l’équivalent existant
+et le réutiliser. Si plusieurs modules en ont besoin, extraire un composant partagé
+avec des callbacks métier plutôt que copier son JSX, ses styles ou sa logique.
+
 Avant de créer ou modifier une page métier, lire les règles applicables de
 `docs/07-UX-DESIGN-SYSTEM.md` et examiner une page existante qui les applique
 (Contacts / CRM). Les décisions validées sur Contacts servent de base aux autres
@@ -350,6 +354,13 @@ Pour toute liste métier principale, y compris Employés et Utilisateurs et acc�
 - aucun deuxième champ de recherche ou sélecteur de filtre dans la page ;
 - critères conservés dans l'URL lors du rechargement, du changement de vue et de
   la fermeture d'une fiche ; réinitialiser les filtres conserve le texte recherché.
+
+Les tableaux de saisie de lignes métier doivent permettre le déplacement des lignes
+par poignée (drag & drop et clavier), comme les devis, avec ordre conservé à
+l’enregistrement. Réutiliser `HSortableRows` / `HSortableRow` ou le mode
+`reordering` de `HDataTable`. Cela concerne aussi les demandes d’achat, commandes
+et futurs bons de livraison. Aucun déplacement dans les tableaux de consultation
+ni sur une pièce non modifiable.
 
 Les petites listes intégrées à une fiche peuvent conserver leurs contrôles dans
 l'en-tête de section, selon le contrat du Design System. Les champs de saisie

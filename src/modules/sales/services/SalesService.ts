@@ -1,3 +1,4 @@
+import type { StockSelection } from '../../inventory/schemas/stock'
 import { ClientResponseError } from 'pocketbase'
 import { copyQuoteContent } from './quoteCopy'
 import { environment } from '../../../core/config/environment'
@@ -35,9 +36,9 @@ export const salesService = {
   reopen: (id: string, updated: string, target: 'draft' | 'validated') => run(false, (repo) => repo.reopen(id, updated, target)),
   salespeople: () => run(false, (repo) => repo.salespeople()),
   finalize: (id: string, updated: string) => run(false, (repo) => repo.finalize(id, updated)),
-  confirm: (id: string, updated: string, number: string, file?: File) => {
+  confirm: (id: string, updated: string, number: string, file?: File, reservations?: StockSelection[]) => {
     if (file && (file.size > 10485760 || !['application/pdf', 'image/png', 'image/jpeg', 'image/webp'].includes(file.type))) throw new Error('Choisissez un PDF ou une image de 10 Mio maximum.')
-    return run(false, (repo) => repo.confirm(id, updated, number, file))
+    return run(false, (repo) => repo.confirm(id, updated, number, file, reservations))
   },
   settings: () => settingsRun(false, (repo) => repo.settings()),
   saveSettings: (record: SalesSettings) => settingsRun(true, (repo) => repo.saveSettings(record)),

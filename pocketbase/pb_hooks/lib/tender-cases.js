@@ -22,7 +22,7 @@ const project = (app, tender) => {
 }
 const decide = (app, tender, actor) => {
   const status = app.findRecordById('crm_tender_statuses', tender.getString('status'))
-  if (['todo', 'no_go'].includes(status.getString('code')) || tender.getString('opportunity')) return
+  if (['to_download', 'todo', 'no_go'].includes(status.getString('code')) || tender.getString('opportunity')) return
   const values = input(app, tender)
   values.stage = initialStage(app).id; values.status = 'open'
   const crm = require(`${__hooks}/lib/crm.js`)

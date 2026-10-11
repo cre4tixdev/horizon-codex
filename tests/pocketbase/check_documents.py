@@ -56,6 +56,79 @@ class DocumentsTests(unittest.TestCase):
         status, result = self.call('templates/save', self.payload)
         self.assertEqual(status, 200, result)
         return result
+    def test_paper_formats_permissions_concurrency_and_snapshot(self):
+        status, formats = self.pb.request('GET', 'horizon/documents/paper-formats', token=self.manager)
+        self.assertEqual(status, 200, formats)
+        self.assertTrue(any(item['name'] == 'A4' and item['width_mm'] == 210 for item in formats['items']))
+        value = dict(name='Étiquette câble', width_mm=65, height_mm=25, active=True)
+        self.assertEqual(self.call('paper-formats', value, self.token)[0], 403)
+        self.assertEqual(self.call('paper-formats', dict(value, width_mm=0))[0], 400)
+        status, saved = self.call('paper-formats', value)
+        self.assertEqual(status, 200, saved)
+        self.assertEqual(self.call('paper-formats', dict(value, name='éTIQUETTE CÂBLE'))[0], 400)
+        self.assertEqual(self.call('paper-formats', dict(value, id=saved['id'], updated='stale'))[0], 409)
+        content = layout()
+        content.update(pageSize=dict(width=65, height=25, formatId=saved['id'], name=saved['name']), margin=0, headerHeight=0, footerHeight=0)
+        content['blocks'] = [dict(block('barcode', 'barcode'), width=240, height=40, y=0, field='product.barcode')]
+        status, template = self.call('templates/save', dict(name='Dimensions conservées', document_type='product_label', content_json=content))
+        self.assertEqual(status, 200, template)
+        published = self.call('templates/publish', dict(id=template['id'], updated=template['updated']))[1]
+        self.assertEqual(self.call('paper-formats', dict(value, id=saved['id'], updated=saved['updated'], width_mm=70, active=False))[0], 200)
+        # Updating / archiving a shared format never rewrites an existing model snapshot.
+        record = self.pb.request('GET', f'horizon/documents/templates/{template["id"]}', token=self.manager)[1]
+        self.assertEqual(record['content_json']['pageSize']['width'], 65)
+        self.assertEqual(record['current_version'], published['current_version'])
+        self.assertIn(self.pb.request('GET', 'collections/documents_paper_formats/records', token=self.token)[0], [403, 404])
+
+    def test_product_label_templates_preserve_source_permissions_and_versions(self):
+        self.pb.request('PATCH', 'collections/core_roles/records/' + self.user['role'], {'permissions': ['inventory.read', 'inventory.write']}, self.pb.admin_token)
+        categories = self.pb.request('GET', 'horizon/inventory/categories', token=self.token)[1]['items']
+        units = self.pb.request('GET', 'horizon/inventory/choices', token=self.token)[1]['units']
+        status, product = self.pb.request('POST', 'horizon/inventory/products/save', dict(creation_key='label-source-product-00001', input=dict(sku='BNC-12G', name='Connecteur vidéo', description='', category=categories[0]['id'], base_unit=units[0]['id'], kind='equipment', sale_enabled=True, purchase_enabled=True, stock_policy='stocked', replenishment_policy='manual', tracking='none', manufacturer='NEUTRIK', manufacturer_ref='', barcode='BNC-12G', variant_group='', reference_cost=100, sale_currency='EUR', offers=[])), self.token)
+        self.assertEqual(status, 200, product)
+        content = layout()
+        content.update(pageSize=dict(width=80, height=40), margin=2, headerHeight=0, footerHeight=0)
+        barcode = block('barcode', 'barcode')
+        barcode.update(field='product.barcode', width=280, height=50, y=0)
+        content['blocks'] = [barcode]
+        status, template = self.call('templates/save', dict(name='Étiquette personnalisée', document_type='product_label', content_json=content))
+        self.assertEqual(status, 200, template)
+        self.assertEqual(template['document_type'], 'product_label')
+        published = self.call('templates/publish', dict(id=template['id'], updated=template['updated']))[1]
+        self.assertEqual(published['version'], 1)
+        items = self.pb.request('GET', 'horizon/documents/templates', token=self.token)[1]['items']
+        self.assertEqual([item['document_type'] for item in items], ['product_label'])
+        body = dict(product_id=product['id'], template_id=template['id'], format='html')
+        status, result = self.call('preview', body, self.token)
+        self.assertEqual(status, 200, result)
+        self.assertIn('BNC-12G', result['html'])
+        self.assertEqual(result['page']['width'], 80)
+        self.assertEqual(self.call('preview', body, self.manager)[0], 403)
+        self.assertEqual(self.call('preview', dict(quote_id=self.quote_record['id'], template_id=template['id'], format='html'), self.manager)[0], 400)
+        self.assertEqual(self.call('templates/save', dict(name='Changed type', document_type='quote', content_json=content, id=template['id'], updated=published['updated']))[0], 400)
+        content['blocks'][0]['field'] = 'product.internal_cost'
+        self.assertEqual(self.call('templates/save', dict(name='Forbidden field', document_type='product_label', content_json=content))[0], 400)
+
+    def test_custom_paper_validation_and_pdf_transport(self):
+        content = layout()
+        content.update(pageSize=dict(width=100, height=60), margin=2, headerHeight=0, footerHeight=0)
+        for item in content['blocks']: item['width'] = 350
+        status, result = self.call('preview', dict(quote_id=self.quote_record['id'], content_json=content, format='html'))
+        self.assertEqual(status, 200, result)
+        self.assertEqual(result['page'], dict(format='Personnalisé', orientation='portrait', width=100, height=60))
+        request = Request(self.pb.url + '/api/horizon/documents/preview', method='POST', headers={'Authorization': self.manager, 'Content-Type': 'application/json'}, data=json.dumps(dict(quote_id=self.quote_record['id'], content_json=content, format='pdf')).encode())
+        with urlopen(request, timeout=10) as response:
+            self.assertEqual(response.status, 200)
+            self.assertTrue(response.read().startswith(b'%PDF-'))
+        payload = Converter.payloads[-1].decode()
+        self.assertIn(str(100 / 25.4), payload)
+        self.assertIn(str(60 / 25.4), payload)
+        content['margin'] = 30
+        self.assertEqual(self.call('templates/save', dict(self.payload, content_json=content))[0], 400)
+        content['margin'] = 2
+        content['pageSize']['width'] = 0
+        self.assertEqual(self.call('templates/save', dict(self.payload, content_json=content))[0], 400)
+
     def test_publication_snapshot_and_conflict(self):
         template = self.template()
         status, published = self.call('templates/publish', dict(id=template['id'], updated=template['updated']))
