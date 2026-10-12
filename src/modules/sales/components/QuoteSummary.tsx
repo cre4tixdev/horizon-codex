@@ -13,7 +13,7 @@ export function QuoteSummary() {
     { key: 'draft', label: 'Brouillon', icon: FilePenLine },
     { key: 'validated', label: 'Devis', icon: FileText },
     { key: 'sent', label: 'Envoyé', icon: Mail },
-    { key: 'accepted', label: 'Commandé', icon: ShoppingBag },
+    { key: 'accepted', label: 'Commandes clients', icon: ShoppingBag },
   ] as const
   return <HSummaryCards label="Synthèse des devis" items={metrics.map(({ key, label, icon }) => {
     const next = new URLSearchParams(params); next.set('status', key); next.delete('page')

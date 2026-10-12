@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router'
 import { HRecordTabs } from '../../../shared/ui/HRecordTabs'
 import { HRecordPageActions } from '../../../shared/ui/HRecordPageActions'
-import { ChevronsDown, ChevronsUp, ChevronDown, Minus, Plus, ShoppingCart, Users, LayoutGrid, MessageSquare, PanelLeft, Check, Eye, FileText, Palette, RotateCcw, SlidersHorizontal, Type, Square, Table2, Undo2 } from 'lucide-react'
+import { ChevronsDown, ChevronsUp, ChevronDown, Minus, Plus, ShoppingCart, Users, LayoutGrid, MessageSquare, PanelLeft, Check, Eye, FileText, Palette, RotateCcw, SlidersHorizontal, Type, Square, Table2, Undo2, MousePointer2, TextCursorInput } from 'lucide-react'
 import type { ColumnDef } from '@tanstack/react-table'
 import { sessionService } from '../../../core/auth/services/session'
 import { hasPermission } from '../../../core/auth/types/session'
@@ -22,12 +22,12 @@ import { HEmptyState } from '../../../shared/ui/HEmptyState'
 import { uxService } from '../services/UxService'
 import { uxDefaults, uxLimits, uxStep, uxInputSchema, uxStyle, uxQueryKey, type UxInput, type UxSettings } from '../schemas/ux'
 const tabs = [
-  { value: 'general', label: 'Général', panel: 'ux-general' },
-  { value: 'tables', label: 'Tableaux', panel: 'ux-tables' },
-  { value: 'fields', label: 'Champs et textes', panel: 'ux-fields' },
-  { value: 'buttons', label: 'Boutons', panel: 'ux-buttons' },
-  { value: 'navigation', label: 'Sidebar', panel: 'ux-navigation' },
-  { value: 'launcher', label: 'Menu des modules', panel: 'ux-launcher' },
+  { value: 'general', label: 'Général', icon: SlidersHorizontal, panel: 'ux-general' },
+  { value: 'tables', label: 'Tableaux', icon: Table2, panel: 'ux-tables' },
+  { value: 'fields', label: 'Champs et textes', icon: TextCursorInput, panel: 'ux-fields' },
+  { value: 'buttons', label: 'Boutons', icon: MousePointer2, panel: 'ux-buttons' },
+  { value: 'navigation', label: 'Sidebar', icon: PanelLeft, panel: 'ux-navigation' },
+  { value: 'launcher', label: 'Menu des modules', icon: LayoutGrid, panel: 'ux-launcher' },
 ] as const
 const groups: { tab: string; title: string; icon: typeof Table2; fields: { key: keyof typeof uxLimits; label: string }[] }[] = [
   { tab: 'tables', title: 'Densité des tableaux', icon: Table2, fields: [{ key: 'row_height', label: 'Hauteur des lignes' }, { key: 'table_font', label: 'Texte des tableaux' }] },
@@ -55,7 +55,9 @@ const sidebarColors = [
 const themeColors = [
   { tab: 'general', label: 'Fond général', light: 'background_light', dark: 'background_dark' },
   { tab: 'general', label: 'Fond du fil d’actualité', light: 'activity_light', dark: 'activity_dark' },
+  { tab: 'tables', label: 'Bordures des tableaux', light: 'table_border_light', dark: 'table_border_dark' },
   { tab: 'tables', label: 'En-tête des tableaux', light: 'header_light', dark: 'header_dark' },
+  { tab: 'tables', label: 'Texte des en-têtes', light: 'table_header_text_light', dark: 'table_header_text_dark' },
   { tab: 'tables', label: 'Lignes impaires', light: 'row_odd_light', dark: 'row_odd_dark' },
   { tab: 'tables', label: 'Lignes paires', light: 'row_even_light', dark: 'row_even_dark' },
   { tab: 'buttons', label: 'Fond des boutons classiques', light: 'button_background_light', dark: 'button_background_dark' },

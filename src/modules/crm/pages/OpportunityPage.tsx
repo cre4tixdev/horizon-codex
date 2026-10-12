@@ -1,3 +1,5 @@
+import { AffairAnalysis } from '../../accounting/components/AffairAnalysis'
+import { useAnalysisAccess } from '../../accounting/hooks/useAnalysisAccess'
 import { OpportunityProgress } from '../components/OpportunityProgress'
 import { useRecordSession } from '../../../shared/records/recordContext'
 import { OpportunityBusinessLinks } from '../components/OpportunityBusinessLinks'
@@ -24,7 +26,7 @@ import { useEffect, useId, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router'
 import { Controller, useForm, useWatch } from 'react-hook-form'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Target, Building2, UserRound, CircleDollarSign, CalendarDays, FileText, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Target, Building2, UserRound, CircleDollarSign, CalendarDays, FileText, ChevronLeft, ChevronRight, ChartBar, ClipboardList, Info } from 'lucide-react'
 import { HPageBreadcrumb } from '../../../shared/ui/HPageBreadcrumb'
 import { HBreadcrumbActions } from '../../../shared/ui/HBreadcrumbActions'
 import { HSectionHeading } from '../../../shared/ui/HSectionHeading'
@@ -47,7 +49,7 @@ export function OpportunityPage() {
   const id = embedded?.id || routeId
   const access = useCrmAccess()
   const location = useLocation()
-  const initialTab = ['information', 'notes', 'ao'].includes(location.state?.crmSection) ? location.state.crmSection as string : 'information'
+  const initialTab = ['information', 'notes', 'ao', 'analysis'].includes(location.state?.crmSection) ? location.state.crmSection as string : 'information'
   const [tab, setTab] = useRecordSection(embedded ? `/crm/opportunities/${id}` : location.pathname, initialTab)
   const ao = !embedded && (location.pathname.startsWith('/crm/tenders/') || id === 'new' && new URLSearchParams(location.search).get('type') === 'tender')
   const record = useQuery({ queryKey: ['crm', ao ? 'tender-record' : 'record', id], queryFn: () => ao ? tenderService.record(id) : crmService.record(id), enabled: access.canRead && id !== 'new', retry: false, refetchOnWindowFocus: false })
@@ -57,6 +59,7 @@ export function OpportunityPage() {
 }
 function OpportunityEditor({ record, ao, tab, setTab }: { tab: string; setTab: (tab: string) => void; record: Opportunity | undefined; ao: boolean }) {
   const embedded = useRecordSession()
+  const analysisAccess = useAnalysisAccess()
   const uniqueId = useId()
   const formId = embedded ? `${uniqueId}-crm-record-form` : 'crm-record-form'
   const prefix = embedded ? `${uniqueId}-crm` : 'crm'
@@ -126,7 +129,7 @@ function OpportunityEditor({ record, ao, tab, setTab }: { tab: string; setTab: (
     {ao && record?.tender?.opportunity && <p className="contact-muted">Opportunité liée <Link to={`/crm/opportunities/${record.tender.opportunity}`}>#{record.opportunity_number}</Link> · Son historique reste conservé si le dossier passe en No go.</p>}
     {record && values.type !== record.type && <p className="contact-muted" role="status">{values.type === 'direct' ? 'À l’enregistrement, le dossier AO sera archivé. Ses dates, documents et réponses seront conservés.' : record.tender ? 'À l’enregistrement, le dossier AO existant sera réactivé avec son historique.' : 'À l’enregistrement, un dossier AO sera créé pour cette même opportunité.'}</p>}
     {!embedded && record && (!ao || record.tender?.opportunity) && <OpportunityBusinessLinks id={ao ? record.tender!.opportunity : record.id} active={record.active} dirty={hasChanges} busy={busy} />}
-    <div className="contact-record-sheet"><HRecordTabs label="Sections de l’opportunité" idPrefix={`${prefix}-tab`} value={tab} onChange={setTab} items={[{ value: 'information', label: 'Informations', panel: `${prefix}-information` }, { value: 'notes', label: 'Description', panel: `${prefix}-notes` }, ...(values.type === 'tender' ? [{ value: 'ao', label: 'Dossier AO', panel: `${prefix}-ao` }] : [])]} />
+    <div className="contact-record-sheet"><HRecordTabs label="Sections de l’opportunité" idPrefix={`${prefix}-tab`} value={tab} onChange={setTab} items={[{ value: 'information', label: 'Informations', icon: Info, panel: `${prefix}-information` }, { value: 'notes', label: 'Description', icon: FileText, panel: `${prefix}-notes` }, ...(record?.analytic_account && analysisAccess.canRead ? [{ value: 'analysis', label: 'Analyse', icon: ChartBar, panel: `${prefix}-analysis` }] : []), ...(values.type === 'tender' ? [{ value: 'ao', label: 'Dossier AO', icon: ClipboardList, panel: `${prefix}-ao` }] : [])]} />
     <form id={formId} onSubmit={form.handleSubmit(submit)}><fieldset className="contact-record-layout crm-form-layout" disabled={!editable || busy}>
       <div id={`${prefix}-information`} role="tabpanel" aria-labelledby={`${prefix}-tab-information`} hidden={tab !== 'information'} className="crm-form-panels">
         <section className="contact-panel"><HSectionHeading title={ao ? "Appel d’offres" : "Opportunité"} icon={Target} /><div className="contact-fields">{!ao && <label><HFieldLabel required>Type d’opportunité</HFieldLabel><Controller name="type" control={form.control} render={({ field }) => <HCombobox label="Type d’opportunité" value={field.value} required showCodes={false} disabled={!editable || busy} options={[{ value: 'direct', label: 'Directe' }, { value: 'tender', label: 'Appel d’offres' }]} onChange={field.onChange} />} /></label>}<label htmlFor={`${prefix}-number`}>Numéro<HInput id={`${prefix}-number`} value={record?.opportunity_number || ''} placeholder={ao ? "Attribué à la décision de répondre" : "Attribué à l’enregistrement"} readOnly /></label>{field('title', 'Titre')}<div className="h-form-field"><span>Types de marché</span><Controller name="market_types" control={form.control} render={({ field: input }) => <HTagPicker label="Types de marché" value={input.value} onChange={input.onChange} options={(markets.data || []).filter((market) => market.active || input.value.includes(market.id)).map((market) => ({ value: market.id, label: market.label, tone: market.tone || 'blue', color: market.color, disabled: !market.active }))} disabled={!editable || busy || markets.isPending || Boolean(markets.error)} />} /></div>{(!ao || record?.tender?.opportunity) && <label htmlFor={`${prefix}-stage`}><HFieldLabel required>Étape commerciale</HFieldLabel><Controller name="stage" control={form.control} render={({ field: input }) => <HCombobox id={`${prefix}-stage`} label="Étape commerciale" value={input.value} onChange={(value) => { input.onChange(value); form.setValue('status', stages.data?.find((stage) => stage.id === value)?.status || 'open', { shouldDirty: true }) }} options={(stages.data || []).filter((stage) => stage.active || stage.id === input.value).map((stage) => ({ value: stage.id, label: stage.label, disabled: !stage.active }))} showCodes={false} disabled={!editable || busy} required />} />{form.formState.errors.stage && <span className="field-error">{form.formState.errors.stage.message}</span>}</label>}</div></section>
@@ -135,7 +138,7 @@ function OpportunityEditor({ record, ao, tab, setTab }: { tab: string; setTab: (
       </div>
       <section className="contact-panel" id={`${prefix}-notes`} role="tabpanel" aria-labelledby={`${prefix}-tab-notes`} hidden={tab !== 'notes'}><HSectionHeading title="Description" icon={FileText} description="Précisez le contexte, les besoins et les objectifs de cette affaire." /><Controller name="description_content" control={form.control} render={({ field: input }) => <HRichTextEditor label="Contexte et besoins" value={input.value} text={values.description || ''} disabled={!editable || busy} onChange={(content, text) => { input.onChange(content); form.setValue('description', text, { shouldDirty: true }) }} />} />{form.formState.errors.description && <p className="field-error">La description ne doit pas dépasser 10 000 caractères.</p>}</section>
       {values.type === 'tender' && <div id={`${prefix}-ao`} role="tabpanel" aria-labelledby={`${prefix}-tab-ao`} hidden={tab !== 'ao'}><TenderFields value={tender} onChange={setTender} disabled={!editable || busy} /></div>}
-    </fieldset></form>{values.type === 'tender' && tab === 'ao' && <div className="crm-form-panels crm-ao-followup"><TenderAppointments tender={record?.tender} editable={editable && !hasChanges && !busy} hrAllowed={session.status === 'authenticated' && hasPermission(session.user, 'hr.read')} />{record?.tender && <TenderSubmissions tender={record.tender} editable={editable && Boolean(record.tender.opportunity) && !hasChanges && !busy} />}</div>}</div>
+    </fieldset></form>{record?.analytic_account && tab === 'analysis' && <div id={`${prefix}-analysis`} role="tabpanel" aria-labelledby={`${prefix}-tab-analysis`}><AffairAnalysis opportunity={record.tender?.opportunity || record.id} /></div>}{values.type === 'tender' && tab === 'ao' && <div className="crm-form-panels crm-ao-followup"><TenderAppointments tender={record?.tender} editable={editable && !hasChanges && !busy} hrAllowed={session.status === 'authenticated' && hasPermission(session.user, 'hr.read')} />{record?.tender && <TenderSubmissions tender={record.tender} editable={editable && Boolean(record.tender.opportunity) && !hasChanges && !busy} />}</div>}</div>
     {record && <ActivityPanel source={ao || record.type === 'tender' && record.tender ? { entity: 'crm_tenders', id: ao ? record.id : record.tender!.id } : { entity: 'crm_opportunities', id: record.id }} editable={editable} />}
   </div>
 }

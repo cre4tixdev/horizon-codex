@@ -1,9 +1,10 @@
 import { z } from 'zod'
 import { createPocketBaseClient } from '../../../core/pocketbase/client'
-import { stockChoicesSchema, stockPageSchema, reservationChoicesSchema, balanceSchema, type StockSelection, type StockQuery, type StockAdjustment } from '../schemas/stock'
+import { stockChoicesSchema, stockPageSchema, productReservationsSchema, reservationChoicesSchema, balanceSchema, type StockSelection, type StockQuery, type StockAdjustment } from '../schemas/stock'
 export function createStockRepository(url: string) {
   const client = createPocketBaseClient(url)
   return {
+    async productReservations(id: string) { return productReservationsSchema.parse(await client.send(`/api/horizon/inventory/stock/products/${id}/reservations`, { method: 'GET', requestKey: null })) },
     async list(query: StockQuery) { return stockPageSchema.parse(await client.send('/api/horizon/inventory/stock', { method: 'GET', query, requestKey: null })) },
     async choices() { return stockChoicesSchema.parse(await client.send('/api/horizon/inventory/stock/choices', { method: 'GET', requestKey: null })) },
     async adjust(body: StockAdjustment) { return balanceSchema.parse(await client.send('/api/horizon/inventory/stock/adjust', { method: 'POST', body, requestKey: null })) },

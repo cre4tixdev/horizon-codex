@@ -14,7 +14,7 @@ export const purchasingService = {
   list: (kind: PurchaseKind, query: PurchaseListOptions) => run('read', (repo) => repo.list(kind, query)),
   record: (kind: PurchaseKind, id: string) => run('read', (repo) => repo.record(kind, id)),
   choices: () => run('read', (repo) => repo.choices()),
-  needs: (id: string) => run('read', (repo) => repo.needs(id)),
+  needs: (id: string, preview = false) => run('read', (repo) => repo.needs(id, preview)),
   product: (id: string, currency: string, supplier?: string) => run('read', (repo) => repo.product(id, currency, supplier)),
   save: (kind: PurchaseKind, input: PurchaseInput, key: string, id?: string, updated?: string) => run('write', (repo) => repo.save(kind, purchaseInputSchema.parse(input), key, id, updated)),
   transition: (kind: PurchaseKind, id: string, updated: string, action: 'validate' | 'reopen' | 'cancel' | 'cancel_all' | 'archive' | 'restore', discardPreparations = false) => run(['validate', 'reopen'].includes(action) ? kind === 'requests' ? 'request.validate' : 'order.validate' : 'write', (repo) => repo.transition(kind, id, updated, action, discardPreparations)),

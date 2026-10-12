@@ -31,7 +31,7 @@ routerAdd('POST', '/api/horizon/sales/quotes/manage', (event) => require(`${__ho
 onRecordCreate((event) => { if (event.app.findRecordById('sales_quotes', event.record.getString('quote')).getString('status') !== 'draft') throw new BadRequestError('Les lignes du devis finalisé sont figées.'); event.next() }, 'sales_quote_lines')
 onRecordDelete((event) => { if (event.record.getString('sent_at') || event.record.getString('status') === 'sent' || event.app.findRecordsByFilter('sales_orders', 'quote = {:id}', '', 1, 0, { id: event.record.id }).length) throw new BadRequestError('Cette pièce doit être conservée.'); event.next() }, 'sales_quotes')
 onRecordUpdate((event) => {
-  if (event.record.original().getString('status') !== 'draft') for (const field of ['quote', 'order_number', 'order_sequence', 'opportunity', 'analytic_account', 'company', 'contact', 'owner', 'currency', 'exchange_rate', 'subtotal', 'tax', 'total', 'quote_snapshot']) if (JSON.stringify(event.record.get(field)) !== JSON.stringify(event.record.original().get(field))) throw new BadRequestError('Les données de commande sont figées.')
+  if (event.record.original().getString('status') !== 'draft') for (const field of ['quote', 'order_number', 'order_sequence', 'opportunity', 'analytic_account', 'analytic_child', 'company', 'contact', 'owner', 'currency', 'exchange_rate', 'subtotal', 'tax', 'total', 'quote_snapshot']) if (JSON.stringify(event.record.get(field)) !== JSON.stringify(event.record.original().get(field))) throw new BadRequestError('Les données de commande sont figées.')
   event.next()
 }, 'sales_orders')
 onRecordDelete(() => { throw new BadRequestError('Les commandes doivent être conservées dans l’historique.') }, 'sales_orders')

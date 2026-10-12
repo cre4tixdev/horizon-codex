@@ -90,6 +90,8 @@ export const uxInputSchema = z.object({
   launcher_icon_size: bounded('launcher_icon_size'),
   launcher_gap: bounded('launcher_gap'),
   header_light: color, header_dark: color,
+  table_border_light: color.default('#DCE5EF'), table_border_dark: color.default('#364860'),
+  table_header_text_light: color.default('#4C678E'), table_header_text_dark: color.default('#B8C5D7'),
   background_light: color,
   background_dark: color,
   activity_light: color,
@@ -147,6 +149,10 @@ export const uxDefaults: UxInput = {
   panel_radius: 6,
   section_gap: 12,
   progress_gap: 16,
+  table_header_text_light: '#4C678E',
+  table_header_text_dark: '#B8C5D7',
+  table_border_light: '#DCE5EF',
+  table_border_dark: '#364860',
   header_light: '#DCE5EF',
   header_dark: '#364860',
   button_height: 32,
@@ -249,6 +255,10 @@ export function uxStyle(values: UxInput): CSSProperties & { [key: `--${string}`]
     '--hz-panel-radius': `${values.panel_radius}px`, '--hz-record-section-gap': `${values.section_gap}px`,
     '--hz-record-progress-gap': `${values.progress_gap}px`, '--hz-table-header-light': values.header_light,
     '--hz-table-header-dark': values.header_dark,
+    '--hz-table-header-text-light': values.table_header_text_light,
+    '--hz-table-header-text-dark': values.table_header_text_dark,
+    '--hz-table-border-light': values.table_border_light,
+    '--hz-table-border-dark': values.table_border_dark,
   }
 }
 

@@ -1,4 +1,6 @@
 const modules = [
+  { key: 'accounting', label: 'Immobilisations', available: true, actions: ['read', 'assets.manage'], scopes: ['all'] },
+  { key: 'analysis', label: 'Analyse des affaires', available: true, actions: ['read', 'financial', 'labor_costs'], scopes: ['own', 'all'] },
   { key: 'calendar', label: 'Calendrier', available: true, actions: ['read', 'write'], scopes: ['all'] },
   { key: 'contacts', label: 'Contacts', available: true, actions: ['read', 'write'], scopes: ['all'] },
   { key: 'crm', label: 'CRM', available: true, actions: ['read', 'write'], scopes: ['all'] },
@@ -6,7 +8,7 @@ const modules = [
   { key: 'purchasing', label: 'Achats', available: true, actions: ['read', 'write', 'request.validate', 'order.validate'], scopes: ['all'] },
   { key: 'sales', label: 'Ventes', available: true, actions: ['read', 'write', 'quote.validate', 'order.confirm'], scopes: ['all'] },
   { key: 'hr', label: 'Employés', available: true, actions: ['read', 'write', 'organisation.manage'], scopes: ['self', 'reports', 'team', 'all'] },
-  ...[['projects', 'Projets'], ['planning', 'Planning'], ['time', 'TimeReport'], ['leave', 'Congés'], ['expenses', 'Dépenses'], ['billing', 'Facturation'], ['accounting', 'Comptabilité'], ['service', 'SAV'], ['messaging', 'Messagerie'], ['documents', 'Documents']].map(([key, label]) => ({ key, label, available: false, actions: [], scopes: [] })),
+  ...[['projects', 'Projets'], ['planning', 'Planning'], ['time', 'TimeReport'], ['leave', 'Congés'], ['expenses', 'Dépenses'], ['billing', 'Facturation'], ['service', 'SAV'], ['messaging', 'Messagerie'], ['documents', 'Documents']].map(([key, label]) => ({ key, label, available: false, actions: [], scopes: [] })),
 ]
 const permissions = (app, user) => {
   if (!user || user.collection().name !== 'core_users' || !user.getBool('active')) return []
@@ -32,7 +34,7 @@ const grantsFor = (app, user) => {
   const rights = permissions(app, user); const result = {}
   for (const module of modules.filter((item) => item.available)) {
     const actions = module.actions.filter((action) => rights.includes(`${module.key}.${action}`))
-    if (actions.length) result[module.key] = { actions, scope: module.key === 'hr' ? user.getString('hr_scope') || 'all' : 'all' }
+    if (actions.length) result[module.key] = { actions, scope: module.key === 'hr' ? user.getString('hr_scope') || 'all' : module.key === 'analysis' ? 'own' : 'all' }
   }
   return result
 }
@@ -43,7 +45,8 @@ const validateGrants = (profile, grants) => {
     const module = modules.find((item) => item.key === key && item.available)
     if (!module || !grant || Object.keys(grant).some((field) => !['actions', 'scope'].includes(field)) || !module.scopes.includes(grant.scope) || !Array.isArray(grant.actions) || new Set(grant.actions).size !== grant.actions.length || grant.actions.some((action) => !module.actions.includes(action))) throw new BadRequestError('Module, action ou périmètre invalide.')
     if (grant.actions.length && !grant.actions.includes('read')) throw new BadRequestError('La consultation est nécessaire avant les autres actions.')
-    if (profile === 'viewer' && grant.actions.some((action) => action !== 'read')) throw new BadRequestError('Viewer dispose uniquement de la consultation.')
+    if (profile === 'viewer' && key !== 'analysis' && grant.actions.some((action) => action !== 'read')) throw new BadRequestError('Viewer dispose uniquement de la consultation.')
+    if (key === 'analysis' && grant.actions.includes('labor_costs') && !grant.actions.includes('financial')) throw new BadRequestError('Les coûts individuels nécessitent l’analyse financière.')
     if (key === 'hr' && grant.actions.includes('organisation.manage') && grant.scope !== 'all') throw new BadRequestError('La gestion de hiérarchie nécessite le périmètre global Employés.')
     if (key === 'hr' && grant.actions.includes('organisation.manage') && !grant.actions.includes('write')) throw new BadRequestError('La gestion de hiérarchie nécessite la contribution Employés.')
     for (const action of grant.actions) rights.add(`${key}.${action}`)

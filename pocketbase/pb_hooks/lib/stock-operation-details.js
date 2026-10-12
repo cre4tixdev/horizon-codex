@@ -8,9 +8,9 @@ module.exports = (app, record) => {
     affair_tags: (line.allocations || []).map((allocation) => ({ ...require(`${__hooks}/lib/analytic-identity.js`)(app, allocation.analytic_account), quantity: allocation.quantity, unit: line.unit })),
     destination: line.to_location ? c.get(app, 'inventory_locations', line.to_location).getString('name') : '',
   }))
-  for (const line of lineDetails) line.affairs = line.affair_tags.map((item) => `${item.code}${item.client ? ' - ' + item.client : ''} [ ${String(item.quantity).replace('.', ',')}${item.unit} ]`).join(' · ')
+  for (const line of lineDetails) line.affairs = line.affair_tags.map((item) => `${item.code}${item.client || item.label ? ' - ' + (item.client || item.label) : ''} [ ${String(item.quantity).replace('.', ',')}${item.unit} ]`).join(' · ')
   const stored = snapshot?._line_details ? snapshot._line_details.map((line) => ({ ...line, affair_tags: line.affair_tags || lineDetails.find((item) => item.id === line.id)?.affair_tags || [] })) : lineDetails
-  const affairTags = stored.flatMap((line) => line.affair_tags || []).map(({ code, client }) => ({ code, client }))
+  const affairTags = stored.flatMap((line) => line.affair_tags || []).map(({ code, client, label }) => ({ code, client, ...(label ? { label } : {}) }))
   if (!affairTags.length && record.getString('opportunity')) { const account = c.get(app, 'crm_opportunities', record.getString('opportunity')).getString('analytic_account'); if (account) affairTags.push(require(`${__hooks}/lib/analytic-identity.js`)(app, account)) }
   return { affair_tags: affairTags, purchase_number: snapshot?.['stock.purchase_number'] ?? identity.purchase_number, supplier_name: snapshot?.['stock.supplier_name'] ?? identity.supplier_name, supplier_address: snapshot?.['stock.supplier_address'] ?? identity.supplier_address, line_details: stored }
 }

@@ -126,3 +126,6 @@
 .stock-settings-page .stock-warehouse-table input[type="checkbox"], .stock-settings-policy > input { accent-color: var(--theme-accent, #F52F96); }
 
 .stock-affairs-heading { display: inline-flex; align-items: center; gap: 6px; }
+.stock-trace-dialog { width: min(760px, calc(100vw - 32px)); }
+.stock-trace-dialog .contact-muted { display: flex; align-items: center; gap: 7px; }
+.stock-trace-summary { display: inline-flex; align-items: center; gap: 5px; }

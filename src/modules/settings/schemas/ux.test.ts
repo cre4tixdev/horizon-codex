@@ -3,10 +3,10 @@ import { uxDefaults, uxLimits, uxInputSchema, uxStyle } from './ux'
 describe('Shared UX configuration', () => {
   it('retains the current Horizon baseline', () => {
     expect(uxInputSchema.parse(uxDefaults)).toEqual(uxDefaults)
-    expect(uxStyle(uxDefaults)).toMatchObject({ '--hz-table-row-height': '32px', '--hz-table-cell-height': '26px', '--hz-workspace-gutter': '40px' })
+    expect(uxStyle(uxDefaults)).toMatchObject({ '--hz-table-row-height': '32px', '--hz-table-cell-height': '26px', '--hz-workspace-gutter': '40px', '--hz-table-header-text-light': '#4C678E', '--hz-table-header-text-dark': '#B8C5D7' })
   })
   it('rejects unknown settings, fractions, unsafe CSS and unreadable sizes', () => {
-    for (const patch of [{ row_height: 20 }, { row_height: 33.5 }, { page_margin: 200 }, { control_font: 25 }, { header_light: 'red;display:none' }, { extra: 1 }]) expect(uxInputSchema.safeParse({ ...uxDefaults, ...patch }).success).toBe(false)
+    for (const patch of [{ row_height: 20 }, { row_height: 33.5 }, { page_margin: 200 }, { control_font: 25 }, { header_light: 'red;display:none' }, { table_border_dark: 'url(evil)' }, { table_header_text_light: 'red' }, { table_header_text_dark: 'url(evil)' }, { extra: 1 }]) expect(uxInputSchema.safeParse({ ...uxDefaults, ...patch }).success).toBe(false)
   })
   it('accepts 10 px text and the displayed limits', () => {
     expect(uxInputSchema.safeParse({ ...uxDefaults, table_font: 10, control_font: 10 }).success).toBe(true)

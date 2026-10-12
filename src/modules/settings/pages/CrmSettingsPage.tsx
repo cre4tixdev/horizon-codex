@@ -5,7 +5,7 @@ import { SettingsEditButton } from '../components/SettingsEditButton'
 import { useState, useSyncExternalStore } from 'react'
 import { useSearchParams } from 'react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Columns3, History, List, Plus, Target } from 'lucide-react'
+import { Columns3, History, List, Plus, Target, BriefcaseBusiness, CalendarDays, ClipboardList, ListOrdered, PanelsTopLeft } from 'lucide-react'
 import { sessionService } from '../../../core/auth/services/session'
 import { HRecordTabs } from '../../../shared/ui/HRecordTabs'
 import { HSectionHeading } from '../../../shared/ui/HSectionHeading'
@@ -30,7 +30,7 @@ export function CrmSettingsPage() {
   const settings = useCrmSettings(allowed)
   if (!allowed) return <HEmptyState icon={Target} title="Paramètres CRM" description="Vous ne disposez pas de la permission de consulter ces paramètres." />
   return <div className="settings-crm"><HSectionHeading title="CRM" description="Personnalisez la présentation et les classifications de vos opportunités." icon={Target} />
-    <HRecordTabs label="Paramètres CRM" idPrefix="settings-crm-tab" value={tab} onChange={(next) => setParams({ tab: next })} items={[{ value: 'presentation', label: 'Présentation', panel: 'settings-crm-presentation' }, { value: 'stages', label: 'Étapes', panel: 'settings-crm-stages' }, { value: 'markets', label: 'Types de marché', panel: 'settings-crm-markets' }, { value: 'ao-stages', label: 'Préparation AO', panel: 'settings-crm-ao-stages' }, { value: 'appointment-tags', label: 'Tags rendez-vous', panel: 'settings-crm-appointment-tags' }]} />
+    <HRecordTabs label="Paramètres CRM" idPrefix="settings-crm-tab" value={tab} onChange={(next) => setParams({ tab: next })} items={[{ value: 'presentation', label: 'Présentation', icon: PanelsTopLeft, panel: 'settings-crm-presentation' }, { value: 'stages', label: 'Étapes', icon: ListOrdered, panel: 'settings-crm-stages' }, { value: 'markets', label: 'Types de marché', icon: BriefcaseBusiness, panel: 'settings-crm-markets' }, { value: 'ao-stages', label: 'Préparation AO', icon: ClipboardList, panel: 'settings-crm-ao-stages' }, { value: 'appointment-tags', label: 'Tags rendez-vous', icon: CalendarDays, panel: 'settings-crm-appointment-tags' }]} />
     {!editable && <p className="contact-muted">Consultation uniquement. La permission d’administration des référentiels est nécessaire pour modifier ces réglages.</p>}
     {tab === 'presentation' && <section id="settings-crm-presentation" role="tabpanel" aria-labelledby="settings-crm-tab-presentation" className="contact-panel">{settings.data && <Presentation key={settings.data.default_view} record={settings.data} editable={editable} />}{settings.isPending && <p role="status">Chargement des réglages…</p>}{settings.error && <p role="alert">{settings.error.message}<HButton onClick={() => void settings.refetch()}>Réessayer</HButton></p>}</section>}
     {tab === 'appointment-tags' && <AppointmentTags editable={editable} />}

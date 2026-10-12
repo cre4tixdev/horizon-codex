@@ -2,7 +2,7 @@ import { HSettingsTable } from '../../../shared/ui/HSettingsTable'
 import { useState, useSyncExternalStore } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router'
-import { FileText, Plus, Settings, Check } from 'lucide-react'
+import { FileText, Plus, Settings, Check, Columns3, ScrollText, SlidersHorizontal } from 'lucide-react'
 import { sessionService } from '../../../core/auth/services/session'
 import { hasPermission } from '../../../core/auth/types/session'
 import { salesService, quoteColumns, type SalesSettings } from '../../sales'
@@ -34,14 +34,14 @@ function SalesPresentation({ record, editable, tab, onTabChange }: { record: Sal
   const client = useQueryClient()
   const save = useMutation({ mutationFn: () => salesService.saveSettings({ ...record, column_widths: widths, validity_days: days, default_tax_rate: tax, terms }), onSuccess: (saved) => client.setQueryData(['settings', 'sales'], saved) })
   const dirty = JSON.stringify(terms) !== JSON.stringify(record.terms) || JSON.stringify(widths) !== JSON.stringify(record.column_widths) || days !== record.validity_days || tax !== record.default_tax_rate
-  return <form onSubmit={(event) => { event.preventDefault(); if (editable && dirty) save.mutate() }}><HRecordTabs label="Paramètres Ventes" idPrefix="sales-settings-tab" value={tab} onChange={onTabChange} items={[{ value: 'columns', label: 'Colonnes des devis', panel: 'sales-settings-columns' }, { value: 'defaults', label: 'Valeurs par défaut', panel: 'sales-settings-defaults' }, { value: 'terms', label: 'Conditions de vente', panel: 'sales-settings-terms' }]} />
+  return <form onSubmit={(event) => { event.preventDefault(); if (editable && dirty) save.mutate() }}><HRecordTabs label="Paramètres Ventes" idPrefix="sales-settings-tab" value={tab} onChange={onTabChange} items={[{ value: 'columns', label: 'Colonnes des devis', icon: Columns3, panel: 'sales-settings-columns' }, { value: 'defaults', label: 'Valeurs par défaut', icon: SlidersHorizontal, panel: 'sales-settings-defaults' }, { value: 'terms', label: 'Conditions de vente', icon: ScrollText, panel: 'sales-settings-terms' }]} />
     <fieldset className="access-fieldset" disabled={!editable || save.isPending}>
       <section className="contact-panel" role="tabpanel" id={`sales-settings-${tab}`} aria-labelledby={`sales-settings-tab-${tab}`}>
         <HSectionHeading
           title={tab === 'columns' ? 'Largeur des colonnes' : tab === 'defaults' ? 'Valeurs par défaut' : 'Conditions générales de vente'}
           description={tab === 'columns' ? 'Réglage commun en pixels. La description occupe la largeur restante et revient à la ligne ; la grille défile horizontalement sur les écrans étroits.' : tab === 'defaults' ? 'Appliquées à la création. Les devis existants conservent leurs valeurs.' : 'Textes proposés dans les devis. Les conditions déjà choisies restent conservées dans chaque devis.'}
           actions={editable && <>
-            {tab === 'terms' && <HButton size="small" disabled={terms.length >= 30} onClick={() => setEditingTerm({ id: crypto.randomUUID(), label: '', content: '', active: true })}><Plus size={14} />Ajouter des conditions</HButton>}
+            {tab === 'terms' && <HButton size="small" disabled={terms.length >= 30} onClick={() => setEditingTerm({ id: crypto.randomUUID(), label: '', content: '', active: true, is_default: !terms.some((term) => term.active && term.is_default) })}><Plus size={14} />Ajouter des conditions</HButton>}
             <HSaveButton hasChanges={dirty} pending={save.isPending}>Enregistrer</HSaveButton>
           </>}
         />
@@ -58,9 +58,9 @@ function SalesPresentation({ record, editable, tab, onTabChange }: { record: Sal
           <p className="contact-muted">Les unités se configurent dans <a href="/settings/references?catalog=inventory_units">Référentiels → Unités</a>.</p>
         </> : <HSettingsTable count={terms.length} noun="condition">
           <table className="reference-table">
-            <thead><tr><th>Intitulé</th><th className="settings-state-cell">État</th><th className="settings-action-cell">Actions</th></tr></thead>
-            <tbody>{terms.map((term) => <tr key={term.id}><td>{term.label}</td><td className="settings-state-cell">{term.active ? 'Actives' : 'Archivées'}</td><td className="settings-action-cell">{editable && <HButton size="icon" variant="ghost" aria-label={`Configurer ${term.label}`} title="Configurer" onClick={() => setEditingTerm({ ...term })}><Settings size={14} /></HButton>}</td></tr>)}
-              {!terms.length && <tr><td colSpan={3}>Ajoutez les conditions approuvées par votre entreprise.</td></tr>}
+            <thead><tr><th>Intitulé</th><th className="settings-state-cell">État</th><th className="settings-state-cell">Par défaut</th><th className="settings-action-cell">Actions</th></tr></thead>
+            <tbody>{terms.map((term) => <tr key={term.id}><td>{term.label}</td><td className="settings-state-cell">{term.active ? 'Actives' : 'Archivées'}</td><td className="settings-state-cell"><input className="sales-default-terms-checkbox" type="checkbox" aria-label={`CGV par défaut : ${term.label}`} checked={term.is_default} disabled={!editable || !term.active || save.isPending} onChange={(event) => { const checked = event.target.checked; setTerms((current) => current.map((item) => ({ ...item, is_default: checked && item.id === term.id }))) }} /></td><td className="settings-action-cell">{editable && <HButton size="icon" variant="ghost" aria-label={`Configurer ${term.label}`} title="Configurer" onClick={() => setEditingTerm({ ...term })}><Settings size={14} /></HButton>}</td></tr>)}
+              {!terms.length && <tr><td colSpan={4}>Ajoutez les conditions approuvées par votre entreprise.</td></tr>}
             </tbody>
           </table>
         </HSettingsTable>}
@@ -71,9 +71,10 @@ function SalesPresentation({ record, editable, tab, onTabChange }: { record: Sal
       <div className="dialog-form sales-terms-form">
         <label className="h-form-field"><HFieldLabel required>Intitulé</HFieldLabel><HInput required maxLength={120} placeholder="Ex. Conditions de vente France" value={editingTerm.label} onChange={(event) => setEditingTerm({ ...editingTerm, label: event.target.value })} /></label>
         <label className="h-form-field"><span className="sales-terms-content-label"><span id="sales-terms-content-caption"><HFieldLabel required>Contenu</HFieldLabel></span><small aria-hidden="true">{new Intl.NumberFormat('fr-FR').format(editingTerm.content.length)} / 20 000</small></span><textarea aria-labelledby="sales-terms-content-caption" className="h-input sales-terms-editor" required rows={12} maxLength={20000} placeholder="Saisissez le texte des conditions générales de vente…" value={editingTerm.content} onChange={(event) => setEditingTerm({ ...editingTerm, content: event.target.value })} /></label>
-        <label className="sales-terms-availability"><input type="checkbox" checked={editingTerm.active} onChange={(event) => setEditingTerm({ ...editingTerm, active: event.target.checked })} /><span>Proposer ces conditions dans les devis</span></label>
+        <label className="sales-terms-availability"><input type="checkbox" checked={editingTerm.active} onChange={(event) => setEditingTerm({ ...editingTerm, active: event.target.checked, is_default: event.target.checked && editingTerm.is_default })} /><span>Proposer ces conditions dans les devis</span></label>
+        <label className="sales-terms-default"><input type="checkbox" checked={editingTerm.is_default} disabled={!editingTerm.active} onChange={(event) => setEditingTerm({ ...editingTerm, is_default: event.target.checked })} /><span>CGV par défaut</span></label>
       </div>
-      <HDialogFooter><HButton variant="primary" size="small" disabled={!editingTerm.label.trim() || !editingTerm.content.trim()} onClick={() => { setTerms((current) => current.some((term) => term.id === editingTerm.id) ? current.map((term) => term.id === editingTerm.id ? editingTerm : term) : [...current, editingTerm]); setEditingTerm(undefined) }}><Check size={14} />Appliquer</HButton></HDialogFooter>
+      <HDialogFooter><HButton variant="primary" size="small" disabled={!editingTerm.label.trim() || !editingTerm.content.trim()} onClick={() => { setTerms((current) => current.some((term) => term.id === editingTerm.id) ? current.map((term) => term.id === editingTerm.id ? editingTerm : editingTerm.is_default ? { ...term, is_default: false } : term) : [...current.map((term) => editingTerm.is_default ? { ...term, is_default: false } : term), editingTerm]); setEditingTerm(undefined) }}><Check size={14} />Appliquer</HButton></HDialogFooter>
     </HDialog>}
 
   </form>

@@ -1,0 +1,8 @@
+import { z } from 'zod'
+export const internalAssetStates = { stored: 'Disponible', assigned: 'Affecté', repair: 'En réparation', retired: 'Retiré du parc', returned: 'Remis en stock' }
+export const internalAssetInputSchema = z.object({ name: z.string().trim().min(1).max(200), warehouse: z.string().min(1), location: z.string().min(1), assigned_employee: z.string(), assigned_team: z.string(), status: z.enum(['stored', 'assigned', 'repair', 'retired']), notes: z.string().max(10000) })
+export const internalAssetSchema = internalAssetInputSchema.omit({ status: true }).extend({ id: z.string(), updated: z.string(), number: z.string(), product: z.string(), serial: z.string(), lot: z.string(), source_operation: z.string(), source_line: z.string(), acquired_at: z.string(), active: z.boolean(), status: z.enum(['stored', 'assigned', 'repair', 'retired', 'returned']), product_name: z.string(), brand: z.string(), reference: z.string(), serial_number: z.string(), lot_number: z.string(), warehouse_name: z.string(), location_name: z.string(), source_number: z.string(), receipt_number: z.string(), purchase_order: z.string(), assigned_name: z.string(), can_assign: z.boolean(), financial_lock: z.boolean() })
+export type InternalAsset = z.infer<typeof internalAssetSchema>
+export type InternalAssetInput = z.infer<typeof internalAssetInputSchema>
+export type AssetQuery = { q: string; status: string; page: number; warehouse?: string; product?: string; sort?: string }
+export const internalAssetsPageSchema = z.object({ items: z.array(internalAssetSchema), page: z.number(), totalItems: z.number(), totalPages: z.number() })

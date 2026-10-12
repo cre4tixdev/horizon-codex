@@ -1595,7 +1595,7 @@ Le layout se réorganise sur écrans étroits : navigation en icônes, indicateu
 
 ## Connexion native — premier écran disponible
 
-`/login` reprend le pictogramme officiel sur un fond panoramique navy : dégradés discrets, relief SVG décoratif et ligne d’horizon magenta / violet, sans animation ni asset distant. Sur ordinateur, accroche à gauche et formulaire compact email / mot de passe à droite ; sous 700 px, seul le logo et le formulaire centré restent visibles. La surface du formulaire suit le thème clair / sombre ; les contrôles restent ceux du Design System. Ce traitement expressif est propre à l’écran de connexion, pas aux listes métier. Erreurs liées aux champs, erreur de connexion annoncée par `role="alert"`, état en cours et bouton désactivé pendant l'envoi. Aucun formulaire d'inscription publique ni faux lien de récupération e-mail. Après connexion, retour à la route interne demandée, nom réel en topbar et bouton « Se déconnecter ». Captures desktop / mobile inspectées lors des tests locaux.
+`/login` utilise une photographie locale de paysage naturel avec horizon et un overlay navy asymétrique, plus profond à droite derrière le panneau et dégagé à gauche. Logo CVS Gradient en haut à gauche, logo Horizon principal officiel complet dans le panneau de connexion à droite, proportions intactes. Panneau clair de 500 px, padding horizontal 44 px sur desktop, rayon 20 px, sans liseré. CVS de 168 px de large en haut à gauche. Logo Horizon principal extrait de la charte par viewport SVG, sans redessin. Aucun slogan commercial ; « Connexion » et « Saisissez vos identifiants ». Sous 700 px, formulaire centré et paysage conservé. Le panneau de connexion conserve une surface claire, y compris lorsque le thème ERP est sombre ; les contrôles restent ceux du Design System. Ce traitement est propre à la connexion. Erreurs liées aux champs, erreur de connexion annoncée par `role="alert"`, état en cours et bouton désactivé pendant l'envoi. Aucun formulaire d'inscription publique ni faux lien de récupération e-mail. Après connexion, retour à la route interne demandée, nom réel en topbar et bouton « Se déconnecter ». Image générée pour Horizon, embarquée en WebP sans dépendance distante. Captures desktop / mobile inspectées lors des tests locaux.
 
 
 ## Réalisation Contacts V1
@@ -2263,3 +2263,85 @@ Apparence / Sidebar — sidebar : largeur dépliée, texte des entrées et sous-
 Couleurs sidebar : sections repliables Fond et sélection / Textes et icônes, placées avant les dimensions dans Sidebar. HColorField partagé pour les trois points du dégradé de fond, textes / icônes / titres / sous-menus, début / fin / texte de sélection et teinte du survol (overlay discret). Aperçu local avant Enregistrer, mêmes couleurs dans les deux thèmes ; palette actuelle utilisée par défaut. Le logo conserve ses variantes et le menu des modules son fond de marque indépendant.
 
 Apparence — aperçu limité au thème actif : cadres / frise / fil pour Général, tableau pour Tableaux, champs pour Champs et textes, actions pour Boutons, navigation dépliée / repliée pour Sidebar et tuiles pour Menu des modules. Aucun devis affiché systématiquement. Toutes les sections de réglages sont repliables via le même chevron ; elles sont toutes repliées initialement. Le bouton Tout déplier / Tout replier bascule toutes les sections de l’onglet courant sans perdre les saisies. Brouillon préservé entre les onglets ; Annuler / Enregistrer restent dans la barre persistante.
+
+Cellules numériques Devis : quantité / marge / remise conservent le texte pendant la frappe et normalisent les zéros initiaux à la sortie. Effacement conservé sans zéro forcé, décimales autorisées ; sélection de la valeur à l’entrée, également pour coût / PUV via HAmountInput. Les calculs persistés restent ceux du service serveur.
+
+Tableaux des fiches : coins inférieurs de 5 px sur la dernière ligne du viewport partagé, fond alterné compris. Le cadre entier reste sans clipping en mode page afin de préserver les en-têtes sticky.
+
+Apparence → Tableaux → Couleurs : en-tête, bordures et lignes paires / impaires, réglages distincts clair / sombre. Bordures appliquées au cadre, séparations horizontales et verticales via HTableViewport partagé, sans modifier les cadres de fiche ni les soulignements sémantiques de section.
+
+Analyse des affaires : AffairAnalysis partagé entre opportunité, commande et Finance. Indicateurs compacts neutres, chiffres roses, tableau commun avec codes en tags navy, nombres alignés à droite et livraisons centrées. Sections Informations / Analyse via HRecordTabs, saisies conservées. Vue transversale avec WorkspaceSearch / SearchFilters / GroupedResults et paramètres URL. Paramètres → Utilisateurs et accès : trois cases Analyse, données financières, coûts individuels, périmètre propres affaires / global ; Viewer peut recevoir ces droits de lecture sans écriture métier. Heures / frais / facturation non raccordés explicitement, aucun total réalisé trompeur.
+
+Analyse : section Heures BE et PROD sous le tableau économique, mêmes tableaux / tags / alignements. Prévu et Réalisé séparés par nature de travail, total affaire / commande, attente de validation sous le tableau. Source absente affichée par tirets et indication explicite, sans zéro présenté comme réalisé.
+
+Analyse — cinq cartes dans cet ordre : Commande Client, Achats, Livraison, Heures vendues / réalisées BE et PROD, Marge à date. Histogrammes compacts intégrés : prévisionnel violet discret et réalisé / engagé rose, valeurs au-dessus et libellés sous les barres. BE et PROD côte à côte dans la même carte, une barre Réalisé par groupe avec le Vendu représenté par un curseur, échelle commune. Donnée absente : tiret sans barre, jamais un zéro inventé. Tableau économique précédé du titre « Synthèse par commande et coûts communs ». Heures vendues non assimilées au planning ; tant que les lignes vendues et les coûts de temps / frais ne sont pas raccordés, heures vendues et marge à date affichent un tiret, avec marge prévue comme repère.
+
+Histogramme Commande Client : une barre Commandé et un curseur au montant Estimé ; estimation issue de l’opportunité, revenu issu des commandes confirmées. Analyse de commande : libellé Estimé affaire pour éviter une fausse ventilation de l’estimation globale.
+
+Cartes Analyse : titres avec pictogramme en pastille discrète, valeur principale 24 px, rayon 10 px et histogrammes rapprochés à droite, sans cadre intérieur. Barres uniques avec curseur prévisionnel, valeurs lisibles et alignement commun BE / PROD ; aucune ombre ni palette supplémentaire.
+
+Dashboard général : présentation antérieure rétablie à la demande utilisateur. Les essais de refonte visuelle ne constituent pas une nouvelle référence validée.
+
+Analyse — histogrammes compacts à droite de la valeur principale, barres rapprochées, même carte pour BE / PROD. Curseur horizontal au niveau du prévisionnel ; le réalisé peut dépasser ce repère, seule la portion excédentaire est rouge. Échelle commune incluant le dépassement, aucune donnée absente transformée en zéro.
+
+Analyse — une seule barre réalisée par indicateur : le prévisionnel est un curseur horizontal avec sa valeur, jamais une seconde barre. Seule la portion réalisée supérieure au curseur devient rouge ; BE et PROD ont chacun leur barre et leur repère vendu.
+
+Analyse — lisibilité des cartes : histogrammes plus hauts (100 px), barre élargie, valeurs 11 px et repère continu plus visible. Utilisation de la hauteur utile sous le titre sans ligne vide réservée ; largeur préservée pour le montant principal et les explications.
+
+Analyse — alignement du graphique : colonne droite démarrant au niveau du titre, barre 132 px. Estimé / Vendu et sa valeur sur deux lignes distinctes sous le graphique ; grandes valeurs sans chevauchement, montant principal adaptatif selon la largeur de carte.
+
+Analyse — montant réalisé affiché une seule fois en grand dans la carte, sans répétition sur la barre. Exception Heures : détail réalisé par BE / PROD sur chaque barre, distinct du total de la carte. Valeur prévisionnelle conservée au repère.
+
+Analyse — présentation des valeurs : actuel en grand à gauche, prévisionnel juste dessous en violet, sans libellés Engagé / Prévu / Estimé ni répétition sous la barre. Curseur violet, devenu rouge si le réalisé dépasse le repère ; portion excédentaire rouge. Retrait de la phrase Coût des heures et frais à raccorder dans la carte marge ; absence de source reste visible dans le détail analytique.
+
+Analyse — couleur du prévisionnel et du curseur : gris foncé en clair, token gris lisible en sombre ; le curseur et la portion excédentaire restent rouges en cas de dépassement.
+
+Carte Heures Analyse : BE et PROD apparaissent au-dessus de leurs barres, sans chiffres répétés sous ces libellés ; le total réalisé reste à gauche. Valeurs détaillées conservées dans le tableau et les descriptions accessibles des graphiques.
+
+Analyse — base commune des six barres sur les cinq cartes : même zone de libellé de 20 px et graphique de 132 px, y compris BE / PROD. Hauteur des cartes déterminée par le contenu utile, suppression du minimum de 220 px et du vide sous les graphiques.
+
+Onglets Horizon : chaque onglet de fiche et de paramètres affiche un pictogramme Lucide de 14 px avant son libellé, écart 7 px, alignement centré et couleur héritée de la sélection. Rendu centralisé dans HRecordTabs, icône déclarée par le module selon la rubrique ; navigation clavier, compteurs et libellés accessibles conservés.
+
+Fiche produit : bandeau compact dans Identité, En stock / Disponible / Réservé avec unité de base, visible dans tous les onglets et le popup via le même éditeur. Quantités des emplacements actifs, stock physique distinct des réservations ; aucun champ de quantité modifiable dans le catalogue.
+
+Identité produit — cases Peut être vendu / Peut être acheté dans les actions de HSectionHeading sur la ligne du titre. Quantités regroupées dans un encadré gris discret en bas à droite, à côté de Famille / Unité en desktop ; adaptation sur une ligne dédiée en largeur réduite. Même éditeur en popup et en page.
+
+Identité produit — ajustement : cases vente / achat au début de la moitié droite de la ligne du titre, encadré stock étendu sur les deux colonnes de droite, quantités réparties dans sa largeur.
+
+Encadré stock produit : hauteur commune aux textbox via --hz-control-height, pictogrammes En stock / Disponible / Réservé, espace distribué. Réservé ouvre HDialog / HDataTable de lecture avec personne, commande, affaire / client, emplacement, quantité et date. Cases vente / achat décalées vers la droite sur la ligne du titre.
+
+Identité produit : groupe Peut être vendu / Peut être acheté recentré sur la ligne du titre, départ vers 40 % de la largeur utile en desktop.
+
+Apparence → Tableaux → Couleurs : Texte des en-têtes configurable en clair / sombre, aperçu en direct et propagation via le viewport commun aux titres, tris et pictogrammes des colonnes. Couleur du corps des tableaux conservée, indépendante.
+
+Fiche produit / Achats : historique des prix d’achat repliable, titre via HSectionHeading identique à Fournisseurs, pictogramme History, compteur et chevron orienté selon l’ouverture. Replié initialement, activation clavier et focus visible.
+
+Historique des achats produit : HDataTable partagé, séparateurs de colonnes, date centrée et prix / remise à droite. Même contrat pour les listes CRM / AO, rendez-vous AO, Achats et copie de devis ; aucun tableau HTML local pour cet historique. Les en-têtes et cellules numériques des lignes d’achat partagent leur alignement à droite.
+
+Colonnes de l’historique des achats : Date, Commande, Fournisseur, Quantité achetée (avec unité de la ligne), Référence, PUA HT, Remise, Prix total HT. Le total est le montant HT historique de la ligne de commande.
+
+Historique des achats produit : projection Purchasing des lignes de commandes fournisseur validées, hors brouillons et annulations, sous permission purchasing.read. Quantité réellement commandée et unité de la ligne, prix / remise / total historiques, identité fournisseur snapshotée. La colonne 2 Commande ouvre la fiche canonique en popup ; colonne 4 Quantité achetée. Cet historique remplace l’affichage des changements de conditions fournisseurs ; inventory_supplier_price_history reste conservé pour audit des tarifs, sans être présenté comme un achat.
+
+Mon compte : HPageBreadcrumb et actions Enregistrer / Annuler dans la barre persistante, HSectionHeading et panneaux de fiche communs. Photo ronde et contrôles compacts, identité sur deux colonnes desktop, sécurité / accès en dessous ; empilement mobile. UserAvatar partagé pour la photo de compte et le menu utilisateur. Import local et suppression réversibles avant Enregistrer ; erreur visible, aucun contrôle de droits editable. Mot de passe dans HDialog partagé.
+
+Avatars utilisateur et fils : aucune bordure / ombre autour des photos. Photo du compte réutilisée dans la saisie et les publications via ActivityPanel partagé ; initiales sans photo, icône système sans auteur. Le rond de disponibilité reste sur l’avatar du compte et dans son menu, jamais dans un fil d’actualité. Présent vert, Absent orange, Occupé rouge, Hors ligne gris, libellés et sélection accessibles.
+
+Disponibilité : choix du menu utilisateur décalés de 12 px sous le libellé ; rond de 18 px sur la photo dans Mon compte, taille compacte inchangée dans la top bar.
+
+Parc interne / Immobilisations : listes avec WorkspaceSearch et SearchFilters partagés, critères URL, regroupement/tri, HDataTable à bordures et colonnes ajustables, pagination et liens préservant les critères d’origine. HRegisterTable mutualise le rendu paginé de ces registres. Fiches et notes réutilisent les composants canoniques, mêmes hauteurs/espacements ; qualification financière via frise Horizon. Destination par ligne dans les tableaux d’achat, fenêtre TracePicker unique pour lots/séries des mouvements. Les cellules éditables de cette fenêtre utilisent des composants stables pour conserver le focus durant la saisie.
+
+Ventilation Achats A02 : modes Affaire / Stock / Interne exclusifs dans le popup partagé, cases avec pictogrammes, aucun champ Destination concurrent dans le tableau. Affaire conserve le tableau multi-affaires/commandes ; Stock et Interne affichent compte + libellé + quantité complète dans un encadré compact. Dans les lignes, une ventilation interne affiche uniquement « code - Interne » ; le libellé détaillé de sa catégorie apparaît au survol du tag. Interne propose les cinq catégories ; aucune immobilisation choisie implicitement sur une ligne nouvelle. Le mode fixe reste utilisable sans droit CRM. La page Codes analytiques fixes utilise HDataTable, cellules stables et actions Enregistrer / Annuler dans la barre supérieure persistante. Une pièce historique sans imputation fixe n’est pas présentée comme déjà affectée à un code proposé.
+
+Confirmation commande client : numéro obligatoire, sauf case explicite Attente Commande (champ grisé affichant ATTENTE COMMANDE, saisie conservée si décochée). Pièce facultative par dépôt ou sélection PDF / JPEG / PNG / WebP, 10 Mo maximum, validation du fichier côté serveur. Les boutons centrés à pictogramme Préparer la commande et Réserver le stock disponible sont des choix activables (état aria-pressed). Préparer la commande, disponible avec droit d’achat, affiche le panneau de besoins dans la confirmation, sous les boutons ; aucune commande fournisseur définitive créée automatiquement.
+
+L’action Préparer les achats de la commande ouvre la même fiche canonique en popup via RecordWorkspace, sans navigation ; les besoins, la source et les quantités nettes sont chargés via le service d’approvisionnement. Zone de dépôt de commande client : hauteur minimale 150 px, contenu centré.
+
+Préparation intégrée à la confirmation : panels Stock et Achats simultanés. Appliquer les réservations / Appliquer la préparation marque le choix prêt par un check ; une modification des réservations invalide la préparation des achats. Le panneau Achats propose sélection de lignes, quantité nette, fournisseur et PUA connu ; les options sont exclues. Confirmer crée côté serveur la commande, les réservations et une demande d’achat draft dans la même transaction. Aucune nouvelle fenêtre ne s’ouvre après cette confirmation. L’action Préparer les achats sur une commande existante conserve la fiche canonique en popup.
+
+Confirmation client : Réserver le stock disponible est visible uniquement si le service Stock renvoie une ligne stockable avec besoin restant et une quantité disponible positive dans un emplacement réservable. Stock entrant ou déjà réservé ne suffit pas ; erreurs de lecture affichées avec Réessayer.
+
+Tags Affaires des lignes DA / BC : une allocation liée à une commande affiche son code enfant complet (ex. 00003-1 - Client), y compris avant enregistrement des besoins source. Seuls les coûts communs sans commande affichent le code racine ; deux allocations de la même affaire sur des commandes différentes conservent leurs identités propres.
+
+Lignes des commandes client : colonne Actions masquée (en-tête et cellules) à l’état accepted ; elle réapparaît lors du retour en devis. Colonnes de suivi conservées et largeurs recalculées avec le même composant partagé.
+
+Création de devis : CGV actives désignées par défaut dans Paramètres → Ventes → Conditions de vente (case Par défaut dans la liste et CGV par défaut dans le popup), unicité serveur. Nouveau titre proposé depuis l’opportunité sans écraser un titre personnalisé ; première ligne vide réutilisée par l’ajout d’un produit ou d’une ligne. Ligne initiale non saisie ignorée à la sauvegarde, données partielles contrôlées normalement. Total HT davantage mis en avant que TTC, avec ou sans remise. Recherche Produit partagée sans sélection/check de ligne ; ajout via + uniquement. Produit ajouté : flèche en extension à droite du champ Description ouvre sa fiche canonique dans RecordWorkspace ; coût/PUV du devis ne sont pas modifiés implicitement par une consultation.

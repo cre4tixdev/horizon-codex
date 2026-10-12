@@ -89,10 +89,17 @@ module.exports = {
   },
   confirm(event) {
     guard(event.app, event.auth, 'sales.order.confirm')
-    const body = event.requestInfo().body; exact(body, ['id', 'updated', 'customer_order_number', 'command_file', 'reservations'])
+    const body = event.requestInfo().body; exact(body, ['id', 'updated', 'customer_order_number', 'command_file', 'reservations', 'awaiting_customer_order', 'purchase_preparation'])
+    let preparation = body.purchase_preparation
+    if (typeof preparation === 'string') { try { preparation = JSON.parse(preparation) } catch { throw new BadRequestError('Préparation des achats invalide.') } }
+    if (preparation !== undefined && (!Array.isArray(preparation) || !preparation.length || preparation.length > 200)) throw new BadRequestError('Préparation des achats invalide.')
     let reservations = body.reservations || []; if (typeof reservations === 'string') { try { reservations = JSON.parse(reservations) } catch { throw new BadRequestError('Réservations invalides.') } }; if (!Array.isArray(reservations)) throw new BadRequestError('Réservations invalides.');
     const reference = typeof body.customer_order_number === 'string' ? body.customer_order_number.trim() : ''
     if (reference.length > 120 || body.customer_order_number !== undefined && typeof body.customer_order_number !== 'string') throw new BadRequestError('Numéro de commande client invalide (120 caractères maximum).')
+    const waiting = body.awaiting_customer_order === true || body.awaiting_customer_order === 'true'
+    if (body.awaiting_customer_order !== undefined && ![true, false, 'true', 'false'].includes(body.awaiting_customer_order)) throw new BadRequestError('Choix Attente commande invalide.')
+    if (!reference && !waiting) throw new BadRequestError('Renseignez le numéro de commande client ou cochez Attente commande.')
+    if (reference && waiting) throw new BadRequestError('Une commande en attente ne doit pas contenir de numéro client.')
     let files = []
     if (event.request.header.get('Content-Type').startsWith('multipart/form-data')) { try { files = event.findUploadedFiles('command_file') } catch (error) { if (!String(error).endsWith('http: no such file')) throw error } }
     if (files.length > 1) throw new BadRequestError('Une seule pièce de commande est autorisée.')
@@ -105,12 +112,13 @@ module.exports = {
       if (!['validated', 'sent'].includes(quote.getString('status'))) throw new BadRequestError('Finalisez le devis avant de confirmer la commande client.')
       const details = lines(app, quote), before = quote.publicExport(), now = new Date().toISOString()
       const last = app.findRecordsByFilter('sales_orders', 'quote = {:id}', '-order_sequence', 1, 0, { id: quote.id })[0], sequence = (last?.getInt('order_sequence') || 0) + 1
-      // The CRM root remains on analytic_account. This suffix numbers only the order document.
+      // Keep the root identity and a stable child for this commercial order.
       const order = new Record(app.findCollectionByNameOrId('sales_orders'))
       for (const key of ['opportunity', 'analytic_account', 'company', 'contact', 'owner', 'currency', 'exchange_rate', 'subtotal', 'tax', 'total']) order.set(key, quote.get(key))
-      const proof = require(`${__hooks}/lib/activity.js`).publish(app, quote, event.auth.id, files.length ? 'document' : 'status_change', reference ? `Commande client confirmée · ${reference}` : files.length ? 'Commande client confirmée' : 'Commande client confirmée · Attente Commande', { action: 'customer_order', changes: [{ field: 'status', label: 'État', before: ({ draft: 'Brouillon', validated: 'Devis', sent: 'Envoyé' })[quote.getString('status')], after: 'Commande client' }] })
-      if (files.length) { proof.set('attachments', files); const field = new FileField({ name: 'attachments', maxSelect: 5, maxSize: 10485760, mimeTypes: ['application/pdf', 'image/png', 'image/jpeg', 'image/webp'], protected: true }); try { field.validateValue(event.request.context(), app, proof) } catch { throw new BadRequestError('Choisissez un PDF ou une image de 10 Mio maximum.') }; app.save(proof) }
+      const proof = require(`${__hooks}/lib/activity.js`).publish(app, quote, event.auth.id, files.length ? 'document' : 'status_change', reference ? `Commande client confirmée · ${reference}` : 'Commande client confirmée · Attente Commande', { action: 'customer_order', changes: [{ field: 'status', label: 'État', before: ({ draft: 'Brouillon', validated: 'Devis', sent: 'Envoyé' })[quote.getString('status')], after: 'Commande client' }] })
+      if (files.length) { proof.set('attachments', files); const field = new FileField({ name: 'attachments', maxSelect: 5, maxSize: 10485760, mimeTypes: ['application/pdf', 'image/png', 'image/jpeg', 'image/webp'], protected: true }); try { field.validateValue(event.request.context(), app, proof) } catch { throw new BadRequestError('Choisissez un PDF ou une image de 10 Mo maximum.') }; app.save(proof) }
       for (const [key, value] of Object.entries({ quote: quote.id, order_sequence: sequence, order_number: `${quote.getString('quote_number')}-${sequence}`, status: 'confirmed', order_date: now, validated_at: now, validated_by: event.auth.id, customer_order_number: reference, customer_order_event: proof.id, quote_snapshot: { ...before, lines: details.map((line) => line.publicExport()) } })) order.set(key, value)
+      order.set('analytic_child', require(`${__hooks}/lib/analytic-service.js`).order(app, quote).id)
       app.save(order)
       let position = 0
       for (const source of details.filter((line) => !line.getBool('is_option'))) {
@@ -121,6 +129,7 @@ module.exports = {
       require(`${__hooks}/lib/stock.js`).reserve(app, event.auth, order, reservations)
       if (!quote.getString('validated_at')) { quote.set('validated_at', now); quote.set('validated_by', event.auth.id) }
       quote.set('status', 'accepted'); quote.set('accepted_at', now); app.save(quote)
+      if (preparation) require(`${__hooks}/lib/purchasing.js`).prepareConfirmed(app, event.auth, quote.id, preparation)
       audit(app, event.auth, quote, before, 'confirm', order)
       result = require(`${__hooks}/lib/sales.js`).dto(app, quote)
     })

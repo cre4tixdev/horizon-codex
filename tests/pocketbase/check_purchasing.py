@@ -75,7 +75,7 @@ class PurchasingTests(unittest.TestCase):
     def test_stock_summary_and_availability_filters(self):
         self.assertEqual(self.adjust(4.123456)[0], 200)
         quote = self.make_quote()
-        status, confirmed = self.pb.request('POST', 'horizon/sales/quotes/confirm', dict(id=quote['id'], updated=quote['updated'], customer_order_number='', reservations=[dict(source_line=quote['lines'][0]['id'], location=self.location, quantity=2)]), self.token)
+        status, confirmed = self.pb.request('POST', 'horizon/sales/quotes/confirm', dict(id=quote['id'], updated=quote['updated'], customer_order_number='', awaiting_customer_order=True, reservations=[dict(source_line=quote['lines'][0]['id'], location=self.location, quantity=2)]), self.token)
         self.assertEqual(status, 200, confirmed)
         context = 'product=' + self.item['id'] + '&location=' + self.location
         for availability in ['', 'physical', 'reserved', 'available']:
@@ -269,6 +269,38 @@ class PurchasingTests(unittest.TestCase):
         self.assertEqual(reopened['delivery_warehouse_name'], 'Entrepôt renommé')
         self.assertEqual(reopened['supplier_vat_number'], 'FR99999999999')
 
+    def test_confirmation_inline_preparation_is_atomic_and_net_of_reservations(self):
+        self.adjust(quantity=4)
+        quote = self.make_quote()
+        status, preview = self.pb.request('GET', 'horizon/purchasing/needs/' + quote['id'] + '?preview=true', token=self.token)
+        self.assertEqual(status, 200, preview)
+        source = preview['lines'][0]['source_line']
+        self.assertEqual(source, quote['lines'][0]['id'])
+        self.assertEqual(preview['source_order'], '')
+        body = dict(id=quote['id'], updated=quote['updated'], awaiting_customer_order=True,
+                    reservations=[dict(source_line=source, location=self.location, quantity=2)],
+                    purchase_preparation=[dict(source_line=source, quantity=100, supplier=self.supplier['id'])])
+        self.assertEqual(self.pb.request('POST', 'horizon/sales/quotes/confirm', body, self.token)[0], 400)
+        self.assertEqual(self.pb.request('GET', 'collections/sales_orders/records', token=self.pb.admin_token)[1]['totalItems'], 0)
+        self.assertEqual(self.pb.request('GET', 'collections/inventory_reservations/records', token=self.pb.admin_token)[1]['totalItems'], 0)
+        body['purchase_preparation'][0]['quantity'] = preview['lines'][0]['quantity'] - 2
+        role_path = 'collections/core_roles/records/' + self.user['role']
+        rights = self.pb.request('GET', role_path, token=self.pb.admin_token)[1]['permissions']
+        self.pb.request('PATCH', role_path, {'permissions': [right for right in rights if right != 'purchasing.write']}, self.pb.admin_token)
+        self.assertEqual(self.pb.request('POST', 'horizon/sales/quotes/confirm', body, self.token)[0], 403)
+        self.assertEqual(self.pb.request('GET', 'collections/sales_orders/records', token=self.pb.admin_token)[1]['totalItems'], 0)
+        self.pb.request('PATCH', role_path, {'permissions': rights}, self.pb.admin_token)
+        status, confirmed = self.pb.request('POST', 'horizon/sales/quotes/confirm', body, self.token)
+        self.assertEqual(status, 200, confirmed)
+        requests = self.pb.request('GET', 'horizon/purchasing/requests?source_order=' + confirmed['order']['id'], token=self.token)[1]['items']
+        self.assertEqual(len(requests), 1)
+        self.assertEqual(requests[0]['status'], 'draft')
+        self.assertEqual(requests[0]['lines'][0]['quantity'], body['purchase_preparation'][0]['quantity'])
+        self.assertNotEqual(requests[0]['lines'][0]['source_line'], source)
+        self.assertEqual(requests[0]['lines'][0]['allocations'][0]['code'], quote['quote_number'])
+        self.assertEqual(self.pb.request('POST', 'horizon/sales/quotes/confirm', body, self.token)[0], 200)
+        self.assertEqual(self.pb.request('GET', 'horizon/purchasing/requests?source_order=' + confirmed['order']['id'], token=self.token)[1]['totalItems'], 1)
+
     def test_stock_optional_confirmation_and_overbooking(self):
         key = str(uuid.uuid4())
         status, stock = self.adjust(key=key)
@@ -276,7 +308,7 @@ class PurchasingTests(unittest.TestCase):
         self.assertEqual(stock['available'], 4)
         self.assertEqual(self.adjust(key=key)[0], 200)
         quote = self.make_quote()
-        body = dict(id=quote['id'], updated=quote['updated'], customer_order_number='', reservations=[dict(source_line=quote['lines'][0]['id'], location=self.location, quantity=5)])
+        body = dict(id=quote['id'], updated=quote['updated'], customer_order_number='', awaiting_customer_order=True, reservations=[dict(source_line=quote['lines'][0]['id'], location=self.location, quantity=5)])
         self.assertEqual(self.pb.request('POST', 'horizon/sales/quotes/confirm', body, self.token)[0], 409)
         self.assertEqual(self.pb.request('GET', 'collections/sales_orders/records', token=self.pb.admin_token)[1]['totalItems'], 0)
         body['reservations'][0]['quantity'] = 4
@@ -322,6 +354,15 @@ class PurchasingTests(unittest.TestCase):
         allocation = self.pb.request('GET', 'collections/purchasing_order_line_allocations/records', token=self.pb.admin_token)[1]['items'][0]
         self.assertEqual(self.pb.request('PATCH', 'collections/purchasing_order_line_allocations/records/' + allocation['id'], {'quantity': 1}, self.pb.admin_token)[0], 400)
         self.assertEqual(self.pb.request('GET', 'horizon/inventory/products/' + self.item['id'], token=self.token)[1]['last_purchase']['unit_cost'], 0.8)
+        history = self.pb.request('GET', 'horizon/inventory/products/' + self.item['id'], token=self.token)[1]['purchase_history']
+        self.assertEqual(len(history), 1)
+        self.assertEqual(history[0]['quantity'], 6)
+        self.assertEqual(history[0]['unit'], 'm')
+        self.assertEqual(history[0]['total'], 4.8)
+        self.assertEqual(history[0]['order'], order['id'])
+        self.assertEqual(history[0]['number'], order['number'])
+        self.assertEqual(history[0]['supplier_name'], 'Fournisseur principal')
+
         self.assertEqual(self.pb.request('GET', 'horizon/inventory/stock?product=' + self.item['id'], token=self.token)[1]['items'][0]['incoming'], 6)
 
     def test_concurrent_stock_reservations_and_order_creation(self):
@@ -331,11 +372,23 @@ class PurchasingTests(unittest.TestCase):
         self.assertEqual(status, 200, two)
         _, two = self.pb.request('POST', 'horizon/sales/quotes/finalize', dict(id=two['id'], updated=two['updated']), self.token)
         def confirm(quote):
-            return self.pb.request('POST', 'horizon/sales/quotes/confirm', dict(id=quote['id'], updated=quote['updated'], customer_order_number='', reservations=[dict(source_line=quote['lines'][0]['id'], location=self.location, quantity=4)]), self.token)
+            return self.pb.request('POST', 'horizon/sales/quotes/confirm', dict(id=quote['id'], updated=quote['updated'], customer_order_number='', awaiting_customer_order=True, reservations=[dict(source_line=quote['lines'][0]['id'], location=self.location, quantity=4)]), self.token)
         with ThreadPoolExecutor(max_workers=2) as pool:
             results = list(pool.map(confirm, [one, two]))
         self.assertEqual(sorted(item[0] for item in results), [200, 409], results)
         self.assertEqual(self.pb.request('GET', 'horizon/inventory/stock?product=' + self.item['id'], token=self.token)[1]['items'][0]['reserved'], 4)
+        path = 'horizon/inventory/stock/products/' + self.item['id'] + '/reservations'
+        status, details = self.pb.request('GET', path, token=self.token)
+        self.assertEqual(status, 200, details)
+        self.assertEqual(len(details['items']), 1)
+        self.assertEqual(details['items'][0]['quantity'], 4)
+        user_name = self.pb.request('GET', 'collections/core_users/records/' + self.user['id'], token=self.pb.admin_token)[1]['name']
+        self.assertEqual(details['items'][0]['actor'], user_name)
+        self.assertTrue(details['items'][0]['order_number'])
+        self.assertNotIn('email', details['items'][0])
+        self.assertEqual(self.pb.request('GET', path, token=self.contacts_token)[0], 403)
+        self.assertEqual(self.pb.request('GET', path)[0], 401)
+
         _, req = self.save_request()
         with ThreadPoolExecutor(max_workers=2) as pool:
             orders = list(pool.map(lambda _: self.transition('requests', req), range(2)))
@@ -422,7 +475,7 @@ class PurchasingTests(unittest.TestCase):
 
     def test_quote_source_migration_backfills_confirmed_requests(self):
         quote = self.make_quote()
-        status, quote = self.pb.request('POST', 'horizon/sales/quotes/confirm', dict(id=quote['id'], updated=quote['updated'], customer_order_number=''), self.token)
+        status, quote = self.pb.request('POST', 'horizon/sales/quotes/confirm', dict(id=quote['id'], updated=quote['updated'], customer_order_number='', awaiting_customer_order=True), self.token)
         self.assertEqual(status, 200, quote)
         status, needs = self.pb.request('GET', 'horizon/purchasing/needs/' + quote['id'], token=self.token)
         self.assertEqual(status, 200, needs)

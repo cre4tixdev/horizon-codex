@@ -101,7 +101,7 @@ class StockOperationsTests(unittest.TestCase):
     def test_reservation_protection(self):
         self.stock(4)
         quote = check_purchasing.PurchasingTests.make_quote(self)
-        status, confirmed = self.pb.request('POST', 'horizon/sales/quotes/confirm', dict(id=quote['id'], updated=quote['updated'], customer_order_number='', reservations=[dict(source_line=quote['lines'][0]['id'], location=self.location, quantity=3)]), self.token)
+        status, confirmed = self.pb.request('POST', 'horizon/sales/quotes/confirm', dict(id=quote['id'], updated=quote['updated'], customer_order_number='', awaiting_customer_order=True, reservations=[dict(source_line=quote['lines'][0]['id'], location=self.location, quantity=3)]), self.token)
         self.assertEqual(status, 200, confirmed)
         status, draft = self.save(self.build_input('OUT', 2)); self.assertEqual(status, 200, draft)
         self.assertEqual(self.action(draft)[0], 409)
@@ -216,7 +216,7 @@ class StockOperationsTests(unittest.TestCase):
         self.assertEqual(self.balance()['physical'], 0)
     def sourced_purchase(self):
         quote = check_purchasing.PurchasingTests.make_quote(self)
-        status, confirmed = self.pb.request('POST', 'horizon/sales/quotes/confirm', dict(id=quote['id'], updated=quote['updated'], customer_order_number='', reservations=[]), self.token)
+        status, confirmed = self.pb.request('POST', 'horizon/sales/quotes/confirm', dict(id=quote['id'], updated=quote['updated'], customer_order_number='', awaiting_customer_order=True, reservations=[]), self.token)
         self.assertEqual(status, 200, confirmed)
         status, needs = self.pb.request('GET', 'horizon/purchasing/needs/' + quote['id'], token=self.token); self.assertEqual(status, 200, needs)
         line = {key: value for key, value in needs['lines'][0].items() if key not in ['sold_quantity', 'reserved', 'prepared', 'price_currency']}

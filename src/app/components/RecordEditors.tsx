@@ -8,6 +8,7 @@ const QuotePage = lazy(async () => ({ default: (await import('../../modules/sale
 const ProductPage = lazy(async () => ({ default: (await import('../../modules/inventory/pages/ProductPage')).ProductPage }))
 const PurchasePage = lazy(async () => ({ default: (await import('../../modules/purchasing/pages/PurchasePage')).PurchasePage }))
 const recordAdapters: Record<string, RecordAdapter> = {
+  'purchase-request': { path: '/purchasing/requests', createTitle: 'Préparer les achats', viewTitle: 'Demande d’achat', render: () => <PurchasePage /> },
   'purchase-order': { path: '/purchasing/orders', createTitle: 'Nouvelle commande fournisseur', viewTitle: 'Commande fournisseur', render: () => <PurchasePage /> },
   product: { path: '/inventory/products', createTitle: 'Nouveau produit', viewTitle: 'Fiche produit', render: () => <ProductPage /> },
   quote: { path: '/sales/quotes', createTitle: 'Nouveau devis', viewTitle: 'Fiche devis', render: () => <QuotePage /> },

@@ -32,7 +32,7 @@ class UxTests(unittest.TestCase):
         self.assertIn(self.save(updated=saved['updated'])[0], [401, 403])
 
     def test_bounds_unknown_fields_and_css_injection(self):
-        for patch in [{'row_height': 20}, {'row_height': 33.2}, {'page_margin': 101}, {'title_font': 100}, {'control_height': 5}, {'header_light': 'url(https://evil.invalid)'}, {'header_dark': '#fff'}, {'activity_light': 'red'}, {'accent_background': 'url(evil)'}, {'launcher_tile_size': 10}, {'smart_height': 10}, {'sidebar_group_gap': -1}, {'sidebar_width': 179}, {'sidebar_width': 361}, {'sidebar_font': 12.25}, {'sidebar_icon_size': 29}, {'sidebar_text_color': 'red'}, {'sidebar_background_top': 'url(evil)'}, {'sidebar_submenu_indent': -1}, {'unknown': 1}]:
+        for patch in [{'row_height': 20}, {'row_height': 33.2}, {'page_margin': 101}, {'title_font': 100}, {'control_height': 5}, {'header_light': 'url(https://evil.invalid)'}, {'header_dark': '#fff'}, {'table_border_light': 'red'}, {'table_header_text_light': 'red'}, {'table_header_text_dark': 'url(evil)'}, {'table_border_dark': 'url(evil)'}, {'activity_light': 'red'}, {'accent_background': 'url(evil)'}, {'launcher_tile_size': 10}, {'smart_height': 10}, {'sidebar_group_gap': -1}, {'sidebar_width': 179}, {'sidebar_width': 361}, {'sidebar_font': 12.25}, {'sidebar_icon_size': 29}, {'sidebar_text_color': 'red'}, {'sidebar_background_top': 'url(evil)'}, {'sidebar_submenu_indent': -1}, {'unknown': 1}]:
             self.assertEqual(self.save({**self.record['config'], **patch})[0], 400, patch)
         self.assertEqual(self.pb.request('POST', 'horizon/settings/ux', {'updated': self.record['updated'], 'config': self.record['config'], 'css': 'body{}'}, self.admin_token)[0], 400)
         self.assertEqual(self.pb.request('GET', 'horizon/settings/ux', token=self.token)[1], self.record)
@@ -47,7 +47,7 @@ class UxTests(unittest.TestCase):
     def test_appearance_and_navigation_are_saved(self):
         self.assertEqual(self.record['config']['activity_light'], '#E5EBF3')
         self.assertEqual(self.record['config']['launcher_tile_size'], 104)
-        status, saved = self.save({**self.record['config'], 'activity_light': '#E0E8F0', 'button_height': 36, 'smart_height': 30, 'launcher_tile_size': 120, 'sidebar_group_gap': 12, 'sidebar_width': 260, 'sidebar_font': 13.5, 'sidebar_icon_size': 20, 'sidebar_radius': 8, 'sidebar_background_top': '#112233', 'sidebar_text_color': '#AABBCC'})
+        status, saved = self.save({**self.record['config'], 'activity_light': '#E0E8F0', 'button_height': 36, 'smart_height': 30, 'launcher_tile_size': 120, 'sidebar_group_gap': 12, 'sidebar_width': 260, 'sidebar_font': 13.5, 'sidebar_icon_size': 20, 'table_border_light': '#AABBCC', 'table_border_dark': '#334455', 'table_header_text_light': '#112233', 'table_header_text_dark': '#DDEEFF', 'sidebar_radius': 8, 'sidebar_background_top': '#112233', 'sidebar_text_color': '#AABBCC'})
         self.assertEqual(status, 200, saved)
         self.assertEqual(saved['config']['activity_light'], '#E0E8F0')
         self.assertEqual(saved['config']['button_height'], 36)
@@ -58,6 +58,10 @@ class UxTests(unittest.TestCase):
         self.assertEqual(saved['config']['sidebar_icon_size'], 20)
         self.assertEqual(saved['config']['sidebar_background_top'], '#112233')
         self.assertEqual(saved['config']['sidebar_text_color'], '#AABBCC')
+        self.assertEqual(saved['config']['table_border_light'], '#AABBCC')
+        self.assertEqual(saved['config']['table_border_dark'], '#334455')
+        self.assertEqual(saved['config']['table_header_text_light'], '#112233')
+        self.assertEqual(saved['config']['table_header_text_dark'], '#DDEEFF')
 
     def test_upgrade_preserves_existing_configuration(self):
         self.pb.process.terminate()
@@ -65,11 +69,13 @@ class UxTests(unittest.TestCase):
         # Simulate the pre-sidebar JSON only on this disposable DB, then replay its additive migration.
         with sqlite3.connect(self.pb.data / 'data.db') as connection:
             config = json.loads(connection.execute('SELECT config FROM settings_ux').fetchone()[0])
-            for key in ['sidebar_background_top', 'sidebar_background_middle', 'sidebar_background_bottom', 'sidebar_text_color', 'sidebar_icon_color', 'sidebar_title_color', 'sidebar_submenu_color', 'sidebar_active_start', 'sidebar_active_end', 'sidebar_active_text', 'sidebar_hover_color', 'sidebar_width', 'sidebar_font', 'sidebar_submenu_font', 'sidebar_title_font', 'sidebar_icon_size', 'sidebar_radius', 'sidebar_padding_x', 'sidebar_submenu_indent']:
+            for key in ['table_header_text_light', 'table_header_text_dark', 'table_border_light', 'table_border_dark', 'sidebar_background_top', 'sidebar_background_middle', 'sidebar_background_bottom', 'sidebar_text_color', 'sidebar_icon_color', 'sidebar_title_color', 'sidebar_submenu_color', 'sidebar_active_start', 'sidebar_active_end', 'sidebar_active_text', 'sidebar_hover_color', 'sidebar_width', 'sidebar_font', 'sidebar_submenu_font', 'sidebar_title_font', 'sidebar_icon_size', 'sidebar_radius', 'sidebar_padding_x', 'sidebar_submenu_indent']:
                 config.pop(key)
             config.update({'row_height': 40, 'header_light': '#AABBCC'})
             connection.execute('UPDATE settings_ux SET config = ?', (json.dumps(config),))
             connection.execute('DELETE FROM _migrations WHERE file = ?', ('1791710012_sidebar_appearance.js',))
+            connection.execute('DELETE FROM _migrations WHERE file = ?', ('1791710013_table_border_appearance.js',))
+            connection.execute('DELETE FROM _migrations WHERE file = ?', ('1791710015_table_header_text_appearance.js',))
         subprocess.run(self.pb.args + ['migrate', 'up'], check=True, stdout=subprocess.DEVNULL)
         self.pb.launch_and_authenticate(self.pb.args)
         saved = self.pb.request('GET', 'horizon/settings/ux', token=self.token)[1]['config']
@@ -80,6 +86,10 @@ class UxTests(unittest.TestCase):
         self.assertEqual(saved['sidebar_font'], 12.5)
         self.assertEqual(saved['sidebar_background_top'], '#031C2C')
         self.assertEqual(saved['activity_light'], '#E5EBF3')
+        self.assertEqual(saved['table_border_light'], '#DCE5EF')
+        self.assertEqual(saved['table_border_dark'], '#364860')
+        self.assertEqual(saved['table_header_text_light'], '#4C678E')
+        self.assertEqual(saved['table_header_text_dark'], '#B8C5D7')
 
     def test_optimistic_lock_and_superuser(self):
         role = self.pb.create('core_roles', {'name': 'ux_super', 'label': 'UX super', 'active': True, 'permissions': ['settings.references']})

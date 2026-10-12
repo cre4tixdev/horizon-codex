@@ -8,8 +8,8 @@ module.exports = (app, user, id) => {
   // Compatibility data for the shared table formatter / legacy total blocks.
   for (const key of ['currency', 'subtotal', 'tax_rate', 'tax', 'total']) fields[`quote.${key}`] = order[key]
   const canCrm = c.policy.permissions(app, user).includes('crm.read')
-  fields['opportunity.number'] = canCrm ? [...new Set(order.lines.flatMap((line) => line.allocations.map((item) => item.code)))].join(' · ') : ''
+  fields['opportunity.number'] = [...new Set(order.lines.flatMap((line) => line.allocations.filter((item) => canCrm || item.fixed_account).map((item) => item.code)))].join(' · ')
   fields['opportunity.title'] = canCrm ? order.opportunity_name || '' : ''
   fields['owner.name'] = order.owner_name || ''; fields['purchase.buyer_name'] = order.owner_name || ''; fields['purchase.buyer_email'] = order.owner_email || ''; fields['purchase.delivery_warehouse'] = order.delivery_warehouse_name || ''; fields['purchase.delivery_warehouse_code'] = order.delivery_warehouse_code || ''
-  return { fields, lines: order.lines.map((line) => ({ ...line, kind: 'item', is_option: false, show_total: false })), warnings: client.warnings }
+  return { fields, lines: order.lines.map((line) => ({ ...line, affairs: line.allocations.filter((item) => canCrm || item.fixed_account).map((item) => [item.code, item.fixed_account ? item.label : c.policy.permissions(app, user).includes('contacts.read') ? item.client : ''].filter(Boolean).join(' - ')).join(' · '), kind: 'item', is_option: false, show_total: false })), warnings: client.warnings }
 }

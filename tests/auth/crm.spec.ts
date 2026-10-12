@@ -440,6 +440,10 @@ test('CRM : séquences configurables, aperçu et sauvegarde explicite', async ({
 test('CRM : tri transverse visible sans regroupement et réinitialisation', async ({ page }) => {
   await login(page)
   await page.goto('/crm')
+  await page.goto('/crm?view=list')
+  await expect(page.getByRole('table')).toHaveAttribute('data-column-borders', 'true')
+  await expect(page.getByRole('columnheader', { name: 'Montant estimé' })).toHaveCSS('text-align', 'right')
+  await expect(page.getByRole('columnheader', { name: 'Étape' })).toHaveCSS('text-align', 'center')
   await page.getByRole('button', { name: 'Filtres de recherche', exact: true }).click()
   const panel = page.getByRole('dialog', { name: 'Filtres de recherche', exact: true })
   await expect(panel.locator('.search-options-columns > section')).toHaveCount(2)

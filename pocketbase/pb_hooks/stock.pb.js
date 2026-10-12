@@ -6,3 +6,5 @@ routerAdd('POST', '/api/horizon/inventory/stock/reservations', (e) => require(`$
 routerAdd('POST', '/api/horizon/inventory/stock/locations', (e) => require(`${__hooks}/lib/stock.js`).createLocation(e), $apis.requireAuth('core_users'))
 onRecordUpdate(() => { throw new BadRequestError('Un mouvement validé est immuable. Créez un mouvement de correction.') }, 'inventory_moves')
 onRecordDelete(() => { throw new BadRequestError('Les mouvements de stock sont conservés.') }, 'inventory_moves', 'inventory_reservations')
+
+routerAdd('GET', '/api/horizon/inventory/stock/products/{id}/reservations', (e) => require(`${__hooks}/lib/stock.js`).productReservations(e), $apis.requireAuth('core_users'))

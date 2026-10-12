@@ -1,7 +1,7 @@
 import { useDeferredValue, useRef, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import type { ColumnDef } from '@tanstack/react-table'
-import { Package, Plus, Check, Search, ArrowUpRight, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Package, Plus, Search, ArrowUpRight, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useRecordWorkspace } from '../records/recordContext'
 import { HDataTable } from '../ui/HDataTable'
 import { HInput } from '../ui/HInput'
@@ -12,9 +12,9 @@ import { catalogService } from '../../modules/inventory/services/CatalogService'
 import { useCatalogAccess } from '../../modules/inventory/hooks/useCatalogAccess'
 import type { Product } from '../../modules/inventory/schemas/catalog'
 import { formatUnitAmount as formatAmount } from '../formatters/money'
-export function ProductPicker({ initialProduct, usage, actionLabel, onChoose, onClose }: { initialProduct: string; usage: 'sale' | 'purchase'; actionLabel: string; onChoose: (id: string) => Promise<void | false>; onClose: () => void }) {
+export function ProductPicker({ usage, actionLabel, onChoose, onClose }: { initialProduct: string; usage: 'sale' | 'purchase'; actionLabel: string; onChoose: (id: string) => Promise<void | false>; onClose: () => void }) {
   const access = useCatalogAccess(), client = useQueryClient(), openRecord = useRecordWorkspace(), input = useRef<HTMLInputElement>(null)
-  const [search, setSearch] = useState(''), [selected, setSelected] = useState(initialProduct), [page, setPage] = useState(1), [workspaceError, setWorkspaceError] = useState('')
+  const [search, setSearch] = useState(''), [page, setPage] = useState(1), [workspaceError, setWorkspaceError] = useState('')
   const deferredSearch = useDeferredValue(search)
   const query = useQuery({ queryKey: ['inventory', 'products', 'picker', usage, deferredSearch, page], queryFn: () => catalogService.list({ q: deferredSearch, state: 'active', [usage === 'sale' ? 'sale_enabled' : 'purchase_enabled']: 'true', page }), enabled: access.canRead, retry: false })
   const choices = useQuery({ queryKey: ['inventory', 'choices'], queryFn: () => catalogService.choices(), enabled: access.canRead && access.canReadContacts, retry: false })
@@ -24,11 +24,11 @@ export function ProductPicker({ initialProduct, usage, actionLabel, onChoose, on
     setWorkspaceError('')
     try {
       const result = await openRecord({ resource: 'product', ...(id ? { id } : {}), initial: { search }, returnFocus: () => input.current?.focus() })
-      if (result) { await client.invalidateQueries({ queryKey: ['inventory'] }); if (!id) { const created = await catalogService.record(result.id); setSearch(created.sku); setPage(1); setSelected(result.id) } }
+      if (result) { await client.invalidateQueries({ queryKey: ['inventory'] }); if (!id) { const created = await catalogService.record(result.id); setSearch(created.sku); setPage(1) } }
     } catch (error) { console.error('[product-picker] Reload failed'); setWorkspaceError(error instanceof Error ? error.message : 'La fiche produit n’a pas pu être rechargée.') }
   }
   const columns: ColumnDef<Product>[] = [
-    { header: 'Marque', size: 110, cell: ({ row }) => <span className="quote-product-brand">{row.original.id === selected ? <Check size={13} /> : <Package size={13} />}{row.original.manufacturer || '—'}</span> },
+    { header: 'Marque', size: 110, cell: ({ row }) => <span className="quote-product-brand"><Package size={13} />{row.original.manufacturer || '—'}</span> },
     { header: 'Référence / modèle', size: 140, accessorKey: 'sku' },
     { header: 'Description', size: 280, cell: ({ row }) => <div className="quote-product-description"><strong>{row.original.name}</strong>{row.original.description && row.original.description !== row.original.name && <span>{row.original.description}</span>}</div> },
     { header: 'Fournisseur', size: 150, cell: ({ row }) => choices.data?.suppliers.find((supplier) => supplier.id === row.original.pricing.supplier)?.name || '—' },
@@ -39,9 +39,9 @@ export function ProductPicker({ initialProduct, usage, actionLabel, onChoose, on
   const busy = query.isFetching || deferredSearch !== search
   return <HDialog open title="Ajouter un produit" description="Recherchez par marque, référence ou description, puis ajoutez le produit avec le bouton +." className="quote-product-picker" onOpenChange={(open) => { if (!open && !add.isPending) onClose() }}>
     <div className="dialog-form">
-      <div className="quote-product-search"><Search size={16} /><HInput ref={input} autoFocus type="search" aria-label="Rechercher un produit" placeholder="Marque, référence / modèle, description…" maxLength={200} value={search} disabled={add.isPending} onChange={(event) => { setSearch(event.target.value); setPage(1); setSelected(''); add.reset() }} />{access.canWrite && openRecord && <HButton disabled={add.isPending} onClick={() => void launch()}><Plus size={14} />Créer un produit</HButton>}</div>
+      <div className="quote-product-search"><Search size={16} /><HInput ref={input} autoFocus type="search" aria-label="Rechercher un produit" placeholder="Marque, référence / modèle, description…" maxLength={200} value={search} disabled={add.isPending} onChange={(event) => { setSearch(event.target.value); setPage(1); add.reset() }} />{access.canWrite && openRecord && <HButton disabled={add.isPending} onClick={() => void launch()}><Plus size={14} />Créer un produit</HButton>}</div>
       <div className="quote-product-results" aria-busy={busy}>
-        {query.data && <HDataTable resizable columnBorders data={query.data.items} columns={columns} getRowAction={(item) => ({ label: `Sélectionner ${[item.manufacturer, item.sku, item.name].filter(Boolean).join(' · ')}`, onClick: () => { if (!add.isPending) { setSelected(item.id); add.reset() } } })} />}
+        {query.data && <HDataTable resizable columnBorders data={query.data.items} columns={columns} />}
         {query.isPending && <HLoadingIndicator label="Recherche des produits" />}
         {query.data && !query.data.items.length && <p className="quote-product-empty">Aucun produit trouvé. Essayez une autre référence ou créez le produit.</p>}
       </div>

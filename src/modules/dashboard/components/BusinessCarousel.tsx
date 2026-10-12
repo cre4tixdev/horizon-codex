@@ -21,7 +21,7 @@ import type { TagTone } from '../../../shared/schemas/tagTone'
 const slides = [
   { label: 'Opportunités', icon: Target, href: '/crm' },
   { label: 'Devis', icon: FileText, href: '/sales/quotes?status=quotes' },
-  { label: 'Commandes', icon: ShoppingBag, href: '/sales/quotes?status=accepted' },
+  { label: 'Commandes clients', icon: ShoppingBag, href: '/sales/quotes?status=accepted' },
   { label: 'Factures', icon: Receipt, href: '/billing' },
 ] as const
 const intervalMs = 10_000

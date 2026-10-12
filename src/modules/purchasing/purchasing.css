@@ -1,0 +1,7 @@
+.purchase-allocation-mode { display: flex; flex-wrap: wrap; align-items: center; gap: 24px; padding-bottom: 12px; border-bottom: 1px solid var(--theme-border, #dce5ef); }
+.purchase-fixed-allocation { display: grid; gap: 12px; }
+.purchase-fixed-allocation > label { max-width: 440px; }
+.purchase-fixed-summary { display: flex; gap: 10px; align-items: center; padding: 12px; background: var(--theme-surface-soft, #f4f5f7); border: 1px solid var(--theme-border, #dce5ef); border-radius: 6px; }
+.purchase-fixed-summary svg { color: var(--theme-accent, #f52f96); }
+.purchase-fixed-summary strong, .purchase-fixed-summary span { display: block; }
+.purchase-fixed-summary span { margin-top: 4px; color: var(--theme-text-muted, #7b8794); font-size: 12px; }

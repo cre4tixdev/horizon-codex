@@ -9,6 +9,7 @@ module.exports = (context) => {
     if (block.id === 'pages') return { ...block, field: 'stock.number' }
     return block
   })
+  if (context?.lines.some((line) => line.traceability)) { const table = layout.blocks.find((block) => block.id === 'lines'); table.columns = table.columns.map((column) => ({ ...column, width: column.width * 0.85 })); table.columns.push({ field: 'traceability', label: 'Lots / Séries', width: 15 }) }
   const base = layout.blocks[1]
   layout.blocks.splice(3, 0, { ...base, id: 'warehouse', field: 'stock.warehouse' }, { ...base, id: 'destination', field: 'stock.destination' }, { ...base, id: 'state', field: 'stock.state' })
   if (receipt) { layout.blocks = layout.blocks.filter((block) => !['destination', 'analytic'].includes(block.id)); layout.blocks.splice(3, 0, { ...base, id: 'sender', field: 'stock.supplier_name', text: 'Expéditeur : ', style: { ...base.style, bold: true } }, { ...base, id: 'sender-address', field: 'stock.supplier_address', height: 48 }, { ...base, id: 'source-order', field: 'stock.purchase_number', text: 'Commande fournisseur : ' }) }

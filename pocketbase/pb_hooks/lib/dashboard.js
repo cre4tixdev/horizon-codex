@@ -1,4 +1,4 @@
-const sources = { contacts: { contacts_companies: '/contacts/companies/', contacts_people: '/contacts/people/' }, crm: { crm_opportunities: '/crm/opportunities/', crm_tenders: '/crm/tenders/' }, sales: { sales_quotes: '/sales/quotes/' }, inventory: { inventory_products: '/inventory/products/', inventory_operations: '/inventory/operations/' }, purchasing: { purchasing_requests: '/purchasing/requests/', purchasing_orders: '/purchasing/orders/' } }
+const sources = { contacts: { contacts_companies: '/contacts/companies/', contacts_people: '/contacts/people/' }, crm: { crm_opportunities: '/crm/opportunities/', crm_tenders: '/crm/tenders/' }, sales: { sales_quotes: '/sales/quotes/' }, inventory: { inventory_products: '/inventory/products/', inventory_operations: '/inventory/operations/', inventory_internal_assets: '/inventory/assets/' }, purchasing: { purchasing_requests: '/purchasing/requests/', purchasing_orders: '/purchasing/orders/' } }
 const policy = require(`${__hooks}/lib/access-policy.js`)
 const sourceLabel = (record) => {
   const title = record.collection().name === 'contacts_people' ? [record.getString('first_name'), record.getString('last_name')].filter(Boolean).join(' ') : record.getString('title') || record.getString('name')
@@ -26,13 +26,16 @@ module.exports = {
     const day = (value) => new DateTime(value).time().in(new Timezone('Europe/Paris')).format('2006-01-02')
     const inPeriod = (value) => { const date = day(value); return date >= from && date <= to }
     let forecast = null, ordered = null, margin = null, committed = null
-    if (rights.includes('crm.read')) {
-      const rows = records(event.app, 'crm_opportunities', 'active = true && status != "lost" && status != "cancelled" && expected_date >= {:from} && expected_date <= {:to}', params).map((record) => ({ date: record.getString('expected_date').slice(0, 10), currency: record.getString('currency'), amount: record.getFloat('estimated_value') }))
-      const missing = records(event.app, 'crm_opportunities', 'active = true && status != "lost" && status != "cancelled" && expected_date = ""', {}).length
+    const financial = policy.admin(event.app, event.auth) || rights.includes('analysis.read') && rights.includes('analysis.financial')
+    const own = financial && !policy.admin(event.app, event.auth) && (policy.grantsFor(event.app, event.auth).analysis?.scope || 'own') !== 'all'
+    params.owner = event.auth.id
+    if (financial && rights.includes('crm.read')) {
+      const rows = records(event.app, 'crm_opportunities', 'active = true && status != "lost" && status != "cancelled" && expected_date >= {:from} && expected_date <= {:to}' + (own ? ' && owner = {:owner}' : ''), params).map((record) => ({ date: record.getString('expected_date').slice(0, 10), currency: record.getString('currency'), amount: record.getFloat('estimated_value') }))
+      const missing = records(event.app, 'crm_opportunities', 'active = true && status != "lost" && status != "cancelled" && expected_date = ""' + (own ? ' && owner = {:owner}' : ''), params).length
       forecast = metric(rows, 'amount', 'Opportunités actives selon leur date prévue, sans pondération. Opportunités sans date exclues.', false, missing)
     }
-    if (rights.includes('sales.read')) {
-      const orders = records(event.app, 'sales_orders', 'status != "draft" && status != "cancelled" && order_date >= {:wideFrom} && order_date < {:wideTo}', params).filter((record) => inPeriod(record.getString('order_date')))
+    if (financial && rights.includes('sales.read')) {
+      const orders = records(event.app, 'sales_orders', 'status != "draft" && status != "cancelled" && order_date >= {:wideFrom} && order_date < {:wideTo}' + (own ? ' && opportunity.owner = {:owner}' : ''), params).filter((record) => inPeriod(record.getString('order_date')))
       const rows = orders.map((record) => {
         const snapshot = JSON.parse(record.getString('quote_snapshot') || '{}'), subtotal = record.getFloat('subtotal')
         let cost = null
@@ -46,8 +49,22 @@ module.exports = {
       ordered = metric(rows, 'subtotal', 'Commandes clients confirmées, selon la date de commande. Montants HT historiques, commandes annulées exclues.')
       margin = metric(rows, 'margin', 'Marge prévisionnelle HT des commandes clients : montant HT moins coût snapshoté. Ce n’est pas une marge réalisée.', true, rows.filter((row) => row.margin === null).length)
     }
-    if (rights.includes('purchasing.read')) {
-      const rows = records(event.app, 'purchasing_orders', 'status != "draft" && status != "cancelled" && validated_at >= {:wideFrom} && validated_at < {:wideTo}', params).filter((record) => inPeriod(record.getString('validated_at'))).map((record) => ({ date: day(record.getString('validated_at')), currency: record.getString('currency'), amount: record.getFloat('subtotal') }))
+    if (financial && rights.includes('purchasing.read')) {
+      let rows = own ? [] : records(event.app, 'purchasing_orders', 'status != "draft" && status != "cancelled" && validated_at >= {:wideFrom} && validated_at < {:wideTo}', params).filter((record) => inPeriod(record.getString('validated_at'))).map((record) => ({ date: day(record.getString('validated_at')), currency: record.getString('currency'), amount: record.getFloat('subtotal') }))
+      if (own) {
+        const owned = records(event.app, 'purchasing_order_line_allocations', 'analytic_account.opportunity.owner = {:owner} && order_line.order.status != "draft" && order_line.order.status != "cancelled" && order_line.order.validated_at >= {:wideFrom} && order_line.order.validated_at < {:wideTo}', params)
+        const portions = new Map()
+        for (const allocation of owned) {
+          const line = event.app.findRecordById('purchasing_order_lines', allocation.getString('order_line')), order = event.app.findRecordById('purchasing_orders', line.getString('order'))
+          if (!inPeriod(order.getString('validated_at'))) continue
+          const item = portions.get(order.id) || { date: day(order.getString('validated_at')), currency: order.getString('currency'), amount: 0 }
+          const parts = event.app.findRecordsByFilter('purchasing_order_line_allocations', 'order_line = {:id}', 'created,id', 0, 0, { id: line.id })
+          const cents = require(`${__hooks}/lib/analytic-math.js`).allocationCents(line.getFloat('line_total'), parts.map((part) => part.getFloat('quantity')), line.getFloat('quantity'))
+          item.amount = Math.round(item.amount * 100 + cents[parts.findIndex((part) => part.id === allocation.id)]) / 100
+          portions.set(order.id, item)
+        }
+        rows = [...portions.values()]
+      }
       committed = metric(rows, 'amount', 'Achats engagés HT : commandes fournisseurs validées dans la période, annulations exclues.')
     }
     return event.json(200, { from, to, forecast, ordered, margin, committed })

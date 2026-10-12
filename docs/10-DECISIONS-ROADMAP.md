@@ -914,6 +914,8 @@ Microsoft OAuth2 / Entra peut être activé en complément.
 
 Les permissions restent gérées par Horizon.
 
+12 octobre 2026 — Double authentification reportée à la demande utilisateur. Garder en tête la piste native PocketBase : mot de passe + OTP envoyé par e-mail, avec MFA et étape de saisie du code dans Horizon. SMTP et parcours de récupération à cadrer lors de la reprise. OTP seul est une connexion par code, pas une double authentification. Aucune activation ni configuration MFA / OTP effectuée ; la solution finale reste à confirmer avant développement.
+
 ---
 
 ## H-061 — Numéro métier distinct de l’identifiant technique
@@ -1911,3 +1913,23 @@ Réceptions fournisseur — validation BC crée désormais une attente IN prére
 Sidebar — complément : réglages de couleurs prioritaires dans Sidebar, fond / textes / icônes / titres / sous-menus / sélection / survol ; charte initiale préservée et aperçu local partagé.
 
 Apparence — classement en six onglets, Sidebar distincte du menu des modules, aperçus contextuels et retrait des sliders numériques selon la demande utilisateur.
+
+12 octobre 2026 — Apparence : couleurs des bordures de tableaux clair / sombre, à côté des couleurs d’en-tête existantes, propagation via le viewport partagé et migration additive 1791710013.
+
+12 octobre 2026 — Analytique A01 : affaire racine + enfants stables de commandes, reprise non destructive des confirmations existantes, ventilations achats et mouvements liés. Analyse commune affaire / commande / Finance ; droits serveur indépendants opérationnel / financier / coûts individuels, périmètre own / all et KPI dashboard filtrés. Temps, frais, facturation et coûts collaborateurs restent à raccorder aux modules propriétaires avant marge réelle complète ; pas de répartition automatique des coûts communs ni de recalcul historique.
+
+12 octobre 2026 — Analyse : bloc heures BE / production et lecteur des sources TimeReport / Planning canoniques préparés. Attente de clarification de la source (module Horizon à créer ou outil externe) ; aucun module de saisie, import ou coût horaire inventé dans ce complément.
+
+Mon compte — 12 octobre 2026 : édition identité / photo protégée et changement de mot de passe natif livrés ; droits et adresse de connexion restent administrés séparément. Réutilisation core_users existant, services / repository Auth, audit et tests serveur / navigateur. Aucun raccordement mutable à la fiche Employé.
+
+12 octobre 2026 — T01 / I01 lancés : lots / séries opérationnels, parc interne et préparation d’immobilisations ; destinations d’achats internes par ligne, sans création artificielle d’affaires client. Qualification financière séparée, Sage inchangé.
+
+12 octobre 2026 — T01 / I01 premier périmètre opérationnel vérifié localement : lots/séries saisis à réalisation, réservations par identité, transferts/transit, retours, comptage (série manquante retrouvée), quarantaine/péremption, historique et mentions documentaires. Destinations d’achats par ligne jusqu’à réception : consommation, parc, immobilisation sans affaire artificielle, OUT d’affectation lié à IN dans une transaction. Parc avec affectation RH protégée, localisation, état et fil ; registre d’immobilisations avec base d’acquisition figée, mise en service, référence comptable et déclassement motivé préalable au retour au stock. Aucun export/écriture/amortissement Sage automatique. Matériel/SAV/RMA, prêts/location et migration d’identités d’un ancien stock restent des compléments distincts. Installation NAS à réaliser via pack PocketBase uniquement et migration 1791710018 ; aucune mutation NAS faite depuis cette session.
+
+Analytique fixe A02 — comptes Stock 99101 et Interne 99201..99205 configurables par numéro/libellé dans Paramètres. Ventilation d’achat centralisée, dérivation serveur de la destination physique, héritage des demandes et protection des lignes client. Identités stables indépendantes des numéros ; audit, contrôle concurrent et transactions, documents validés non réécrits. Migration 1791710019 nécessaire avec hooks Accounting/Purchasing ; aucun nouveau référentiel analytique parallèle ni écriture Sage automatique.
+
+12 octobre 2026 — Confirmation client : préparation des besoins d’achat intégrée sous les boutons, simultanée avec réservation, indicateurs prêts après application ; confirmation atomique commande + réservations + demande draft. Les achats utilisent le service d’approvisionnement existant et la fiche canonique reste disponible en popup depuis la commande.
+
+12 octobre 2026 — CGV par défaut explicites dans les paramètres ; nouveaux devis préremplis (conditions désignées, titre opportunité, ligne initiale), HT prioritaire au TTC, recherche produit sans sélection intermédiaire et fiche produit par flèche de ligne.
+
+12 octobre 2026 — Correctif Core Activity : le log serveur confirme un timeout 30 s du COUNT DISTINCT à jointures polymorphes sans ON. Lecture via routes Core ciblées par fiche, permissions explicites et projection bornée, sans modification de données ou ouverture des collections privées ; avatar autorisé par sa source. Pack PocketBase complet, redémarrage requis, aucune nouvelle migration pour ce correctif.

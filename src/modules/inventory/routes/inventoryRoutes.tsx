@@ -1,5 +1,7 @@
 import type { RouteObject } from 'react-router'
 export const inventoryRoutes: RouteObject[] = [
+  { path: '/inventory/assets', lazy: async () => ({ Component: (await import('../pages/InternalAssetsPage')).InternalAssetsPage }) },
+  { path: '/inventory/assets/:id', lazy: async () => ({ Component: (await import('../pages/InternalAssetPage')).InternalAssetPage }) },
   { path: '/inventory/dashboard', lazy: async () => ({ Component: (await import('../pages/StockDashboardPage')).StockDashboardPage }) },
   { path: '/inventory/operations', lazy: async () => ({ Component: (await import('../pages/OperationsPage')).OperationsPage }) },
   { path: '/inventory/inventories', lazy: async () => ({ Component: (await import('../pages/OperationsPage')).OperationsPage }) },

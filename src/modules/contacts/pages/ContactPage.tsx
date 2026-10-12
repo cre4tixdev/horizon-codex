@@ -8,7 +8,7 @@ import { useState, useSyncExternalStore, useId, useEffect } from 'react'
 import { Controller, useForm, useWatch } from 'react-hook-form'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router'
-import { Building2, UserRound, Phone, MapPin, Fingerprint, SlidersHorizontal, StickyNote, ChevronDown, Mail, Globe } from 'lucide-react'
+import { Building2, UserRound, Phone, MapPin, Fingerprint, SlidersHorizontal, StickyNote, ChevronDown, Mail, Globe, Calculator, Info, NotebookPen, UsersRound } from 'lucide-react'
 import { sessionService } from '../../../core/auth/services/session'
 import { hasPermission } from '../../../core/auth/types/session'
 import { ActivityPanel } from '../../../shared/activity/ActivityPanel'
@@ -164,7 +164,7 @@ function ContactEditor({ kind, record, addresses, accounts, canWrite, duplicateS
     {readiness.error && <p role="alert" className="field-error">{readiness.error.message}<HButton onClick={() => { void readiness.refetch() }}>Réessayer</HButton></p>}
     {archive.error && record && !record.active && <p role="alert" className="field-error">{archive.error.message}</p>}
     {save.error && <div role="alert" className="contact-save-error">{save.error.message}</div>}
-    {(record || kind === 'companies') && <HRecordTabs label="Sections de la fiche" idPrefix={`${prefix}-tab`} value={section} onChange={openSection} items={[{ value: 'information', label: 'Informations', count: undefined, panel: formId }, ...(company ? [{ value: 'contacts', label: 'Contacts', count: peopleCount.data, panel: `${prefix}-record-contacts` }, { value: 'addresses', label: 'Adresses', count: addressCount, panel: `${prefix}-record-addresses` }] : []), ...(kind === 'companies' ? [{ value: 'accounting', label: 'Comptabilité', count: undefined, panel: formId }] : []), { value: 'notes', label: 'Notes', count: undefined, panel: formId }]} />}
+    {(record || kind === 'companies') && <HRecordTabs label="Sections de la fiche" idPrefix={`${prefix}-tab`} value={section} onChange={openSection} items={[{ value: 'information', label: 'Informations', icon: Info, count: undefined, panel: formId }, ...(company ? [{ value: 'contacts', label: 'Contacts', icon: UsersRound, count: peopleCount.data, panel: `${prefix}-record-contacts` }, { value: 'addresses', label: 'Adresses', icon: MapPin, count: addressCount, panel: `${prefix}-record-addresses` }] : []), ...(kind === 'companies' ? [{ value: 'accounting', label: 'Comptabilité', icon: Calculator, count: undefined, panel: formId }] : []), { value: 'notes', label: 'Notes', icon: NotebookPen, count: undefined, panel: formId }]} />}
     {peopleCount.error && <p role="alert" className="field-error">{peopleCount.error.message}<HButton size="small" variant="ghost" onClick={() => { void peopleCount.refetch() }}>Réessayer le compteur des contacts</HButton></p>}
     <form id={formId} role={record || kind === 'companies' ? 'tabpanel' : undefined} aria-labelledby={record || kind === 'companies' ? `${prefix}-tab-${section}` : undefined} hidden={section === 'contacts' || section === 'addresses'} className="contact-record-form" onSubmit={form.handleSubmit(submit)} noValidate>
       <fieldset hidden={section === 'accounting'} disabled={!editable || busy} className={`contact-record-layout${kind === 'people' ? ' contact-person-layout' : ''}`}>

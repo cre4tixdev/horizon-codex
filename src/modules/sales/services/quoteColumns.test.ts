@@ -33,6 +33,7 @@ it('bounds a section copy at the next heading of equal or higher level', () => {
 it('shows purchasing tracking only for customer orders and returns its space to other columns', () => {
   for (const status of [undefined, 'draft', 'validated', 'sent', 'cancelled', 'rejected'] as const) {
     const columns = visibleQuoteColumns(status)
+    expect(columns.some(([key]) => key === 'actions')).toBe(true)
     for (const hidden of ['purchase', 'receipt', 'delivery']) expect(columns.some(([key]) => key === hidden)).toBe(false)
     const fitted = fitQuoteColumns(base, 1200, columns)
     for (const hidden of ['purchase', 'receipt', 'delivery']) expect(fitted).not.toHaveProperty(hidden)
@@ -41,5 +42,6 @@ it('shows purchasing tracking only for customer orders and returns its space to 
     expect(Object.values(resized).every(Number.isFinite)).toBe(true)
     expect(Object.values(resized).reduce((sum, width) => sum + width, 0)).toBeCloseTo(1200)
   }
+  expect(visibleQuoteColumns('accepted').some(([key]) => key === 'actions')).toBe(false)
   for (const visible of ['purchase', 'receipt', 'delivery']) expect(visibleQuoteColumns('accepted').some(([key]) => key === visible)).toBe(true)
 })

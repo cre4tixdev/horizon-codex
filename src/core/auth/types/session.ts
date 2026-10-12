@@ -2,6 +2,8 @@ export type HorizonUser = {
   id: string
   email: string
   name: string
+  presence?: 'available' | 'away' | 'busy' | 'offline'
+  avatar?: string
   erpProfile?: 'admin' | 'superuser' | 'user' | 'viewer'
   accessRevision?: string
   role: { id: string; label: string; permissions: readonly string[] }

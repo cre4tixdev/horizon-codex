@@ -23,3 +23,10 @@ module.exports.purchaseSourceNumber = (app, user, quoteId) => {
   if (!quoteId || !require(`${__hooks}/lib/access-policy.js`).permissions(app, user).includes('sales.read')) return ''
   return app.findRecordById('sales_quotes', quoteId).getString('quote_number')
 }
+
+module.exports.confirmationPreview = (app, user, quoteId) => {
+  if (!require(`${__hooks}/lib/activity.js`).allowed(app, user, false, 'sales')) throw new ForbiddenError('Accès au devis nécessaire.')
+  const quote = app.findRecordById('sales_quotes', quoteId)
+  if (quote.getString('archived_at') || !['validated', 'sent'].includes(quote.getString('status'))) throw new BadRequestError('Choisissez un devis finalisé actif.')
+  return { quote, order: null, lines: app.findRecordsByFilter('sales_quote_lines', 'quote = {:id} && kind = "item" && is_option = false', 'position', 0, 0, { id: quote.id }) }
+}

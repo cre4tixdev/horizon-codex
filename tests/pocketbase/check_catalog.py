@@ -138,7 +138,11 @@ class CatalogTests(unittest.TestCase):
         self.assertEqual(reference['product_supplier'], '')
         self.assertEqual(reference['unit_cost'], 0)
         self.assertEqual(len(product['price_history']), 1)
+        self.assertEqual(product['price_history'][0]['supplier_name'], 'Fournisseur principal')
+        self.assertEqual(product['price_history'][0]['snapshot']['purchase_quantity'], 1000)
+        self.assertEqual(product['price_history'][0]['price'], 800)
         self.assertIsNone(product['last_purchase'])
+        self.assertIsNone(product.get('purchase_history'))
         self.assertEqual(self.create_product()[1]['id'], product['id'])
         self.assertEqual(self.pb.request('GET', 'horizon/inventory/products?q=video', token=self.token)[1]['totalItems'], 0)
         self.assertEqual(self.pb.request('GET', 'horizon/inventory/products?q=BELDEN', token=self.token)[1]['items'][0]['id'], product['id'])
@@ -164,6 +168,9 @@ class CatalogTests(unittest.TestCase):
         history = self.pb.request('GET', 'horizon/inventory/products/' + product['id'], token=self.token)[1]
         self.assertEqual(len(history['price_history']), 2)
         self.assertEqual(history['offers'], [])
+        self.pb.request('PATCH', 'collections/contacts_companies/records/' + self.supplier['id'], {'active': False}, self.pb.admin_token)
+        archived = self.pb.request('GET', 'horizon/inventory/products/' + product['id'], token=self.token)[1]
+        self.assertTrue(all(item['supplier_name'] == 'Fournisseur principal' for item in archived['price_history']))
 
     def test_product_quote_history_analytics_options_and_permissions(self):
         product = self.create_product()[1]

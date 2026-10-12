@@ -8,7 +8,7 @@ export function createPurchasingRepository(url: string) {
     async list(kind: PurchaseKind, query: PurchaseListOptions) { return purchasePageSchema.parse(await send(kind, undefined, query)) },
     async record(kind: PurchaseKind, id: string) { return purchaseSchema.parse(await send(`${kind}/${id}`)) },
     async choices() { return choicesSchema.parse(await send('choices')) },
-    async needs(quote: string) { return needsSchema.parse(await send('needs/' + quote)) },
+    async needs(quote: string, preview = false) { return needsSchema.parse(await send('needs/' + quote, undefined, preview ? { preview: true } : undefined)) },
     async product(id: string, currency: string, supplier = '') { return productPurchaseSchema.parse(await send('products/' + id, undefined, { currency, supplier })) },
     async save(kind: PurchaseKind, input: PurchaseInput, creation_key: string, id?: string, updated?: string) { return purchaseSchema.parse(await send(kind + '/save', { input, creation_key, ...(id ? { id, updated } : {}) })) },
     async transition(kind: PurchaseKind, id: string, updated: string, action: 'validate' | 'reopen' | 'cancel' | 'cancel_all' | 'archive' | 'restore', discardPreparations = false) { return purchaseSchema.parse(await send(kind + '/transition', { id, updated, action, discard_preparations: discardPreparations })) },

@@ -2,7 +2,7 @@ import type { ColumnDef } from '@tanstack/react-table'
 import { HDataTable } from '../../../shared/ui/HDataTable'
 import { useState, useSyncExternalStore } from 'react'
 import { useSearchParams } from 'react-router'
-import { Plus, List, Network, UsersRound, Building2 } from 'lucide-react'
+import { Plus, List, Network, UsersRound, Building2, UserRound } from 'lucide-react'
 import { sessionService } from '../../../core/auth/services/session'
 import { hasPermission } from '../../../core/auth/types/session'
 import { HPageHeader } from '../../../shared/ui/HPageHeader'
@@ -58,7 +58,7 @@ export function EmployeesPage() {
   if (!allowed) return <HEmptyState icon={UsersRound} title="Employés" description="Vous ne disposez pas de la permission de consulter les ressources." />
   return <div className="hr-page"><HPageHeader title="Employés" description="Vos collaborateurs, ressources externes et responsabilités." actions={<>{tab === 'employees' && writable && organisation && <HButton variant="primary" onClick={() => setEditor('new')}><Plus size={14} />Nouvel employé</HButton>}{tab === 'teams' && directory.data?.can_manage_teams && <HButton variant="primary" onClick={() => setTeamEditor('new')}><Plus size={14} />Nouvelle équipe</HButton>}</>} />
 
-    <HRecordTabs label="Rubriques Employés" idPrefix="hr-tab" value={tab} onChange={(value) => setParams((current) => { const next = new URLSearchParams(current); if (value === "teams") next.set("tab", "teams"); else next.delete("tab"); next.delete("employee"); return next })} items={[{ value: "employees", label: "Employés", panel: "hr-employees-panel" }, { value: "teams", label: "Équipes", panel: "hr-teams-panel" }]} />
+    <HRecordTabs label="Rubriques Employés" idPrefix="hr-tab" value={tab} onChange={(value) => setParams((current) => { const next = new URLSearchParams(current); if (value === "teams") next.set("tab", "teams"); else next.delete("tab"); next.delete("employee"); return next })} items={[{ value: "employees", label: "Employés", icon: UserRound, panel: "hr-employees-panel" }, { value: "teams", label: "Équipes", icon: UsersRound, panel: "hr-teams-panel" }]} />
     {directory.isPending && <p role="status">Chargement…</p>}{directory.error && <p role="alert">{directory.error.message} <HButton size="small" onClick={() => void directory.refetch()}>Réessayer</HButton></p>}
     {directory.data && tab === 'employees' && <div id="hr-employees-panel" role="tabpanel" aria-labelledby="hr-tab-employees"><div className="hr-view-toolbar"><span className="contact-muted">{rows.length} ressources · {rows.filter((item) => item.is_manager).length} managers · {rows.filter((item) => item.is_direction).length} directions</span><div className="contact-view-switch"><HButton size="small" aria-pressed={view === 'list'} onClick={() => setParams((current) => { const next = new URLSearchParams(current); next.delete('view'); return next })}><List size={14} />Liste</HButton><HButton size="small" aria-pressed={view === 'org'} onClick={() => setParams((current) => { const next = new URLSearchParams(current); next.set('view', 'org'); return next })}><Network size={14} />Organigramme</HButton></div></div>
     {view === 'org' ? <OrganisationChart employees={rows} teams={directory.data.teams} onSelect={setEditor} /> : grouping === 'none' || rows.length === 0 ? renderTable(rows) : <GroupedResults groups={groups} icon={grouping === 'team' ? Building2 : Network} noun="ressource(s)" render={renderTable} />}</div>}

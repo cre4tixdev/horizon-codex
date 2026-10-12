@@ -13,7 +13,7 @@ const allowed = (app, user, write = false, module = 'contacts') => {
   return role.getBool('active') && ['contacts', 'crm', 'sales', 'inventory', 'purchasing'].includes(module) && permissions.includes(`${module}.read`) && (!write || permissions.includes(`${module}.write`))
 }
 const source = (app, entity, id, writable = false) => {
-  if (!['contacts_companies', 'contacts_people', 'crm_opportunities', 'crm_tenders', 'sales_quotes', 'inventory_products', 'inventory_operations', 'purchasing_requests', 'purchasing_orders'].includes(entity) || !/^[a-z0-9]{15}$/.test(id)) throw new BadRequestError('Fiche invalide.')
+  if (!['contacts_companies', 'contacts_people', 'crm_opportunities', 'crm_tenders', 'sales_quotes', 'inventory_products', 'inventory_operations', 'inventory_internal_assets', 'purchasing_requests', 'purchasing_orders'].includes(entity) || !/^[a-z0-9]{15}$/.test(id)) throw new BadRequestError('Fiche invalide.')
   let record
   try { record = app.findRecordById(entity, id) } catch { throw new ApiError(404, 'Fiche introuvable.') }
   if (writable && entity === 'crm_tenders') {

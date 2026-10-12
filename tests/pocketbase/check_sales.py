@@ -27,7 +27,21 @@ class SalesTests(unittest.TestCase):
         self.pb.request('PATCH', 'collections/core_roles/records/' + self.user['role'], {'permissions': ['crm.read', 'crm.write', 'sales.read', 'sales.write', 'sales.quote.validate', 'sales.order.confirm', 'contacts.read']}, self.pb.admin_token)
 
     def transition(self, route, quote, **values):
+        if route == 'confirm' and not values.get('customer_order_number'):
+            values.setdefault('awaiting_customer_order', True)
         return self.pb.request('POST', 'horizon/sales/quotes/' + route, {'id': quote['id'], 'updated': quote['updated'], **values}, self.token)
+
+    def test_confirmation_requires_reference_or_explicit_waiting(self):
+        self.grant_lifecycle()
+        _, quote = self.quote_save()
+        _, quote = self.transition('finalize', quote)
+        body = dict(id=quote['id'], updated=quote['updated'], customer_order_number=' ')
+        self.assertEqual(self.pb.request('POST', 'horizon/sales/quotes/confirm', body, self.token)[0], 400)
+        self.assertEqual(self.pb.request('POST', 'horizon/sales/quotes/confirm', {**body, 'awaiting_customer_order': 'invalid'}, self.token)[0], 400)
+        self.assertEqual(self.pb.request('POST', 'horizon/sales/quotes/confirm', {**body, 'customer_order_number': 'PO-42', 'awaiting_customer_order': True}, self.token)[0], 400)
+        status, saved = self.pb.request('POST', 'horizon/sales/quotes/confirm', {**body, 'awaiting_customer_order': True}, self.token)
+        self.assertEqual(status, 200, saved)
+        self.assertEqual(saved['order']['customer_number'], '')
 
     def test_summary_counts_states_and_excludes_archives(self):
         self.grant_lifecycle()
@@ -234,6 +248,44 @@ class SalesTests(unittest.TestCase):
         self.assertEqual(self.quote_save(key='inactive-terms-template', terms_id=term['id'])[0], 400)
         self.assertEqual(self.quote_save(key='injected-terms-content', terms_content='fake')[0], 400)
         self.assertEqual(self.pb.request('POST', 'horizon/sales/settings', {**body, 'terms': [None]}, self.token)[0], 400)
+
+    def test_default_terms_migration_keeps_existing_quotes(self):
+        settings = self.pb.request('GET', 'horizon/sales/settings', token=self.token)[1]
+        terms = [{'id': 'migration-terms-first', 'label': 'Actives', 'content': 'Texte A', 'active': True},
+                 {'id': 'migration-terms-other', 'label': 'Autres', 'content': 'Texte B', 'active': True}]
+        self.pb.request('PATCH', 'collections/settings_sales/records/' + settings['id'], {'terms': terms}, self.pb.admin_token)
+        status, quote = self.quote_save(terms_id=terms[1]['id'])
+        self.assertEqual(status, 200, quote)
+        self.pb.process.terminate(); self.pb.process.wait(timeout=5)
+        subprocess.run(self.pb.args + ['migrate', 'down', '1'], input='y\n', text=True, env=self.pb.environment, check=True, stdout=subprocess.DEVNULL)
+        for _ in range(2):
+            subprocess.run(self.pb.args + ['migrate', 'up'], env=self.pb.environment, check=True, stdout=subprocess.DEVNULL)
+        self.pb.launch_and_authenticate(self.pb.args)
+        current = self.pb.request('GET', 'horizon/sales/settings', token=self.token)[1]
+        self.assertEqual([term['id'] for term in current['terms'] if term['is_default']], [terms[0]['id']])
+        existing = self.pb.request('GET', 'horizon/sales/quotes/' + quote['id'], token=self.token)[1]
+        self.assertEqual(existing['terms_id'], terms[1]['id'])
+        self.assertEqual(existing['terms_content'], 'Texte B')
+
+    def test_default_terms_unique_active_and_snapshot_preserved(self):
+        self.pb.request('PATCH', 'collections/core_users/records/' + self.user['id'], {'erp_profile': 'admin'}, self.pb.admin_token)
+        self.pb.request('PATCH', 'collections/core_roles/records/' + self.user['role'], {'permissions': ['crm.read', 'crm.write', 'sales.read', 'sales.write', 'settings.references']}, self.pb.admin_token)
+        settings = self.pb.request('GET', 'horizon/sales/settings', token=self.token)[1]
+        terms = [{'id': 'default-terms-template-01', 'label': 'Conditions A', 'content': 'Conditions A historiques', 'active': True, 'is_default': True},
+                 {'id': 'default-terms-template-02', 'label': 'Conditions B', 'content': 'Conditions B', 'active': True, 'is_default': False}]
+        body = {key: settings[key] for key in ['updated', 'validity_days', 'column_widths', 'default_tax_rate']}
+        status, saved = self.pb.request('POST', 'horizon/sales/settings', {**body, 'terms': terms}, self.token)
+        self.assertEqual(status, 200, saved)
+        _, quote = self.quote_save(terms_id=terms[0]['id'])
+        body['updated'] = saved['updated']
+        self.assertEqual(self.pb.request('POST', 'horizon/sales/settings', {**body, 'terms': [terms[0], {**terms[1], 'is_default': True}]}, self.token)[0], 400)
+        self.assertEqual(self.pb.request('POST', 'horizon/sales/settings', {**body, 'terms': [{**terms[0], 'active': False}, terms[1]]}, self.token)[0], 400)
+        status, saved = self.pb.request('POST', 'horizon/sales/settings', {**body, 'terms': [{**terms[0], 'is_default': False}, {**terms[1], 'is_default': True}]}, self.token)
+        self.assertEqual(status, 200, saved)
+        self.assertEqual([term['id'] for term in saved['terms'] if term['is_default']], [terms[1]['id']])
+        existing = self.pb.request('GET', 'horizon/sales/quotes/' + quote['id'], token=self.token)[1]
+        self.assertEqual(existing['terms_id'], terms[0]['id'])
+        self.assertEqual(existing['terms_content'], terms[0]['content'])
 
     def test_large_terms_settings_audit(self):
         self.pb.request('PATCH', 'collections/core_users/records/' + self.user['id'], {'erp_profile': 'admin'}, self.pb.admin_token)

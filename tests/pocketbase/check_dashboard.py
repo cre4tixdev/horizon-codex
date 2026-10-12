@@ -5,7 +5,11 @@ import uuid
 import check_sales
 
 class DashboardTests(unittest.TestCase):
-    setUp = check_sales.SalesTests.setUp
+    def setUp(self):
+        check_sales.SalesTests.setUp(self)
+        rights = self.pb.request('GET', 'collections/core_roles/records/' + self.user['role'], token=self.pb.admin_token)[1]['permissions']
+        self.pb.request('PATCH', 'collections/core_roles/records/' + self.user['role'], {'permissions': rights + ['analysis.read', 'analysis.financial']}, self.pb.admin_token)
+        self.pb.request('PATCH', 'collections/core_users/records/' + self.user['id'], {'access_grants': {'analysis': {'actions': ['read', 'financial'], 'scope': 'all'}}}, self.pb.admin_token)
     quote_save = check_sales.SalesTests.quote_save
     def tearDown(self): self.pb.close()
     def metrics(self, start='2026-10-01', end='2026-10-31', token=None):
@@ -41,13 +45,13 @@ class DashboardTests(unittest.TestCase):
         self.assertEqual(december['forecast']['values'][0]['amount'], 12000)
         self.assertEqual(december['ordered']['values'], [])
         status, reader = self.metrics(token=self.reader_token); self.assertEqual(status, 200, reader)
-        self.assertIsNone(reader['ordered']); self.assertIsNone(reader['margin'])
+        self.assertIsNone(reader['forecast']); self.assertIsNone(reader['ordered']); self.assertIsNone(reader['margin'])
         self.assertEqual(self.metrics('2026-10-01', '2026-12-31')[1]['ordered']['trend']['step'], 'week')
         self.assertEqual(self.metrics('2026-01-01', '2026-12-31')[1]['ordered']['trend']['step'], 'month')
         self.assertEqual(self.metrics('2026-02-30')[0], 400)
         self.assertEqual(self.metrics('2024-01-01', '2026-10-31')[0], 400)
     def test_committed_purchases_are_period_filtered_and_exclude_drafts(self):
-        self.pb.request('PATCH', 'collections/core_roles/records/' + self.user['role'], {'permissions': ['purchasing.read', 'crm.read']}, self.pb.admin_token)
+        self.pb.request('PATCH', 'collections/core_roles/records/' + self.user['role'], {'permissions': ['purchasing.read', 'crm.read', 'analysis.read', 'analysis.financial']}, self.pb.admin_token)
         for number, state, amount, date in [('BC-1', 'validated', 45.5, '2026-10-05T12:00:00Z'), ('BC-2', 'draft', 500, '2026-10-05T12:00:00Z'), ('BC-3', 'cancelled', 600, '2026-10-05T12:00:00Z'), ('BC-4', 'received', 22.25, '2026-10-06T12:00:00Z'), ('BC-5', 'validated', 1000, '2026-11-05T12:00:00Z')]:
             self.pb.create('purchasing_orders', dict(order_number=number, title=number, supplier=self.company['id'], currency='EUR', status=state, subtotal=amount, validated_at=date, created_by=self.user['id'], owner=self.user['id'], creation_key=str(uuid.uuid4())))
         status, result = self.metrics(); self.assertEqual(status, 200, result)

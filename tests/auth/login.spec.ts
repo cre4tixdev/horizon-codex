@@ -37,6 +37,14 @@ test('erreurs de saisie et mauvais mot de passe sans fuite technique', async ({ 
 
 test('session conservée après rechargement et connexion responsive', async ({ page }) => {
   await page.goto('/login')
+  await expect(page.locator('.login-header').getByRole('img', { name: 'CVS Engineering', exact: true })).toBeVisible()
+  await expect(page.locator('.login-panel').getByRole('img', { name: 'Horizon', exact: true })).toBeVisible()
+  await expect(page.locator('.login-panel')).toHaveCSS('width', '500px')
+  expect((await page.locator('.login-panel').boundingBox())!.x).toBeGreaterThan(600)
+  await expect(page.locator('.login-panel')).toHaveCSS('background-color', 'rgb(255, 255, 255)')
+  await expect(page.locator('.login-landscape')).toBeVisible()
+  await expect.poll(() => page.locator('.login-landscape').evaluate((image) => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(1000)
+  await expect(page.getByText('UN HORIZON COMMUN', { exact: true })).toHaveCount(0)
   await page.evaluate(() => document.fonts.ready)
   await page.screenshot({ path: '/private/tmp/horizon-login-desktop.png', fullPage: true })
   await page.evaluate(() => localStorage.setItem('horizon.theme', 'dark'))

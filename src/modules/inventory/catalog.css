@@ -57,7 +57,12 @@
 .catalog-validity.h-button { font-size: 11px; padding: 3px; height: 28px; gap: 4px; }
 .catalog-table-empty { font-size: 12px; color: var(--theme-text-muted, #7b8794); padding: 16px 12px; text-align: center; }
 .catalog-history { margin-top: 20px; }
-.catalog-history summary { cursor: pointer; padding: 8px 0; color: var(--theme-text-muted, #7b8794); font-size: 12px; }
+.catalog-history summary { cursor: pointer; padding: 8px 0; list-style: none; }
+.catalog-history summary::-webkit-details-marker { display: none; }
+.catalog-history summary .h-section-heading { margin-bottom: 0; align-items: center; }
+.catalog-history summary:focus-visible { outline: 2px solid var(--theme-rose-text, #e90072); outline-offset: 3px; border-radius: 5px; }
+.catalog-history-chevron { color: var(--theme-text-muted, #7b8794); }
+.catalog-history[open] .catalog-history-chevron { transform: rotate(90deg); }
 
 .catalog-suppliers input[type=number] { appearance: textfield; }
 .catalog-suppliers input[type=number]::-webkit-inner-spin-button, .catalog-suppliers input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
@@ -118,3 +123,26 @@
 @media (max-width: 700px) { .catalog-card-bottom { gap: 4px; } }
 
 .catalog-card-meta .h-tag { flex-shrink: 0; padding: 1px 4px; font-size: 9px; line-height: 12px; }
+
+.catalog-record .catalog-identity-grid .catalog-stock-box { grid-column: 3 / span 2; justify-self: stretch; align-self: end; min-width: 0; }
+.catalog-stock-box > .h-field-label { display: block; margin-bottom: var(--hz-field-gap, 4px); color: var(--color-horizon-form-text); }
+.catalog-record .catalog-identity-grid .catalog-stock-summary { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px 24px; padding: 0 48px; min-height: var(--hz-control-height, 32px); height: var(--hz-control-height, 32px); border: 1px solid var(--theme-border-subtle, #edf0f4); border-radius: 6px; background: var(--theme-surface-soft, #f4f5f7); font-size: 11px; color: var(--theme-text-muted, #7b8794); }
+.catalog-stock-summary > span { display: inline-flex; align-items: center; gap: 7px; }
+.catalog-stock-summary strong { color: var(--theme-text, #091c3a); font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.catalog-stock-summary svg { color: var(--theme-rose-text, #e90072); flex-shrink: 0; }
+
+.catalog-identity-fields > .h-section-heading { align-items: center; }
+.catalog-record .catalog-identity-fields .catalog-usage.contact-role-toggles { min-height: 20px; align-self: center; }
+.catalog-record .catalog-identity-fields .catalog-usage label { display: inline-flex; align-items: center; gap: 7px; min-height: 20px; font-size: 11px; white-space: nowrap; }
+.catalog-record .catalog-identity-fields .catalog-usage input { margin: 0; }
+@media (max-width: 1100px) { .catalog-record .catalog-identity-grid .catalog-stock-box { grid-column: 1 / -1; } }
+@media (max-width: 650px) { .catalog-identity-fields > .h-section-heading { flex-wrap: wrap; gap: 8px; } .catalog-record .catalog-identity-fields .catalog-usage.contact-role-toggles { flex-wrap: wrap; gap: 12px 24px; } .catalog-record .catalog-identity-grid .catalog-stock-summary { justify-self: stretch; gap: 10px 18px; } }
+
+.catalog-identity-fields > .h-section-heading > .h-section-heading-actions { width: calc(60% - 6px); justify-content: flex-start; }
+.catalog-record .catalog-identity-fields .catalog-usage.contact-role-toggles { justify-content: flex-start; }
+@media (max-width: 1000px) { .catalog-identity-fields > .h-section-heading { flex-wrap: wrap; gap: 8px; } .catalog-identity-fields > .h-section-heading > .h-section-heading-actions { width: auto; } }
+
+.catalog-stock-reserved.h-button { height: auto; min-height: 0; padding: 0; gap: 7px; border: 0; color: var(--theme-text-muted, #7b8794); font-size: 11px; font-weight: 400; }
+.catalog-stock-reserved.h-button:hover { background: transparent; color: var(--theme-rose-text, #e90072); }
+.catalog-reservations-dialog { width: min(960px, calc(100vw - var(--workspace-sidebar-width) - 32px)); }
+@media (max-width: 650px) { .catalog-record .catalog-identity-grid .catalog-stock-summary { height: auto; padding-block: 8px; } }

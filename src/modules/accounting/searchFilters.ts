@@ -1,0 +1,4 @@
+import type { SearchFilter } from '../../shared/search/filters'
+export const analysisFilters: SearchFilter[] = [{ key: 'status', label: 'État de l’affaire', defaultValue: '', options: [{ value: '', label: 'Affaires actives' }, { value: 'open', label: 'En cours' }, { value: 'won', label: 'Gagnées' }, { value: 'completed', label: 'Terminées' }, { value: 'lost', label: 'Perdues' }, { value: 'cancelled', label: 'Annulées' }, { value: 'archived', label: 'Archivées' }] }]
+export const analysisGrouping: SearchFilter = { key: 'group', label: 'Regrouper par', defaultValue: 'none', options: [{ value: 'none', label: 'Aucun regroupement' }, { value: 'client', label: 'Client' }] }
+export const analysisSort: SearchFilter = { key: 'sort', label: 'Trier par', defaultValue: 'code', options: [{ value: 'code', label: 'Code affaire' }, { value: 'title', label: 'Titre' }, { value: '-created', label: 'Plus récentes' }] }
