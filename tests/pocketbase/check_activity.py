@@ -36,6 +36,95 @@ class ActivityTests(unittest.TestCase):
         with urlopen(request) as response:
             return json.load(response)
 
+    def scoped(self, route='events', **query):
+        return 'horizon/activity/' + route + '?' + urlencode({'entity': 'contacts_companies', 'id': self.company['id'], **query})
+
+    def test_scoped_feed_pagination_filters_tasks_and_permissions(self):
+        baseline = len(self.events())
+        for index in range(23):
+            self.assertEqual(self.post(body=f'Note {index}')[0], 200)
+        document = self.upload()
+        status, task_event = self.post(type='task', body='Action à suivre', metadata={'task': {'title': 'Action', 'assigned_to': self.writer['id'], 'due_date': '', 'priority': 'normal'}})
+        self.assertEqual(status, 200, task_event)
+        status, first = self.pb.request('GET', self.scoped(), token=self.token)
+        self.assertEqual(status, 200, first)
+        self.assertEqual(first['totalItems'], baseline + 25)
+        self.assertEqual(first['totalPages'], 2)
+        self.assertEqual(len(first['items']), 20)
+        second = self.pb.request('GET', self.scoped(page=2), token=self.token)[1]
+        self.assertEqual(len(second['items']), baseline + 5)
+        self.assertFalse({item['id'] for item in first['items']} & {item['id'] for item in second['items']})
+        status, documents = self.pb.request('GET', self.scoped(category='documents'), token=self.token)
+        self.assertEqual(status, 200, documents)
+        self.assertEqual(documents['totalItems'], 1)
+        self.assertEqual(documents['items'][0]['id'], document['id'])
+        self.assertEqual(self.pb.request('GET', self.scoped(category='comments'), token=self.token)[1]['totalItems'], 24)
+        self.assertEqual(self.pb.request('GET', self.scoped(category='changes'), token=self.token)[1]['totalItems'], baseline)
+        self.assertEqual(self.pb.request('GET', self.scoped(category='tasks'), token=self.token)[1]['totalItems'], 1)
+        status, tasks = self.pb.request('GET', self.scoped('tasks'), token=self.token)
+        self.assertEqual(status, 200, tasks)
+        self.assertEqual(tasks['items'][0]['activity_event'], task_event['id'])
+        for route in ['events', 'tasks']:
+            self.assertEqual(self.pb.request('GET', self.scoped(route), token=self.reader)[0], 200)
+            self.assertEqual(self.pb.request('GET', self.scoped(route), token=self.other)[0], 403)
+            self.assertEqual(self.pb.request('GET', self.scoped(route))[0], 401)
+        for values in [{'category': 'invalid'}, {'page': 0}, {'page': 'bad'}, {'id': '../invalid'}, {'entity': 'core_users'}]:
+            self.assertEqual(self.pb.request('GET', self.scoped(**values), token=self.token)[0], 400)
+        self.pb.request('DELETE', 'collections/contacts_companies/records/' + self.company['id'], token=self.pb.admin_token)
+        for route in ['events', 'tasks']:
+            self.assertEqual(self.pb.request('GET', self.scoped(route), token=self.token)[0], 404)
+
+    def test_scoped_feed_is_independent_of_unrelated_source_tables(self):
+        import sqlite3
+        baseline = len(self.events())
+        self.assertEqual(self.post(body='Message de référence')[0], 200)
+        # These inert fixtures represent unrelated tables in a populated ERP.
+        # A polymorphic @collection rule multiplies them in its COUNT query.
+        with sqlite3.connect(self.pb.data / 'data.db') as db:
+            for number, table in enumerate(['contacts_companies', 'contacts_people', 'crm_opportunities', 'crm_tenders', 'sales_quotes', 'inventory_products', 'purchasing_requests', 'purchasing_orders', 'inventory_operations', 'inventory_internal_assets']):
+                columns = {row[1]: row[2] for row in db.execute(f'PRAGMA table_info({table})')}
+                unique_columns = {row[2] for key in db.execute(f'PRAGMA index_list({table})') if key[2] for row in db.execute(f'PRAGMA index_info("{key[1]}")') if row[2]}
+                for index in range(20):
+                    identity = f'fixture{number:02d}{index:06d}'
+                    values = {'id': identity}
+                    for key in unique_columns:
+                        if key in columns:
+                            values[key] = index + 100 if 'NUMERIC' in columns[key].upper() or 'INTEGER' in columns[key].upper() else identity
+                    db.execute(f'INSERT INTO {table} ({",".join(values)}) VALUES ({",".join("?" for _ in values)})', tuple(values.values()))
+        status, data = self.pb.request('GET', self.scoped(), token=self.token)
+        self.assertEqual(status, 200, data)
+        self.assertEqual(data['totalItems'], baseline + 1)
+        self.assertEqual(data['items'][0]['body'], 'Message de référence')
+        self.assertEqual(self.pb.request('GET', self.scoped('tasks'), token=self.token)[0], 200)
+        self.pb.request('PATCH', 'collections/core_roles/records/' + self.writer['role'], {'permissions': ['contacts.read', 'contacts.write', 'inventory.read', 'purchasing.read']}, self.pb.admin_token)
+        for number, entity in [(5, 'inventory_products'), (6, 'purchasing_requests'), (7, 'purchasing_orders'), (8, 'inventory_operations'), (9, 'inventory_internal_assets')]:
+            for route in ['events', 'tasks']:
+                path = self.scoped(route, entity=entity, id=f'fixture{number:02d}{0:06d}')
+                status, payload = self.pb.request('GET', path, token=self.token)
+                self.assertEqual(status, 200, payload)
+                self.assertEqual(payload['items'], [])
+                self.assertEqual(self.pb.request('GET', path, token=self.reader)[0], 403)
+
+
+    def test_scoped_tender_feed_keeps_opportunity_events(self):
+        self.pb.request('PATCH', 'collections/core_roles/records/' + self.writer['role'], {'permissions': ['contacts.read', 'contacts.write', 'crm.read', 'crm.write']}, self.pb.admin_token)
+        stage = self.pb.request('GET', 'collections/crm_stages/records', token=self.pb.admin_token)[1]['items'][0]
+        tender_stage = next(item for item in self.pb.request('GET', 'collections/crm_tender_statuses/records', token=self.pb.admin_token)[1]['items'] if item['code'] == 'preparing')
+        status, opportunity = self.pb.request('POST', 'horizon/crm/save', {'creation_key': 'activity-tender-read-key', 'tender': {'reference': 'AO-FIL', 'consultation_url': '', 'status': tender_stage['id'], 'publication_date': '', 'submission_deadline': '', 'timezone': 'Europe/Paris', 'expected_result_date': '', 'visit_required': False, 'tags': []}, 'input': {'title': 'AO activité', 'company': self.company['id'], 'contact': '', 'owner': self.writer['id'], 'stage': stage['id'], 'type': 'tender', 'estimated_value': 0, 'estimated_cost': 0, 'currency': 'EUR', 'probability': 0, 'expected_date': '', 'description': '', 'status': 'open', 'market_types': []}}, self.token)
+        self.assertEqual(status, 200, opportunity)
+        tender = opportunity['tender']
+        self.assertTrue(tender['opportunity'])
+        opportunity = self.pb.request('GET', 'collections/crm_opportunities/records/' + tender['opportunity'], token=self.pb.admin_token)[1]
+        notes = []
+        for entity, identity, body in [('crm_opportunities', opportunity['id'], 'Note affaire'), ('crm_tenders', tender['id'], 'Note AO')]:
+            status, event = self.post(source_module='crm', source_entity=entity, source_record_id=identity, body=body)
+            self.assertEqual(status, 200, event); notes.append(event['id'])
+        status, feed = self.pb.request('GET', 'horizon/activity/events?' + urlencode({'entity': 'crm_tenders', 'id': tender['id'], 'category': 'comments'}), token=self.token)
+        self.assertEqual(status, 200, feed)
+        self.assertEqual({item['id'] for item in feed['items']}, set(notes))
+        self.assertEqual(feed['totalItems'], 2)
+        self.assertEqual(self.pb.request('GET', 'horizon/activity/events?' + urlencode({'entity': 'crm_tenders', 'id': tender['id']}), token=self.reader)[0], 403)
+
     def test_attachment_deletion_is_authorized_scoped_and_audited(self):
         event = self.upload()
         first, second = event['attachments']

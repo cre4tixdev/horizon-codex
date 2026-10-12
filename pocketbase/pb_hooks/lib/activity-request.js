@@ -1,4 +1,18 @@
 module.exports = {
+  avatar(event) {
+    const id = event.request.pathValue('id')
+    if (!/^[a-z0-9]{15}$/.test(id)) throw new BadRequestError('Publication invalide.')
+    let record
+    try { record = event.app.findRecordById('core_activity_events', id) } catch { throw new ApiError(404, 'Publication introuvable.') }
+    require(`${__hooks}/lib/activity-read.js`).authorizeRecord(event, record)
+    let author
+    try { author = event.app.findRecordById('core_users', record.getString('author')) } catch { return event.noContent(204) }
+    event.response.header().set('Cache-Control', 'no-store')
+    const filename = author.getString('avatar')
+    if (!filename) return event.noContent(204)
+    const fs = event.app.newFilesystem()
+    try { fs.serve(event.response, event.request, author.baseFilesPath() + '/' + filename, filename) } finally { fs.close() }
+  },
   removeAttachment(event) {
     const activity = require(`${__hooks}/lib/activity.js`)
     const input = event.requestInfo().body

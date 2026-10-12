@@ -1,3 +1,4 @@
+import { ZodError } from 'zod'
 import { ClientResponseError } from 'pocketbase'
 import { environment } from '../../config/environment'
 import { sessionService } from '../../auth/services/session'
@@ -10,13 +11,20 @@ export class ActivityService {
     if (!this.repository) throw new Error('Le fil d’activité n’est pas configuré.')
     try { return await operation(this.repository) }
     catch (error) {
-      console.error('[activity] Operation failed', { status: error instanceof ClientResponseError ? error.status : 0 })
+      console.error('[activity] Operation failed', {
+        status: error instanceof ClientResponseError ? error.status : undefined,
+        ...(error instanceof ClientResponseError ? { aborted: error.isAbort } : {}),
+        ...(error instanceof ZodError ? { validation: error.issues.slice(0, 5).map((issue) => ({ code: issue.code, path: issue.path.join('.') })) } : {}),
+      })
+      if (error instanceof ZodError) throw new Error('Le fil d’activité contient des données illisibles. Réessayez.', { cause: error })
+      if (error instanceof ClientResponseError && error.status === 403) throw new Error('Vous n’avez pas accès au fil d’activité de cette fiche.', { cause: error })
       if (error instanceof ClientResponseError && error.status === 404) throw new Error('Fil indisponible : vérifiez la fiche et l’installation du lot Activité sur PocketBase.', { cause: error })
       if (error instanceof ClientResponseError && error.status === 409) throw new Error(error.response.message || 'Cette pièce doit être conservée.', { cause: error })
-      if (error instanceof ClientResponseError && error.status === 400) throw new Error('Publication refusée. Vérifiez le message, les fichiers, les destinataires et l’état de la fiche.', { cause: error })
+      if (error instanceof ClientResponseError && error.status === 400) throw new Error(write ? 'Publication refusée. Vérifiez le message, les fichiers, les destinataires et l’état de la fiche.' : 'Chargement du fil refusé. Vérifiez la fiche et les mises à jour PocketBase.', { cause: error })
       throw new Error('Le fil d’activité est indisponible. Réessayez.', { cause: error })
     }
   }
+  avatar(id: string, source: ActivitySource) { const parsed = activitySourceSchema.parse(source); if (!/^[a-z0-9]{15}$/.test(id)) throw new Error('Publication invalide.'); return this.run(false, (repo) => repo.avatar(id), parsed) }
   list(source: ActivitySource, page: number, filter: ActivityFilter) { const parsed = activitySourceSchema.parse(source); return this.run(false, (repo) => repo.list(parsed, page, filter), parsed) }
   users(query: string, source?: ActivitySource) { return this.run(true, (repo) => repo.users(query.slice(0, 80), source), source) }
   tasks(source: ActivitySource) { return this.run(false, (repo) => repo.tasks(activitySourceSchema.parse(source)), source) }

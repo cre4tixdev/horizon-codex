@@ -1,13 +1,39 @@
+import { ClientResponseError } from 'pocketbase'
+import { z } from 'zod'
 import { describe, expect, it, vi } from 'vitest'
 import { ActivityService } from './ActivityService'
 import type { createActivityRepository } from '../repositories/ActivityRepository'
 const source = { entity: 'contacts_companies' as const, id: 'company12345678' }
 const publication = { type: 'note' as const, body: 'Commentaire', mentions: [] }
 function setup(allowed = true) {
-  const repository: ReturnType<typeof createActivityRepository> = { list: vi.fn(), users: vi.fn(), publish: vi.fn(), tasks: vi.fn(), updateTask: vi.fn(), attachmentURL: vi.fn(), removeAttachment: vi.fn() }
+  const repository: ReturnType<typeof createActivityRepository> = { avatar: vi.fn(), list: vi.fn(), users: vi.fn(), publish: vi.fn(), tasks: vi.fn(), updateTask: vi.fn(), attachmentURL: vi.fn(), removeAttachment: vi.fn() }
   return { repository, service: new ActivityService(repository, () => allowed) }
 }
 describe('ActivityService', () => {
+  it('distinguishes access errors from an invalid response without logging its contents', async () => {
+    const { repository, service } = setup()
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      vi.mocked(repository.list).mockRejectedValueOnce(new ClientResponseError({ status: 403 }))
+      await expect(service.list(source, 1, 'all')).rejects.toThrow('pas accès')
+      const parsed = z.object({ items: z.array(z.object({ id: z.string() })) }).safeParse({ items: [{ id: { private: 'confidential content' } }] })
+      if (parsed.success) throw new Error('Expected invalid fixture')
+      vi.mocked(repository.list).mockRejectedValueOnce(parsed.error)
+      await expect(service.list(source, 1, 'all')).rejects.toThrow('données illisibles')
+      expect(log).toHaveBeenLastCalledWith('[activity] Operation failed', { status: undefined, validation: [{ code: 'invalid_type', path: 'items.0.id' }] })
+      expect(JSON.stringify(log.mock.calls)).not.toContain('confidential content')
+    } finally { log.mockRestore() }
+  })
+  it('does not describe a rejected GET as a publication failure', async () => {
+    const { repository, service } = setup()
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      vi.mocked(repository.list).mockRejectedValueOnce(new ClientResponseError({ status: 400 }))
+      await expect(service.list(source, 1, 'all')).rejects.toThrow('Chargement du fil refusé')
+      vi.mocked(repository.publish).mockRejectedValueOnce(new ClientResponseError({ status: 400 }))
+      await expect(service.publish(source, publication, [])).rejects.toThrow('Publication refusée')
+    } finally { log.mockRestore() }
+  })
   it('denies reading and publication before any repository request', async () => {
     const { repository, service } = setup(false)
     await expect(service.list(source, 1, 'all')).rejects.toThrow('permissions')
