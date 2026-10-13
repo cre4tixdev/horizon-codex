@@ -3,11 +3,11 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router'
 import { HSummaryCards } from '../../../shared/ui/HSummaryCards'
-import { PackageCheck, LockKeyhole, Boxes, Package, SlidersHorizontal, ChevronLeft, ChevronRight, MapPin } from 'lucide-react'
+import { PackageCheck, LockKeyhole, Boxes, Package, SlidersHorizontal, MapPin } from 'lucide-react'
 import type { ColumnDef } from '@tanstack/react-table'
 import { HPageHeader } from '../../../shared/ui/HPageHeader'
 import { HPageBreadcrumb } from '../../../shared/ui/HPageBreadcrumb'
-import { HBreadcrumbActions } from '../../../shared/ui/HBreadcrumbActions'
+import { HListPagination } from '../../../shared/ui/HListPagination'
 import { HDataTable } from '../../../shared/ui/HDataTable'
 import { HButton } from '../../../shared/ui/HButton'
 import { HLoadingIndicator } from '../../../shared/ui/HLoadingIndicator'
@@ -28,7 +28,7 @@ export function StockPage() {
   const columns: ColumnDef<StockRow>[] = [{ header: 'Produit', cell: ({ row }) => <Link to={`/inventory/products/${row.original.product}`}>{row.original.name}</Link> }, { header: 'Marque', accessorKey: 'brand' }, { header: 'Référence', accessorKey: 'reference' }, { header: 'Emplacement', accessorKey: 'location_name' }, { header: 'Physique', accessorKey: 'physical' }, { header: 'Réservé', accessorKey: 'reserved' }, { header: 'Disponible', accessorKey: 'available' }, { header: 'Entrant (produit)', cell: ({ row }) => row.original.incoming === null ? '—' : row.original.incoming }, { header: 'u.', accessorKey: 'unit' }, { header: 'Valeur HT', cell: ({ row }) => row.original.valuation === null || row.original.valuation === undefined ? 'À reprendre' : formatAmount(row.original.valuation, row.original.valuation_currency || 'EUR') }, { header: 'Actions', cell: ({ row }) => access.canAdjust && <HButton variant="ghost" size="icon" title="Ajuster le stock" aria-label={`Ajuster le stock de ${row.original.name}`} onClick={() => setAdjusting(row.original)}><SlidersHorizontal size={14} /></HButton> }]
   const table = (items: StockRow[]) => <HDataTable columnBorders data={items} columns={columns} />
   return <div className="contact-directory"><HPageBreadcrumb items={[{ label: 'Accueil', href: '/' }, { label: 'Stock', href: '/inventory/dashboard' }, { label: 'Disponibilités' }]} /><HPageHeader title="Disponibilités" description="Stock réel par emplacement : physique, réservé et disponible. Les achats non réceptionnés n’augmentent jamais le stock." actions={access.canConfigure && <HButton onClick={() => setPlace(true)}><MapPin size={14} />Nouvel emplacement</HButton>} />
-    <HBreadcrumbActions><nav className="record-navigator"><span>Page {page} / {query.data?.totalPages || 1}</span><HButton variant="ghost" size="icon" aria-label="Page précédente" disabled={page <= 1} onClick={() => setParams((p) => { p.set('page', String(page - 1)); return p })}><ChevronLeft size={14} /></HButton><HButton variant="ghost" size="icon" aria-label="Page suivante" disabled={!query.data || page >= query.data.totalPages} onClick={() => setParams((p) => { p.set('page', String(page + 1)); return p })}><ChevronRight size={14} /></HButton></nav></HBreadcrumbActions>
+    <HListPagination page={page} totalPages={query.data?.totalPages} label="Pagination des disponibilités" busy={query.isFetching} onPageChange={(nextPage) => setParams((current) => { const next = new URLSearchParams(current); next.set('page', String(nextPage)); return next })} />
     {access.canRead && <HSummaryCards label="Synthèse du stock" items={([
       { key: 'all', label: 'Produits stockables', icon: Boxes, tone: 'blue' },
       { key: 'physical', label: 'En stock', icon: Package, tone: 'blue' },

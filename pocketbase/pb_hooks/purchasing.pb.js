@@ -1,3 +1,4 @@
+routerAdd('GET', '/api/horizon/purchasing/overview', (event) => require(`${__hooks}/lib/purchasing.js`).overview(event), $apis.requireAuth('core_users'))
 routerAdd('GET', '/api/horizon/purchasing/choices', (event) => require(`${__hooks}/lib/purchasing.js`).choices(event), $apis.requireAuth('core_users'))
 routerAdd('GET', '/api/horizon/purchasing/products/{id}', (event) => require(`${__hooks}/lib/purchasing.js`).product(event), $apis.requireAuth('core_users'))
 routerAdd('GET', '/api/horizon/purchasing/needs/{id}', (event) => require(`${__hooks}/lib/purchasing.js`).needs(event), $apis.requireAuth('core_users'))

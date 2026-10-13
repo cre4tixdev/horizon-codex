@@ -11,6 +11,7 @@ async function run<T>(action: string, operation: (repo: ReturnType<typeof create
   try { return await operation(repository) } catch (error) { console.error('[purchasing] Operation failed', { status: error instanceof ClientResponseError ? error.status : 0 }); throw new Error(error instanceof ClientResponseError && [400, 403, 404, 409].includes(error.status) ? error.response.message : 'Achats indisponibles. Réessayez.', { cause: error }) }
 }
 export const purchasingService = {
+  overview: (query: PurchaseListOptions) => run('read', (repo) => repo.overview(query)),
   list: (kind: PurchaseKind, query: PurchaseListOptions) => run('read', (repo) => repo.list(kind, query)),
   record: (kind: PurchaseKind, id: string) => run('read', (repo) => repo.record(kind, id)),
   choices: () => run('read', (repo) => repo.choices()),

@@ -1,10 +1,10 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { Link, useLocation, useSearchParams, useNavigate } from 'react-router'
 import type { ColumnDef, SortingState } from '@tanstack/react-table'
-import { Plus, Building2, UsersRound, LayoutGrid, List, Globe, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Plus, Building2, UsersRound, LayoutGrid, List, Globe } from 'lucide-react'
 import { sessionService, isLayoutPreview } from '../../../core/auth/services/session'
 import { hasPermission } from '../../../core/auth/types/session'
-import { HBreadcrumbActions } from '../../../shared/ui/HBreadcrumbActions'
+import { HListPagination } from '../../../shared/ui/HListPagination'
 import { HPageHeader } from '../../../shared/ui/HPageHeader'
 import { HButton } from '../../../shared/ui/HButton'
 import { HBadge } from '../../../shared/ui/HBadge'
@@ -94,11 +94,7 @@ export function ContactsPage({ kind = 'companies' }: { kind?: ContactKind }) {
     ? <HDataTable getRowLink={(company) => ({ href: `/contacts/companies/${company.id}`, state: linkState, label: `Ouvrir la fiche de ${company.name}` })} data={items.filter((item): item is Company => 'name' in item)} columns={companyColumns} sorting={sorting} onSortingChange={setSorting} />
     : <HDataTable getRowLink={(person) => ({ href: `/contacts/people/${person.id}`, state: linkState, label: `Ouvrir la fiche de ${[person.first_name, person.last_name].filter(Boolean).join(' ')}` })} data={items.filter((item): item is Person => 'first_name' in item)} columns={personColumns} sorting={sorting} onSortingChange={setSorting} />
   return <div className="contact-directory">
-    {canRead && <HBreadcrumbActions><nav className="record-navigator" aria-label="Pagination des contacts" aria-busy={records.isFetching}>
-      <span className="record-navigator-count" aria-live="polite" title="Page actuelle / nombre de pages">Page {page} / {Math.max(records.data?.totalPages ?? 1, 1)}</span>
-      <HButton size="icon" variant="ghost" aria-label="Page précédente" title="Page précédente" disabled={page <= 1 || records.isFetching} onClick={() => setPage(page - 1)}><ChevronLeft size={15} /></HButton>
-      <HButton size="icon" variant="ghost" aria-label="Page suivante" title="Page suivante" disabled={page >= (records.data?.totalPages ?? 1) || records.isFetching} onClick={() => setPage(page + 1)}><ChevronRight size={15} /></HButton>
-    </nav></HBreadcrumbActions>}
+    {canRead && <HListPagination page={page} totalPages={records.data?.totalPages} label="Pagination des contacts" busy={records.isFetching} onPageChange={(nextPage) => setPage(nextPage)} />}
     <HPageHeader title="Contacts" description="Votre référentiel de sociétés et de personnes." actions={canWrite && <HButton asChild variant="primary"><Link to={`/contacts/${kind}/new`}><Plus size={15} />{kind === 'companies' ? 'Nouvelle société' : 'Nouveau contact'}</Link></HButton>} />
     {canRead && <ContactSummary />}
     <nav className="contact-tabs" aria-label="Référentiel Contacts"><Link className={kind === 'companies' ? 'selected' : ''} to={tabHref('companies')}><Building2 size={15} />Sociétés</Link><Link className={kind === 'people' ? 'selected' : ''} to={tabHref('people')}><UsersRound size={15} />Personnes</Link></nav>

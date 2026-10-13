@@ -1274,7 +1274,7 @@
 .saved-view-editor > div { display: flex; gap: 7px; }
 .saved-view-delete { flex-basis: 100%; display: flex; align-items: center; gap: 8px; padding: 7px 4px; font-size: 11px; }
 .saved-view-delete button { background: transparent; border: 0; color: var(--theme-rose-text, #c40060); }
-.record-groups { display: grid; gap: 18px; }
+.record-groups { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; }
 .record-group > header { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 9px; padding-bottom: 7px; border-bottom: 1px solid var(--theme-border, #e1e9f5); }
 .record-group h2 { display: flex; align-items: center; gap: 7px; margin: 0; font-family: var(--font-sans); font-size: 13px; font-weight: 600; }
 .record-group h2 svg { color: var(--theme-violet-text, #7040a6); }
@@ -2106,7 +2106,6 @@
 .quote-tracking-link[data-covered=true] { color: var(--theme-success, #168665); }
 @media(max-width: 760px) { .purchase-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); } .purchasing-prepare-dialog, .quote-stock-confirmation { width: calc(100vw - 24px); } }
 
-.purchase-preparation-links { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin: 12px 0; }
 
 .purchase-analytic-codes { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .purchasing-lines .purchase-analytic-button > svg { flex-shrink: 0; }

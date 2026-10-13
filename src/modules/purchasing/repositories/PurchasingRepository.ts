@@ -1,10 +1,11 @@
 import { z } from 'zod'
 import { createPocketBaseClient } from '../../../core/pocketbase/client'
-import { purchaseSchema, purchasePageSchema, choicesSchema, needsSchema, productPurchaseSchema, purchaseSettingsSchema, trackingSchema, type PurchaseKind, type PurchaseInput, type PurchaseListOptions, type PurchaseSettings, type OrderSelection } from '../schemas/purchasing'
+import { purchaseSchema, purchasePageSchema, purchaseOverviewPageSchema, choicesSchema, needsSchema, productPurchaseSchema, purchaseSettingsSchema, trackingSchema, type PurchaseKind, type PurchaseInput, type PurchaseListOptions, type PurchaseSettings, type OrderSelection } from '../schemas/purchasing'
 export function createPurchasingRepository(url: string) {
   const client = createPocketBaseClient(url)
   const send = (path: string, body?: unknown, query?: object) => client.send('/api/horizon/purchasing/' + path, { method: body === undefined ? 'GET' : 'POST', ...(body !== undefined ? { body } : {}), ...(query ? { query } : {}), requestKey: null })
   return {
+    async overview(query: PurchaseListOptions) { return purchaseOverviewPageSchema.parse(await send('overview', undefined, query)) },
     async list(kind: PurchaseKind, query: PurchaseListOptions) { return purchasePageSchema.parse(await send(kind, undefined, query)) },
     async record(kind: PurchaseKind, id: string) { return purchaseSchema.parse(await send(`${kind}/${id}`)) },
     async choices() { return choicesSchema.parse(await send('choices')) },

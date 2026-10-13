@@ -1,11 +1,11 @@
 import { useSearchParams, Link } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
-import { Package, Plus, ChevronLeft, ChevronRight, LayoutGrid, List, Monitor, Cable, Wrench } from 'lucide-react'
+import { Package, Plus, LayoutGrid, List, Monitor, Cable, Wrench } from 'lucide-react'
 import type { ColumnDef } from '@tanstack/react-table'
 import { HSummaryCards } from '../../../shared/ui/HSummaryCards'
 import { HPageHeader } from '../../../shared/ui/HPageHeader'
 import { HPageBreadcrumb } from '../../../shared/ui/HPageBreadcrumb'
-import { HBreadcrumbActions } from '../../../shared/ui/HBreadcrumbActions'
+import { HListPagination } from '../../../shared/ui/HListPagination'
 import { HButton } from '../../../shared/ui/HButton'
 import { HDataTable } from '../../../shared/ui/HDataTable'
 import { HEmptyState } from '../../../shared/ui/HEmptyState'
@@ -40,7 +40,7 @@ export function ProductsPage() {
   const results = (items: Product[]) => view === 'cards' ? <ProductCards items={items} listQuery={params.toString()} /> : table(items)
   const groups = query.data && params.get('group') === 'category' ? groupResults(query.data.items, (item) => ({ key: item.category, label: item.category_label })) : undefined
   return <div className="contact-directory"><HPageBreadcrumb items={[{ label: 'Accueil', href: '/' }, { label: 'Catalogue' }]} /><HPageHeader title="Produits" description="Catalogue, prix de vente et fournisseurs." actions={access.canWrite && <HButton asChild variant="primary"><Link to="/inventory/products/new" state={{ productListQuery: params.toString() }}><Plus size={14} />Nouveau produit</Link></HButton>} />
-    <HBreadcrumbActions><nav className="record-navigator" aria-label="Pagination des produits"><span className="record-navigator-count">Page {page} / {Math.max(1, query.data?.totalPages || 1)}</span><HButton variant="ghost" size="icon" aria-label="Page précédente" disabled={page <= 1 || query.isFetching} onClick={() => setParams((current) => { const next = new URLSearchParams(current); next.set('page', String(page - 1)); return next })}><ChevronLeft size={15} /></HButton><HButton variant="ghost" size="icon" aria-label="Page suivante" disabled={!query.data || page >= query.data.totalPages || query.isFetching} onClick={() => setParams((current) => { const next = new URLSearchParams(current); next.set('page', String(page + 1)); return next })}><ChevronRight size={15} /></HButton></nav></HBreadcrumbActions>
+    <HListPagination page={page} totalPages={query.data?.totalPages} label="Pagination des produits" busy={query.isFetching} onPageChange={(nextPage) => setParams((current) => { const next = new URLSearchParams(current); next.set('page', String(nextPage)); return next })} />
     {query.data && <HSummaryCards label="Catégories de produits" items={query.data.categories.map((category) => {
       const next = new URLSearchParams({ category: category.id, view, state: params.get('state') || 'active' })
       return { label: category.label, ...(categoryPresentation[category.code] || { icon: Package, tone: 'blue' as const }), count: category.count, detail: params.get('state') === 'archived' ? 'Archivés' : 'Actifs', accessibleLabel: `Filtrer les produits : ${category.label}`, href: `/inventory?${next}` }

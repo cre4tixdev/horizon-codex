@@ -1,11 +1,11 @@
 import { QuoteSummary } from '../components/QuoteSummary'
 import { useSearchParams, Link } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
-import { Building2, ChevronLeft, ChevronRight, FileText, Plus } from 'lucide-react'
+import { Building2, FileText, Plus } from 'lucide-react'
 import type { ColumnDef } from '@tanstack/react-table'
 import { HPageHeader } from '../../../shared/ui/HPageHeader'
 import { HPageBreadcrumb } from '../../../shared/ui/HPageBreadcrumb'
-import { HBreadcrumbActions } from '../../../shared/ui/HBreadcrumbActions'
+import { HListPagination } from '../../../shared/ui/HListPagination'
 import { HButton } from '../../../shared/ui/HButton'
 import { HDataTable } from '../../../shared/ui/HDataTable'
 import { HEmptyState } from '../../../shared/ui/HEmptyState'
@@ -31,7 +31,7 @@ export function QuotesPage() {
   if (!access.canRead) return <HEmptyState icon={FileText} title={title} description={`Vous ne disposez pas de la permission de consulter les ${noun}.`} />
   const table = (items: Quote[]) => <HDataTable columnBorders columnAlignments={{ date: 'center', amount: 'right', status: 'center' }} data={items} columns={columns} getRowLink={(quote) => ({ href: `/sales/quotes/${quote.id}`, label: `Ouvrir ${quote.status === 'accepted' ? 'la commande' : 'le devis'} ${quote.quote_number}`, state: { quoteListQuery: params.toString() } })} />
   return <div className="contact-directory"><HPageBreadcrumb items={[{ label: 'Accueil', href: '/' }, { label: title }]} /><HPageHeader title={title} description={orders ? 'Vos commandes client, rattachées aux affaires et à leur compte analytique.' : 'Vos devis, rattachés aux opportunités et à leur compte analytique.'} actions={access.canWrite && access.canReadCrm && <HButton asChild variant="primary"><Link to={`/sales/quotes/new${opportunity ? `?opportunity=${opportunity}` : ''}`} state={{ quoteListQuery: params.toString() }}><Plus size={14} />Nouveau devis</Link></HButton>} />
-    <HBreadcrumbActions><nav className="record-navigator" aria-label={`Pagination des ${noun}`} aria-busy={query.isFetching}><span className="record-navigator-count" aria-live="polite">Page {page} / {Math.max(1, query.data?.totalPages || 1)}</span><HButton variant="ghost" size="icon" aria-label="Page précédente" title="Page précédente" disabled={page <= 1 || query.isFetching} onClick={() => setParams((current) => { const next = new URLSearchParams(current); next.set('page', String(page - 1)); return next })}><ChevronLeft size={15} /></HButton><HButton variant="ghost" size="icon" aria-label="Page suivante" title="Page suivante" disabled={!query.data || page >= query.data.totalPages || query.isFetching} onClick={() => setParams((current) => { const next = new URLSearchParams(current); next.set('page', String(page + 1)); return next })}><ChevronRight size={15} /></HButton></nav></HBreadcrumbActions>
+    <HListPagination page={page} totalPages={query.data?.totalPages} label={`Pagination des ${noun}`} busy={query.isFetching} onPageChange={(nextPage) => setParams((current) => { const next = new URLSearchParams(current); next.set('page', String(nextPage)); return next })} />
     <QuoteSummary />
     {opportunity && <p className="contact-muted"><Link to={`/crm/opportunities/${opportunity}`}>Retour à l’opportunité</Link> · <Link to={orders ? "/sales/quotes?status=accepted" : "/sales/quotes"}>Tous les {noun}</Link></p>}
     {query.isPending && <HLoadingIndicator label={`Chargement des ${noun}`} />}{query.error && <p role="alert" className="field-error">{query.error.message}<HButton onClick={() => void query.refetch()}>Réessayer</HButton></p>}

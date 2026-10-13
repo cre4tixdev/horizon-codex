@@ -40,6 +40,84 @@ class PurchasingTests(unittest.TestCase):
         self.assertEqual(status, 200, quote)
         return quote
 
+    def test_overview_combines_requests_and_orders_with_global_pagination(self):
+        status, request = self.save_request(dict(self.input, title='AAA demande'))
+        self.assertEqual(status, 200, request)
+        status, request = self.transition('requests', request)
+        self.assertEqual(status, 200, request)
+        status, orders = self.order(request)
+        self.assertEqual(status, 200, orders)
+        order = orders['items'][0]
+        ids = {request['id'], order['id']}
+        for index in range(32):
+            status, draft = self.save_request(dict(self.input, title=f'ZZZ demande {index:02}'))
+            self.assertEqual(status, 200, draft)
+            ids.add(draft['id'])
+        pages = []
+        for number in [1, 2]:
+            status, page = self.pb.request('GET', 'horizon/purchasing/overview?status=pending&sort=title&page=' + str(number), token=self.token)
+            self.assertEqual(status, 200, page)
+            self.assertEqual(page['totalItems'], 34)
+            self.assertEqual(page['totalPages'], 2)
+            self.assertEqual(page['summary'], {'requests': 33, 'orders': 1, 'draft': 33, 'validated': 1})
+            pages.append(page['items'])
+        self.assertEqual(len(pages[0]), 30)
+        self.assertEqual(len(pages[1]), 4)
+        self.assertEqual(pages[0][0]['title'], 'AAA demande')
+        self.assertEqual({item['id'] for page in pages for item in page}, ids)
+        self.assertEqual({item['kind'] for page in pages for item in page}, {'requests', 'orders'})
+        status, selected = self.pb.request('GET', 'horizon/purchasing/overview?status=orders', token=self.token)
+        self.assertEqual(status, 200, selected)
+        self.assertEqual([(item['kind'], item['id']) for item in selected['items']], [('orders', order['id'])])
+        self.assertEqual(selected['summary']['requests'], 33)
+        self.assertEqual(self.pb.request('GET', 'horizon/purchasing/overview')[0], 401)
+
+    def test_overview_pending_excludes_finished_requests_and_orders(self):
+        status, request = self.save_request()
+        self.assertEqual(status, 200, request)
+        status, request = self.transition('requests', request)
+        self.assertEqual(status, 200, request)
+        status, orders = self.order(request)
+        self.assertEqual(status, 200, orders)
+        self.assertEqual(self.pb.request('PATCH', 'collections/purchasing_requests/records/' + request['id'], {'status': 'ordered'}, self.pb.admin_token)[0], 200)
+        self.assertEqual(self.pb.request('PATCH', 'collections/purchasing_orders/records/' + orders['items'][0]['id'], {'status': 'received'}, self.pb.admin_token)[0], 200)
+        status, result = self.pb.request('GET', 'horizon/purchasing/overview?status=pending', token=self.token)
+        self.assertEqual(status, 200, result)
+        self.assertEqual(result['totalItems'], 0)
+        self.assertEqual(result['summary']['orders'], 1)
+        status, result = self.pb.request('GET', 'horizon/purchasing/overview?status=orders', token=self.token)
+        self.assertEqual(status, 200, result)
+        self.assertEqual(result['totalItems'], 1)
+        self.pb.request('PATCH', 'collections/core_roles/records/' + self.user['role'], {'permissions': ['inventory.read']}, self.pb.admin_token)
+        self.assertEqual(self.pb.request('GET', 'horizon/purchasing/overview?status=pending', token=self.token)[0], 403)
+
+    def test_pending_requests_filter_preserves_summary_context_and_permissions(self):
+        expected = []
+        for state in ['draft', 'validated', 'partially_ordered', 'ordered', 'completed', 'cancelled']:
+            status, record = self.save_request()
+            self.assertEqual(status, 200, record)
+            # Seed read-model states only in this disposable database.
+            status, patched = self.pb.request('PATCH', 'collections/purchasing_requests/records/' + record['id'], {'status': state}, self.pb.admin_token)
+            self.assertEqual(status, 200, patched)
+            if state in ['draft', 'validated', 'partially_ordered']:
+                expected.append(record['id'])
+        status, archived = self.save_request()
+        self.assertEqual(status, 200, archived)
+        self.assertEqual(self.transition('requests', archived, 'archive')[0], 200)
+        context = 'q=Besoin&opportunity=' + self.opp['id']
+        status, result = self.pb.request('GET', 'horizon/purchasing/requests?' + context + '&status=pending', token=self.token)
+        self.assertEqual(status, 200, result)
+        self.assertCountEqual([record['id'] for record in result['items']], expected)
+        self.assertEqual(result['totalItems'], 3)
+        self.assertEqual(result['summary'], {state: 1 for state in ['draft', 'validated', 'partially_ordered', 'ordered', 'completed', 'cancelled']})
+        status, empty = self.pb.request('GET', 'horizon/purchasing/requests?status=pending&q=introuvable', token=self.token)
+        self.assertEqual(status, 200, empty)
+        self.assertEqual(empty['totalItems'], 0)
+        self.assertEqual(self.pb.request('GET', 'horizon/purchasing/orders?status=pending', token=self.token)[0], 400)
+        self.assertEqual(self.pb.request('GET', 'horizon/purchasing/requests?status=pending')[0], 401)
+        self.pb.request('PATCH', 'collections/core_roles/records/' + self.user['role'], {'permissions': ['inventory.read']}, self.pb.admin_token)
+        self.assertEqual(self.pb.request('GET', 'horizon/purchasing/requests?status=pending', token=self.token)[0], 403)
+
     def test_list_summaries_ignore_status_and_page_but_keep_context(self):
         status, draft = self.save_request()
         self.assertEqual(status, 200, draft)
