@@ -24,7 +24,7 @@ export type PurchaseInput = z.infer<typeof purchaseInputSchema>
 export type PurchaseLineInput = z.infer<typeof purchaseLineInputSchema>
 export type PurchaseChoices = z.infer<typeof choicesSchema>
 export type PurchaseSettings = z.infer<typeof purchaseSettingsSchema>
-export type PurchaseListOptions = Record<'q' | 'status' | 'supplier' | 'opportunity' | 'product' | 'source_order' | 'source_line' | 'sort' | 'group', string> & { request_line?: string; request?: string; order?: string; page: number }
+export type PurchaseListOptions = Record<'q' | 'status' | 'supplier' | 'opportunity' | 'product' | 'source_order' | 'source_line' | 'sort' | 'group', string> & { kind?: string; state?: string; request_line?: string; request?: string; order?: string; page: number }
 export type OrderSelection = { id: string; quantity: number; supplier: string }
 export function emptyPurchaseLine(): PurchaseLineInput { return { purpose: 'stock', product: '', description: '', reference: '', brand: '', quantity: 1, unit: 'u', unit_price: 0, discount: 0, supplier: '', source_line: '', request_line: '', allocations: [] } }
 

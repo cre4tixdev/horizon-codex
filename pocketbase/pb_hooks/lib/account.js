@@ -6,9 +6,17 @@ const current = (app, auth) => {
   return user
 }
 const exact = (input, fields) => { if (!input || typeof input !== 'object' || Array.isArray(input) || Object.keys(input).some((key) => !fields.includes(key))) throw new BadRequestError('Champs non autorisés.') }
-const dto = (app, user) => ({ id: user.id, collectionId: user.collection().id, updated: user.getString('updated'), name: user.getString('name'), first_name: user.getString('first_name'), last_name: user.getString('last_name'), email: user.getString('email'), public_email: user.getString('public_email'), avatar: user.getString('avatar'), presence: user.getString('presence') || 'available', role_label: app.findRecordById('core_roles', user.getString('role')).getString('label'), erp_profile: user.getString('erp_profile') })
+const dto = (app, user) => ({ id: user.id, collectionId: user.collection().id, updated: user.getString('updated'), name: user.getString('name'), first_name: user.getString('first_name'), last_name: user.getString('last_name'), email: user.getString('email'), public_email: user.getString('public_email'), avatar: require(`${__hooks}/lib/identity-photo.js`).source(app, user).getString('avatar'), employee_id: user.getString('employee'), presence: user.getString('presence') || 'available', role_label: app.findRecordById('core_roles', user.getString('role')).getString('label'), erp_profile: user.getString('erp_profile') })
 const personal = (user) => Object.fromEntries(['name', 'first_name', 'last_name', 'public_email', 'avatar', 'presence'].map((key) => [key, user.getString(key)]))
 module.exports = {
+  avatar(event) {
+    const actor = current(event.app, event.auth)
+    const id = event.request.pathValue('id')
+    if (id !== actor.id && !policy.admin(event.app, actor)) throw new ForbiddenError('Photo hors de votre périmètre.')
+    if (!/^[a-z0-9]{15}$/.test(id)) throw new BadRequestError('Compte invalide.')
+    const user = event.app.findRecordById('core_users', id)
+    return require(`${__hooks}/lib/identity-photo.js`).serve(event, user)
+  },
   read(event) { return event.json(200, dto(event.app, current(event.app, event.auth))) },
   save(event) {
     const body = event.requestInfo().body; exact(body, ['updated', 'input', 'remove_avatar'])
@@ -19,7 +27,7 @@ module.exports = {
     if (body.remove_avatar !== undefined && ![true, false, 'true', 'false'].includes(body.remove_avatar)) throw new BadRequestError('Photo invalide.')
     let files = []
     if (event.request.header.get('Content-Type').startsWith('multipart/form-data')) { try { files = event.findUploadedFiles('avatar') } catch (error) { if (!String(error).endsWith('http: no such file')) throw error } }
-    if (files.length > 1) throw new BadRequestError('Une seule photo est autorisée.')
+    if (files.length || body.remove_avatar === true || body.remove_avatar === 'true') throw new BadRequestError('La photo se gère sur la fiche Employé associée.')
     let saved
     event.app.runInTransaction((app) => {
       const user = current(app, event.auth)
@@ -27,8 +35,6 @@ module.exports = {
       const before = personal(user)
       for (const key of ['name', 'first_name', 'last_name', 'public_email']) user.set(key, input[key].trim())
       if (input.presence !== undefined) user.set('presence', input.presence)
-      if (body.remove_avatar === true || body.remove_avatar === 'true') user.set('avatar', '')
-      if (files.length) user.set('avatar', files)
       app.save(user); policy.audit(app, 'core_users', user.id, user.id, before, personal(user), 'profile_update'); saved = dto(app, user)
     })
     return event.json(200, saved)

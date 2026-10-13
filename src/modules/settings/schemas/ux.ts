@@ -2,6 +2,9 @@ import { z } from 'zod'
 import type { CSSProperties } from 'react'
 const color = z.string().regex(/^#[a-f0-9]{6}$/i)
 export const uxLimits = {
+  filter_font: { min: 8, max: 20 },
+  filter_button_height: { min: 24, max: 56 },
+  filter_option_height: { min: 24, max: 56 },
   sidebar_width: { min: 180, max: 360 },
   sidebar_font: { min: 9, max: 18, step: .5 },
   sidebar_submenu_font: { min: 8, max: 18, step: .5 },
@@ -42,6 +45,21 @@ export const uxLimits = {
 export const uxStep = (key: keyof typeof uxLimits) => { const limit = uxLimits[key]; return 'step' in limit ? limit.step : 1 }
 const bounded = (key: keyof typeof uxLimits) => z.number().min(uxLimits[key].min).max(uxLimits[key].max).multipleOf(uxStep(key))
 export const uxInputSchema = z.object({
+  filter_selected_border_dark: color.default('#65517E'),
+  filter_selected_border_light: color.default('#DAC5F2'),
+  filter_selected_text_dark: color.default('#C1A0F2'),
+  filter_selected_text_light: color.default('#7040A6'),
+  filter_selected_background_dark: color.default('#302541'),
+  filter_selected_background_light: color.default('#F5EFFC'),
+  filter_border_dark: color.default('#364860'),
+  filter_border_light: color.default('#DCE5EF'),
+  filter_text_dark: color.default('#E8EEF8'),
+  filter_text_light: color.default('#091C3A'),
+  filter_background_dark: color.default('#162236'),
+  filter_background_light: color.default('#FFFFFF'),
+  filter_font: bounded('filter_font').default(12),
+  filter_button_height: bounded('filter_button_height').default(26),
+  filter_option_height: bounded('filter_option_height').default(36),
   sidebar_background_top: color.default('#031C2C'),
   sidebar_background_middle: color.default('#071D35'),
   sidebar_background_bottom: color.default('#0B1832'),
@@ -118,6 +136,21 @@ export type UxInput = z.infer<typeof uxInputSchema>
 export const uxSettingsSchema = z.object({ id: z.string(), updated: z.string(), config: uxInputSchema })
 export type UxSettings = z.infer<typeof uxSettingsSchema>
 export const uxDefaults: UxInput = {
+  filter_selected_border_dark: '#65517E',
+  filter_selected_border_light: '#DAC5F2',
+  filter_selected_text_dark: '#C1A0F2',
+  filter_selected_text_light: '#7040A6',
+  filter_selected_background_dark: '#302541',
+  filter_selected_background_light: '#F5EFFC',
+  filter_border_dark: '#364860',
+  filter_border_light: '#DCE5EF',
+  filter_text_dark: '#E8EEF8',
+  filter_text_light: '#091C3A',
+  filter_background_dark: '#162236',
+  filter_background_light: '#FFFFFF',
+  filter_font: 12,
+  filter_button_height: 26,
+  filter_option_height: 36,
   sidebar_background_top: '#031C2C',
   sidebar_background_middle: '#071D35',
   sidebar_background_bottom: '#0B1832',
@@ -194,6 +227,21 @@ export const uxDefaults: UxInput = {
 }
 export function uxStyle(values: UxInput): CSSProperties & { [key: `--${string}`]: string } {
   return {
+    '--hz-filter-option-height': `${values.filter_option_height}px`,
+    '--hz-filter-button-height': `${values.filter_button_height}px`,
+    '--hz-filter-font': `${values.filter_font}px`,
+    '--hz-filter-background-light': values.filter_background_light,
+    '--hz-filter-background-dark': values.filter_background_dark,
+    '--hz-filter-text-light': values.filter_text_light,
+    '--hz-filter-text-dark': values.filter_text_dark,
+    '--hz-filter-border-light': values.filter_border_light,
+    '--hz-filter-border-dark': values.filter_border_dark,
+    '--hz-filter-selected-background-light': values.filter_selected_background_light,
+    '--hz-filter-selected-background-dark': values.filter_selected_background_dark,
+    '--hz-filter-selected-text-light': values.filter_selected_text_light,
+    '--hz-filter-selected-text-dark': values.filter_selected_text_dark,
+    '--hz-filter-selected-border-light': values.filter_selected_border_light,
+    '--hz-filter-selected-border-dark': values.filter_selected_border_dark,
     '--hz-sidebar-background': `linear-gradient(165deg, ${values.sidebar_background_top}, ${values.sidebar_background_middle} 65%, ${values.sidebar_background_bottom})`,
     '--hz-sidebar-text-color': values.sidebar_text_color,
     '--hz-sidebar-icon-color': values.sidebar_icon_color,

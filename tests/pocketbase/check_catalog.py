@@ -27,6 +27,18 @@ class CatalogTests(unittest.TestCase):
 
     quote_save = check_sales.SalesTests.quote_save
 
+    def test_multiple_families_and_independent_archive(self):
+        status, first = self.create_product(); self.assertEqual(status, 200, first)
+        category = next(item['id'] for item in self.categories if item['id'] != first['category'])
+        status, second = self.create_product(key='catalog-multiple-family-key', sku='FAMILY-SECOND', category=category); self.assertEqual(status, 200, second)
+        query = 'category=' + first['category'] + ',' + category
+        status, result = self.pb.request('GET', 'horizon/inventory/products?' + query, token=self.token)
+        self.assertEqual(status, 200, result); self.assertEqual(result['totalItems'], 2)
+        self.assertEqual(self.pb.request('POST', 'horizon/inventory/products/state', {'id': first['id'], 'updated': first['updated'], 'active': False}, self.token)[0], 200)
+        self.assertEqual(self.pb.request('GET', 'horizon/inventory/products?' + query + '&state=archived', token=self.token)[1]['totalItems'], 1)
+        for bad in ['category=invalid', 'state=invalid', 'category=' + category + ',' + category]:
+            self.assertEqual(self.pb.request('GET', 'horizon/inventory/products?' + bad, token=self.token)[0], 400)
+
     def test_category_cards_count_all_pages_and_keep_empty_categories(self):
         for index in range(26):
             status, product = self.create_product(key=f'category-count-key-{index:05d}', sku=f'CAT-{index}', barcode='')

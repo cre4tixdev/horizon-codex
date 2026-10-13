@@ -40,6 +40,33 @@ class StockOperationsTests(unittest.TestCase):
         status, record = self.save(self.build_input(quantity=quantity)); self.assertEqual(status, 200, record)
         status, record = self.action(record); self.assertEqual(status, 200, record)
         return record
+    def test_dynamic_filters_types_states_archives_and_search(self):
+        from urllib.parse import urlencode
+        status, receipt = self.save(self.build_input('IN')); self.assertEqual(status, 200, receipt)
+        status, delivery = self.save(self.build_input('OUT')); self.assertEqual(status, 200, delivery)
+        status, cancelled = self.action(delivery, 'cancel'); self.assertEqual(status, 200, cancelled)
+        def listing(**query):
+            status, result = self.pb.request('GET', 'horizon/inventory/operations?' + urlencode(query), token=self.token)
+            self.assertEqual(status, 200, result); return result
+        self.assertEqual(listing(kind='IN,OUT', status='draft,cancelled')['totalItems'], 2)
+        self.assertEqual(listing(kind='IN,OUT', variant='delivery,scrap')['totalItems'], 2)
+        self.assertEqual(listing(q=receipt['warehouse_name'])['totalItems'], 2)
+        status, archived = self.action(cancelled, 'archive'); self.assertEqual(status, 200, archived)
+        self.assertEqual(listing(state='archived', status='cancelled')['totalItems'], 1)
+        self.assertEqual(listing(state='active', status='cancelled')['totalItems'], 0)
+        self.assertEqual(listing(state='archived', status='cancelled')['summary']['OUT'], 1)
+        self.assertEqual(listing(status='archived')['totalItems'], 1)
+        for query in [{'kind': 'IN,invalid'}, {'kind': 'INV,IN'}, {'status': 'draft,draft'}, {'state': 'invalid'}, {'kind': 'IN', 'variant': 'delivery'}]:
+            self.assertEqual(self.pb.request('GET', 'horizon/inventory/operations?' + urlencode(query), token=self.token)[0], 400)
+        # Affair search includes allocations and respects CRM read rights.
+        status, affair = self.save(dict(self.build_input('IN'), opportunity=self.opp['id'])); self.assertEqual(status, 200, affair)
+        self.assertEqual(listing(q=self.opp['title'])['totalItems'], 1)
+        self.assertEqual(listing(q=self.opp['title'])['items'][0]['opportunities'][0]['id'], self.opp['id'])
+        role = self.pb.request('GET', 'collections/core_roles/records/' + self.user['role'], token=self.pb.admin_token)[1]
+        self.pb.request('PATCH', 'collections/core_roles/records/' + self.user['role'], {'permissions': [right for right in role['permissions'] if right != 'crm.read']}, self.pb.admin_token)
+        self.assertEqual(listing(q=self.opp['title'])['totalItems'], 0)
+        self.assertTrue(all(not item['opportunities'] for item in listing()['items']))
+
     def test_draft_idempotency_number_and_append_only(self):
         key = str(uuid.uuid4()); input = self.build_input()
         status, draft = self.save(input, key); self.assertEqual(status, 200, draft)

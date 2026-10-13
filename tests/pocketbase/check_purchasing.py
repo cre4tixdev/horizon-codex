@@ -40,6 +40,17 @@ class PurchasingTests(unittest.TestCase):
         self.assertEqual(status, 200, quote)
         return quote
 
+    def test_types_are_independent_and_states_are_multiple(self):
+        status, request = self.save_request(); self.assertEqual(status, 200, request)
+        status, request = self.transition('requests', request); self.assertEqual(status, 200, request)
+        for query, total in [('kind=requests', 1), ('kind=orders', 1), ('kind=requests,orders', 2), ('kind=requests,orders&status=draft,validated', 2), ('kind=orders&status=draft,received', 1), ('kind=requests&status=sent,received', 0)]:
+            status, result = self.pb.request('GET', 'horizon/purchasing/overview?' + query, token=self.token)
+            self.assertEqual(status, 200, result); self.assertEqual(result['totalItems'], total, query)
+        status, request = self.transition('requests', request, 'archive'); self.assertEqual(status, 200, request)
+        self.assertEqual(self.pb.request('GET', 'horizon/purchasing/overview?kind=requests&status=validated&state=archived', token=self.token)[1]['totalItems'], 1)
+        for query in ['kind=bad', 'kind=orders,orders', 'status=draft,bad', 'status=draft,draft']:
+            self.assertEqual(self.pb.request('GET', 'horizon/purchasing/overview?' + query, token=self.token)[0], 400)
+
     def test_overview_combines_requests_and_orders_with_global_pagination(self):
         status, request = self.save_request(dict(self.input, title='AAA demande'))
         self.assertEqual(status, 200, request)
@@ -118,6 +129,29 @@ class PurchasingTests(unittest.TestCase):
         self.pb.request('PATCH', 'collections/core_roles/records/' + self.user['role'], {'permissions': ['inventory.read']}, self.pb.admin_token)
         self.assertEqual(self.pb.request('GET', 'horizon/purchasing/requests?status=pending', token=self.token)[0], 403)
 
+    def test_archives_are_independent_of_status_and_summary(self):
+        status, draft = self.save_request(); self.assertEqual(status, 200, draft)
+        status, archived = self.transition('requests', draft, 'archive'); self.assertEqual(status, 200, archived)
+        for route in ['requests', 'overview']:
+            for query, total in [('state=archived&status=draft', 1), ('state=active&status=draft', 0), ('state=archived&status=validated', 0), ('status=archived', 1)]:
+                status, result = self.pb.request('GET', 'horizon/purchasing/' + route + '?' + query, token=self.token)
+                self.assertEqual(status, 200, result); self.assertEqual(result['totalItems'], total, query)
+                self.assertEqual(result['summary'].get('draft', 0), 0 if 'state=active' in query else 1)
+            self.assertEqual(self.pb.request('GET', 'horizon/purchasing/' + route + '?state=invalid', token=self.token)[0], 400)
+
+    def test_search_by_supplier_and_allocated_opportunity(self):
+        from urllib.parse import urlencode
+        status, request = self.save_request(); self.assertEqual(status, 200, request)
+        self.assertEqual(request['supplier_name'], self.supplier['name'])
+        status, request = self.transition('requests', request); self.assertEqual(status, 200, request)
+        for kind in ['requests', 'orders']:
+            for term in [self.supplier['name'], self.opp['title'], self.opp['opportunity_number']]:
+                status, result = self.pb.request('GET', 'horizon/purchasing/' + kind + '?' + urlencode({'q': term}), token=self.token)
+                self.assertEqual(status, 200, result); self.assertEqual(result['totalItems'], 1, term)
+        self.pb.request('PATCH', 'collections/core_roles/records/' + self.user['role'], {'permissions': ['purchasing.read']}, self.pb.admin_token)
+        status, result = self.pb.request('GET', 'horizon/purchasing/requests?' + urlencode({'q': self.opp['title']}), token=self.token)
+        self.assertEqual(status, 200, result); self.assertEqual(result['totalItems'], 0)
+
     def test_list_summaries_ignore_status_and_page_but_keep_context(self):
         status, draft = self.save_request()
         self.assertEqual(status, 200, draft)
@@ -156,7 +190,7 @@ class PurchasingTests(unittest.TestCase):
         status, confirmed = self.pb.request('POST', 'horizon/sales/quotes/confirm', dict(id=quote['id'], updated=quote['updated'], customer_order_number='', awaiting_customer_order=True, reservations=[dict(source_line=quote['lines'][0]['id'], location=self.location, quantity=2)]), self.token)
         self.assertEqual(status, 200, confirmed)
         context = 'product=' + self.item['id'] + '&location=' + self.location
-        for availability in ['', 'physical', 'reserved', 'available']:
+        for availability in ['', 'physical', 'reserved', 'available', 'physical,reserved', 'reserved,available']:
             status, result = self.pb.request('GET', 'horizon/inventory/stock?' + context + '&availability=' + availability, token=self.token)
             self.assertEqual(status, 200, result)
             self.assertEqual(result['summary'], dict(all=1, physical=1, reserved=1, available=1))
@@ -167,15 +201,21 @@ class PurchasingTests(unittest.TestCase):
         self.assertEqual(result['summary']['physical'], 1)
         self.assertEqual(result['items'], [])
         self.assertEqual(self.pb.request('GET', 'horizon/inventory/stock?availability=bad', token=self.token)[0], 400)
+        from urllib.parse import urlencode
+        location = self.pb.request('GET', 'collections/inventory_locations/records/' + self.location, token=self.pb.admin_token)[1]
+        status, searched = self.pb.request('GET', 'horizon/inventory/stock?' + urlencode({'q': location['name'], 'product': self.item['id'], 'availability': 'physical,reserved'}), token=self.token)
+        self.assertEqual(status, 200, searched); self.assertEqual(searched['totalItems'], 1)
         status, catalogue = self.pb.request('GET', 'horizon/inventory/products?q=CABLE001', token=self.token)
         self.assertEqual(status, 200, catalogue)
         self.assertEqual(catalogue['items'][0]['id'], self.item['id'])
         self.assertAlmostEqual(catalogue['items'][0]['available_quantity'], 2.123456)
+        self.assertAlmostEqual(catalogue['items'][0]['physical_quantity'], 4.123456)
         status, service = check_catalog.CatalogTests.create_product(self, key='catalog-service-card', sku='SERVICE-CARD', stock_policy='none', kind='service')
         self.assertEqual(status, 200, service)
         status, catalogue = self.pb.request('GET', 'horizon/inventory/products?q=SERVICE-CARD', token=self.token)
         self.assertEqual(status, 200, catalogue)
         self.assertIsNone(catalogue['items'][0]['available_quantity'])
+        self.assertIsNone(catalogue['items'][0]['physical_quantity'])
 
 
     def test_manual_requests_grouping_snapshot_and_filters(self):

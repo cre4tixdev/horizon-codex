@@ -15,6 +15,12 @@ describe('Shared UX configuration', () => {
       for (const value of [range.min - 1, range.max + 1]) expect(uxInputSchema.safeParse({ ...uxDefaults, [key]: value }).success).toBe(false)
     }
   })
+  it('defaults missing filter keys and maps bounded filter tokens', () => {
+    const legacy = Object.fromEntries(Object.entries(uxDefaults).filter(([key]) => !key.startsWith('filter_')))
+    expect(uxInputSchema.parse(legacy)).toEqual(uxDefaults)
+    expect(uxStyle({ ...uxDefaults, filter_option_height: 40, filter_font: 14, filter_selected_text_dark: '#AABBCC' })).toMatchObject({ '--hz-filter-option-height': '40px', '--hz-filter-font': '14px', '--hz-filter-selected-text-dark': '#AABBCC' })
+    expect(uxInputSchema.safeParse({ ...uxDefaults, filter_text_light: 'url(evil)' }).success).toBe(false)
+  })
   it('keeps editable controls smaller than their row', () => {
     const min = uxStyle({ ...uxDefaults, row_height: uxLimits.row_height.min }), max = uxStyle({ ...uxDefaults, row_height: uxLimits.row_height.max })
     expect(min['--hz-table-cell-height']).toBe('22px')

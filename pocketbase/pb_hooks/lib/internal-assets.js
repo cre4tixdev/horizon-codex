@@ -45,8 +45,10 @@ module.exports = {
   },
   list(event) {
     guard(event.app, event.auth); const query = event.requestInfo().query; c.exact(query, ['q', 'status', 'product', 'warehouse', 'page', 'sort']); const params = {}, filters = ['id != ""']
-    for (const key of ['status', 'product', 'warehouse']) if (query[key]) { filters.push(`${key} = {:${key}}`); params[key] = query[key] }
-    if (query.q) { filters.push('(number ~ {:q} || name ~ {:q} || product.sku ~ {:q} || serial.serial_number ~ {:q})'); params.q = String(query.q).slice(0, 200) }
+    const states = require(`${__hooks}/lib/stock-list-filters.js`).values(query.status, ['stored', 'assigned', 'repair', 'retired', 'returned'], 'États du parc')
+    if (states.length) filters.push('(' + states.map((state, index) => { params['status' + index] = state; return `status = {:status${index}}` }).join(' || ') + ')')
+    for (const key of ['product', 'warehouse']) if (query[key]) { filters.push(`${key} = {:${key}}`); params[key] = query[key] }
+    if (query.q) { filters.push('(number ~ {:q} || name ~ {:q} || product.sku ~ {:q} || serial.serial_number ~ {:q} || warehouse.name ~ {:q} || location.name ~ {:q} || product.manufacturer ~ {:q})'); params.q = String(query.q).slice(0, 200) }
     const filter = filters.join(' && '), page = Math.max(1, Number(query.page) || 1), total = event.app.findRecordsByFilter('inventory_internal_assets', filter, '', 0, 0, params).length
     return event.json(200, { items: event.app.findRecordsByFilter('inventory_internal_assets', filter, query.sort === 'name' ? 'name,id' : '-created,id', 30, (page - 1) * 30, params).map((asset) => dto(event.app, event.auth, asset)), totalItems: total, totalPages: Math.max(1, Math.ceil(total / 30)), page })
   },

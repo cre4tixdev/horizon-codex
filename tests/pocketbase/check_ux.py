@@ -32,7 +32,7 @@ class UxTests(unittest.TestCase):
         self.assertIn(self.save(updated=saved['updated'])[0], [401, 403])
 
     def test_bounds_unknown_fields_and_css_injection(self):
-        for patch in [{'row_height': 20}, {'row_height': 33.2}, {'page_margin': 101}, {'title_font': 100}, {'control_height': 5}, {'header_light': 'url(https://evil.invalid)'}, {'header_dark': '#fff'}, {'table_border_light': 'red'}, {'table_header_text_light': 'red'}, {'table_header_text_dark': 'url(evil)'}, {'table_border_dark': 'url(evil)'}, {'activity_light': 'red'}, {'accent_background': 'url(evil)'}, {'launcher_tile_size': 10}, {'smart_height': 10}, {'sidebar_group_gap': -1}, {'sidebar_width': 179}, {'sidebar_width': 361}, {'sidebar_font': 12.25}, {'sidebar_icon_size': 29}, {'sidebar_text_color': 'red'}, {'sidebar_background_top': 'url(evil)'}, {'sidebar_submenu_indent': -1}, {'unknown': 1}]:
+        for patch in [{'row_height': 20}, {'row_height': 33.2}, {'page_margin': 101}, {'title_font': 100}, {'control_height': 5}, {'header_light': 'url(https://evil.invalid)'}, {'header_dark': '#fff'}, {'table_border_light': 'red'}, {'table_header_text_light': 'red'}, {'table_header_text_dark': 'url(evil)'}, {'table_border_dark': 'url(evil)'}, {'activity_light': 'red'}, {'accent_background': 'url(evil)'}, {'launcher_tile_size': 10}, {'smart_height': 10}, {'sidebar_group_gap': -1}, {'sidebar_width': 179}, {'sidebar_width': 361}, {'sidebar_font': 12.25}, {'sidebar_icon_size': 29}, {'sidebar_text_color': 'red'}, {'sidebar_background_top': 'url(evil)'}, {'sidebar_submenu_indent': -1}, {'filter_option_height': 23}, {'filter_button_height': 57}, {'filter_font': 12.5}, {'filter_selected_background_dark': 'url(evil)'}, {'unknown': 1}]:
             self.assertEqual(self.save({**self.record['config'], **patch})[0], 400, patch)
         self.assertEqual(self.pb.request('POST', 'horizon/settings/ux', {'updated': self.record['updated'], 'config': self.record['config'], 'css': 'body{}'}, self.admin_token)[0], 400)
         self.assertEqual(self.pb.request('GET', 'horizon/settings/ux', token=self.token)[1], self.record)
@@ -90,6 +90,25 @@ class UxTests(unittest.TestCase):
         self.assertEqual(saved['table_border_dark'], '#364860')
         self.assertEqual(saved['table_header_text_light'], '#4C678E')
         self.assertEqual(saved['table_header_text_dark'], '#B8C5D7')
+
+    def test_filter_appearance_migration_and_save(self):
+        self.assertEqual(self.record['config']['filter_option_height'], 36)
+        status, saved = self.save({**self.record['config'], 'filter_option_height': 40, 'filter_button_height': 30, 'filter_font': 14, 'filter_selected_text_dark': '#AABBCC'})
+        self.assertEqual(status, 200, saved)
+        self.pb.process.terminate(); self.pb.process.wait(timeout=5)
+        with sqlite3.connect(self.pb.data / 'data.db') as connection:
+            config = json.loads(connection.execute('SELECT config FROM settings_ux').fetchone()[0])
+            config.pop('filter_background_light')
+            connection.execute('UPDATE settings_ux SET config = ?', (json.dumps(config),))
+            connection.execute('DELETE FROM _migrations WHERE file = ?', ('1791840007_filter_appearance.js',))
+        for _ in range(2): subprocess.run(self.pb.args + ['migrate', 'up'], check=True, stdout=subprocess.DEVNULL)
+        self.pb.launch_and_authenticate(self.pb.args)
+        config = self.pb.request('GET', 'horizon/settings/ux', token=self.token)[1]['config']
+        self.assertEqual(config['filter_background_light'], '#FFFFFF')
+        self.assertEqual(config['filter_option_height'], 40)
+        self.assertEqual(config['filter_font'], 14)
+        self.assertEqual(config['filter_selected_text_dark'], '#AABBCC')
+        self.assertEqual(config['row_height'], 32)
 
     def test_optimistic_lock_and_superuser(self):
         role = self.pb.create('core_roles', {'name': 'ux_super', 'label': 'UX super', 'active': True, 'permissions': ['settings.references']})

@@ -1,7 +1,9 @@
-import { useEffect, useId, useState, useSyncExternalStore } from 'react'
+import { useId, useState, useSyncExternalStore } from 'react'
+import { Link } from 'react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useForm, useWatch } from 'react-hook-form'
-import { Camera, KeyRound, Mail, ShieldCheck, Undo2, UserRound, X } from 'lucide-react'
+import { KeyRound, Mail, ShieldCheck, Undo2, UserRound } from 'lucide-react'
+import { hasPermission } from '../../core/auth/types/session'
 import { sessionService } from '../../core/auth/services/session'
 import { accountService } from '../../core/auth/services/AccountService'
 import { accountInputSchema, passwordInputSchema, type Account, type AccountInput, type PasswordInput, presenceLabels, presenceSchema } from '../../core/auth/schemas/account'
@@ -34,20 +36,16 @@ export function AccountPage() {
 }
 
 function AccountEditor({ account, onSaved }: { account: Account; onSaved: () => void }) {
-  const client = useQueryClient(), formId = useId(), uploadId = useId()
+  const session = useSyncExternalStore(sessionService.subscribe, sessionService.getSnapshot)
+  const canReadEmployee = session.status === 'authenticated' && hasPermission(session.user, 'hr.read')
+  const client = useQueryClient(), formId = useId()
   const initial: AccountInput = { presence: account.presence, name: account.name, first_name: account.first_name, last_name: account.last_name, public_email: account.public_email }
   const form = useForm<AccountInput>({ defaultValues: initial })
   const presence = useWatch({ control: form.control, name: 'presence' })
-  const [file, setFile] = useState<File>(), [preview, setPreview] = useState(''), [removeAvatar, setRemoveAvatar] = useState(false), [fileError, setFileError] = useState(''), [passwordOpen, setPasswordOpen] = useState(false)
-  useEffect(() => () => { if (preview) URL.revokeObjectURL(preview) }, [preview])
-  const dirty = form.formState.isDirty || Boolean(file) || removeAvatar
-  const save = useMutation({ mutationFn: (input: AccountInput) => accountService.save(input, account.updated, file, removeAvatar), onSuccess: (saved) => { client.setQueryData(['account', 'profile', saved.id], saved); onSaved() } })
-  function reset() { form.reset(initial); setFile(undefined); setPreview(''); setRemoveAvatar(false); setFileError(''); save.reset() }
-  function photo(selected?: File) {
-    if (!selected) return
-    if (!['image/png', 'image/jpeg', 'image/webp'].includes(selected.type) || selected.size > 2097152) { setFileError('Choisissez une image PNG, JPEG ou WebP de 2 Mo maximum.'); return }
-    setFileError(''); setFile(selected); setPreview(URL.createObjectURL(selected)); setRemoveAvatar(false)
-  }
+  const [passwordOpen, setPasswordOpen] = useState(false)
+  const dirty = form.formState.isDirty
+  const save = useMutation({ mutationFn: (input: AccountInput) => accountService.save(input, account.updated), onSuccess: (saved) => { client.setQueryData(['account', 'profile', saved.id], saved); onSaved() } })
+  function reset() { form.reset(initial); save.reset() }
   async function submit(input: AccountInput) {
     const parsed = accountInputSchema.safeParse(input)
     if (!parsed.success) { for (const issue of parsed.error.issues) { const key = issue.path[0]; if (key === 'first_name' || key === 'last_name' || key === 'name' || key === 'public_email') form.setError(key, { message: issue.message }, { shouldFocus: true }) }; return }
@@ -59,10 +57,9 @@ function AccountEditor({ account, onSaved }: { account: Account; onSaved: () => 
       <section className="contact-panel account-profile"><HSectionHeading title="Identité et photo" icon={UserRound} />
         <div className="account-profile-grid">
           <div className="account-photo-editor">
-            <div className="account-photo">{preview ? <img src={preview} alt="Aperçu de votre photo" /> : <UserAvatar user={{ ...account, avatar: removeAvatar ? '' : account.avatar }} />}</div>
-            <div className="account-photo-actions"><HButton asChild variant="ghost" size="small" disabled={save.isPending}><label htmlFor={uploadId}><Camera size={14} />Changer la photo</label></HButton>{(file || account.avatar && !removeAvatar) && <HButton variant="ghost" size="icon" disabled={save.isPending} aria-label="Retirer la photo" onClick={() => { setFile(undefined); setPreview(''); setRemoveAvatar(Boolean(account.avatar)) }}><X size={14} /></HButton>}</div>
-            <HInput id={uploadId} hidden type="file" accept="image/png,image/jpeg,image/webp" aria-label="Photo de profil" disabled={save.isPending} onChange={(event) => { photo(event.target.files?.[0]); event.target.value = '' }} />
-            <p className="contact-muted">PNG, JPEG ou WebP · 2 Mo max.</p>{fileError && <p role="alert" className="field-error">{fileError}</p>}
+            <div className="account-photo"><UserAvatar user={account} /></div>
+            <p className="contact-muted">La photo se gère sur la fiche Employé associée.</p>
+            {account.employee_id && canReadEmployee ? <HButton asChild size="small"><Link to={`/hr?employee=${account.employee_id}`}>Voir ma fiche Employé</Link></HButton> : <p className="contact-muted">{account.employee_id ? 'Pour modifier la photo, contactez votre gestionnaire Employés.' : 'Demandez à un administrateur de rattacher votre compte à un employé.'}</p>}
           </div>
           <div className="account-fields">
             {(['first_name', 'last_name', 'name', 'public_email'] as const).map((key) => <label key={key} className="h-form-field"><HFieldLabel required={key !== 'public_email'}>{({ first_name: 'Prénom', last_name: 'Nom', name: 'Nom affiché', public_email: 'E-mail de contact' })[key]}</HFieldLabel><HInput aria-label={({ first_name: 'Prénom', last_name: 'Nom', name: 'Nom affiché', public_email: 'E-mail de contact' })[key]} type={key === 'public_email' ? 'email' : 'text'} autoComplete={({ first_name: 'given-name', last_name: 'family-name', name: 'nickname', public_email: 'email' })[key]} maxLength={key === 'name' ? 160 : key === 'public_email' ? 254 : 80} disabled={save.isPending} aria-invalid={Boolean(form.formState.errors[key])} aria-describedby={form.formState.errors[key] ? `${formId}-${key}-error` : undefined} {...form.register(key)} />{form.formState.errors[key] && <span id={`${formId}-${key}-error`} className="field-error">{form.formState.errors[key]?.message}</span>}</label>)}

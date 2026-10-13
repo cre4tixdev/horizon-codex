@@ -7,11 +7,7 @@ module.exports = {
     require(`${__hooks}/lib/activity-read.js`).authorizeRecord(event, record)
     let author
     try { author = event.app.findRecordById('core_users', record.getString('author')) } catch { return event.noContent(204) }
-    event.response.header().set('Cache-Control', 'no-store')
-    const filename = author.getString('avatar')
-    if (!filename) return event.noContent(204)
-    const fs = event.app.newFilesystem()
-    try { fs.serve(event.response, event.request, author.baseFilesPath() + '/' + filename, filename) } finally { fs.close() }
+    return require(`${__hooks}/lib/identity-photo.js`).serve(event, author)
   },
   removeAttachment(event) {
     const activity = require(`${__hooks}/lib/activity.js`)

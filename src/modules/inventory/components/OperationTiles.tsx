@@ -12,7 +12,7 @@ import type { operationsPageSchema } from '../schemas/operations'
 export function OperationTiles({ summary, forecast, canCreate, context = '' }: { forecast?: Forecast | null | undefined; summary: z.infer<typeof operationsPageSchema>['summary'] | undefined; canCreate: boolean; context?: string }) {
   function tile({ key, tone, kind, label, description, icon: Icon, variant }: typeof operationTiles[number]) {
     const filters = new URLSearchParams(context)
-    filters.set('kind', kind); filters.delete('page'); filters.delete('view')
+    filters.set('kind', kind); filters.delete('page'); filters.set('view', 'list')
     if (variant) filters.set('variant', variant); else filters.delete('variant')
     const pending = new URLSearchParams(filters); pending.set('status', 'open')
     return <article className="stock-operation-tile h-dashboard-card h-tone" data-tone={tone} data-operation={key} key={key}>

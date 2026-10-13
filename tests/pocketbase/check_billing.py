@@ -246,6 +246,10 @@ class SupplierBillingTests(unittest.TestCase):
         status, order = self.pb.request('POST', 'horizon/purchasing/orders/save', dict(creation_key=str(uuid.uuid4()), input=dict(self.fixture.input, supplier=self.fixture.supplier['id'])), self.token); self.assertEqual(status, 200, order)
         status, order = check_purchasing.PurchasingTests.transition(self.fixture, 'orders', order); self.assertEqual(status, 200, order)
         status, prepared = self.call('documents/prepare', dict(kind='supplier', source_type='order', source_ids=[order['id']], mode='standard', deposit_percent=30)); self.assertEqual(status, 200, prepared)
+        self.assertIn(order['number'], prepared['title'])
+        self.assertEqual(prepared['source_orders'], [order['id']])
+        self.assertEqual(prepared['lines'][0]['source_line'], order['lines'][0]['id'])
+        self.assertIn(order['number'], next(item['name'] for item in self.get('choices')['sources']['supplier'] if item['id'] == order['id']))
         data = self.prepared_input(prepared); data['lines'][0]['unit_price'] = 1
         status, draft = self.save(data, 'supplier'); self.assertEqual(status, 200, draft); self.assertEqual(len(draft['issues']), 2)
         self.assertEqual(self.action(draft)[0], 400)

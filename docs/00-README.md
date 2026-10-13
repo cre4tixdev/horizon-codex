@@ -46,7 +46,7 @@ Toute personne ou agent travaillant sur Horizon doit lire dans cet ordre :
 
 `AGENTS.md` se trouve à la racine du projet et impose les règles de travail aux agents de développement.
 
-Pour tout nouvel écran ou changement UI, appliquer la [base de design validée sur Contacts](07-UX-DESIGN-SYSTEM.md#base-validée-sur-contacts-pour-tous-les-modules). Elle centralise les décisions utilisateur à reprendre dans les autres modules Horizon et prime sur les anciennes propositions de présentation.
+Pour tout nouvel écran ou changement UI, appliquer la [base de design validée sur Contacts](07-UX-DESIGN-SYSTEM.md#base-validée-sur-contacts-pour-tous-les-modules). Elle centralise les décisions utilisateur à reprendre dans les autres modules Horizon et prime sur les anciennes propositions de présentation. Lire aussi les [règles obligatoires de cohérence UI avant livraison](07-UX-DESIGN-SYSTEM.md#règles-obligatoires-de-cohérence-ui-avant-livraison), qui consolident les corrections utilisateur à ne pas répéter.
 
 Le [suivi global de réalisation](10-DECISIONS-ROADMAP.md#suivi-global-de-réalisation) centralise les lots de la roadmap, leurs statuts, dépendances, critères de clôture et le journal d'avancement. Il est mis à jour après chaque livraison ou changement significatif.
 
@@ -69,7 +69,7 @@ Vite écoute uniquement sur `127.0.0.1` ; utiliser l’adresse affichée dans le
 
 **État de référence au 13 octobre 2026 :** les parcours Contacts, CRM/AO, Employés/accès, Documents/studio/étiquettes, catalogue Produits, devis/commandes clients, achats, opérations/inventaires/valorisation de stock, lots/séries, parc interne, registre préparatoire d’immobilisations, compte personnel, calendrier, premières analyses et facturation interne B01 sont disponibles dans leur périmètre local testé. Cette liste ne vaut pas clôture de tous leurs raccordements. Voir [les travaux actifs et tâches restantes](10-DECISIONS-ROADMAP.md#travaux-actifs-et-prochaine-livraison), les contrats du document 04 et l’installation du document 06.
 
-Le portail est développé localement ; les packs NAS remis actuellement sont **PocketBase seulement** (hooks, migrations, manifeste), sans frontend, base ni secrets. Les publications Git sont consignées dans le journal du document 10. L’installation du dernier correctif des fils d’activité sur le NAS reste à confirmer : hooks à jour et redémarrage, aucune nouvelle migration pour ce correctif ; les évolutions courantes nécessitent leurs migrations jusqu’à `1791840006_customer_order_documents.js`. Un push ne déploie pas le NAS.
+Le portail est développé localement ; les packs NAS remis actuellement sont **PocketBase seulement** (hooks, migrations, manifeste), sans frontend, base ni secrets. Les publications Git sont consignées dans le journal du document 10. L’installation du dernier correctif des fils d’activité sur le NAS reste à confirmer : hooks à jour et redémarrage, aucune nouvelle migration pour ce correctif ; les évolutions courantes nécessitent leurs migrations jusqu’à `1791840008_employee_photos.js`. Un push ne déploie pas le NAS.
 
 Messaging mail/chat, saisie Planning/TimeReport, projets/SAV et intégrations Sage/SUPER PDP ne sont pas livrés par ces derniers lots. Facturation B01 est disponible dans son périmètre interne testé localement ; cela ne vaut pas recette NAS ni intégration comptable externe. Les chiffres financiers indisponibles ne sont pas remplacés par zéro. Le MFA est reporté ; la présence manuelle est préparée pour la future messagerie.
 

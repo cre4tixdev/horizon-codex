@@ -49,30 +49,30 @@ module.exports = {
     })
     return event.json(200, { items })
   },
-  availableByProduct(app, user, ids) {
+  balancesByProduct(app, user, ids) {
     guard(app, user)
     if (!ids.length) return new Map()
     const params = Object.fromEntries(ids.map((id, index) => ['p' + index, id]))
     const placeholders = ids.map((_, index) => '{:p' + index + '}').join(',')
-    const rows = arrayOf(new DynamicModel({ product: '', quantity: 0.1 }))
-    app.db().newQuery(`SELECT quantities.product, SUM(quantities.quantity) AS quantity
-      FROM (SELECT product, location, quantity FROM inventory_moves
-        UNION ALL SELECT product, location, -quantity FROM inventory_reservations WHERE active = true) quantities
+    const rows = arrayOf(new DynamicModel({ product: '', physical: 0.1, reserved: 0.1 }))
+    app.db().newQuery(`SELECT quantities.product, SUM(quantities.physical) AS physical, SUM(quantities.reserved) AS reserved
+      FROM (SELECT product, location, quantity AS physical, 0 AS reserved FROM inventory_moves
+        UNION ALL SELECT product, location, 0 AS physical, quantity AS reserved FROM inventory_reservations WHERE active = true) quantities
       JOIN inventory_locations location ON location.id = quantities.location
       JOIN inventory_warehouses warehouse ON warehouse.id = location.warehouse
       WHERE location.active = true AND warehouse.active = true AND quantities.product IN (${placeholders})
       GROUP BY quantities.product`).bind(params).all(rows)
-    return new Map(rows.map((row) => [row.product, Math.round(row.quantity * 1000000) / 1000000]))
+    return new Map(rows.map((row) => [row.product, { physical: Math.round(row.physical * 1000000) / 1000000, reserved: Math.round(row.reserved * 1000000) / 1000000, available: Math.round((row.physical - row.reserved) * 1000000) / 1000000 }]))
   },
+  availableByProduct(app, user, ids) { return new Map([...this.balancesByProduct(app, user, ids)].map(([id, value]) => [id, value.available])) },
   choices(event) { guard(event.app, event.auth); const app = event.app; return event.json(200, { locations: app.findRecordsByFilter('inventory_locations', 'active = true && warehouse.active = true', 'warehouse.name,name', 500, 0).map((item) => ({ id: item.id, name: `${c.get(app, 'inventory_warehouses', item.getString('warehouse')).getString('name')} · ${item.getString('name')}` })), warehouses: app.findRecordsByFilter('inventory_warehouses', 'active = true', 'name', 500, 0).map((item) => ({ id: item.id, name: item.getString('name') })), products: app.findRecordsByFilter('inventory_products', 'active = true && stock_policy != "none"', 'name', 500, 0).map((item) => ({ id: item.id, name: `${item.getString('manufacturer')} · ${item.getString('sku')} · ${item.getString('name')}` })) }) },
   list(event) {
     guard(event.app, event.auth)
     const app = event.app, query = event.requestInfo().query
     c.exact(query, ['q', 'product', 'location', 'availability', 'page', 'sort', 'group'])
-    const availability = query.availability || ''
-    if (!['', 'physical', 'reserved', 'available'].includes(availability)) throw new BadRequestError('Filtre de disponibilité invalide.')
+    const availability = require(`${__hooks}/lib/stock-list-filters.js`).values(query.availability, ['physical', 'reserved', 'available'], 'Disponibilité')
     const params = { q: String(query.q || '').slice(0, 200), product: query.product || '' }
-    const filter = 'active = true && stock_policy != "none"' + (query.product ? ' && id = {:product}' : '') + (query.q ? ' && (name ~ {:q} || sku ~ {:q} || manufacturer ~ {:q})' : '')
+    const filter = 'active = true && stock_policy != "none"' + (query.product ? ' && id = {:product}' : '')
     const products = app.findRecordsByFilter('inventory_products', filter, query.sort === 'sku' ? 'sku,id' : 'name,id', 10001, 0, params)
     if (products.length > 10000) throw new BadRequestError('Affinez les filtres pour limiter le stock à 10 000 produits.')
     const locations = app.findRecordsByFilter('inventory_locations', 'active = true && warehouse.active = true' + (query.location ? ' && id = {:id}' : ''), 'name', 500, 0, { id: query.location || '' })
@@ -86,13 +86,21 @@ module.exports = {
       const key = product + '-' + location, present = physical.get(key) || 0, held = reserved.get(key) || 0
       return { physical: present, reserved: held, available: Math.round((present - held) * 1000000) / 1000000 }
     }
-    const summary = { all: locations.length ? products.length : 0, physical: 0, reserved: 0, available: 0 }, matches = []
+    const summary = { all: 0, physical: 0, reserved: 0, available: 0 }, matches = []
+    const search = String(query.q || '').slice(0, 200).toLocaleLowerCase()
+    const warehouseNames = new Map(app.findRecordsByFilter('inventory_warehouses', 'active = true', '', 500, 0).map((item) => [item.id, item.getString('name')]))
+    const locationMatches = (location) => !search || [location.getString('name'), location.getString('code'), warehouseNames.get(location.getString('warehouse')) || ''].join(' ').toLocaleLowerCase().includes(search)
+    const matchingPlaces = locations.filter(locationMatches)
     for (const product of products) {
+      const productMatches = !search || [product.getString('name'), product.getString('sku'), product.getString('manufacturer')].join(' ').toLocaleLowerCase().includes(search)
+      const places = productMatches ? locations : matchingPlaces
+      if (!places.length) continue
+      summary.all++
       const flags = { physical: false, reserved: false, available: false }, matchingLocations = []
-      for (const location of locations) {
+      for (const location of places) {
         const row = at(product.id, location.id)
         for (const key of Object.keys(flags)) if (row[key] > 0) flags[key] = true
-        if (!availability || row[availability] > 0) matchingLocations.push(location)
+        if (!availability.length || availability.some((value) => row[value] > 0)) matchingLocations.push(location)
       }
       for (const key of Object.keys(flags)) if (flags[key]) summary[key]++
       if (matchingLocations.length) matches.push({ product, locations: matchingLocations })

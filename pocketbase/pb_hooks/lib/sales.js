@@ -15,7 +15,7 @@ const dto = (app, quote) => {
   const order = app.findRecordsByFilter('sales_orders', 'quote = {:id} && status != "cancelled"', '-order_sequence,created', 1, 0, { id: quote.id })[0]
   const proof = order?.getString('customer_order_event') ? app.findRecordById('core_activity_events', order.getString('customer_order_event')) : null
   const documents = order ? require(`${__hooks}/lib/sales-order-documents.js`).active(app, order).flatMap((record) => record.getStringSlice('attachments').map((file) => ({ event_id: record.id, file }))) : []
-  return { ...quote.publicExport(), can_delete: !require(`${__hooks}/lib/purchasing.js`).referencesQuote(app, quote.id) && !quote.getString('sent_at') && quote.getString('status') !== 'sent' && !app.findRecordsByFilter('sales_orders', 'quote = {:id}', '', 1, 0, { id: quote.id }).length, owner_name: app.findRecordById('core_users', quote.getString('owner')).getString('name'), order: order ? { date: order.getString('order_date'), id: order.id, number: order.getString('order_number'), customer_number: order.getString('customer_order_number').replace(/^attente commande$/i, 'Attente Commande'), event_id: proof?.id || '', files: proof?.getStringSlice('attachments') || [], documents } : null, opportunity_name: opp.getString('title'), opportunity_number: opp.getString('opportunity_number'), company_name: company.getString('name'), lines: app.findRecordsByFilter('sales_quote_lines', 'quote = {:id}', 'position', 0, 0, { id: quote.id }).map((record) => record.publicExport()) }
+  return { ...quote.publicExport(), can_delete: !require(`${__hooks}/lib/purchasing.js`).referencesQuote(app, quote.id) && !quote.getString('sent_at') && quote.getString('status') !== 'sent' && !app.findRecordsByFilter('sales_orders', 'quote = {:id}', '', 1, 0, { id: quote.id }).length, owner_name: app.findRecordById('core_users', quote.getString('owner')).getString('name'), order: order ? { status: order.getString('status'), date: order.getString('order_date'), id: order.id, number: order.getString('order_number'), customer_number: order.getString('customer_order_number').replace(/^attente commande$/i, 'Attente Commande'), event_id: proof?.id || '', files: proof?.getStringSlice('attachments') || [], documents } : null, opportunity_name: opp.getString('title'), opportunity_number: opp.getString('opportunity_number'), company_name: company.getString('name'), lines: app.findRecordsByFilter('sales_quote_lines', 'quote = {:id}', 'position', 0, 0, { id: quote.id }).map((record) => record.publicExport()) }
 }
 const audit = (app, record, before, actor, action, previousLines) => {
   const item = new Record(app.findCollectionByNameOrId('core_audit'))
@@ -40,12 +40,15 @@ module.exports = {
   dto,
   summary(event) {
     permissions(event.app, event.auth)
-    const query = event.requestInfo().query, conditions = ['archived_at = ""'], parameters = {}
+    const query = event.requestInfo().query, conditions = [], parameters = {}
+    const state = query.state || 'active'
+    if (!['active', 'archived'].includes(state)) throw new BadRequestError('Archives invalides.')
+    conditions.push(state === 'archived' ? 'archived_at != ""' : 'archived_at = ""')
     const search = String(query.q || '').trim()
     if (search.length > 200) throw new BadRequestError('Recherche trop longue.')
     if (query.opportunity) { opportunity(event.app, query.opportunity, event.auth); conditions.push('opportunity = {:opportunity}'); parameters.opportunity = query.opportunity }
     if (query.company) { if (!/^[a-z0-9]{15}$/.test(query.company)) throw new BadRequestError('Société invalide.'); conditions.push('company = {:company}'); parameters.company = query.company }
-    if (search) { conditions.push('(quote_number LIKE {:q} OR title LIKE {:q} OR company IN (SELECT id FROM contacts_companies WHERE name LIKE {:q}) OR opportunity IN (SELECT id FROM crm_opportunities WHERE title LIKE {:q}))'); parameters.q = `%${search}%` }
+    if (search) { conditions.push('(quote_number LIKE {:q} OR title LIKE {:q} OR company IN (SELECT id FROM contacts_companies WHERE name LIKE {:q}) OR opportunity IN (SELECT id FROM crm_opportunities WHERE title LIKE {:q}) OR id IN (SELECT quote FROM sales_orders WHERE customer_order_number LIKE {:q}))'); parameters.q = `%${search}%` }
     const rows = arrayOf(new DynamicModel({ status: '', count: 0 }))
     event.app.db().newQuery(`SELECT status, COUNT(*) AS count FROM sales_quotes WHERE ${conditions.join(' AND ')} GROUP BY status`).bind(parameters).all(rows)
     const result = { draft: 0, validated: 0, sent: 0, accepted: 0 }
@@ -89,13 +92,8 @@ module.exports = {
     if (query.get('opportunity')) { opportunity(event.app, query.get('opportunity'), event.auth); parameters.opportunity = query.get('opportunity'); conditions.push('opportunity = {:opportunity}') }
     if (query.get('company')) { if (!/^[a-z0-9]{15}$/.test(query.get('company'))) throw new BadRequestError('Société invalide.'); parameters.company = query.get('company'); conditions.push('company = {:company}') }
     if (query.get('product')) { if (!require(`${__hooks}/lib/catalog.js`).allowed(event.app, event.auth)) throw new ForbiddenError('Accès produit nécessaire.'); parameters.product = query.get('product'); conditions.push('sales_quote_lines_via_quote.product ?= {:product}') }
-    const status = query.get('status') || ''
-    if (status && !['active', 'quotes', 'archived', 'draft', 'validated', 'sent', 'accepted', 'cancelled', 'rejected'].includes(status)) throw new BadRequestError('État invalide.')
-    conditions.push(status === 'archived' ? 'archived_at != ""' : 'archived_at = ""')
-    if (status === 'active') conditions.push('status != "cancelled" && status != "rejected"')
-    else if (status === 'quotes') conditions.push('status != "accepted"')
-    else if (status && status !== 'archived') { conditions.push('status = {:status}'); parameters.status = status }
-    if (search) { conditions.push('(quote_number ~ {:q} || title ~ {:q} || company.name ~ {:q} || opportunity.title ~ {:q})'); parameters.q = search }
+    conditions.push(...require(`${__hooks}/lib/sales-list-filters.js`)(query, parameters))
+    if (search) { conditions.push('(quote_number ~ {:q} || title ~ {:q} || company.name ~ {:q} || opportunity.title ~ {:q} || sales_orders_via_quote.customer_order_number ?~ {:q})'); parameters.q = search }
     const page = Number(query.get('page') || 1)
     if (!Number.isSafeInteger(page) || page < 1) throw new BadRequestError('Page invalide.')
     const sort = ['-created', 'quote_number', '-quote_number', 'quote_date', '-subtotal'].includes(query.get('sort')) ? query.get('sort') : '-created'

@@ -29,6 +29,18 @@ const validate = (app, input, current, actor) => {
   if (input.start_date && input.end_date && input.end_date < input.start_date) throw new BadRequestError('La date de fin précède la date de début.')
 }
 module.exports = {
+  inheritPhoto(app, user, employee, actor) {
+    if (!user.getString('avatar') || user.getBool('employee_photo_migrated')) return
+    user.set('employee_photo_migrated', true)
+    if (employee.getString('avatar')) return
+    const before = employee.publicExport()
+    const fs = app.newFilesystem()
+    try {
+      employee.set('avatar', fs.getReuploadableFile(user.baseFilesPath() + '/' + user.getString('avatar'), false))
+      app.save(employee)
+    } finally { fs.close() }
+    require(`${__hooks}/lib/access-policy.js`).audit(app, 'hr_employees', employee.id, actor, before, employee.publicExport(), 'photo_inherit')
+  },
   directory(event) {
     if (!policy.permissions(event.app, event.auth).includes('hr.read')) throw new ForbiddenError('Consultation des employés non autorisée.')
     const admin = policy.admin(event.app, event.auth)
@@ -44,6 +56,7 @@ module.exports = {
     if (event.request.header.get('Content-Type').startsWith('multipart/form-data')) {
       try { files = event.findUploadedFiles('avatar') } catch (error) { if (!String(error).endsWith('http: no such file')) throw error }
     }
+    if (body.remove_avatar !== undefined && ![true, false, 'true', 'false'].includes(body.remove_avatar)) throw new BadRequestError('Photo invalide.')
     if (files.length > 1) throw new BadRequestError('Une seule photo est autorisée.')
     let saved
     event.app.runInTransaction((app) => {

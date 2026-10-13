@@ -90,20 +90,34 @@ const prepareOrders = (app, user, selections, creationKey) => {
   return result
 }
 const sortField = (sort, kind) => ['-created', 'title', kind + '_number', 'document_date'].includes(sort) ? sort : '-created'
+const listValues = (input, allowed, label) => { if (!input) return []; const result = String(input).split(','); if (result.length > allowed.length || new Set(result).size !== result.length || result.some((value) => !allowed.includes(value))) throw new BadRequestError(`${label} invalide.`); return result }
 const readList = (event, kind, query = event.requestInfo().query, overview = false) => {
-  c.guard(event.app, event.auth); const app = event.app, filters = [], params = {}; c.exact(query, ['q', 'status', 'supplier', 'opportunity', 'product', 'source_order', 'source_line', 'request_line', 'request', 'order', 'page', 'sort', 'group'])
-  const statusFilters = [query.status === 'archived' ? 'archived_at != ""' : 'archived_at = ""']
-  if (query.status === 'pending') {
-    if (kind !== 'request' && !overview) throw new BadRequestError('Filtre réservé aux demandes d’achat.')
-    statusFilters.push(kind === 'request' ? '(status = "draft" || status = "validated" || status = "partially_ordered")' : '(status = "draft" || status = "validated" || status = "sent" || status = "acknowledged" || status = "partially_received")')
-  } else if (query.status && !['all', 'archived'].includes(query.status)) { params.status = query.status; statusFilters.push('status = {:status}') }
+  c.guard(event.app, event.auth); const app = event.app, filters = [], params = {}; c.exact(query, ['q', 'kind', 'status', 'state', 'supplier', 'opportunity', 'product', 'source_order', 'source_line', 'request_line', 'request', 'order', 'page', 'sort', 'group'])
+  const state = query.state || (query.status === 'archived' ? 'archived' : 'active')
+  if (!['active', 'archived'].includes(state)) throw new BadRequestError('Archives invalides.')
+  const archiveFilter = state === 'archived' ? 'archived_at != ""' : 'archived_at = ""', statusFilters = [archiveFilter]
+  if (query.kind && !overview) throw new BadRequestError('Le type de pièce concerne la liste commune Achats.')
+  const statuses = listValues(['all', 'archived'].includes(query.status) ? '' : query.status, ['pending', 'draft', 'validated', 'partially_ordered', 'ordered', 'completed', 'sent', 'acknowledged', 'partially_received', 'received', 'closed', 'cancelled'], 'États des achats')
+  if (statuses.includes('pending') && kind !== 'request' && !overview) throw new BadRequestError('Filtre réservé aux demandes d’achat.')
+  if (statuses.length) statusFilters.push('(' + statuses.map((status, index) => {
+    if (status === 'pending') return kind === 'request' ? '(status = "draft" || status = "validated" || status = "partially_ordered")' : '(status = "draft" || status = "validated" || status = "sent" || status = "acknowledged" || status = "partially_received")'
+    params['status' + index] = status; return `status = {:status${index}}`
+  }).join(' || ') + ')')
   for (const key of ['supplier', 'source_order']) if (query[key]) { params[key] = query[key]; filters.push(key === 'supplier' && kind === 'request' ? 'purchasing_request_lines_via_request.suggested_supplier ?= {:supplier}' : key === 'source_order' && kind === 'order' ? 'purchasing_order_lines_via_order.request_line.request.source_order ?= {:source_order}' : `${key} = {:${key}}`) }
   if (query.order) { if (kind !== 'request') throw new BadRequestError('Filtre réservé aux demandes d’achat.'); const order = c.get(app, 'purchasing_orders', query.order); params.order = order.id; params.root_request = order.getString('request'); filters.push('(id = {:root_request} || purchasing_request_lines_via_request.purchasing_order_lines_via_request_line.order ?= {:order})') }
   if (query.request) { if (kind !== 'order') throw new BadRequestError('Filtre réservé aux commandes fournisseurs.'); params.request = query.request; filters.push('(request = {:request} || purchasing_order_lines_via_order.request_line.request ?= {:request})') }
   if (query.opportunity) { if (!c.policy.permissions(app, event.auth).includes('crm.read')) throw new ForbiddenError('Accès CRM nécessaire.'); params.opportunity = query.opportunity; const link = kind === 'request' ? 'request' : 'order'; filters.push(`purchasing_${kind}_lines_via_${link}.purchasing_${kind}_line_allocations_via_${kind}_line.analytic_account.opportunity ?= {:opportunity}`) }
   for (const key of ['product', 'source_line', 'request_line']) if (query[key]) { params[key] = query[key]; const link = kind === 'request' ? 'request' : 'order'; filters.push(`purchasing_${kind}_lines_via_${link}.${key === 'source_line' && kind === 'order' ? 'request_line.source_line' : key} ?= {:${key}}`) }
-  if (query.q) { params.q = String(query.q).slice(0, 200); filters.push(`(title ~ {:q} || ${kind}_number ~ {:q}${kind === 'order' ? ' || supplier.name ~ {:q}' : ''})`) }
-  const summaryRecords = app.findRecordsByFilter(table(kind), ['archived_at = ""', ...filters].join(' && '), '', 10001, 0, params), summary = {}
+  if (query.q) {
+    params.q = String(query.q).slice(0, 200)
+    const link = kind === 'request' ? 'request' : 'order', lines = `purchasing_${kind}_lines_via_${link}`
+    const supplierSearch = kind === 'order' ? 'supplier.name ~ {:q}' : `${lines}.suggested_supplier.name ?~ {:q}`
+    const analytic = `${lines}.purchasing_${kind}_line_allocations_via_${kind}_line.analytic_account`
+    const opportunitySearch = c.policy.permissions(app, event.auth).includes('crm.read') ? ` || ${analytic}.opportunity.title ?~ {:q} || ${analytic}.opportunity.opportunity_number ?~ {:q}` : ''
+    filters.push(`(title ~ {:q} || ${kind}_number ~ {:q} || ${supplierSearch}${opportunitySearch})`)
+  }
+
+  const summaryRecords = app.findRecordsByFilter(table(kind), [archiveFilter, ...filters].join(' && '), '', 10001, 0, params), summary = {}
   if (summaryRecords.length > 10000) throw new BadRequestError('Affinez les filtres pour limiter la synthèse à 10 000 pièces.')
   for (const record of summaryRecords) { const status = record.getString('status'); summary[status] = (summary[status] || 0) + 1 }
   const filter = [...statusFilters, ...filters].join(' && '), page = Math.max(1, Number(query.page) || 1), records = app.findRecordsByFilter(table(kind), filter, sortField(query.sort, kind) + ',id', 10001, 0, params), total = records.length
@@ -122,10 +136,10 @@ module.exports = {
     return event.json(200, { ...data, items: records.slice((data.page - 1) * 30, data.page * 30).map((record) => c.dto(event.app, event.auth, kind, record)) })
   },
   overview(event) {
-    const query = event.requestInfo().query, scope = String(query.status || ''), data = {}
+    const query = event.requestInfo().query, scope = String(query.status || ''), data = {}, selectedKinds = listValues(query.kind || (['requests', 'orders'].includes(scope) ? scope : ''), ['requests', 'orders'], 'Types de pièces Achats')
     // Virtual filters select a document type; they never change a document status.
     for (const kind of ['request', 'order']) data[kind] = readList(event, kind, { ...query, status: ['requests', 'orders'].includes(scope) ? scope === 'requests' ? 'pending' : '' : scope }, true)
-    const rows = ['request', 'order'].flatMap((kind) => scope === 'requests' && kind === 'order' || scope === 'orders' && kind === 'request' ? [] : data[kind].records.map((record) => ({ kind, record })))
+    const rows = ['request', 'order'].flatMap((kind) => selectedKinds.length && !selectedKinds.includes(kind === 'request' ? 'requests' : 'orders') ? [] : data[kind].records.map((record) => ({ kind, record })))
     if (rows.length > 10000) throw new BadRequestError('Affinez les filtres pour limiter la liste à 10 000 pièces.')
     const field = ['title', 'document_date'].includes(query.sort) ? query.sort : 'created', descending = field === 'created'
     rows.sort((left, right) => {
@@ -134,7 +148,7 @@ module.exports = {
       return (descending ? -order : order) || left.kind.localeCompare(right.kind) || left.record.id.localeCompare(right.record.id)
     })
     const page = data.request.page, requests = data.request.summary, orders = data.order.summary
-    const summary = { requests: ['draft', 'validated', 'partially_ordered'].reduce((total, state) => total + (requests[state] || 0), 0), orders: Object.values(orders).reduce((total, count) => total + count, 0), draft: (requests.draft || 0) + (orders.draft || 0), validated: (requests.validated || 0) + (orders.validated || 0) }
+    const summary = { requests: ['draft', 'validated', 'partially_ordered'].reduce((total, state) => total + (requests[state] || 0), 0), orders: Object.values(orders).reduce((total, count) => total + count, 0), draft: (!selectedKinds.length || selectedKinds.includes('requests') ? requests.draft || 0 : 0) + (!selectedKinds.length || selectedKinds.includes('orders') ? orders.draft || 0 : 0), validated: (!selectedKinds.length || selectedKinds.includes('requests') ? requests.validated || 0 : 0) + (!selectedKinds.length || selectedKinds.includes('orders') ? orders.validated || 0 : 0) }
     return event.json(200, { items: rows.slice((page - 1) * 30, page * 30).map(({ kind, record }) => ({ ...c.dto(event.app, event.auth, kind, record), kind: kind === 'request' ? 'requests' : 'orders' })), page, totalItems: rows.length, totalPages: Math.max(1, Math.ceil(rows.length / 30)), summary })
   },
   record(event, kind) { c.guard(event.app, event.auth); return event.json(200, c.dto(event.app, event.auth, kind, c.get(event.app, table(kind), event.request.pathValue('id')))) },

@@ -6,7 +6,7 @@ import { salesSettingsSchema, type SalesSettings, opportunityChoiceSchema, quote
 export function createSalesRepository(url: string) {
   const client = createPocketBaseClient(url)
   return {
-    async summary(query: Pick<QuoteListOptions, 'q' | 'opportunity' | 'company'>) { return z.object({ draft: z.number().int().nonnegative(), validated: z.number().int().nonnegative(), sent: z.number().int().nonnegative(), accepted: z.number().int().nonnegative() }).parse(await client.send('/api/horizon/sales/quotes/summary', { method: 'GET', query, requestKey: null })) },
+    async summary(query: Pick<QuoteListOptions, 'q' | 'opportunity' | 'company' | 'state'>) { return z.object({ draft: z.number().int().nonnegative(), validated: z.number().int().nonnegative(), sent: z.number().int().nonnegative(), accepted: z.number().int().nonnegative() }).parse(await client.send('/api/horizon/sales/quotes/summary', { method: 'GET', query, requestKey: null })) },
     async manage(id: string, updated: string, action: 'archive' | 'restore') { return quoteSchema.parse(await client.send('/api/horizon/sales/quotes/manage', { method: 'POST', body: { id, updated, action }, requestKey: null })) },
     async remove(id: string, updated: string) { return z.object({ deleted: z.literal(true) }).parse(await client.send('/api/horizon/sales/quotes/manage', { method: 'POST', body: { id, updated, action: 'delete' }, requestKey: null })) },
     async reopen(id: string, updated: string, target: 'draft' | 'validated') { return quoteSchema.parse(await client.send('/api/horizon/sales/quotes/reopen', { method: 'POST', body: { id, updated, target }, requestKey: null })) },

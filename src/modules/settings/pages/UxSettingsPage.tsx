@@ -1,6 +1,8 @@
 import { useState, useSyncExternalStore, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router'
+import { SearchFilters } from '../../../shared/search/SearchFilters'
+import { changeFilter, filterValue, type SearchFilter } from '../../../shared/search/filters'
 import { HRecordTabs } from '../../../shared/ui/HRecordTabs'
 import { HRecordPageActions } from '../../../shared/ui/HRecordPageActions'
 import { ChevronsDown, ChevronsUp, ChevronDown, Minus, Plus, ShoppingCart, Users, LayoutGrid, MessageSquare, PanelLeft, Check, Eye, FileText, Palette, RotateCcw, SlidersHorizontal, Type, Square, Table2, Undo2, MousePointer2, TextCursorInput } from 'lucide-react'
@@ -26,10 +28,12 @@ const tabs = [
   { value: 'tables', label: 'Tableaux', icon: Table2, panel: 'ux-tables' },
   { value: 'fields', label: 'Champs et textes', icon: TextCursorInput, panel: 'ux-fields' },
   { value: 'buttons', label: 'Boutons', icon: MousePointer2, panel: 'ux-buttons' },
+  { value: 'filters', label: 'Filtres', icon: SlidersHorizontal, panel: 'ux-filters' },
   { value: 'navigation', label: 'Sidebar', icon: PanelLeft, panel: 'ux-navigation' },
   { value: 'launcher', label: 'Menu des modules', icon: LayoutGrid, panel: 'ux-launcher' },
 ] as const
 const groups: { tab: string; title: string; icon: typeof Table2; fields: { key: keyof typeof uxLimits; label: string }[] }[] = [
+  { tab: 'filters', title: 'Dimensions et texte des filtres', icon: SlidersHorizontal, fields: [{ key: 'filter_option_height', label: 'Hauteur des options de filtre' }, { key: 'filter_button_height', label: 'Hauteur des boutons de filtre' }, { key: 'filter_font', label: 'Texte des filtres' }] },
   { tab: 'tables', title: 'Densité des tableaux', icon: Table2, fields: [{ key: 'row_height', label: 'Hauteur des lignes' }, { key: 'table_font', label: 'Texte des tableaux' }] },
   { tab: 'fields', title: 'Champs et textes', icon: Type, fields: [{ key: 'control_height', label: 'Hauteur des champs' }, { key: 'control_font', label: 'Texte des champs' }, { key: 'label_font', label: 'Libellés des champs' }, { key: 'title_font', label: 'Titres des fiches' }] },
   { tab: 'general', title: 'Espacements et cadres', icon: Square, fields: [{ key: 'page_margin', label: 'Marges desktop' }, { key: 'panel_padding_x', label: 'Marge intérieure horizontale' }, { key: 'panel_padding_y', label: 'Marge intérieure verticale' }, { key: 'panel_radius', label: 'Arrondi des cadres' }, { key: 'section_gap', label: 'Entre les sections' }, { key: 'progress_gap', label: 'Autour des frises' }] },
@@ -53,6 +57,13 @@ const sidebarColors = [
   { key: 'sidebar_hover_color', label: 'Teinte du survol' },
 ] as const
 const themeColors = [
+  { tab: 'filters', label: 'Fond du panneau et des options', light: 'filter_background_light', dark: 'filter_background_dark' },
+  { tab: 'filters', label: 'Texte du panneau et des options', light: 'filter_text_light', dark: 'filter_text_dark' },
+  { tab: 'filters', label: 'Bordures des filtres', light: 'filter_border_light', dark: 'filter_border_dark' },
+  { tab: 'filters', label: 'Fond des options sélectionnées', light: 'filter_selected_background_light', dark: 'filter_selected_background_dark' },
+  { tab: 'filters', label: 'Texte des options sélectionnées', light: 'filter_selected_text_light', dark: 'filter_selected_text_dark' },
+  { tab: 'filters', label: 'Bordures des options sélectionnées', light: 'filter_selected_border_light', dark: 'filter_selected_border_dark' },
+
   { tab: 'general', label: 'Fond général', light: 'background_light', dark: 'background_dark' },
   { tab: 'general', label: 'Fond du fil d’actualité', light: 'activity_light', dark: 'activity_dark' },
   { tab: 'tables', label: 'Bordures des tableaux', light: 'table_border_light', dark: 'table_border_dark' },
@@ -130,6 +141,7 @@ function UxGroup({ title, icon: Icon, children, expanded, onExpandedChange }: { 
 }
 function Preview({ values, theme, tab }: { values: UxInput; theme: 'light' | 'dark'; tab: typeof tabs[number]['value'] }) {
   return <div className={`ux-preview${tab === 'navigation' || tab === 'launcher' ? ' ux-preview--navigation' : ''}`} data-theme={theme} data-tab={tab} style={uxStyle(values)}><div className="ux-preview-body contact-record">
+    {tab === 'filters' && <FiltersPreview />}
     {tab === 'navigation' && <SidebarPreview />}
     {tab === 'launcher' && <LauncherPreview />}
     {tab === 'tables' && <><HSectionHeading title="Tableau d’exemple" icon={Table2} /><HDataTable data={previewRows} columns={previewColumns} columnBorders columnAlignments={{ Coût: 'right', PUV: 'right', Qté: 'center' }} /></>}
@@ -146,4 +158,14 @@ function SidebarPreview() {
 }
 function LauncherPreview() {
   return <div className="ux-launcher-preview"><p>Menu des modules</p><div className="module-launcher-grid">{[{ label: 'Contacts', icon: Users }, { label: 'Ventes', icon: ShoppingCart }, { label: 'Stock', icon: LayoutGrid }].map(({ label, icon: Icon }) => <div className="module-launcher-item" key={label}><button className="module-launcher-link" type="button"><Icon size={38} strokeWidth={1.35} /><span>{label}</span></button></div>)}</div></div>
+}
+
+const previewFilters: SearchFilter[] = [
+  { key: 'kind', label: 'Type de pièce', multiple: true, defaultValue: '', options: [{ value: '', label: 'Devis et commandes' }, { value: 'quote', label: 'Devis' }, { value: 'order', label: 'Commandes clients' }] },
+  { key: 'state', label: 'Archives', appearance: 'compact', defaultValue: 'active', options: [{ value: 'active', label: 'Non archivés' }, { value: 'archived', label: 'Archivés' }] },
+]
+const previewGroup: SearchFilter = { key: 'group', label: 'Regrouper par', defaultValue: 'none', options: [{ value: 'none', label: 'Aucun regroupement' }, { value: 'company', label: 'Société' }] }
+function FiltersPreview() {
+  const [params, setParams] = useState(() => new URLSearchParams('kind=quote'))
+  return <SearchFilters inline selections={previewFilters.map((filter) => ({ filter, value: filterValue(params, filter) }))} grouping={{ filter: previewGroup, value: filterValue(params, previewGroup) }} onChange={(filter, value) => setParams((current) => changeFilter(current, filter, value))} onReset={() => setParams(new URLSearchParams())} />
 }

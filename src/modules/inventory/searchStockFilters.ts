@@ -1,0 +1,6 @@
+import type { SearchFilter } from '../../shared/search/filters'
+import { internalAssetStates } from './schemas/internalAssets'
+export const stockFilters: SearchFilter[] = [{ key: 'availability', label: 'Disponibilité', multiple: true, defaultValue: '', options: [{ value: '', label: 'Tous les produits stockables' }, { value: 'physical', label: 'En stock', tone: 'blue' }, { value: 'reserved', label: 'Réservés', tone: 'violet' }, { value: 'available', label: 'Disponibles', tone: 'green' }] }]
+export const stockGroupingFilter: SearchFilter = { key: 'group', label: 'Regrouper par', defaultValue: '', options: [{ value: '', label: 'Aucun regroupement' }, { value: 'location', label: 'Emplacement' }, { value: 'brand', label: 'Marque' }] }
+export const internalAssetFilters: SearchFilter[] = [{ key: 'status', label: 'État', multiple: true, defaultValue: '', options: [{ value: '', label: 'Tous les états' }, ...Object.entries(internalAssetStates).map(([value, label]) => ({ value, label }))] }]
+export const internalAssetGroupingFilter: SearchFilter = { key: 'group', label: 'Regrouper par', defaultValue: '', options: [{ value: '', label: 'Aucun regroupement' }, { value: 'status', label: 'État' }, { value: 'warehouse', label: 'Entrepôt' }] }

@@ -26,3 +26,13 @@ describe('contrat des filtres de recherche', () => {
     expect(changeFilter(params, state, 'arbitrary').has('state')).toBe(false)
   })
 })
+
+const multi: SearchFilter = { key: 'status', label: 'État', multiple: true, defaultValue: '', options: [{ value: '', label: 'Tous' }, { value: 'draft', label: 'Brouillons' }, { value: 'sent', label: 'Envoyés' }] }
+describe('sélections multiples opt-in', () => {
+  it('normalise les choix, élimine doublons/inconnus et conserve les autres critères', () => {
+    expect(filterValue(new URLSearchParams('status=sent,invalid,draft,sent'), multi)).toBe('draft,sent')
+    const next = changeFilter(new URLSearchParams('q=Paris&state=archived'), multi, 'sent,draft')
+    expect(next.get('status')).toBe('draft,sent'); expect(next.get('state')).toBe('archived'); expect(next.get('q')).toBe('Paris')
+    expect(changeFilter(next, multi, '').has('status')).toBe(false)
+  })
+})

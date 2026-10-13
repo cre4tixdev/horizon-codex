@@ -1,4 +1,5 @@
 import { Link } from 'react-router'
+import { HDirectoryCard } from '../../../shared/ui/HDirectoryCard'
 import { Mail, Phone, Building2, UsersRound, MapPin } from 'lucide-react'
 import { HBadge } from '../../../shared/ui/HBadge'
 import { useReferences } from '../../settings/hooks/useReferences'
@@ -21,10 +22,7 @@ export function ContactCards({ records, directory }: { records: (Company | Perso
     const location = [address?.city, country].filter(Boolean).join(', ')
     const phone = record.phone || person?.mobile
     const roles = relatedCompany?.expand?.contacts_company_roles_via_company?.filter((role) => role.active) ?? []
-    return <article className={`contact-directory-card${person ? ' contact-directory-card--person' : ''}`} key={record.id}>
-      <Link className="contact-card-portrait" to={destination} state={directory ? { contactDirectory: directory } : undefined} aria-label={`Ouvrir la fiche de ${name}`}><ContactAvatar kind={company ? 'company' : 'person'} collectionId={record.collectionId} id={record.id} filename={company?.logo ?? person?.avatar ?? ''} company={person?.expand?.company} /></Link>
-      <div className="contact-card-body">
-        <Link className="contact-card-title" to={destination} state={directory ? { contactDirectory: directory } : undefined} title={name}><span>{name}</span></Link>
+    return <HDirectoryCard key={record.id} compactTitle={Boolean(person)} portrait={<Link className="contact-card-portrait" to={destination} state={directory ? { contactDirectory: directory } : undefined} aria-label={`Ouvrir la fiche de ${name}`}><ContactAvatar kind={company ? 'company' : 'person'} collectionId={record.collectionId} id={record.id} filename={company?.logo ?? person?.avatar ?? ''} company={person?.expand?.company} /></Link>} title={<Link className="contact-card-title" to={destination} state={directory ? { contactDirectory: directory } : undefined} title={name}><span>{name}</span></Link>} footer={<><div className="contact-role-list">{roles.map((role) => <HBadge key={role.id} className={`contact-role-pill contact-role-pill--${role.role}`}>{roleLabels[role.role]}</HBadge>)}{!record.active && <HBadge>Archivé</HBadge>}</div><Link className={`contact-card-kind contact-card-kind--${company ? 'company' : 'person'}`} to={destination} state={directory ? { contactDirectory: directory } : undefined} title={company ? 'Société' : 'Personne'} aria-label={company ? 'Société' : 'Personne'}>{company ? <Building2 size={14} aria-hidden="true" /> : <UsersRound size={14} aria-hidden="true" />}</Link></>}>
         {person && (person.job_title || person.expand?.company) && <div className="contact-card-meta">
           {person.job_title && <p className="contact-card-function" title={person.job_title}>{person.job_title}</p>}
           {person.expand?.company && <Link className="contact-card-company" to={`/contacts/companies/${person.company}`} title={person.expand.company.name}><Building2 size={12} /><span>{person.expand.company.name}</span></Link>}
@@ -43,8 +41,6 @@ export function ContactCards({ records, directory }: { records: (Company | Perso
           </>}
           {!record.email && !phone && !location && <span className="contact-muted">Coordonnées à compléter</span>}
         </div>
-      </div>
-      <div className="contact-card-footer"><div className="contact-role-list">{roles.map((role) => <HBadge key={role.id} className={`contact-role-pill contact-role-pill--${role.role}`}>{roleLabels[role.role]}</HBadge>)}{!record.active && <HBadge>Archivé</HBadge>}</div><Link className={`contact-card-kind contact-card-kind--${company ? 'company' : 'person'}`} to={destination} state={directory ? { contactDirectory: directory } : undefined} title={company ? 'Société' : 'Personne'} aria-label={company ? 'Société' : 'Personne'}>{company ? <Building2 size={14} aria-hidden="true" /> : <UsersRound size={14} aria-hidden="true" />}</Link></div>
-    </article>
+    </HDirectoryCard>
   })}</div>
 }

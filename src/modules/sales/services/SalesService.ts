@@ -25,7 +25,7 @@ async function settingsRun(write: boolean, action: (repo: ReturnType<typeof crea
   try { return await action(repository) } catch (error) { console.error('[sales-settings] Operation failed', { status: error instanceof ClientResponseError ? error.status : 0 }); throw new Error(error instanceof ClientResponseError && [400, 403, 409].includes(error.status) ? error.response.message : 'Paramètres Ventes indisponibles.', { cause: error }) }
 }
 export const salesService = {
-  summary: (options: Pick<QuoteListOptions, 'q' | 'opportunity' | 'company'>) => run(false, (repo) => repo.summary(options)),
+  summary: (options: Pick<QuoteListOptions, 'q' | 'opportunity' | 'company' | 'state'>) => run(false, (repo) => repo.summary(options)),
   copyContent: (sourceId: string, sourceUpdated: string, target: QuoteInput, currency: string) => run(true, async (repo) => {
     const source = await repo.record(sourceId)
     if (source.updated !== sourceUpdated) throw new Error('Le devis source a changé. Recherchez-le à nouveau avant de copier.')

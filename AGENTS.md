@@ -343,6 +343,21 @@ Avant de créer ou modifier une page métier, lire les règles applicables de
 (Contacts / CRM). Les décisions validées sur Contacts servent de base aux autres
 modules ; ne pas repartir d'un design indépendant.
 
+Pour éviter de refaire les mêmes corrections utilisateur, appliquer obligatoirement
+les [règles de cohérence UI avant livraison](docs/07-UX-DESIGN-SYSTEM.md#règles-obligatoires-de-cohérence-ui-avant-livraison).
+En particulier :
+
+- archive séparée de l’état métier, critère compact partagé comme CRM, jamais une option de statut ;
+- référentiels volumineux (fournisseur, société/client, opportunité) recherchés dans la top bar, pas énumérés dans les filtres ; regroupement autorisé ;
+- composants/slots/tokens validés pour titres, onglets, frises, smart boutons, actions, pagination, tableaux et gestionnaires de fichiers ; aucune réinvention locale ;
+- aperçu des paramètres utilisant le vrai composant partagé ;
+- comparaison navigateur avec la page de référence, clair/sombre et mobile, avant livraison ; annoncer les limites si cette vérification n’a pas été possible.
+
+Une correction de design validée par l’utilisateur doit être inscrite dans le
+contrat UX canonique et couverte par une régression pertinente si elle touche
+un comportement. Ne pas attendre un nouveau rappel pour l’appliquer à la page
+travaillée ; ne pas engager une refonte d’autres pages sans demande.
+
 Pour toute liste métier principale, y compris Employés et Utilisateurs et accès :
 
 - recherche contextuelle dans la top bar via `WorkspaceSearch` ;

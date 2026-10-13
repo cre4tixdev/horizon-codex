@@ -17,11 +17,10 @@ async function run<T>(work: (repo: NonNullable<typeof repository>) => Promise<T>
 }
 export const accountService = {
   read: () => run((repo) => repo.read()),
-  avatarURL: (record: { id: string; avatar: string }) => run((repo) => repo.avatarURL(record)),
-  async save(input: AccountInput, updated: string, avatar: File | undefined, removeAvatar: boolean) {
+  avatar: (id: string) => run((repo) => repo.avatar(id)),
+  async save(input: AccountInput, updated: string) {
     const value = accountInputSchema.parse(input)
-    if (avatar && (!['image/png', 'image/jpeg', 'image/webp'].includes(avatar.type) || avatar.size > 2097152)) throw new Error('Choisissez une image PNG, JPEG ou WebP de 2 Mo maximum.')
-    const saved = await run((repo) => repo.save(value, updated, avatar, removeAvatar))
+    const saved = await run((repo) => repo.save(value, updated))
     await sessionService.refresh(); return saved
   },
   async presence(presence: Presence) { const saved = await run((repo) => repo.presence(presenceSchema.parse(presence))); await sessionService.refresh(); return saved },

@@ -32,6 +32,39 @@ class SalesTests(unittest.TestCase):
             values.setdefault('awaiting_customer_order', True)
         return self.pb.request('POST', 'horizon/sales/quotes/' + route, {'id': quote['id'], 'updated': quote['updated'], **values}, self.token)
 
+    def test_list_combines_types_states_and_archives(self):
+        self.grant_lifecycle()
+        _, draft = self.quote_save(key='filter-draft-creation-key', title='Cible Brouillon')
+        _, validated = self.quote_save(key='filter-validated-creation-key', title='Cible Finalisé'); _, validated = self.transition('finalize', validated)
+        orders = []
+        for index in range(2):
+            _, quote = self.quote_save(key=f'filter-order-creation-key-{index}', title=f'Cible Commande {index}'); _, quote = self.transition('finalize', quote); _, quote = self.transition('confirm', quote); orders.append(quote)
+        self.assertEqual(self.pb.request('PATCH', 'collections/sales_orders/records/' + orders[1]['order']['id'], {'status': 'completed'}, self.pb.admin_token)[0], 200)
+        def listing(query):
+            status, result = self.pb.request('GET', 'horizon/sales/quotes?' + query, token=self.token); self.assertEqual(status, 200, result); return result
+        self.assertEqual({item['id'] for item in listing('kind=quote&status=draft,validated')['items']}, {draft['id'], validated['id']})
+        self.assertEqual(listing('kind=order&order_status=confirmed,completed')['totalItems'], 2)
+        self.assertEqual({item['id'] for item in listing('kind=quote,order&status=draft&order_status=completed')['items']}, {draft['id'], orders[1]['id']})
+        self.assertEqual(listing('kind=quote,order&q=Cible')['totalItems'], 4)
+        self.assertEqual(listing('status=quotes')['totalItems'], 2)
+        self.assertEqual(listing('status=accepted')['totalItems'], 2)
+        self.assertEqual(listing('kind=order&customer_number=waiting')['totalItems'], 2)
+        self.assertEqual(self.pb.request('PATCH', 'collections/sales_orders/records/' + orders[1]['order']['id'], {'customer_order_number': 'PO-SEARCH-42'}, self.pb.admin_token)[0], 200)
+        self.assertEqual(listing('kind=order&customer_number=provided')['items'][0]['id'], orders[1]['id'])
+        self.assertEqual(listing('kind=order&customer_number=waiting')['items'][0]['id'], orders[0]['id'])
+        self.assertEqual(listing('kind=order&customer_number=provided,waiting')['totalItems'], 2)
+        self.assertEqual(listing('kind=quote,order&status=draft&customer_number=provided')['totalItems'], 2)
+        self.assertEqual(listing('kind=order&q=PO-SEARCH-42')['items'][0]['id'], orders[1]['id'])
+        self.assertEqual(self.pb.request('GET', 'horizon/sales/quotes/summary?q=PO-SEARCH-42', token=self.token)[1]['accepted'], 1)
+        status, archived = self.transition('manage', orders[0], action='archive'); self.assertEqual(status, 200, archived)
+        self.assertEqual(listing('kind=order&order_status=confirmed')['totalItems'], 0)
+        self.assertEqual(listing('kind=order&order_status=confirmed&state=archived')['items'][0]['id'], orders[0]['id'])
+        self.assertEqual(listing('status=archived')['totalItems'], 1)
+        self.assertEqual(self.pb.request('GET', 'horizon/sales/quotes/summary?state=archived', token=self.token)[1]['accepted'], 1)
+        self.assertEqual(listing('kind=quote,order&state=archived&status=draft&order_status=confirmed')['totalItems'], 1)
+        for query in ['kind=invalid', 'kind=quote,quote', 'kind=quote&order_status=confirmed', 'kind=order&status=draft', 'kind=quote&status=draft,invalid', 'state=invalid', 'order_status=cancelled', 'customer_number=invalid', 'kind=quote&customer_number=waiting']:
+            self.assertEqual(self.pb.request('GET', 'horizon/sales/quotes?' + query, token=self.token)[0], 400, query)
+
     def test_confirmed_customer_reference_changes_without_reopening(self):
         self.grant_lifecycle(); _, quote = self.quote_save(); _, quote = self.transition('finalize', quote); _, quote = self.transition('confirm', quote)
         order = self.pb.request('GET', 'collections/sales_orders/records/' + quote['order']['id'], token=self.pb.admin_token)[1]

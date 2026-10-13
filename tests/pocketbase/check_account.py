@@ -40,17 +40,18 @@ class AccountTests(unittest.TestCase):
         self.assertEqual(self.pb.request('POST', 'horizon/account/save', dict(updated=saved['updated'], input=self.input), self.token)[0], 403)
     def test_avatar_upload_private_removal_and_bad_mime(self):
         png = base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=')
-        def upload(content, filename, mime):
+        def upload(content, filename, mime, legacy=False):
             boundary = 'horizon-account-test-boundary'
             fields = dict(updated=self.profile()['updated'], input=json.dumps(self.input), remove_avatar='false')
             parts = [f'--{boundary}\r\nContent-Disposition: form-data; name="{key}"\r\n\r\n{value}\r\n'.encode() for key, value in fields.items()]
             parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="avatar"; filename="{filename}"\r\nContent-Type: {mime}\r\n\r\n'.encode() + content + b'\r\n')
             parts.append(f'--{boundary}--\r\n'.encode())
-            req = Request(self.pb.url + '/api/horizon/account/save', data=b''.join(parts), headers={'Authorization': self.token, 'Content-Type': f'multipart/form-data; boundary={boundary}'}, method='POST')
+            req = Request(self.pb.url + ('/api/collections/core_users/records/' + self.profile()['id'] if legacy else '/api/horizon/account/save'), data=b''.join(parts), headers={'Authorization': self.pb.admin_token if legacy else self.token, 'Content-Type': f'multipart/form-data; boundary={boundary}'}, method='PATCH' if legacy else 'POST')
             try:
                 with urlopen(req) as response: return response.status, json.loads(response.read())
             except HTTPError as error: return error.code, json.loads(error.read())
-        status, saved = upload(png, 'avatar.png', 'image/png')
+        self.assertEqual(upload(png, 'avatar.png', 'image/png')[0], 400)
+        status, saved = upload(png, 'avatar.png', 'image/png', legacy=True)
         self.assertEqual(status, 200, saved)
         path = f'{self.pb.url}/api/files/{saved["collectionId"]}/{saved["id"]}/{saved["avatar"]}'
         with self.assertRaises(HTTPError): urlopen(path)
@@ -69,7 +70,10 @@ class AccountTests(unittest.TestCase):
         self.pb.request('PATCH', 'collections/core_roles/records/' + self.pb.other_role['id'], {'permissions': ['contacts.read']}, self.pb.admin_token)
         with urlopen(Request(avatar_path, headers={'Authorization': other})) as response: self.assertEqual(response.read(), png)
         self.assertEqual(upload(b'bad', 'avatar.svg', 'image/svg+xml')[0], 400)
-        self.assertEqual(self.save(remove_avatar=True)[1]['avatar'], '')
+        self.assertEqual(self.save(remove_avatar=True)[0], 400)
+        self.assertEqual(self.profile()['avatar'], saved['avatar'])
+        with urlopen(Request(self.pb.url + '/api/horizon/account/avatar/' + saved['id'], headers={'Authorization': self.token})) as response: self.assertEqual(response.read(), png)
+        with self.assertRaises(HTTPError): urlopen(Request(self.pb.url + '/api/horizon/account/avatar/' + saved['id'], headers={'Authorization': other}))
     def test_presence_own_account_and_values(self):
         self.assertEqual(self.profile()['presence'], 'available')
         for value in ['away', 'busy', 'offline', 'available']:

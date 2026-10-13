@@ -18,6 +18,7 @@ import { useCatalogAccess } from '../hooks/useCatalogAccess'
 import { ProductCards } from '../components/ProductCards'
 import { type Product } from '../schemas/catalog'
 import '../catalog.css'
+const quantities = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 6 })
 const categoryPresentation: Record<string, { icon: typeof Package; tone: 'blue' | 'amber' | 'violet' }> = {
   equipment: { icon: Monitor, tone: 'blue' },
   supplies: { icon: Cable, tone: 'amber' },
@@ -33,16 +34,16 @@ export function ProductsPage() {
     { header: 'Référence', accessorKey: 'sku' }, { header: 'Marque', accessorKey: 'manufacturer' }, { header: 'Famille', accessorKey: 'category_label' },
     { header: 'Coût / u.', cell: ({ row }) => formatAmount(row.original.pricing.unit_cost, row.original.sale_currency) },
     { header: 'PUV HT', cell: ({ row }) => row.original.pricing.unit_price === null ? <span title={row.original.pricing.warning}>Tarif à vérifier</span> : formatAmount(row.original.pricing.unit_price, row.original.sale_currency) },
-    { header: 'Unité', accessorKey: 'unit_code' },
+    { id: 'stock', header: 'Qté en stock', cell: ({ row }) => <span title={row.original.stock_policy === 'none' ? 'Sans gestion de stock' : 'Stock physique, tous les emplacements actifs'}>{row.original.physical_quantity === null ? '—' : `${quantities.format(row.original.physical_quantity)} ${row.original.unit_code}`}</span> },
   ]
   if (!access.canRead) return <HEmptyState icon={Package} title="Catalogue" description="Vous ne disposez pas de la permission de consulter les produits." />
-  const table = (items: Product[]) => <HDataTable data={items} columns={columns} getRowLink={(item) => ({ href: `/inventory/products/${item.id}`, label: `Ouvrir ${item.name}`, state: { productListQuery: params.toString() } })} />
+  const table = (items: Product[]) => <HDataTable columnAlignments={{ stock: 'right' }} data={items} columns={columns} getRowLink={(item) => ({ href: `/inventory/products/${item.id}`, label: `Ouvrir ${item.name}`, state: { productListQuery: params.toString() } })} />
   const results = (items: Product[]) => view === 'cards' ? <ProductCards items={items} listQuery={params.toString()} /> : table(items)
-  const groups = query.data && params.get('group') === 'category' ? groupResults(query.data.items, (item) => ({ key: item.category, label: item.category_label })) : undefined
+  const groups = query.data && ['category', 'manufacturer'].includes(params.get('group') || '') ? groupResults(query.data.items, (item) => params.get('group') === 'manufacturer' ? { key: item.manufacturer || 'none', label: item.manufacturer || 'Sans marque' } : { key: item.category, label: item.category_label }) : undefined
   return <div className="contact-directory"><HPageBreadcrumb items={[{ label: 'Accueil', href: '/' }, { label: 'Catalogue' }]} /><HPageHeader title="Produits" description="Catalogue, prix de vente et fournisseurs." actions={access.canWrite && <HButton asChild variant="primary"><Link to="/inventory/products/new" state={{ productListQuery: params.toString() }}><Plus size={14} />Nouveau produit</Link></HButton>} />
     <HListPagination page={page} totalPages={query.data?.totalPages} label="Pagination des produits" busy={query.isFetching} onPageChange={(nextPage) => setParams((current) => { const next = new URLSearchParams(current); next.set('page', String(nextPage)); return next })} />
     {query.data && <HSummaryCards label="Catégories de produits" items={query.data.categories.map((category) => {
-      const next = new URLSearchParams({ category: category.id, view, state: params.get('state') || 'active' })
+      const next = new URLSearchParams(params); next.set('category', category.id); next.set('view', view); next.delete('page')
       return { label: category.label, ...(categoryPresentation[category.code] || { icon: Package, tone: 'blue' as const }), count: category.count, detail: params.get('state') === 'archived' ? 'Archivés' : 'Actifs', accessibleLabel: `Filtrer les produits : ${category.label}`, href: `/inventory?${next}` }
     })} error={undefined} onRetry={() => { void query.refetch() }} />}
     {query.isPending && <HLoadingIndicator label="Chargement des produits" />}{query.error && <p role="alert" className="field-error">{query.error.message}<HButton onClick={() => void query.refetch()}>Réessayer</HButton></p>}

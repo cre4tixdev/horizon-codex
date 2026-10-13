@@ -1,9 +1,32 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type APIRequestContext } from '@playwright/test'
 const password = 'Local-Horizon-test-only-2026!'
+// Fixtures métier via les routes Horizon, sans accès superuser.
+async function employeePhoto(request: APIRequestContext, email: string) {
+  const login = await request.post('http://127.0.0.1:18090/api/collections/core_users/auth-with-password', { data: { identity: 'erp-admin@local.invalid', password } })
+  expect(login.status()).toBe(200)
+  const headers = { Authorization: (await login.json()).token }
+  const input = { first_name: 'Photo', last_name: email.split('@')[0], professional_email: '', professional_phone: '', job_title: '', employment_type: 'employee', team: '', manager: '', is_manager: false, is_direction: false, external_company: '', start_date: '', end_date: '', status: 'active' }
+  const created = await request.post('http://127.0.0.1:18090/api/horizon/hr/employees/save', { headers, data: { input } })
+  expect(created.status()).toBe(200)
+  const employee = await created.json()
+  const uploaded = await request.post('http://127.0.0.1:18090/api/horizon/hr/employees/save', { headers, multipart: { id: employee.id, updated: employee.updated, input: JSON.stringify(input), avatar: { name: 'portrait.png', mimeType: 'image/png', buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=', 'base64') } } })
+  expect(uploaded.status()).toBe(200)
+  const saved = await uploaded.json()
+  const directory = await request.get('http://127.0.0.1:18090/api/horizon/access/users', { headers })
+  const user = (await directory.json()).users.find((item: { email: string }) => item.email === email)
+  const associated = await request.post('http://127.0.0.1:18090/api/horizon/access/users/save', { headers, data: { id: user.id, updated: user.updated, input: { email: user.email, name: user.name, active: user.active, erp_profile: user.erp_profile, employee: employee.id, grants: user.grants } } })
+  expect(associated.status()).toBe(200)
+  return async () => {
+    const removed = await request.post('http://127.0.0.1:18090/api/horizon/hr/employees/save', { headers, data: { id: saved.id, updated: saved.updated, input, remove_avatar: true } })
+    expect(removed.status()).toBe(200)
+  }
+}
+
 test('Mon compte : identité, photo protégée, annulation, mot de passe et affichage responsive', async ({ page, request }) => {
   async function login(secret = password) {
     await page.goto('/login'); await page.getByLabel('Adresse e-mail', { exact: true }).fill('reader@local.invalid'); await page.getByLabel('Mot de passe', { exact: true }).fill(secret); await page.getByRole('button', { name: 'Se connecter', exact: true }).click(); await expect(page).not.toHaveURL('/login')
   }
+  const removeEmployeePhoto = await employeePhoto(request, 'reader@local.invalid')
   await login(); await page.goto('/account')
   await expect(page.getByRole('heading', { name: 'Mon compte', exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Enregistrer', exact: true })).toBeDisabled()
@@ -13,8 +36,8 @@ test('Mon compte : identité, photo protégée, annulation, mot de passe et affi
   await page.getByLabel('E-mail de contact', { exact: true }).fill('contact@local.invalid')
   await page.getByRole('combobox', { name: 'Disponibilité', exact: true }).click()
   await page.getByRole('option', { name: 'Occupé', exact: true }).click()
-  await page.getByLabel('Photo de profil', { exact: true }).setInputFiles({ name: 'avatar.png', mimeType: 'image/png', buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=', 'base64') })
-  await expect(page.getByRole('img', { name: 'Aperçu de votre photo' })).toBeVisible()
+  await expect(page.getByLabel('Photo de profil', { exact: true })).toHaveCount(0)
+  await expect(page.getByText('La photo se gère sur la fiche Employé associée.', { exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Enregistrer', exact: true }).click()
   await expect(page.getByText('Votre profil est enregistré.', { exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Menu utilisateur', exact: true })).toContainText('Guillaume C.')
@@ -47,7 +70,9 @@ test('Mon compte : identité, photo protégée, annulation, mot de passe et affi
   await page.setViewportSize({ width: 390, height: 844 })
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
   await page.screenshot({ path: '/private/tmp/horizon-account-mobile.png', fullPage: true })
-  await page.getByRole('button', { name: 'Retirer la photo', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Retirer la photo', exact: true })).toHaveCount(0)
+  await removeEmployeePhoto()
+  await page.reload()
   await page.getByLabel('Nom affiché', { exact: true }).fill('Utilisateur test')
   await page.getByRole('combobox', { name: 'Disponibilité', exact: true }).click()
   await page.getByRole('option', { name: 'Présent', exact: true }).click()
@@ -73,14 +98,16 @@ test('Mon compte : identité, photo protégée, annulation, mot de passe et affi
   expect(restore.status()).toBe(200)
 })
 
-test('Fil partagé : photos des auteurs et de la saisie, sans rond de présence', async ({ page, context }) => {
+test('Fil partagé : photos des auteurs et de la saisie, sans rond de présence', async ({ page, context, request }) => {
+  const removeEmployeePhoto = await employeePhoto(request, 'erp-admin@local.invalid')
   const author = await context.newPage()
   await author.goto('/login'); await author.getByLabel('Adresse e-mail', { exact: true }).fill('erp-admin@local.invalid'); await author.getByLabel('Mot de passe', { exact: true }).fill(password); await author.getByRole('button', { name: 'Se connecter', exact: true }).click(); await expect(author).toHaveURL('/')
   await author.goto('/account')
   await author.getByLabel('Prénom', { exact: true }).fill('Utilisateur')
   await author.getByLabel('Nom', { exact: true }).fill('test')
-  await author.getByLabel('Photo de profil', { exact: true }).setInputFiles({ name: 'author.png', mimeType: 'image/png', buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=', 'base64') })
+  await expect(author.getByLabel('Photo de profil', { exact: true })).toHaveCount(0)
   await author.getByRole('button', { name: 'Enregistrer', exact: true }).click()
+  await expect(author.getByText('Votre profil est enregistré.', { exact: true })).toBeVisible()
   await expect(author.getByRole('button', { name: 'Enregistrer', exact: true })).toBeDisabled()
   await author.goto('/contacts/companies/new'); await author.getByLabel('Nom usuel', { exact: true }).fill('Photo auteur du fil'); await author.getByRole('button', { name: 'Enregistrer', exact: true }).click(); await expect(author).toHaveURL(/contacts\/companies\/(?!new)/)
   const sourceURL = author.url()
@@ -97,7 +124,7 @@ test('Fil partagé : photos des auteurs et de la saisie, sans rond de présence'
   await expect(entry.locator('.presence-dot')).toHaveCount(0)
   await expect(entry.locator('.activity-avatar')).toHaveCSS('box-shadow', 'none')
   await expect(entry.locator('.activity-avatar')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
-  await author.goto('/account'); await author.getByRole('button', { name: 'Retirer la photo', exact: true }).click(); await author.getByRole('button', { name: 'Enregistrer', exact: true }).click(); await expect(author.getByRole('button', { name: 'Enregistrer', exact: true })).toBeDisabled()
+  await removeEmployeePhoto()
   await page.reload(); await expect(page.locator('.activity-item').filter({ hasText: 'Photo partagée dans le fil' }).locator('.activity-avatar img')).toHaveCount(0)
   await author.close()
 })
