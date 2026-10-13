@@ -405,3 +405,7 @@ Paramètres — séquences et étapes fixes : rubrique Séquences pour les compt
 Stock S02 : les opérations physiques et les inventaires planifiés sont disponibles dans Stock → Opérations / Inventaires ; entrepôts et verrou de comptage dans Paramètres → Stock. Contrats et limites : docs/04 et docs/05 ; tests / déploiement : docs/09 et docs/06.
 
 Livraisons — 13 octobre 2026 : BL préremplis depuis commande, préparation optionnelle à réception, disponibilité et reliquats partiels vérifiés localement. Migration additive `1791840000_stock_deliveries.js` nécessaire ; contrats docs 04/05, installation doc 06, vérifications doc 09. NAS non installé.
+
+Devis / Documents — 13 octobre 2026 : Sous-titre descriptif et bordures de styles configurables vérifiés localement ; migration `1791840001_quote_subtitle.js` et hooks synchronisés nécessaires. Contrats docs 04/05, installation doc 06 et tests/limites doc 09 ; NAS non installé.
+
+Devis — 13 octobre 2026 : lignes vides conservées comme espacements jusque dans la commande et les documents ; migration `1791840002_quote_spacers.js` nécessaire. Contrats docs 04/05/07, installation doc 06 et tests doc 09 ; résultat local, NAS non installé.
