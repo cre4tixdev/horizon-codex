@@ -10,7 +10,7 @@ export function HCombobox({ id, label, value, options, onChange, onSearchChange,
   const [index, setIndex] = useState(0)
   const normalize = (text: string) => text.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase()
   const filtered = options.filter((option) => !option.disabled && normalize(`${option.label} ${showCodes ? option.value : ''}`).includes(normalize(search)))
-  const choices = required ? filtered : [{ value: '', label: emptyLabel }, ...filtered]
+  const choices = required || filtered.some((option) => option.value === '') ? filtered : [{ value: '', label: emptyLabel }, ...filtered]
   useEffect(() => { if (open) list.current?.querySelector('[data-highlighted=true]')?.scrollIntoView({ block: 'nearest' }) }, [open, index, search])
   function choose(next: string) { onChange(next); setOpen(false); setSearch(''); onSearchChange?.(''); setIndex(0) }
   return <div className="h-combobox-with-actions"><Popover.Root open={open} onOpenChange={(next) => { setOpen(next); setSearch(''); onSearchChange?.(''); setIndex(0) }}>

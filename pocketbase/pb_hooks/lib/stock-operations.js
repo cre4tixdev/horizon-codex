@@ -293,3 +293,8 @@ module.exports = {
     }); return module.exports.settings(event)
   },
 }
+
+module.exports.deliveryNeeded = (event) => {
+  read(event.app, event.auth); const id = event.request.pathValue('id'); require(`${__hooks}/lib/sales-procurement.js`)(event.app, event.auth, id)
+  return event.json(200, { needed: require(`${__hooks}/lib/stock-deliveries.js`).needed(event.app, id) })
+}

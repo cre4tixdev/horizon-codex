@@ -56,6 +56,7 @@ module.exports = {
       const orders = app.findRecordsByFilter('sales_orders', 'quote = {:id} && status != "cancelled"', '', 0, 0, { id: quote.id })
       if (orders.some((order) => order.getString('status') !== 'confirmed')) throw new ApiError(409, 'La commande est en cours d’exécution. Ce retour est bloqué.')
       if (body.target === 'draft' && orders.length) throw new ApiError(409, 'Revenez d’abord de Commande client à Devis.')
+      if (orders.length) require(`${__hooks}/lib/billing.js`).assertSourceReturn(app, 'customer', quote.id)
       for (const order of orders) {
         require(`${__hooks}/lib/purchasing.js`).assertReturn(app, order); require(`${__hooks}/lib/stock.js`).release(app, event.auth, order);
         const previous = order.publicExport(); order.set('status', 'cancelled'); order.set('cancelled_at', new Date().toISOString()); order.set('cancellation_reason', 'Retour de la commande client en devis'); app.save(order)
@@ -97,12 +98,12 @@ module.exports = {
     const reference = typeof body.customer_order_number === 'string' ? body.customer_order_number.trim() : ''
     if (reference.length > 120 || body.customer_order_number !== undefined && typeof body.customer_order_number !== 'string') throw new BadRequestError('Numéro de commande client invalide (120 caractères maximum).')
     const waiting = body.awaiting_customer_order === true || body.awaiting_customer_order === 'true'
-    if (body.awaiting_customer_order !== undefined && ![true, false, 'true', 'false'].includes(body.awaiting_customer_order)) throw new BadRequestError('Choix Attente commande invalide.')
-    if (!reference && !waiting) throw new BadRequestError('Renseignez le numéro de commande client ou cochez Attente commande.')
+    if (body.awaiting_customer_order !== undefined && ![true, false, 'true', 'false'].includes(body.awaiting_customer_order)) throw new BadRequestError('Choix Attente Commande invalide.')
+    if (!reference && !waiting) throw new BadRequestError('Renseignez le numéro de commande client ou cochez Attente Commande.')
     if (reference && waiting) throw new BadRequestError('Une commande en attente ne doit pas contenir de numéro client.')
     let files = []
     if (event.request.header.get('Content-Type').startsWith('multipart/form-data')) { try { files = event.findUploadedFiles('command_file') } catch (error) { if (!String(error).endsWith('http: no such file')) throw error } }
-    if (files.length > 1) throw new BadRequestError('Une seule pièce de commande est autorisée.')
+    if (files.length > 20) throw new BadRequestError('20 pièces de commande maximum.')
     let result
     event.app.runInTransaction((app) => {
       guard(app, event.auth, 'sales.order.confirm')
@@ -114,9 +115,13 @@ module.exports = {
       const last = app.findRecordsByFilter('sales_orders', 'quote = {:id}', '-order_sequence', 1, 0, { id: quote.id })[0], sequence = (last?.getInt('order_sequence') || 0) + 1
       // Keep the root identity and a stable child for this commercial order.
       const order = new Record(app.findCollectionByNameOrId('sales_orders'))
+      if (files.length > 1 && !order.collection().fields.getByName('customer_order_documents')) throw new BadRequestError('Appliquez la migration des pièces multiples avant de poursuivre.')
       for (const key of ['opportunity', 'analytic_account', 'company', 'contact', 'owner', 'currency', 'exchange_rate', 'subtotal', 'tax', 'total']) order.set(key, quote.get(key))
       const proof = require(`${__hooks}/lib/activity.js`).publish(app, quote, event.auth.id, files.length ? 'document' : 'status_change', reference ? `Commande client confirmée · ${reference}` : 'Commande client confirmée · Attente Commande', { action: 'customer_order', changes: [{ field: 'status', label: 'État', before: ({ draft: 'Brouillon', validated: 'Devis', sent: 'Envoyé' })[quote.getString('status')], after: 'Commande client' }] })
-      if (files.length) { proof.set('attachments', files); const field = new FileField({ name: 'attachments', maxSelect: 5, maxSize: 10485760, mimeTypes: ['application/pdf', 'image/png', 'image/jpeg', 'image/webp'], protected: true }); try { field.validateValue(event.request.context(), app, proof) } catch { throw new BadRequestError('Choisissez un PDF ou une image de 10 Mo maximum.') }; app.save(proof) }
+      const documents = require(`${__hooks}/lib/sales-order-documents.js`)
+      if (files.length) { proof.set('attachments', [files[0]]); const field = new FileField({ name: 'attachments', maxSelect: 1, maxSize: 10485760, mimeTypes: ['application/pdf', 'image/png', 'image/jpeg', 'image/webp'], protected: true }); try { field.validateValue(event.request.context(), app, proof) } catch { throw new BadRequestError('Choisissez des PDF ou images de 10 Mo maximum par fichier.') }; app.save(proof) }
+      const documentIds = files.length ? [proof.id, ...files.slice(1).map((file) => documents.add(app, event, quote, file).id)] : []
+      order.set('customer_order_documents', documentIds)
       for (const [key, value] of Object.entries({ quote: quote.id, order_sequence: sequence, order_number: `${quote.getString('quote_number')}-${sequence}`, status: 'confirmed', order_date: now, validated_at: now, validated_by: event.auth.id, customer_order_number: reference, customer_order_event: proof.id, quote_snapshot: { ...before, lines: details.map((line) => line.publicExport()) } })) order.set(key, value)
       order.set('analytic_child', require(`${__hooks}/lib/analytic-service.js`).order(app, quote).id)
       app.save(order)
@@ -135,4 +140,35 @@ module.exports = {
     })
     return event.json(200, result)
   },
+}
+
+module.exports.customerOrderReference = (event) => {
+  const body = event.requestInfo().body; exact(body, ['id', 'updated', 'customer_order_number', 'command_file', 'command_file_action', 'command_file_event', 'command_file_removals'])
+  const fileAction = body.command_file_action === undefined ? 'keep' : body.command_file_action
+  if (!['keep', 'append', 'replace', 'remove'].includes(fileAction)) throw new BadRequestError('Action de pièce jointe invalide.')
+  let removals = body.command_file_removals === undefined ? [] : body.command_file_removals
+  if (typeof removals === 'string') { try { removals = JSON.parse(removals) } catch { throw new BadRequestError('Retrait de pièces invalide.') } }
+  if (!Array.isArray(removals) || removals.length > 20 || removals.some((id) => !/^[a-z0-9]{15}$/.test(id)) || new Set(removals).size !== removals.length || removals.length && fileAction !== 'append') throw new BadRequestError('Retrait de pièces invalide.')
+  if (body.command_file_event !== undefined && (typeof body.command_file_event !== 'string' || !/^[a-z0-9]{15}$/.test(body.command_file_event))) throw new BadRequestError('Pièce de commande invalide.')
+  if (typeof body.customer_order_number !== 'string' || body.customer_order_number.trim().length > 120) throw new BadRequestError('Numéro de commande client invalide (120 caractères maximum).')
+  const value = body.customer_order_number.trim(), reference = value.toLowerCase() === 'attente commande' ? '' : value
+  let files = []
+  if (event.request.header.get('Content-Type').startsWith('multipart/form-data')) { try { files = event.findUploadedFiles('command_file') } catch (error) { if (!String(error).endsWith('http: no such file')) throw error } }
+  if (files.length > 20) throw new BadRequestError('20 pièces de commande maximum.')
+  if (fileAction === 'replace' && files.length !== 1 || fileAction === 'remove' && files.length) throw new BadRequestError('Choisissez le fichier à remplacer ou retirez la pièce sans nouveau fichier.')
+  let result
+  event.app.runInTransaction((app) => {
+    guard(app, event.auth, 'sales.order.confirm')
+    const quote = app.findRecordById('sales_quotes', body.id)
+    if (quote.getString('updated') !== body.updated) throw new ApiError(409, 'La commande a été modifiée. Rechargez la fiche.')
+    if (quote.getString('status') !== 'accepted' || quote.getString('archived_at')) throw new BadRequestError('Choisissez une commande confirmée non archivée.')
+    const order = app.findFirstRecordByFilter('sales_orders', 'quote = {:id} && status = "confirmed"', { id: quote.id }), before = order.publicExport()
+    const changedDocuments = require(`${__hooks}/lib/sales-order-documents.js`).update(app, event, quote, order, files, fileAction, body.command_file_event, removals)
+    if (order.getString('customer_order_number') !== reference || changedDocuments) {
+      order.set('customer_order_number', reference); app.save(order); app.save(quote)
+      require(`${__hooks}/lib/access-policy.js`).audit(app, 'sales_orders', order.id, event.auth.id, before, order.publicExport(), 'update')
+      if (before.customer_order_number !== reference) require(`${__hooks}/lib/activity.js`).publish(app, quote, event.auth.id, 'change', 'Référence de commande client mise à jour', { action: 'update', changes: [{ field: 'customer_order_number', label: 'Numéro de commande client', before: before.customer_order_number || 'Attente Commande', after: reference || 'Attente Commande' }] })
+    }
+    result = require(`${__hooks}/lib/sales.js`).dto(app, quote)
+  }); return event.json(200, result)
 }

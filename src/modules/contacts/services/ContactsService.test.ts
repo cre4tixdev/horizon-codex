@@ -3,7 +3,7 @@ import { ContactsService, CompanyAddressSaveError, CompanyRolesSaveError } from 
 import type { ContactsRepository } from '../repositories/ContactsRepository'
 import { companyInputSchema, personInputSchema, companySchema, roleSchema, addressInputSchema } from '../schemas/contacts'
 
-const company = { name: ' Test ', legal_name: '', vat_number: '', lei: '', billing_email: '', einvoice_routing_address: '', einvoice_platform: '', einvoice_service_code: '', einvoice_status: 'unknown' as const, preferred_language: '', siren: '', siret: '', default_currency: '', website: '', phone: '', email: '', notes: '' }
+const company = { payment_term: '', name: ' Test ', legal_name: '', vat_number: '', lei: '', billing_email: '', einvoice_routing_address: '', einvoice_platform: '', einvoice_service_code: '', einvoice_status: 'unknown' as const, preferred_language: '', siren: '', siret: '', default_currency: '', website: '', phone: '', email: '', notes: '' }
 function setup(permissions = ['contacts.read', 'contacts.write']) {
   const repository: ContactsRepository = { ensureRevision: vi.fn(), companyPeopleCount: vi.fn(), navigation: vi.fn(), summary: vi.fn(), companies: vi.fn(), people: vi.fn(), company: vi.fn(), person: vi.fn(), saveCompany: vi.fn(), savePerson: vi.fn(), setActive: vi.fn(), deleteRecord: vi.fn(), addresses: vi.fn(), saveAddress: vi.fn(), saveAddresses: vi.fn(), saveRole: vi.fn(), removeGallery: vi.fn(), imageURL: vi.fn() }
   return { service: new ContactsService(repository, (permission) => permissions.includes(permission)), repository }

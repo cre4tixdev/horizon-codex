@@ -1,4 +1,5 @@
 import { ClientResponseError } from 'pocketbase'
+import { ZodError } from 'zod'
 import { environment } from '../../../core/config/environment'
 import { sessionService } from '../../../core/auth/services/session'
 import { hasPermission } from '../../../core/auth/types/session'
@@ -8,7 +9,7 @@ const repository = environment.pocketBaseUrl ? createPurchasingRepository(enviro
 async function run<T>(action: string, operation: (repo: ReturnType<typeof createPurchasingRepository>) => Promise<T>) {
   const session = sessionService.getSnapshot()
   if (!repository || session.status !== 'authenticated' || !hasPermission(session.user, 'purchasing.read') || action !== 'read' && !hasPermission(session.user, `purchasing.${action}`)) throw new Error('Accès aux achats refusé.')
-  try { return await operation(repository) } catch (error) { console.error('[purchasing] Operation failed', { status: error instanceof ClientResponseError ? error.status : 0 }); throw new Error(error instanceof ClientResponseError && [400, 403, 404, 409].includes(error.status) ? error.response.message : 'Achats indisponibles. Réessayez.', { cause: error }) }
+  try { return await operation(repository) } catch (error) { console.error('[purchasing] Operation failed', { status: error instanceof ClientResponseError ? error.status : 0, ...(error instanceof ZodError ? { validation: error.issues.map(({ path, code }) => ({ path, code })) } : {}) }); throw new Error(error instanceof ClientResponseError && [400, 403, 404, 409].includes(error.status) ? error.response.message : 'Achats indisponibles. Réessayez.', { cause: error }) }
 }
 export const purchasingService = {
   overview: (query: PurchaseListOptions) => run('read', (repo) => repo.overview(query)),

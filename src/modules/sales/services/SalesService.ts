@@ -37,8 +37,10 @@ export const salesService = {
   reopen: (id: string, updated: string, target: 'draft' | 'validated') => run(false, (repo) => repo.reopen(id, updated, target)),
   salespeople: () => run(false, (repo) => repo.salespeople()),
   finalize: (id: string, updated: string) => run(false, (repo) => repo.finalize(id, updated)),
-  confirm: (id: string, updated: string, number: string, file?: File, reservations?: StockSelection[], preparation?: PurchasePreparationSelection[]) => {
-    if (file && (file.size > 10485760 || !['application/pdf', 'image/png', 'image/jpeg', 'image/webp'].includes(file.type))) throw new Error('Choisissez un PDF ou une image de 10 Mo maximum.')
+  customerOrderDocuments: (id: string, updated: string, number: string, files: File[], removals: string[]) => { if (files.length > 20 || files.some((file) => file.size > 10485760 || !['application/pdf', 'image/png', 'image/jpeg', 'image/webp'].includes(file.type))) throw new Error('Choisissez au maximum 20 PDF ou images de 10 Mo chacun.'); return run(false, (repo) => repo.customerOrderReference(id, updated, number, files, 'append', removals)) },
+  customerOrderReference: (id: string, updated: string, number: string, file?: File, fileAction: 'keep' | 'replace' | 'remove' = 'keep') => { if ((Array.isArray(file) ? file : file ? [file] : []).some((item) => item.size > 10485760 || !['application/pdf', 'image/png', 'image/jpeg', 'image/webp'].includes(item.type))) throw new Error('Choisissez un PDF ou une image de 10 Mo maximum.'); return run(false, (repo) => repo.customerOrderReference(id, updated, number, file, fileAction)) },
+  confirm: (id: string, updated: string, number: string, file?: File | File[], reservations?: StockSelection[], preparation?: PurchasePreparationSelection[]) => {
+    if ((Array.isArray(file) ? file : file ? [file] : []).some((item) => item.size > 10485760 || !['application/pdf', 'image/png', 'image/jpeg', 'image/webp'].includes(item.type))) throw new Error('Choisissez un PDF ou une image de 10 Mo maximum.')
     return run(false, (repo) => repo.confirm(id, updated, number, file, reservations, preparation))
   },
   settings: () => settingsRun(false, (repo) => repo.settings()),

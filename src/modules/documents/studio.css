@@ -230,8 +230,7 @@
 .document-preview-toolbar { flex-wrap:wrap; gap:8px; align-items:center; }
 .document-preview-toolbar>.h-record-picker,
 .document-preview-toolbar>.h-combobox-with-actions { flex:0 1 340px; width:340px; max-width:100%; min-width:180px; }
-.document-preview-toolbar>.h-button,
-.document-preview-download>.h-button { height:34px; }
+.document-preview-toolbar { --hz-control-height:34px; --hz-button-height:var(--hz-control-height); --hz-button-small-height:var(--hz-control-height); }
 .document-preview-download { margin-left:auto; padding-left:16px; }
 .document-preview-controls { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px 16px; padding:8px 12px; flex:none; border-bottom:1px solid #dce3ec; }
 .document-preview-controls .document-preview-zoom { color:#091c3a; }

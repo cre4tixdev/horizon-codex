@@ -1,6 +1,6 @@
 import { textStyle } from '../components/textStyle'
 import { describe, it, expect } from 'vitest'
-import { defaultLayout, defaultLabelLayout, pageDimensions, layoutSchema, printableWidth, newBlock, resizeColumns, setSameLine, bodyRows, fonts, dockBlock, placedBlock, duplicateBlock, reorderBlock, expandLegacyBlocks, fitImage, resizeBlock, libraryKinds } from './templates'
+import { defaultLayout, defaultInvoiceLayout, defaultLabelLayout, pageDimensions, layoutSchema, printableWidth, newBlock, resizeColumns, setSameLine, bodyRows, fonts, dockBlock, placedBlock, duplicateBlock, reorderBlock, expandLegacyBlocks, fitImage, resizeBlock, libraryKinds } from './templates'
 describe('Document layout contract', () => {
   it('starts with a printable flowing quotation and repeated page number', () => {
     const layout = defaultLayout()
@@ -184,4 +184,12 @@ describe('Custom paper and product labels', () => {
     expect(layoutSchema.safeParse({ ...label, headerHeight: 150 }).success).toBe(false)
     expect(layoutSchema.safeParse({ ...label, pageSize: { width: 0, height: 28 } }).success).toBe(false)
   })
+})
+
+
+it('reloads the default invoice without unsaved legacy transformations and keeps Billing bindings', () => {
+  const original = defaultInvoiceLayout(), stored = layoutSchema.parse(JSON.parse(JSON.stringify(original)))
+  expect(expandLegacyBlocks(stored)).toEqual(original)
+  expect(stored.blocks.find((block) => block.kind === 'table')?.tableSource).toBe('billing.invoice_lines')
+  expect(stored.blocks.some((block) => block.field === 'invoice.total')).toBe(true)
 })

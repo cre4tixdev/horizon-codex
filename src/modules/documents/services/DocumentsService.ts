@@ -9,7 +9,7 @@ import type { FileSettings } from '../schemas/fileSettings'
 const repository = environment.pocketBaseUrl ? createDocumentsRepository(environment.pocketBaseUrl) : undefined
 async function run<T>(manage: boolean, action: (repo: NonNullable<typeof repository>) => Promise<T>): Promise<T> {
   const session = sessionService.getSnapshot()
-  if (session.status !== 'authenticated' || !(hasPermission(session.user, 'documents.template.manage') || !manage && (hasPermission(session.user, 'sales.read') || hasPermission(session.user, 'inventory.read') || hasPermission(session.user, 'purchasing.read')))) throw new Error('Accès aux modèles de documents refusé.')
+  if (session.status !== 'authenticated' || !(hasPermission(session.user, 'documents.template.manage') || !manage && (hasPermission(session.user, 'billing.read') || hasPermission(session.user, 'sales.read') || hasPermission(session.user, 'inventory.read') || hasPermission(session.user, 'purchasing.read')))) throw new Error('Accès aux modèles de documents refusé.')
   if (!repository) throw new Error('Documents n’est pas configuré.')
   try { return await action(repository) } catch (error) {
     console.error('[documents] Operation failed', { status: error instanceof ClientResponseError ? error.status : 0 })

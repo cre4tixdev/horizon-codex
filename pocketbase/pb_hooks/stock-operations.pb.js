@@ -11,3 +11,5 @@ routerAdd('POST', '/api/horizon/inventory/operations/transition', (e) => require
 routerAdd('GET', '/api/horizon/inventory/settings', (e) => require(`${__hooks}/lib/stock-operations.js`).settings(e), $apis.requireAuth('core_users'))
 routerAdd('POST', '/api/horizon/inventory/settings', (e) => require(`${__hooks}/lib/stock-operations.js`).saveSettings(e), $apis.requireAuth('core_users'))
 onRecordDelete(() => { throw new BadRequestError('Les opérations de stock sont conservées dans l’historique.') }, 'inventory_operations')
+
+routerAdd('GET', '/api/horizon/inventory/operations/delivery-needed/{id}', (e) => require(`${__hooks}/lib/stock-operations.js`).deliveryNeeded(e), $apis.requireAuth('core_users'))

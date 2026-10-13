@@ -32,6 +32,75 @@ class SalesTests(unittest.TestCase):
             values.setdefault('awaiting_customer_order', True)
         return self.pb.request('POST', 'horizon/sales/quotes/' + route, {'id': quote['id'], 'updated': quote['updated'], **values}, self.token)
 
+    def test_confirmed_customer_reference_changes_without_reopening(self):
+        self.grant_lifecycle(); _, quote = self.quote_save(); _, quote = self.transition('finalize', quote); _, quote = self.transition('confirm', quote)
+        order = self.pb.request('GET', 'collections/sales_orders/records/' + quote['order']['id'], token=self.pb.admin_token)[1]
+        status, changed = self.transition('customer-order-reference', quote, customer_order_number='CLIENT-2026-42'); self.assertEqual(status, 200, changed)
+        self.assertEqual(changed['status'], 'accepted'); self.assertEqual(changed['order']['customer_number'], 'CLIENT-2026-42')
+        self.assertEqual(self.transition('customer-order-reference', quote, customer_order_number='OTHER')[0], 409)
+        after = self.pb.request('GET', 'collections/sales_orders/records/' + quote['order']['id'], token=self.pb.admin_token)[1]
+        for key in ['order_number', 'quote_snapshot', 'subtotal', 'tax', 'total', 'customer_order_event']: self.assertEqual(after[key], order[key])
+        status, waiting = self.transition('customer-order-reference', changed, customer_order_number='Attente Commande'); self.assertEqual(status, 200, waiting); self.assertEqual(waiting['order']['customer_number'], '')
+        self.assertEqual(self.transition('customer-order-reference', waiting, customer_order_number='X' * 121)[0], 400)
+        self.assertEqual(self.transition('customer-order-reference', waiting, customer_order_number='OK', total=0)[0], 400)
+        self.pb.request('PATCH', 'collections/core_users/records/' + self.user['id'], dict(erp_profile='viewer'), self.pb.admin_token)
+        self.assertEqual(self.transition('customer-order-reference', waiting, customer_order_number='NO')[0], 403)
+
+    def test_customer_order_attachment_added_after_confirmation(self):
+        self.grant_lifecycle(); _, quote = self.quote_save(); _, quote = self.transition('finalize', quote); _, quote = self.transition('confirm', quote)
+        original_event = quote['order']['event_id']
+        original_order = self.pb.request('GET', 'collections/sales_orders/records/' + quote['order']['id'], token=self.pb.admin_token)[1]
+        def upload(current, filename='commande.pdf', mime='application/pdf', data=b'%PDF-1.7\nCommande client\n%%EOF', action='keep', extra=()):
+            boundary = 'horizon-posteriori-command-boundary'
+            parts = [f'--{boundary}\r\nContent-Disposition: form-data; name="{key}"\r\n\r\n{value}\r\n'.encode() for key, value in dict(id=current['id'], updated=current['updated'], customer_order_number=current['order']['customer_number'], command_file_action=action).items()]
+            for upload_name, upload_mime, upload_data in [(filename, mime, data), *extra]:
+                parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="command_file"; filename="{upload_name}"\r\nContent-Type: {upload_mime}\r\n\r\n'.encode() + upload_data + b'\r\n')
+            parts.append(f'--{boundary}--\r\n'.encode())
+            request = Request(self.pb.url + '/api/horizon/sales/quotes/customer-order-reference', data=b''.join(parts), headers={'Authorization': self.token, 'Content-Type': f'multipart/form-data; boundary={boundary}'}, method='POST')
+            try:
+                with urlopen(request) as response: return response.status, json.loads(response.read())
+            except HTTPError as error: return error.code, json.loads(error.read())
+        self.assertEqual(upload(quote, 'evil.txt', 'text/plain', b'invalid file')[0], 400)
+        self.assertEqual(self.pb.request('GET', 'horizon/sales/quotes/' + quote['id'], token=self.token)[1]['order']['event_id'], original_event)
+        status, saved = upload(quote); self.assertEqual(status, 200, saved); self.assertEqual(saved['status'], 'accepted'); self.assertEqual(len(saved['order']['files']), 1); self.assertNotEqual(saved['order']['event_id'], original_event)
+        self.assertEqual(self.pb.request('GET', 'collections/core_activity_events/records/' + original_event, token=self.pb.admin_token)[1]['attachments'], [])
+        after = self.pb.request('GET', 'collections/sales_orders/records/' + quote['order']['id'], token=self.pb.admin_token)[1]
+        for key in ['order_number', 'quote_snapshot', 'order_date', 'subtotal', 'tax', 'total']: self.assertEqual(after[key], original_order[key])
+        self.assertEqual(upload(quote)[0], 409); self.assertEqual(upload(saved)[0], 400)
+        file = saved['order']['files'][0]
+        self.assertEqual(self.pb.request('GET', 'files/core_activity_events/' + saved['order']['event_id'] + '/' + file)[0], 404)
+        self.assertTrue(saved['order']['date'])
+        self.assertEqual(upload(saved, 'evil.txt', 'text/plain', b'invalid file', action='replace')[0], 400)
+        self.assertEqual(self.pb.request('GET', 'horizon/sales/quotes/' + saved['id'], token=self.token)[1]['order']['event_id'], saved['order']['event_id'])
+        status, replaced = upload(saved, filename='nouvelle.pdf', action='replace'); self.assertEqual(status, 200, replaced)
+        self.assertNotEqual(replaced['order']['event_id'], saved['order']['event_id'])
+        self.assertEqual(self.pb.request('GET', 'collections/core_activity_events/records/' + saved['order']['event_id'], token=self.pb.admin_token)[1]['attachments'], saved['order']['files'])
+        self.assertEqual(self.transition('customer-order-reference', replaced, customer_order_number='', command_file_action='replace')[0], 400)
+        self.assertEqual(self.transition('customer-order-reference', replaced, customer_order_number='', command_file_action='invalid')[0], 400)
+        self.assertEqual(self.transition('customer-order-reference', replaced, customer_order_number='', command_file_action=0)[0], 400)
+        self.assertEqual(self.transition('customer-order-reference', saved, customer_order_number='', command_file_action='remove')[0], 409)
+        self.pb.request('PATCH', 'collections/core_users/records/' + self.user['id'], dict(erp_profile='viewer'), self.pb.admin_token)
+        self.assertEqual(self.transition('customer-order-reference', replaced, customer_order_number='', command_file_action='remove')[0], 403)
+        self.assertEqual(self.pb.request('PATCH', 'collections/core_users/records/' + self.user['id'], dict(erp_profile='user'), self.pb.admin_token)[0], 200)
+        status, removed = self.transition('customer-order-reference', replaced, customer_order_number='', command_file_action='remove'); self.assertEqual(status, 200, removed); self.assertEqual(removed['order']['files'], [])
+        self.assertEqual(self.pb.request('GET', 'collections/core_activity_events/records/' + replaced['order']['event_id'], token=self.pb.admin_token)[1]['attachments'], replaced['order']['files'])
+        final_order = self.pb.request('GET', 'collections/sales_orders/records/' + quote['order']['id'], token=self.pb.admin_token)[1]
+        for key in ['order_number', 'quote_snapshot', 'order_date', 'subtotal', 'tax', 'total']: self.assertEqual(final_order[key], original_order[key])
+        status, reattached = upload(removed); self.assertEqual(status, 200, reattached); self.assertEqual(len(reattached['order']['files']), 1)
+        status, multiple = upload(reattached, filename='second.pdf', action='append', extra=[('third.pdf', 'application/pdf', b'%PDF-1.7\nThird\n%%EOF')]); self.assertEqual(status, 200, multiple); self.assertEqual(len(multiple['order']['documents']), 3)
+        self.assertEqual(upload(multiple, action='append', extra=[('evil.txt', 'text/plain', b'invalid')])[0], 400)
+        self.assertEqual(self.pb.request('GET', 'horizon/sales/quotes/' + multiple['id'], token=self.token)[1]['order']['documents'], multiple['order']['documents'])
+        target = multiple['order']['documents'][1]['event_id']
+        target_file = multiple['order']['documents'][1]['file']
+        self.assertEqual(self.pb.request('POST', 'horizon/activity/attachments/delete', {'event_id': target, 'filename': target_file}, self.token)[0], 409)
+        status, partial = self.transition('customer-order-reference', multiple, customer_order_number='', command_file_action='append', command_file_removals=[target]); self.assertEqual(status, 200, partial)
+        self.assertEqual([item['event_id'] for item in partial['order']['documents']], [item['event_id'] for item in multiple['order']['documents'] if item['event_id'] != target])
+        self.assertTrue(self.pb.request('GET', 'collections/core_activity_events/records/' + target, token=self.pb.admin_token)[1]['attachments'])
+        self.assertEqual(self.pb.request('POST', 'horizon/activity/attachments/delete', {'event_id': target, 'filename': target_file}, self.token)[0], 409)
+        self.assertEqual(self.transition('customer-order-reference', partial, customer_order_number='', command_file_action='append', command_file_removals=[saved['order']['event_id']])[0], 400)
+        self.assertEqual(self.transition('customer-order-reference', partial, customer_order_number='', command_file_action='remove')[0], 400)
+
+
     def test_confirmation_requires_reference_or_explicit_waiting(self):
         self.grant_lifecycle()
         _, quote = self.quote_save()
@@ -151,10 +220,11 @@ class SalesTests(unittest.TestCase):
         _, quote = self.quote_save()
         status, quote = self.transition('finalize', quote)
         self.assertEqual(status, 200, quote)
-        def upload(filename, data, mime):
+        def upload(filename, data, mime, extra=()):
             boundary = 'horizon-command-proof-boundary'
             parts = [f'--{boundary}\r\nContent-Disposition: form-data; name="{key}"\r\n\r\n{value}\r\n'.encode() for key, value in {'id': quote['id'], 'updated': quote['updated'], 'customer_order_number': 'PO-7'}.items()]
-            parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="command_file"; filename="{filename}"\r\nContent-Type: {mime}\r\n\r\n'.encode() + data + b'\r\n')
+            for upload_name, upload_mime, upload_data in [(filename, mime, data), *extra]:
+                parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="command_file"; filename="{upload_name}"\r\nContent-Type: {upload_mime}\r\n\r\n'.encode() + upload_data + b'\r\n')
             parts.append(f'--{boundary}--\r\n'.encode())
             request = Request(self.pb.url + '/api/horizon/sales/quotes/confirm', data=b''.join(parts), headers={'Authorization': self.token, 'Content-Type': f'multipart/form-data; boundary={boundary}'}, method='POST')
             try:
@@ -162,8 +232,11 @@ class SalesTests(unittest.TestCase):
             except HTTPError as error: return error.code, json.loads(error.read())
         self.assertEqual(upload('fake.pdf', b'plain text', 'application/pdf')[0], 400)
         png = base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZlVgAAAAASUVORK5CYII=')
-        status, confirmed = upload('commande.png', png, 'image/png')
+        self.assertEqual(upload('commande.png', png, 'image/png', extra=[('evil.txt', 'text/plain', b'invalid')])[0], 400)
+        self.assertEqual(self.pb.request('GET', 'horizon/sales/quotes/' + quote['id'], token=self.token)[1]['status'], 'validated')
+        status, confirmed = upload('commande.png', png, 'image/png', extra=[('annexe.pdf', 'application/pdf', b'%PDF-1.7\nAnnexe\n%%EOF')])
         self.assertEqual(status, 200, confirmed)
+        self.assertEqual(len(confirmed['order']['documents']), 2)
         event_id, file = confirmed['order']['event_id'], confirmed['order']['files'][0]
         path = self.pb.url + '/api/files/core_activity_events/' + event_id + '/' + file
         with self.assertRaises(HTTPError): urlopen(path)
@@ -525,6 +598,38 @@ class SalesTests(unittest.TestCase):
         self.pb.request('PATCH', f'collections/core_users/records/{self.user["id"]}', {'erp_profile': 'viewer'}, self.pb.admin_token)
         self.assertEqual(self.quote_save(key='viewer-forbidden-quote')[0], 403)
         self.assertEqual(self.pb.request('GET', 'horizon/sales/quotes', token=self.token)[0], 200)
+
+class SalesDocumentsMigrationTests(unittest.TestCase):
+    save = SalesTests.save
+    quote_save = SalesTests.quote_save
+    grant_lifecycle = SalesTests.grant_lifecycle
+    transition = SalesTests.transition
+
+    def test_upgrade_preserves_legacy_document_and_reapplies(self):
+        pb = check_crm.LocalPocketBase()
+        directory = Path(pb.temp.name) / 'previous_documents_migrations'; directory.mkdir()
+        for file in (check_crm.ROOT / 'pocketbase/pb_migrations').glob('*.js'):
+            if file.name < '1791840006_customer_order_documents.js': shutil.copy(file, directory / file.name)
+        args = pb.args; pb.args = [value for value in args if not value.startswith('--migrationsDir=')] + [f'--migrationsDir={directory}']
+        with patch('check_crm.LocalPocketBase', return_value=pb): SalesTests.setUp(self)
+        self.grant_lifecycle(); _, quote = self.quote_save(); _, quote = self.transition('finalize', quote); _, quote = self.transition('confirm', quote)
+        boundary = 'horizon-legacy-document'
+        parts = [f'--{boundary}\r\nContent-Disposition: form-data; name="{key}"\r\n\r\n{value}\r\n'.encode() for key, value in dict(id=quote['id'], updated=quote['updated'], customer_order_number='LEGACY').items()]
+        parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="command_file"; filename="legacy.pdf"\r\nContent-Type: application/pdf\r\n\r\n%PDF-1.7\nLegacy\n%%EOF\r\n--{boundary}--\r\n'.encode())
+        request = Request(pb.url + '/api/horizon/sales/quotes/customer-order-reference', data=b''.join(parts), headers={'Authorization': self.token, 'Content-Type': f'multipart/form-data; boundary={boundary}'}, method='POST')
+        with urlopen(request) as response: saved = json.load(response)
+        before = pb.request('GET', 'collections/sales_orders/records/' + saved['order']['id'], token=pb.admin_token)[1]
+        event_id = saved['order']['event_id']; proof = pb.request('GET', 'collections/core_activity_events/records/' + event_id, token=pb.admin_token)[1]
+        pb.process.terminate(); pb.process.wait(timeout=10)
+        for _ in range(2): subprocess.run(args + ['migrate', 'up'], check=True, stdout=subprocess.DEVNULL)
+        pb.args = args; pb.launch_and_authenticate(args)
+        after = pb.request('GET', 'collections/sales_orders/records/' + saved['order']['id'], token=pb.admin_token)[1]
+        self.assertEqual(after['customer_order_documents'], [event_id])
+        token = pb.request('POST', 'files/token', token=self.token)[1]['token']
+        with urlopen(pb.url + '/api/files/core_activity_events/' + event_id + '/' + proof['attachments'][0] + '?token=' + token) as response: self.assertEqual(response.read(), b'%PDF-1.7\nLegacy\n%%EOF')
+        for key in ['customer_order_event', 'quote_snapshot', 'order_number', 'order_date', 'subtotal', 'tax', 'total']: self.assertEqual(after[key], before[key])
+        self.assertEqual(pb.request('GET', 'collections/core_activity_events/records/' + event_id, token=pb.admin_token)[1], proof)
+        self.assertEqual(pb.request('GET', 'horizon/sales/quotes/' + quote['id'], token=self.token)[1]['order']['documents'], saved['order']['documents'])
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

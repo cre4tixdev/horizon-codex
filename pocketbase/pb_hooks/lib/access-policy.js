@@ -1,4 +1,5 @@
 const modules = [
+  { key: 'billing', label: 'Facturation', available: true, actions: ['read', 'write', 'invoice.validate', 'payment.manage'], scopes: ['all'] },
   { key: 'accounting', label: 'Immobilisations', available: true, actions: ['read', 'assets.manage'], scopes: ['all'] },
   { key: 'analysis', label: 'Analyse des affaires', available: true, actions: ['read', 'financial', 'labor_costs'], scopes: ['own', 'all'] },
   { key: 'calendar', label: 'Calendrier', available: true, actions: ['read', 'write'], scopes: ['all'] },
@@ -8,7 +9,7 @@ const modules = [
   { key: 'purchasing', label: 'Achats', available: true, actions: ['read', 'write', 'request.validate', 'order.validate'], scopes: ['all'] },
   { key: 'sales', label: 'Ventes', available: true, actions: ['read', 'write', 'quote.validate', 'order.confirm'], scopes: ['all'] },
   { key: 'hr', label: 'Employés', available: true, actions: ['read', 'write', 'organisation.manage'], scopes: ['self', 'reports', 'team', 'all'] },
-  ...[['projects', 'Projets'], ['planning', 'Planning'], ['time', 'TimeReport'], ['leave', 'Congés'], ['expenses', 'Dépenses'], ['billing', 'Facturation'], ['service', 'SAV'], ['messaging', 'Messagerie'], ['documents', 'Documents']].map(([key, label]) => ({ key, label, available: false, actions: [], scopes: [] })),
+  ...[['projects', 'Projets'], ['planning', 'Planning'], ['time', 'TimeReport'], ['leave', 'Congés'], ['expenses', 'Dépenses'], ['service', 'SAV'], ['messaging', 'Messagerie'], ['documents', 'Documents']].map(([key, label]) => ({ key, label, available: false, actions: [], scopes: [] })),
 ]
 const permissions = (app, user) => {
   if (!user || user.collection().name !== 'core_users' || !user.getBool('active')) return []
@@ -57,7 +58,7 @@ const validateGrants = (profile, grants) => {
 }
 const audit = (app, entity, id, actor, before, after, action) => {
   const record = new Record(app.findCollectionByNameOrId('core_audit'))
-  for (const [key, value] of Object.entries({ user: actor, module: entity.startsWith('purchasing_') ? 'purchasing' : entity.startsWith('inventory_') ? 'inventory' : entity.startsWith('hr_') ? 'hr' : entity.startsWith('documents_') ? 'documents' : 'core', entity, entity_id: id, action, before, after, metadata: { source: 'server' } })) record.set(key, value)
+  for (const [key, value] of Object.entries({ user: actor, module: entity.startsWith('billing_') ? 'billing' : entity.startsWith('purchasing_') ? 'purchasing' : entity.startsWith('inventory_') ? 'inventory' : entity.startsWith('hr_') ? 'hr' : entity.startsWith('documents_') ? 'documents' : 'core', entity, entity_id: id, action, before, after, metadata: { source: 'server' } })) record.set(key, value)
   app.save(record)
 }
 module.exports = { modules, permissions, admin, settings, hrAllowed, grantsFor, validateGrants, audit }

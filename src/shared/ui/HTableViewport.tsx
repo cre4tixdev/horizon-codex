@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useRef, type ComponentProps } from 'react'
+import { useCallback, useEffect, useRef, type ComponentProps, type ReactNode } from 'react'
 
 /** Keep headers in the page scroll, or in the table scroll when columns overflow. */
-export function HTableViewport({ ref, children, ...props }: ComponentProps<'div'>) {
+export function HTableViewport({ ref, children, heading, ...props }: ComponentProps<'div'> & { heading?: ReactNode }) {
   const viewport = useRef<HTMLDivElement>(null)
   const attach = useCallback((element: HTMLDivElement | null) => {
     viewport.current = element
@@ -28,7 +28,7 @@ export function HTableViewport({ ref, children, ...props }: ComponentProps<'div'
       element.dataset.scrollMode = contained ? 'contained' : 'page'
       const top = contained ? 0 : headers.reduce((height, header) => height + header.getBoundingClientRect().height, 0)
       element.style.setProperty('--table-sticky-top', `${top}px`)
-      let rowOffset = 0
+      let rowOffset = element.querySelector<HTMLElement>('.h-table-sticky-heading')?.getBoundingClientRect().height || 0
       for (const row of table.tHead?.rows || []) { row.style.setProperty('--table-header-row-offset', `${rowOffset}px`); rowOffset += row.getBoundingClientRect().height }
     }
     const observer = new ResizeObserver(() => { cancelAnimationFrame(frame); frame = requestAnimationFrame(update) })
@@ -37,5 +37,5 @@ export function HTableViewport({ ref, children, ...props }: ComponentProps<'div'
     update()
     return () => { observer.disconnect(); cancelAnimationFrame(frame); window.removeEventListener('resize', update) }
   }, [])
-  return <div {...props} ref={attach} data-table-viewport>{children}</div>
+  return <div {...props} ref={attach} data-table-viewport>{heading && <div className="h-table-sticky-heading">{heading}</div>}{children}</div>
 }

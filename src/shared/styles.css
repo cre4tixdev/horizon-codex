@@ -445,7 +445,7 @@
 .contact-section-description { color: var(--theme-text-muted, #7b8794); font-size: 11.5px; line-height: 1.6; margin: 7px 0 14px; }
 .contact-fields, .contact-address-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 14px; margin-top: 12px; }
 .contact-fields label, .contact-address-fields label, .contact-company-assignment label, .contact-extra-address-form > label { display: flex; flex-direction: column; gap: var(--hz-field-gap); color: var(--color-horizon-form-text); font: 400 var(--hz-field-label-font-size)/16px var(--font-sans); min-width: 0; }
-.contact-fields:has(> label:nth-child(3)):not(:has(> label:nth-child(4))) > label:last-child { grid-column: 1 / -1; }
+.contact-fields:where(:not(.contact-fields--three)):has(> label:nth-child(3)):not(:has(> label:nth-child(4))) > label:last-child { grid-column: 1 / -1; }
 .contact-record .h-input { width: 100%; background: var(--theme-surface, #fff); border-color: var(--theme-border, #e2e6ec); border-radius: 5px; font-size: var(--hz-control-font-size); height: var(--hz-control-height); }
 .contact-record .h-input::placeholder { color: var(--theme-text-soft, #a3adba); font-size: 12px; }
 .contact-record input:disabled, .contact-record textarea:disabled, .contact-record select:disabled { background: var(--theme-surface, #fafbfc); color: var(--theme-text-muted, #647289); }
@@ -1974,11 +1974,6 @@
 .record-progress li[data-state="current"] > span { border-color: var(--progress-color, var(--theme-accent, #dc006a)); background: color-mix(in srgb, var(--progress-color, var(--theme-accent, #dc006a)) 10%, var(--theme-surface, white)); }
 .record-progress li[data-state="done"] { color: var(--theme-text, #091c3a); }
 .record-progress li[data-state="done"] > span { background: var(--theme-surface-soft, #edf2f8); }
-.quote-customer-order { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 12px 0; font-size: 12px; }
-.quote-customer-order-details { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.quote-customer-order-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 8px; margin-left: auto; }
-.quote-customer-order-details > span { color: var(--theme-text-muted, #7b8794); }
-.quote-customer-order strong { font-weight: 500; }
 .quote-command-upload { display: flex; align-items: center; gap: 8px; border: 1px dashed var(--theme-border, #dce5f0); border-radius: 6px; padding: 10px; }
 .quote-command-upload label { display: flex; align-items: center; gap: 8px; cursor: pointer; flex: 1; font-size: 12px; overflow-wrap: anywhere; }
 .quote-command-upload input { position: absolute; width: 1px; height: 1px; opacity: 0; }
@@ -2066,6 +2061,11 @@
 .h-input-with-action:has(:focus-visible) { border-color: var(--theme-focus-ring); }
 .h-input-with-action > .h-input { flex: 1; min-width: 0; height: calc(var(--hz-control-height) - 2px); border: 0; border-radius: 4px 0 0 4px; outline: none; box-shadow: none; }
 .h-input-with-action > button:disabled { opacity: .4; cursor: default; }
+.h-input-with-action > button[data-highlighted="true"] { color: var(--theme-magenta, #f52f96); }
+.h-file-thumbnail { display: flex; flex-direction: column; flex-shrink: 0; width: 104px; padding: 4px; border: 1px solid var(--theme-border, #dce5f2); border-radius: 5px; background: var(--theme-surface, white); cursor: zoom-in; overflow: hidden; }
+.h-file-thumbnail :is(img, iframe) { width: 94px; height: 110px; object-fit: contain; border: 0; pointer-events: none; background: white; }
+.h-file-thumbnail span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; color: var(--theme-text-muted, #7b8794); }
+.h-file-thumbnail:focus-visible { outline: 2px solid var(--theme-focus-ring, #f52f96); outline-offset: 2px; }
 .h-input-with-action > button:focus-visible { outline: none; background: var(--theme-surface-blue, #edf4ff); }
 
 /* Purchasing uses the same record, dialog and editable-table components as Sales. */
@@ -2424,3 +2424,50 @@
 .quote-description-input-action > .h-button { width: 24px; height: 26px; min-width: 24px; padding: 0; border-left: 1px solid var(--theme-border, #dce5f2); border-radius: 0 4px 4px 0; align-self: center; }
 
 .quote-row--subtitle .quote-line-description { font-weight: 600; }
+
+.h-record-tabs-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 10px; border-bottom: 1px solid var(--theme-border, #e1e9f5); }
+.h-record-tabs-row > .contact-record-navigation { flex: 1; min-width: 0; margin-top: 0; border-bottom: 0; }
+.h-record-tabs-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; margin-left: auto; }
+.h-table-sticky-heading { position: sticky; top: var(--table-sticky-top, 0px); left: 0; z-index: 5; background: var(--color-horizon-background); padding: 0 0 12px; }
+.h-table-sticky-heading > .h-section-heading { margin: 0; }
+[data-table-viewport]:has(> .h-table-sticky-heading) { border: 0; border-radius: 0; background: transparent; }
+[data-table-viewport]:has(> .h-table-sticky-heading) > table { border: 1px solid var(--theme-table-border, #dce5ef); }
+.contact-record .contact-fields.contact-fields--three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.contact-record .contact-fields.contact-fields--three > label:last-child { grid-column: auto; }
+@media (max-width: 760px) { .contact-record .contact-fields.contact-fields--three { grid-template-columns: minmax(0, 1fr); } }
+
+/* Attachments follow the document preview surfaces and shared dialog controls. */
+.dialog-content.h-attachment-dialog { top: 50%; transform: translate(-50%, -50%); width: min(1100px, calc(100vw - var(--workspace-sidebar-width) - 40px)); height: min(760px, calc(100dvh - 48px)); max-height: calc(100dvh - 48px); }
+.h-attachment-dialog .dialog-form { flex: 1; padding: 0; gap: 0; overflow: hidden; }
+.h-attachment-dialog .field-error { padding: 8px 18px; }
+.h-attachment-workspace { display: grid; grid-template-columns: 290px minmax(0, 1fr); flex: 1; min-height: 0; min-width: 0; }
+.h-attachment-sidebar { display: flex; flex-direction: column; gap: 20px; padding: 16px; overflow-y: auto; border-right: 1px solid var(--theme-border, #dce5f0); }
+.h-attachment-sidebar section { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.h-attachment-sidebar h3 { font-size: 12px; font-weight: 600; margin: 0; color: var(--theme-text-muted, #7b8794); }
+.h-attachment-sidebar .quote-command-upload--compact { min-height: 130px; }
+.h-attachment-sidebar .quote-command-upload--compact label { padding: 8px; font-size: 12px; }
+.h-attachment-file { display: flex; align-items: center; min-width: 0; padding: 5px; gap: 4px; border: 1px solid var(--theme-border-accent, #e7bfdb); border-radius: 6px; background: var(--theme-surface, white); }
+.h-attachment-file-select { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; padding: 6px; cursor: pointer; text-align: left; color: var(--theme-text, #091c3a); }
+.h-attachment-file-select > svg { flex-shrink: 0; color: var(--theme-magenta, #f52f96); }
+.h-attachment-file-select > span { display: grid; min-width: 0; gap: 3px; }
+.h-attachment-file-select strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; font-weight: 500; }
+.h-attachment-file-select small { font-size: 11px; color: var(--theme-text-muted, #7b8794); }
+.h-attachment-file-select:focus-visible { outline: 2px solid var(--theme-focus-ring, #f52f96); border-radius: 4px; }
+.h-attachment-preview { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--theme-surface-soft, #edf2f8); }
+.h-attachment-preview-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 42px; padding: 6px 12px; border-bottom: 1px solid var(--theme-border, #dce5f0); background: var(--theme-surface, white); }
+.h-attachment-preview-toolbar > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: var(--theme-text-muted, #7b8794); }
+.h-attachment-preview-content { display: flex; flex: 1; min-height: 0; padding: 14px; }
+.h-attachment-preview-content :is(img, iframe) { display: block; width: 100%; min-height: 0; border: 0; object-fit: contain; }
+.h-attachment-placeholder { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; flex: 1; padding: 20px; text-align: center; border: 1px dashed var(--theme-border, #dce5f0); border-radius: 6px; color: var(--theme-text-muted, #7b8794); }
+.h-attachment-placeholder p { font-size: 13px; }.h-attachment-placeholder small { font-size: 11px; }
+@media (max-width: 700px) {
+  .dialog-content.h-attachment-dialog { width: calc(100vw - var(--workspace-sidebar-width) - 24px); }
+  .h-attachment-workspace { grid-template-columns: 1fr; grid-template-rows: auto minmax(240px, 1fr); overflow-y: auto; }
+  .h-attachment-sidebar { gap: 12px; padding: 12px; overflow: visible; border-right: 0; border-bottom: 1px solid var(--theme-border, #dce5f0); }
+  .h-attachment-sidebar .quote-command-upload--compact { min-height: 100px; }
+}
+.h-attachment-file { border-color: var(--theme-border, #dce5f0); }
+.h-attachment-file[data-selected="true"] { border-color: var(--theme-border-accent, #e7bfdb); background: var(--theme-surface-soft, #f4f5f7); }
+.quote-command-upload:has(> div) { flex-wrap: wrap; }
+.quote-command-upload > div { position: relative; }
+.quote-command-upload > div > .h-button { position: absolute; right: 0; top: 0; background: var(--theme-surface, white); }

@@ -1,3 +1,4 @@
+import { billingRoutes } from '../modules/billing'
 import { analysisRoutes } from '../modules/accounting/routes/analysisRoutes'
 import { purchasingRoutes } from '../modules/purchasing'
 import { inventoryRoutes } from '../modules/inventory'
@@ -27,6 +28,7 @@ export const router = createBrowserRouter([
     errorElement: <RouteErrorPage />,
     children: [
       { path: '/account', lazy: async () => ({ Component: (await import('./pages/AccountPage')).AccountPage }) },
+      ...billingRoutes,
       ...analysisRoutes,
       ...dashboardRoutes,
       ...contactsRoutes,
@@ -38,7 +40,7 @@ export const router = createBrowserRouter([
       ...calendarRoutes,
       ...hrRoutes,
       ...settingsRoutes,
-      ...navigationItems.filter((item) => !['/', '/contacts', '/settings', '/crm', '/hr', '/calendar', '/sales', '/inventory', '/purchasing', '/analysis'].includes(item.href)).map((item) => ({ path: item.href, element: <WorkspacePage item={item} /> })),
+      ...navigationItems.filter((item) => !['/', '/contacts', '/settings', '/crm', '/hr', '/calendar', '/sales', '/inventory', '/purchasing', '/analysis', '/billing'].includes(item.href)).map((item) => ({ path: item.href, element: <WorkspacePage item={item} /> })),
       { path: '*', element: <NotFoundPage /> },
     ],
     }],

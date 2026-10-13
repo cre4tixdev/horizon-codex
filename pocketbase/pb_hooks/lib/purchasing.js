@@ -185,6 +185,7 @@ module.exports = {
           if (kind !== 'request' || record.getString('status') === 'cancelled') throw new BadRequestError('Choisissez une demande active.')
           c.guard(app, event.auth, 'request.validate'); c.guard(app, event.auth, 'order.validate')
           const orders = c.linkedOrders(app, record.id)
+          for (const order of orders) require(`${__hooks}/lib/billing.js`).assertSourceReturn(app, 'supplier', order.id)
           if (orders.some((order) => !['draft', 'validated'].includes(order.getString('status')) || order.getString('sent_at'))) throw new BadRequestError('Une commande a déjà été envoyée ou réceptionnée. Annulation globale indisponible.')
           if (orders.some((order) => c.rows(app, 'order', order.id).some((line) => !line.getString('request_line') || c.get(app, 'purchasing_request_lines', line.getString('request_line')).getString('request') !== record.id))) throw new BadRequestError('Une commande est partagée avec une autre demande. Traitez-la séparément pour préserver les autres affaires.')
           for (const order of orders) {
@@ -197,6 +198,7 @@ module.exports = {
         else if (body.action === 'reopen') {
           c.guard(app, event.auth, 'write')
           if (kind === 'order') {
+            require(`${__hooks}/lib/billing.js`).assertSourceReturn(app, 'supplier', record.id)
             if (record.getString('status') !== 'validated' || record.getString('sent_at')) throw new BadRequestError('Seule une commande validée jamais envoyée peut revenir en brouillon.')
           } else {
             if (!['validated', 'partially_ordered'].includes(record.getString('status'))) throw new BadRequestError('Seule une demande validée non traitée peut revenir en brouillon.')

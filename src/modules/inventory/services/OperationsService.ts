@@ -18,6 +18,7 @@ export const operationsService = {
   product: (id: string) => run('inventory.read', (repo) => repo.product(id)),
   save: (input: OperationInput, key: string, id?: string, updated?: string) => run('inventory.write', (repo) => repo.save(input, key, id, updated)),
   transition: (id: string, updated: string, action: string, quantities?: DeliveryQuantity[]) => run('inventory.stock.validate', (repo) => repo.transition(id, updated, action, quantities)),
+  deliveryNeeded: (quote: string) => run('inventory.read', (repo) => repo.deliveryNeeded(quote)),
   prepareDelivery: (quote: string, warehouse = '') => run('inventory.write', (repo) => repo.prepareDelivery(quote, warehouse)),
   prepareReceiptDeliveries: (id: string, updated: string, matches: DeliveryMatch[]) => run('inventory.write', (repo) => repo.prepareReceiptDeliveries(id, updated, matches)),
   settings: () => run('settings.references', (repo) => repo.settings()), saveSettings: (input: StockSettings) => run('settings.references', (repo) => repo.saveSettings(input)),

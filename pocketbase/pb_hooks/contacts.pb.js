@@ -21,6 +21,7 @@ onRecordValidate((event) => {
   }
   if (name === 'accounting_third_party_accounts' && record.getBool('active') && !record.getString('account_code')) throw new BadRequestError('An active account needs a code.')
   if (name === 'contacts_companies') {
+    const termId = record.getString('payment_term'); if (termId) { const term = event.app.findRecordById('settings_payment_terms', termId); if (!term.getBool('active') && (record.isNew() || record.original().getString('payment_term') !== termId)) throw new BadRequestError('Cette condition de paiement est inactive.') }
     if (record.isNew() && record.collection().fields.getByName('rcs_number')) { if (!record.getString('preferred_language')) record.set('preferred_language', 'fr'); if (!record.getString('default_currency')) record.set('default_currency', 'EUR'); if (!record.getString('einvoice_status')) record.set('einvoice_status', 'unknown') }
     for (const field of ['siren', 'siret']) if (record.collection().fields.getByName(field)) record.set(field, record.getString(field).replace(/\s/g, ''))
     if (record.getString('siren') && record.getString('siret') && !record.getString('siret').startsWith(record.getString('siren'))) throw new BadRequestError('SIRET must match SIREN.')

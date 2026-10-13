@@ -1,3 +1,4 @@
+import { CustomerOrderFilePicker } from './CustomerOrderFilePicker'
 import { useQuery } from '@tanstack/react-query'
 import { stockService } from '../../inventory/services/StockService'
 import { PurchasePreparation } from '../../purchasing/components/PurchasePreparation'
@@ -6,13 +7,13 @@ import { StockReservations } from '../../inventory/components/StockReservations'
 import { useStockAccess } from '../../inventory/hooks/useStockAccess'
 import type { StockSelection } from '../../inventory/schemas/stock'
 import { useState, useId } from 'react'
-import { Paperclip, ShoppingBag, ShoppingCart, PackageCheck, Hash, Check, X } from 'lucide-react'
+import { ShoppingBag, ShoppingCart, PackageCheck, Hash, Check } from 'lucide-react'
 import { HDialog } from '../../../shared/ui/HDialog'
 import { HDialogFooter } from '../../../shared/ui/HDialogFooter'
 import { HFieldLabel } from '../../../shared/ui/HFieldLabel'
 import { HInput } from '../../../shared/ui/HInput'
 import { HButton } from '../../../shared/ui/HButton'
-export function QuoteConfirmation({ quote, busy, error, canPrepare = false, onClose, onConfirm }: { quote: string; busy: boolean; error: string | undefined; canPrepare?: boolean; onClose: () => void; onConfirm: (number: string, file?: File, reservations?: StockSelection[], preparation?: PurchasePreparationSelection[]) => void }) {
+export function QuoteConfirmation({ quote, busy, error, canPrepare = false, onClose, onConfirm }: { quote: string; busy: boolean; error: string | undefined; canPrepare?: boolean; onClose: () => void; onConfirm: (number: string, file?: File | File[], reservations?: StockSelection[], preparation?: PurchasePreparationSelection[]) => void }) {
   const stock = useStockAccess()
   const availableStock = useQuery({ queryKey: ['inventory', 'reservations', quote], queryFn: () => stockService.reservations(quote), enabled: stock.canReserve, retry: false })
   const hasStock = stock.canReserve && Boolean(availableStock.data?.lines.some((line) => line.reservable && line.capacity > 0 && line.locations.some((location) => location.available > 0)))
@@ -20,25 +21,16 @@ export function QuoteConfirmation({ quote, busy, error, canPrepare = false, onCl
   const [reserveReady, setReserveReady] = useState(false), [prepareReady, setPrepareReady] = useState(false)
   const [preparation, setPreparation] = useState<PurchasePreparationSelection[]>([])
   const [update] = useState(() => (selections: StockSelection[]) => { setReservations(selections); setReserveReady(false); setPrepareReady(false) })
-  const [number, setNumber] = useState(''), [file, setFile] = useState<File>()
+  const [number, setNumber] = useState(''), [files, setFiles] = useState<File[]>([])
   const numberId = useId()
   const [reserve, setReserve] = useState(false)
   const [waiting, setWaiting] = useState(false), [prepare, setPrepare] = useState(false)
-  const [dragging, setDragging] = useState(false), [uploadError, setUploadError] = useState('')
+  const [uploadError, setUploadError] = useState('')
   const reserveActive = reserve && hasStock
-  function selectFile(files: File[]) {
-    if (files.length !== 1 || !['application/pdf', 'image/png', 'image/jpeg', 'image/webp'].includes(files[0]!.type) || files[0]!.size > 10485760) {
-      setUploadError('Choisissez un seul PDF, JPEG, PNG ou WebP de 10 Mo maximum.')
-      return
-    }
-    setFile(files[0]); setUploadError('')
-  }
   return <HDialog open title="Confirmer la commande client" description="Le devis sera figé et une commande client sera créée avec ses lignes hors options." className={stock.canReserve ? "quote-stock-confirmation" : "quote-confirmation-dialog"} onOpenChange={(open) => { if (!open && !busy) onClose() }}>
-    <form className="dialog-form" onSubmit={(event) => { event.preventDefault(); if (!waiting && !number.trim() || uploadError) return; if (reserveActive && !reserveReady || prepare && !prepareReady) return; onConfirm(waiting ? '' : number.trim(), file, reserveActive ? reservations : [], canPrepare && prepare ? preparation : undefined) }}>
-      <div className="quote-command-reference"><label htmlFor={numberId}><HFieldLabel required={!waiting}><Hash size={14} aria-hidden="true" />Numéro de commande client</HFieldLabel></label><div className="quote-command-reference-controls"><HInput id={numberId} autoFocus required={!waiting} maxLength={120} value={waiting ? 'ATTENTE COMMANDE' : number} disabled={busy || waiting} onChange={(event) => setNumber(event.target.value)} placeholder="Référence fournie par le client" /><label className="h-choice"><input type="checkbox" checked={waiting} disabled={busy} onChange={(event) => setWaiting(event.target.checked)} />Attente Commande</label></div></div>
-      <div className="quote-command-upload" data-dragging={dragging} onDragOver={(event) => { event.preventDefault(); if (!busy) setDragging(true) }} onDragLeave={(event) => { if (!(event.relatedTarget instanceof Node && event.currentTarget.contains(event.relatedTarget))) setDragging(false) }} onDrop={(event) => { event.preventDefault(); setDragging(false); if (!busy) selectFile(Array.from(event.dataTransfer.files)) }}>
-        <label><Paperclip size={18} /><span>{file ? file.name : 'Déposez la commande client ici ou cliquez pour choisir un fichier'}<small>PDF, JPEG, PNG ou WebP · 10 Mo maximum</small></span><input aria-label="Pièce de commande client" type="file" accept="application/pdf,image/png,image/jpeg,image/webp" disabled={busy} onChange={(event) => { const files = Array.from(event.target.files || []); if (files.length) selectFile(files); event.target.value = '' }} /></label>{file && <HButton variant="ghost" size="icon" aria-label="Retirer la pièce sélectionnée" disabled={busy} onClick={() => { setFile(undefined); setUploadError('') }}><X size={14} /></HButton>}
-      </div>
+    <form className="dialog-form" onSubmit={(event) => { event.preventDefault(); if (!waiting && !number.trim() || uploadError) return; if (reserveActive && !reserveReady || prepare && !prepareReady) return; onConfirm(waiting ? '' : number.trim(), files, reserveActive ? reservations : [], canPrepare && prepare ? preparation : undefined) }}>
+      <div className="quote-command-reference"><label htmlFor={numberId}><HFieldLabel required={!waiting}><Hash size={14} aria-hidden="true" />Numéro de commande client</HFieldLabel></label><div className="quote-command-reference-controls"><HInput id={numberId} autoFocus required={!waiting} maxLength={120} value={waiting ? 'Attente Commande' : number} disabled={busy || waiting} onChange={(event) => setNumber(event.target.value)} placeholder="Référence fournie par le client" /><label className="h-choice"><input type="checkbox" checked={waiting} disabled={busy} onChange={(event) => setWaiting(event.target.checked)} />Attente Commande</label></div></div>
+      <CustomerOrderFilePicker files={files} busy={busy} onFiles={(added) => { if (files.length + added.length > 20) { setUploadError('20 pièces maximum.'); return }; setFiles([...files, ...added]) }} onRemove={(index) => { setFiles(files.filter((_, i) => i !== index)); setUploadError('') }} onError={setUploadError} />
       {uploadError && <p role="alert" className="field-error">{uploadError}</p>}
       {availableStock.error && <p role="alert" className="field-error">{availableStock.error.message}<HButton onClick={() => void availableStock.refetch()}>Réessayer</HButton></p>}
       <div className="quote-confirmation-options">

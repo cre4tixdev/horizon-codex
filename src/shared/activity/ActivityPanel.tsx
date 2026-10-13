@@ -58,8 +58,8 @@ function ActivityItem({ source, item, task, editable, taskBusy, onTaskStatus, on
 }
 function ActivityChanges({ changes }: { changes: ActivityEvent['metadata']['changes'] }) {
   if (!changes?.length) return null
-  const value = (input: string | boolean) => typeof input === 'boolean' ? input ? 'Oui' : 'Non' : input || '—'
-  return <ul className="activity-diff" aria-label="Modifications de la fiche">{changes.map((change, index) => <li key={`${change.field}-${index}`}><strong>{change.label} :</strong><span className="activity-diff-before" title={value(change.before)}>{value(change.before)}</span><ArrowRight size={11} aria-label="devient" /><span>{value(change.after)}</span></li>)}</ul>
+  const value = (input: string | boolean, field: string) => typeof input === 'boolean' ? input ? 'Oui' : 'Non' : field === 'customer_order_number' && /^attente commande$/i.test(input) ? 'Attente Commande' : input || '—'
+  return <ul className="activity-diff" aria-label="Modifications de la fiche">{changes.map((change, index) => <li key={`${change.field}-${index}`}><strong>{change.label} :</strong><span className="activity-diff-before" title={value(change.before, change.field)}>{value(change.before, change.field)}</span><ArrowRight size={11} aria-label="devient" /><span>{value(change.after, change.field)}</span></li>)}</ul>
 }
 function ActivityAttachment({ item, file, editable }: { item: ActivityEvent; file: string; editable: boolean }) {
   const [open, setOpen] = useState(false)

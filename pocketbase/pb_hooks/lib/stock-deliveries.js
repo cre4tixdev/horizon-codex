@@ -78,3 +78,8 @@ module.exports = {
     return candidates.filter((candidate) => candidate.options.length !== 1 && !selections.some((item) => item.line_id === candidate.line_id && item.analytic_account === candidate.analytic_account) && !matches.some((item) => item.line_id === candidate.line_id && item.analytic_account === candidate.analytic_account))
   },
 }
+
+module.exports.needed = (app, quote) => {
+  const sales = source(app, quote), done = coverage(operations(app, quote).filter((record) => record.getString('status') === 'done'))
+  return sales.lines.some((line) => line.getString('product') && c.get(app, 'inventory_products', line.getString('product')).getString('stock_policy') !== 'none' && line.getFloat('quantity') - (done.get(line.id) || 0) > 0.000001)
+}

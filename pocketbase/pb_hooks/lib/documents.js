@@ -7,7 +7,7 @@ const get = (app, id) => { if (!/^[a-z0-9]{15}$/.test(id || '')) throw new BadRe
 const dto = (app, record) => ({ ...record.publicExport(), version: record.getString('current_version') ? app.findRecordById('documents_template_versions', record.getString('current_version')).getInt('version') : 0 })
 const audit = (app, user, record, action) => require(`${__hooks}/lib/access-policy.js`).audit(app, 'documents_templates', record.id, user.id, null, { name: record.getString('name'), status: record.getString('status'), current_version: record.getString('current_version') }, action)
 const exact = (body, keys) => { if (Object.keys(body).some((key) => !keys.includes(key))) throw new BadRequestError('Champs non autorisés.') }
-const sourceAccess = (app, user) => ({ stock_operation: require(`${__hooks}/lib/activity.js`).allowed(app, user, false, 'inventory'), quote: require(`${__hooks}/lib/activity.js`).allowed(app, user, false, 'sales'), purchase_order: require(`${__hooks}/lib/purchasing.js`).allowed(app, user), product_label: require(`${__hooks}/lib/catalog.js`).allowed(app, user) })
+const sourceAccess = (app, user) => ({ invoice: require(`${__hooks}/lib/access-policy.js`).permissions(app, user).includes('billing.read'), stock_operation: require(`${__hooks}/lib/activity.js`).allowed(app, user, false, 'inventory'), quote: require(`${__hooks}/lib/activity.js`).allowed(app, user, false, 'sales'), purchase_order: require(`${__hooks}/lib/purchasing.js`).allowed(app, user), product_label: require(`${__hooks}/lib/catalog.js`).allowed(app, user) })
 module.exports = {
   formats(event) {
     const administrative = manage(event.app, event.auth), rights = sourceAccess(event.app, event.auth)
@@ -47,7 +47,7 @@ module.exports = {
     exact(body, ['id', 'updated', 'name', 'content_json', 'document_type'])
     if (typeof body.name !== 'string' || !body.name.trim() || body.name.length > 150) throw new BadRequestError('Donnez un nom au modèle (150 caractères maximum).')
     const documentType = body.document_type || 'quote'
-    if (!['quote', 'product_label', 'purchase_order', 'stock_operation'].includes(documentType)) throw new BadRequestError('Type de pièce invalide.')
+    if (!['quote', 'product_label', 'purchase_order', 'stock_operation', 'invoice'].includes(documentType)) throw new BadRequestError('Type de pièce invalide.')
     const layout = require(`${__hooks}/lib/document-layout.js`).validate(body.content_json)
     let result
     event.app.runInTransaction((app) => {
@@ -56,7 +56,7 @@ module.exports = {
       if (body.id && record.getString('updated') !== body.updated) throw new ApiError(409, 'Le modèle a été modifié. Rechargez la fiche.')
       if (record.getString('status') === 'archived') throw new BadRequestError('Ce modèle est archivé.')
       if (body.id && record.getString('document_type') !== documentType) throw new BadRequestError('Le type d’un modèle existant ne peut pas être changé.')
-      for (const [key, value] of Object.entries({ name: body.name.trim(), content_json: layout, document_type: documentType, module: ['product_label', 'stock_operation'].includes(documentType) ? 'inventory' : documentType === 'purchase_order' ? 'purchasing' : 'sales', language: 'fr', status: 'draft' })) record.set(key, value)
+      for (const [key, value] of Object.entries({ name: body.name.trim(), content_json: layout, document_type: documentType, module: ['product_label', 'stock_operation'].includes(documentType) ? 'inventory' : documentType === 'invoice' ? 'billing' : documentType === 'purchase_order' ? 'purchasing' : 'sales', language: 'fr', status: 'draft' })) record.set(key, value)
       if (!body.id) record.set('created_by', event.auth.id)
       app.save(record); audit(app, event.auth, record, body.id ? 'update' : 'create'); result = dto(app, record)
     })
@@ -71,7 +71,7 @@ module.exports = {
       if (record.getString('status') === 'archived') throw new BadRequestError('Ce modèle est archivé.')
       if (record.getString('status') === 'published') { result = dto(app, record); return }
       const layout = require(`${__hooks}/lib/document-layout.js`).validate(JSON.parse(record.getString('content_json')))
-      if (['quote', 'purchase_order', 'stock_operation'].includes(record.getString('document_type')) && !layout.blocks.some((block) => block.kind === 'table')) throw new BadRequestError('Ajoutez un tableau de lignes avant de publier ce modèle.')
+      if (['quote', 'purchase_order', 'stock_operation', 'invoice'].includes(record.getString('document_type')) && !layout.blocks.some((block) => block.kind === 'table')) throw new BadRequestError('Ajoutez un tableau de lignes avant de publier ce modèle.')
       if (record.getString('document_type') === 'product_label' && !layout.blocks.some((block) => block.kind === 'barcode')) throw new BadRequestError('Ajoutez un bloc code-barres avant de publier l’étiquette.')
       const last = app.findRecordsByFilter('documents_template_versions', 'template = {:id}', '-version', 1, 0, { id: record.id })
       const version = new Record(app.findCollectionByNameOrId('documents_template_versions'))

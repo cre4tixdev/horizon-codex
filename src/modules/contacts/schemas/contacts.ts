@@ -14,7 +14,7 @@ export const companyInputSchema = z.object({
   siret: z.string().trim().transform((value) => value.replace(/\s/g, '')).pipe(z.string().regex(/^$|^\d{14}$/, 'Le SIRET comporte 14 chiffres.')).default(''),
   website: z.union([z.literal(''), z.url({ protocol: /^https?$/, error: 'Utilisez une adresse HTTP ou HTTPS.' })]),
   phone: text(40), email, notes: text(10000),
-  billing_email: email.default(''), einvoice_routing_address: text(120).default(''), einvoice_platform: text(120).default(''), einvoice_service_code: text(100).default(''),
+  payment_term: z.string().default(''), billing_email: email.default(''), einvoice_routing_address: text(120).default(''), einvoice_platform: text(120).default(''), einvoice_service_code: text(100).default(''),
   einvoice_status: z.union([z.enum(['unknown', 'to_configure', 'ready', 'not_applicable']), z.literal('')]).transform((value) => value || 'unknown').default('unknown'),
 })
 export const personInputSchema = z.object({ company: z.string(), first_name: text(80), last_name: text(80), job_title: text(120), email, phone: text(40), mobile: text(40), notes: text(10000) })

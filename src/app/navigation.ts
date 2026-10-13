@@ -33,7 +33,7 @@ export const navigationGroups: NavigationGroup[] = [
   ] },
   { label: 'Finance', items: [
     { label: 'Analyse des affaires', href: '/analysis', icon: ChartBar, description: 'Rentabilité et suivi des affaires et commandes' },
-    { label: 'Facturation', href: '/billing', icon: Wallet, description: 'Factures, avoirs et règlements' },
+    { label: 'Facturation', href: '/billing', icon: Wallet, description: 'Factures, avoirs et règlements', children: [{ label: 'Factures clients', href: '/billing/customer', icon: FileText, description: 'Facturation et encaissements clients' }, { label: 'Factures fournisseurs', href: '/billing/supplier', icon: Receipt, description: 'Contrôle et paiement des factures reçues' }, { label: 'Avoirs', href: '/billing/credits', icon: Receipt, description: 'Avoirs clients et fournisseurs' }, { label: 'Règlements', href: '/billing/payments', icon: Wallet, description: 'Encaissements, paiements et remboursements' }] },
     { label: 'Comptabilité', href: '/accounting', icon: Landmark, description: 'Écritures et suivi analytique', children: [{ label: 'Immobilisations', href: '/accounting/assets', icon: Landmark, description: 'Qualification du matériel immobilisable' }] },
   ] },
   { label: 'Administration', items: [

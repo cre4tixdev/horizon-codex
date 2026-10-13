@@ -35,3 +35,5 @@ onRecordUpdate((event) => {
   event.next()
 }, 'sales_orders')
 onRecordDelete(() => { throw new BadRequestError('Les commandes doivent être conservées dans l’historique.') }, 'sales_orders')
+
+routerAdd('POST', '/api/horizon/sales/quotes/customer-order-reference', (event) => require(`${__hooks}/lib/sales-lifecycle.js`).customerOrderReference(event), $apis.requireAuth('core_users'))

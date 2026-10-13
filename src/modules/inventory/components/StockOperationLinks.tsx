@@ -9,6 +9,6 @@ export function StockOperationLinks({ purchaseOrder = '', salesQuote = '', produ
   const records = useQuery({ queryKey: ['inventory', 'operation-links', query], queryFn: () => operationsService.list(query), enabled: access.canRead, retry: false })
   if (!access.canRead) return null
   const params = new URLSearchParams(); if (purchaseOrder) { params.set('purchase_order', purchaseOrder); params.set('kind', 'IN') }; if (salesQuote) params.set('sales_quote', salesQuote); if (product) params.set('product', product)
-  const links = <HRecordLinks label="Opérations de stock liées" items={[{ id: 'stock-operations', label: purchaseOrder ? 'Réceptions' : salesQuote ? 'Livraisons / chantier' : 'Mouvements', icon: purchaseOrder ? PackageCheck : salesQuote ? Truck : ArrowLeftRight, count: records.data?.totalItems, href: `/inventory/operations?${params}`, description: records.error?.message || 'Consulter les opérations liées à cette pièce' }]} />
+  const links = <HRecordLinks label="Opérations de stock liées" items={[{ id: 'stock-operations', label: purchaseOrder ? 'Réceptions' : salesQuote ? 'Livraisons' : 'Mouvements', icon: purchaseOrder ? PackageCheck : salesQuote ? Truck : ArrowLeftRight, count: records.data?.totalItems, href: `/inventory/operations?${params}`, description: records.error?.message || 'Consulter les opérations liées à cette pièce' }]} />
   return inline ? links : <HBreadcrumbActions placement="related">{links}</HBreadcrumbActions>
 }

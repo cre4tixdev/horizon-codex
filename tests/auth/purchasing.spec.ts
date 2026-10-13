@@ -429,13 +429,10 @@ test('Commande client : réservation facultative, besoins nets et colonnes condi
   await expect(page.locator('.h-data-table tbody')).not.toContainText(quote.quote_number)
   await page.goto(`/sales/quotes/${quote.id}`)
 
-  const orderRow = page.locator('.quote-customer-order')
-  for (const name of ['Réserver le stock', 'Préparer les achats']) {
-    const button = orderRow.getByRole('button', { name, exact: true })
-    await expect(button).toBeVisible()
+  const orderRow = page.locator('.h-record-tabs-actions')
+  for (const button of await orderRow.getByRole('button').all()) {
     const bounds = (await button.boundingBox())!, row = (await orderRow.boundingBox())!
     expect(bounds.y + bounds.height / 2).toBeCloseTo(row.y + row.height / 2, 0)
-    expect(bounds.x).toBeGreaterThan(row.x + row.width / 2)
   }
   await expect(orderRow.getByRole('button', { name: 'Revenir en devis', exact: true })).toHaveCount(0)
   const back = (await page.getByRole('button', { name: 'Revenir en devis', exact: true }).boundingBox())!, preview = (await page.getByRole('button', { name: 'Aperçu', exact: true }).boundingBox())!

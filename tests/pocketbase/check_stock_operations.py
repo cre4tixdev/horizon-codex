@@ -381,6 +381,8 @@ class StockOperationsTests(unittest.TestCase):
 
     def test_delivery_zero_stock_partial_backorder_and_retry(self):
         quote = self.customer_order()
+        path = 'horizon/inventory/operations/delivery-needed/' + quote['id']
+        self.assertEqual(self.pb.request('GET', path, token=self.token)[1], {'needed': True})
         status, draft = self.prepare_delivery(quote); self.assertEqual(status, 200, draft)
         self.assertEqual((draft['readiness']['ready'], draft['readiness']['required']), (0, 4))
         self.assertEqual(self.prepare_delivery(quote)[1]['id'], draft['id'])
@@ -404,6 +406,7 @@ class StockOperationsTests(unittest.TestCase):
         self.stock(2)
         status, finished = self.action(pending[0]); self.assertEqual(status, 200, finished)
         self.assertEqual(self.prepare_delivery(quote)[0], 409)
+        self.assertEqual(self.pb.request('GET', path, token=self.token)[1], {'needed': False})
         self.assertEqual(self.balance()['physical'], 0)
         with sqlite3.connect(self.pb.data / 'data.db') as connection:
             total = connection.execute('SELECT SUM(quantity) FROM inventory_moves WHERE operation IN (?,?)', (done['id'], finished['id'])).fetchone()[0]

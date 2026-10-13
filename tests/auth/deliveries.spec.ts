@@ -47,7 +47,7 @@ test('BL prérempli sans stock, disponibilité et validation 2/4 avec reliquat',
     await page.screenshot({ path: `/private/tmp/horizon-delivery-settings-${name === 'Valorisation' ? 'valuation' : 'warehouses'}.png`, animations: 'disabled' })
   }
   await page.goto(`/sales/quotes/${quote.id}`)
-  await page.getByRole('button', { name: 'Préparer une livraison', exact: true }).click()
+  await page.getByRole('button', { name: 'Préparer la livraison', exact: true }).click()
   await expect(page).toHaveURL(/inventory\/operations\/[a-z0-9]{15}$/)
   const deliveryId = new URL(page.url()).pathname.split('/').at(-1)!
   await expect(page.getByLabel('Quantité ligne 1', { exact: true })).toHaveValue('4')
@@ -114,7 +114,7 @@ test('BL partiel sérialisé : choisir uniquement les exemplaires réellement li
   const receipt = await api('horizon/inventory/operations/save', { creation_key: crypto.randomUUID(), input: { kind: 'IN', warehouse, destination_warehouse: warehouse, title: 'Réception séries', opportunity: '', purchase_order: '', sales_quote: '', origin: '', destination: '', reason: 'Stock du test séries', notes: '', document_date: '2026-10-13', planned_date: '', inventory_mode: 'cycle', dropship: false, scrap: false, scope: [], lines: [{ id: 'line-serial', product: product.id, quantity: 2, from_location: '', to_location: location, source_line: '', counted: null, traces: [{ number: 'BL-UI-S1', quantity: 1 }, { number: 'BL-UI-S2', quantity: 1 }] }] } })
   await api('horizon/inventory/operations/transition', { id: receipt.id, updated: receipt.updated, action: 'validate' })
   await page.goto(`/sales/quotes/${quote.id}`)
-  await page.getByRole('button', { name: 'Préparer une livraison', exact: true }).click()
+  await page.getByRole('button', { name: 'Préparer la livraison', exact: true }).click()
   await expect(page).toHaveURL(/inventory\/operations\/[a-z0-9]{15}$/)
   await page.getByRole('button', { name: 'Valider', exact: true }).click()
   const confirmation = page.getByRole('dialog', { name: 'Confirmer la réalisation', exact: true })

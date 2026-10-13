@@ -25,6 +25,7 @@ module.exports = {
       const root = activity.source(app, record.getString('source_entity'), record.getString('source_record_id'), true)
       const files = record.getStringSlice('attachments')
       if (!files.includes(input.filename)) throw new ApiError(404, 'Pièce jointe introuvable.')
+      if (record.getString('source_entity') === 'sales_quotes' && JSON.parse(record.getString('metadata') || '{}').action === 'customer_order') throw new ApiError(409, 'Les preuves de commande sont conservées dans l’historique. Retirez la pièce depuis la commande.')
       if (app.findCollectionByNameOrId('sales_orders').fields.getByName('customer_order_event') && app.findRecordsByFilter('sales_orders', 'customer_order_event = {:id}', '', 1, 0, { id: record.id }).length) throw new ApiError(409, 'Cette pièce justifie une commande confirmée et doit être conservée.')
       const before = record.publicExport()
       if (record.getString('source_entity').startsWith('crm_') && app.findAllCollections().some((collection) => collection.name === 'crm_tender_submissions')) {
@@ -55,7 +56,7 @@ module.exports = {
     const module = record.getString('source_module')
     if (!activity.allowed(event.app, event.auth, true, module)) throw new ForbiddenError('Accès refusé.')
     const root = activity.source(event.app, record.getString('source_entity'), record.getString('source_record_id'), true)
-    if ((root.collection().name.startsWith('purchasing_') ? 'purchasing' : root.collection().name.startsWith('inventory_') ? 'inventory' : root.collection().name.startsWith('sales_') ? 'sales' : root.collection().name.startsWith('crm_') ? 'crm' : 'contacts') !== module || !['note', 'message', 'document', 'task'].includes(record.getString('type'))) throw new BadRequestError('Type de publication invalide.')
+    if ((root.collection().name.startsWith('billing_') ? 'billing' : root.collection().name.startsWith('purchasing_') ? 'purchasing' : root.collection().name.startsWith('inventory_') ? 'inventory' : root.collection().name.startsWith('sales_') ? 'sales' : root.collection().name.startsWith('crm_') ? 'crm' : 'contacts') !== module || !['note', 'message', 'document', 'task'].includes(record.getString('type'))) throw new BadRequestError('Type de publication invalide.')
     const body = record.getString('body').trim()
     const attachments = record.getUploadedFiles('attachments')
     if (!body && !attachments.length) throw new BadRequestError('Ajoutez un message ou une pièce jointe.')

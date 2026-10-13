@@ -1,0 +1,12 @@
+import { useState } from 'react'
+import { CloudUpload, Paperclip, X } from 'lucide-react'
+import { HButton } from '../../../shared/ui/HButton'
+import { HLocalFilePreview } from '../../../shared/ui/HLocalFilePreview'
+export function CustomerOrderFilePicker({ file, files, busy, compact = false, onChange, onFiles, onRemove, onError }: { file?: File | undefined; files?: File[]; busy: boolean; compact?: boolean; onChange?: (file: File | undefined) => void; onFiles?: (files: File[]) => void; onRemove?: (index: number) => void; onError: (message: string) => void }) {
+  const [dragging, setDragging] = useState(false), selected = files || (file ? [file] : [])
+  function select(values: File[]) {
+    if (!values.length || values.length > (onFiles ? 20 : 1) || values.some((value) => !['application/pdf', 'image/png', 'image/jpeg', 'image/webp'].includes(value.type) || value.size > 10485760)) { onError('Choisissez des PDF, JPEG, PNG ou WebP de 10 Mo maximum par fichier.'); return }
+    onError(''); if (onFiles) onFiles(values); else onChange?.(values[0])
+  }
+  return <div className={`quote-command-upload${compact ? ' quote-command-upload--compact' : ''}`} data-dragging={dragging} onDragOver={(event) => { event.preventDefault(); if (!busy) setDragging(true) }} onDragLeave={(event) => { if (!(event.relatedTarget instanceof Node && event.currentTarget.contains(event.relatedTarget))) setDragging(false) }} onDrop={(event) => { event.preventDefault(); setDragging(false); if (!busy) select(Array.from(event.dataTransfer.files)) }}>{!compact && selected.map((value, index) => <div key={`${value.name}-${index}`}><HLocalFilePreview file={value} /><HButton variant="ghost" size="icon" aria-label={`Retirer ${value.name}`} disabled={busy} onClick={() => { if (onRemove) onRemove(index); else onChange?.(undefined); onError('') }}><X size={14} /></HButton></div>)}<label>{compact ? <CloudUpload size={22} /> : <Paperclip size={18} />}<span>{compact ? 'Glissez-déposez ici ou parcourez vos fichiers' : 'Déposez les pièces de commande ici ou choisissez des fichiers'}<small>PDF, JPEG, PNG ou WebP · 10 Mo par fichier</small></span><input aria-label="Pièce de commande client" type="file" multiple={Boolean(onFiles)} accept="application/pdf,image/png,image/jpeg,image/webp" disabled={busy} onChange={(event) => { const values = Array.from(event.target.files || []); if (values.length) select(values); event.target.value = '' }} /></label></div>
+}
