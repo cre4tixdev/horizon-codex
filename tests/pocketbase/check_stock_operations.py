@@ -354,6 +354,147 @@ class StockOperationsTests(unittest.TestCase):
         index = page['forecast']['dates'].index(expected_day.isoformat())
         self.assertEqual(page['forecast']['series']['IN']['completed'][index], 1)
 
+    def customer_order(self, quantity=4, opportunity=None):
+        import check_catalog
+        status, quote = check_catalog.CatalogTests.quote_save(self, key=str(uuid.uuid4()), opportunity=opportunity or self.opp['id'], lines=[dict(product=self.item['id'], description='Livraison câble', quantity=quantity, unit='m', unit_price=1.08, unit_cost=0.8)])
+        self.assertEqual(status, 200, quote)
+        status, quote = self.pb.request('POST', 'horizon/sales/quotes/finalize', dict(id=quote['id'], updated=quote['updated']), self.token)
+        self.assertEqual(status, 200, quote)
+        status, quote = self.pb.request('POST', 'horizon/sales/quotes/confirm', dict(id=quote['id'], updated=quote['updated'], customer_order_number='', awaiting_customer_order=True), self.token)
+        self.assertEqual(status, 200, quote)
+        return quote
+
+    def prepare_delivery(self, quote):
+        return self.pb.request('POST', 'horizon/inventory/operations/prepare-delivery', dict(sales_quote=quote['id'], warehouse=self.warehouse), self.token)
+
+    def delivery_partial(self, record, quantity):
+        return self.pb.request('POST', 'horizon/inventory/operations/transition', dict(id=record['id'], updated=record['updated'], action='validate', quantities=[dict(id=line['id'], quantity=quantity) for line in record['lines']]), self.token)
+
+    def enable_deliveries(self):
+        status, role = self.pb.request('GET', 'collections/core_roles/records/' + self.user['role'], token=self.pb.admin_token)
+        self.assertEqual(status, 200, role)
+        self.pb.request('PATCH', 'collections/core_roles/records/' + self.user['role'], {'permissions': role['permissions'] + ['settings.references']}, self.pb.admin_token)
+        self.pb.request('PATCH', 'collections/core_users/records/' + self.user['id'], {'erp_profile': 'admin'}, self.pb.admin_token)
+        status, settings = self.pb.request('GET', 'horizon/inventory/settings', token=self.token); self.assertEqual(status, 200, settings)
+        settings['auto_prepare_deliveries'] = True
+        status, _ = self.pb.request('POST', 'horizon/inventory/settings', settings, self.token); self.assertEqual(status, 200)
+
+    def test_delivery_zero_stock_partial_backorder_and_retry(self):
+        quote = self.customer_order()
+        status, draft = self.prepare_delivery(quote); self.assertEqual(status, 200, draft)
+        self.assertEqual((draft['readiness']['ready'], draft['readiness']['required']), (0, 4))
+        self.assertEqual(self.prepare_delivery(quote)[1]['id'], draft['id'])
+        self.assertEqual(self.delivery_partial(draft, 2)[0], 409)
+        self.assertEqual(self.balance()['physical'], 0)
+        self.stock(2)
+        status, fresh = self.pb.request('GET', 'horizon/inventory/operations/' + draft['id'], token=self.token); self.assertEqual(status, 200, fresh)
+        self.assertEqual(fresh['readiness']['ready'], 2)
+        status, done = self.delivery_partial(fresh, 2); self.assertEqual(status, 200, done)
+        self.assertEqual(done['lines'][0]['quantity'], 2)
+        self.assertEqual(done['lines'][0]['planned_quantity'], 4)
+        self.assertEqual(self.balance()['physical'], 0)
+        self.assertEqual(self.delivery_partial(fresh, 2)[0], 409)
+        status, page = self.pb.request('GET', 'horizon/inventory/operations?kind=OUT&sales_quote=' + quote['id'], token=self.token)
+        self.assertEqual(status, 200, page)
+        pending = [record for record in page['items'] if record['status'] == 'draft']
+        self.assertEqual(len(pending), 1)
+        self.assertEqual(pending[0]['delivery_parent'], done['id'])
+        self.assertEqual(pending[0]['lines'][0]['quantity'], 2)
+        self.assertEqual(self.prepare_delivery(quote)[1]['id'], pending[0]['id'])
+        self.stock(2)
+        status, finished = self.action(pending[0]); self.assertEqual(status, 200, finished)
+        self.assertEqual(self.prepare_delivery(quote)[0], 409)
+        self.assertEqual(self.balance()['physical'], 0)
+        with sqlite3.connect(self.pb.data / 'data.db') as connection:
+            total = connection.execute('SELECT SUM(quantity) FROM inventory_moves WHERE operation IN (?,?)', (done['id'], finished['id'])).fetchone()[0]
+            self.assertEqual(total, -4)
+            plan = connection.execute('EXPLAIN QUERY PLAN SELECT SUM(quantity) FROM inventory_moves WHERE product=? AND location=?', (self.item['id'], self.location)).fetchall()
+            self.assertIn('idx_delivery_inventory_moves_place', str(plan))
+
+    def test_delivery_does_not_duplicate_manual_drafts_or_ignore_archived_realizations(self):
+        quote = self.customer_order()
+        status, source = self.pb.request('GET', 'horizon/inventory/operations/source?kind=OUT&sales_quote=' + quote['id'], token=self.token)
+        self.assertEqual(status, 200, source)
+        input = self.build_input('OUT', 4); input['sales_quote'] = quote['id']; input['lines'] = [dict(line, id='line-manual', from_location=self.location, to_location='') for line in source['lines']]
+        status, manual = self.save(input); self.assertEqual(status, 200, manual)
+        self.assertEqual(self.prepare_delivery(quote)[1]['id'], manual['id'])
+        self.assertEqual(self.save(input)[0], 409)
+        self.stock(4); status, done = self.action(manual); self.assertEqual(status, 200, done)
+        self.assertEqual(self.action(done, 'archive')[0], 200)
+        self.assertEqual(self.prepare_delivery(quote)[0], 409)
+
+    def test_receipt_prepares_delivery_once_for_confirmed_affair(self):
+        self.enable_deliveries(); quote = self.customer_order()
+        order = self.purchase(); receipt = self.pending_receipts(order)[0]
+        status, done = self.action(receipt); self.assertEqual(status, 200, done)
+        status, page = self.pb.request('GET', 'horizon/inventory/operations?kind=OUT&sales_quote=' + quote['id'], token=self.token)
+        self.assertEqual(status, 200, page); self.assertEqual(page['totalItems'], 1)
+        self.assertEqual(page['items'][0]['readiness']['ready'], 4)
+        self.assertEqual(self.prepare_delivery(quote)[1]['id'], page['items'][0]['id'])
+        self.assertEqual(self.action(receipt)[0], 409)
+        self.assertEqual(self.balance()['physical'], 6)
+        self.assertEqual(done['delivery_candidates'], [])
+
+    def test_ambiguous_receipt_requires_explicit_valid_matching(self):
+        self.enable_deliveries(); first = self.customer_order(); second = self.customer_order()
+        order = self.purchase(); receipt = self.pending_receipts(order)[0]
+        status, done = self.action(receipt); self.assertEqual(status, 200, done)
+        self.assertEqual(len(done['delivery_candidates']), 1)
+        candidate = done['delivery_candidates'][0]
+        self.assertEqual({item['sales_quote'] for item in candidate['options']}, {first['id'], second['id']})
+        status, page = self.pb.request('GET', 'horizon/inventory/operations?kind=OUT', token=self.token)
+        self.assertEqual(status, 200, page); self.assertEqual(page['totalItems'], 0)
+        match = dict(line_id=candidate['line_id'], analytic_account=candidate['analytic_account'], **{key: candidate['options'][0][key] for key in ['sales_quote', 'sales_line']})
+        status, resolved = self.pb.request('POST', 'horizon/inventory/operations/prepare-receipt-deliveries', dict(id=done['id'], updated=done['updated'], matches=[match]), self.token)
+        self.assertEqual(status, 200, resolved); self.assertEqual(resolved['delivery_candidates'], [])
+        self.assertEqual(self.balance()['physical'], 6)
+        invalid = dict(match, sales_quote=second['id'] if match['sales_quote'] == first['id'] else first['id'])
+        self.assertEqual(self.pb.request('POST', 'horizon/inventory/operations/prepare-receipt-deliveries', dict(id=resolved['id'], updated=resolved['updated'], matches=[invalid]), self.token)[0], 400)
+
+    def test_receipt_with_two_affairs_prepares_two_distinct_delivery_drafts(self):
+        self.enable_deliveries(); first = self.customer_order()
+        status, second_affair = self.pb.request('POST', 'horizon/crm/save', dict(creation_key=str(uuid.uuid4()), input=dict(title='Deuxième affaire', company=self.company['id'], contact='', owner=self.user['id'], stage=self.stages[0]['id'], type='direct', estimated_value=1000, estimated_cost=0, currency='EUR', probability=0, expected_date='', description='', status='open', market_types=[])), self.token)
+        self.assertEqual(status, 200, second_affair)
+        second = self.customer_order(opportunity=second_affair['id'])
+        input = copy.deepcopy(self.input); input['supplier'] = self.supplier['id']; input['opportunity'] = ''
+        input['lines'][0]['allocations'] = [dict(opportunity=self.opp['id'], quantity=3), dict(opportunity=second_affair['id'], quantity=3)]
+        status, order = self.pb.request('POST', 'horizon/purchasing/orders/save', dict(creation_key=str(uuid.uuid4()), input=input), self.token); self.assertEqual(status, 200, order)
+        status, order = check_purchasing.PurchasingTests.transition(self, 'orders', order); self.assertEqual(status, 200, order)
+        self.assertEqual(self.action(self.pending_receipts(order)[0])[0], 200)
+        for quote in [first, second]:
+            status, page = self.pb.request('GET', 'horizon/inventory/operations?kind=OUT&sales_quote=' + quote['id'], token=self.token)
+            self.assertEqual(status, 200, page); self.assertEqual(page['totalItems'], 1)
+            self.assertEqual(page['items'][0]['status'], 'draft'); self.assertEqual(page['items'][0]['destination'], self.company['name'])
+        self.assertEqual(self.balance()['physical'], 6)
+
+    def test_delivery_source_cannot_be_detached_when_sales_fields_are_hidden(self):
+        quote = self.customer_order(); status, draft = self.prepare_delivery(quote)
+        self.assertEqual(status, 200, draft)
+        self.pb.request('PATCH', 'collections/core_roles/records/' + self.user['role'], {'permissions': ['inventory.read', 'inventory.write']}, self.pb.admin_token)
+        status, hidden = self.pb.request('GET', 'horizon/inventory/operations/' + draft['id'], token=self.token)
+        self.assertEqual(status, 200, hidden); self.assertEqual(hidden['sales_quote'], '')
+        input = self.build_input('OUT', 4)
+        self.assertEqual(self.save(input, record=draft)[0], 400)
+        persisted = self.pb.request('GET', 'collections/inventory_operations/records/' + draft['id'], token=self.pb.admin_token)[1]
+        self.assertEqual(persisted['sales_quote'], quote['id'])
+        self.assertEqual(persisted['status'], 'draft')
+
+    def test_delivery_concurrency_and_permissions(self):
+        quote = self.customer_order()
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            responses = list(pool.map(lambda _: self.prepare_delivery(quote), range(2)))
+        successful = [result for status, result in responses if status == 200]
+        self.assertTrue(successful, responses)
+        self.assertEqual(len({record['id'] for record in successful}), 1)
+        draft = successful[0]; self.stock(4)
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            responses = list(pool.map(lambda _: self.delivery_partial(draft, 2), range(2)))
+        self.assertEqual(sum(status == 200 for status, _ in responses), 1, responses)
+        self.assertEqual(self.balance()['physical'], 2)
+        self.pb.request('PATCH', 'collections/core_roles/records/' + self.user['role'], {'permissions': ['inventory.read']}, self.pb.admin_token)
+        self.assertEqual(self.prepare_delivery(quote)[0], 403)
+        self.assertEqual(self.delivery_partial(draft, 1)[0], 403)
+
     def test_permissions_and_warehouse_parameters(self):
         receipt = self.stock()
         self.assertEqual({item['code'] for item in self.choices['warehouses']}, {'MEU', 'SEV'})
@@ -365,12 +506,39 @@ class StockOperationsTests(unittest.TestCase):
         self.assertEqual(self.pb.request('GET', 'horizon/inventory/operations', token=self.token)[0], 200)
 
 class WarehouseCodeMigrationTests(unittest.TestCase):
+    def test_delivery_upgrade_preserves_history(self):
+        def before_deliveries():
+            pb = LocalPocketBase()
+            previous = Path(pb.temp.name) / 'before_deliveries'; previous.mkdir()
+            for path in (ROOT / 'pocketbase/pb_migrations').glob('*.js'):
+                if path.name != '1791840000_stock_deliveries.js': shutil.copy(path, previous)
+            pb.args = [arg for arg in pb.args if not arg.startswith('--migrationsDir=')] + [f'--migrationsDir={previous}']
+            return pb
+        fixture = StockOperationsTests('test_draft_idempotency_number_and_append_only')
+        with patch('check_crm.LocalPocketBase', side_effect=before_deliveries): fixture.setUp()
+        pb = fixture.pb; self.addCleanup(pb.close)
+        receipt = fixture.stock(4)
+        pb.process.terminate(); pb.process.wait(timeout=10)
+        def history():
+            with sqlite3.connect(pb.data / 'data.db') as connection:
+                return tuple(connection.execute('SELECT * FROM ' + table + ' ORDER BY id').fetchall() for table in ['inventory_moves', 'inventory_valuation_entries']), connection.execute('SELECT number, lines, document_snapshot, status FROM inventory_operations WHERE id = ?', (receipt['id'],)).fetchone()
+        before = history()
+        current = [arg for arg in pb.args if not arg.startswith('--migrationsDir=')] + [f'--migrationsDir={ROOT / "pocketbase/pb_migrations"}']
+        for _ in range(2):
+            result = subprocess.run(current + ['migrate', 'up'], env=pb.environment, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(history(), before)
+        with sqlite3.connect(pb.data / 'data.db') as connection:
+            self.assertFalse(connection.execute('SELECT auto_prepare_deliveries FROM settings_stock').fetchone()[0])
+
     def test_upgrade_populates_empty_receipt_without_renumbering(self):
         def before_receipts():
             pb = LocalPocketBase()
             previous = Path(pb.temp.name) / 'before_receipts'; previous.mkdir()
             for path in (ROOT / 'pocketbase/pb_migrations').glob('*.js'):
-                if path.name < '1791710009': shutil.copy(path, previous)
+                # Current hooks require the current additive schema. Omit only the
+                # historical receipt backfill being exercised by this upgrade.
+                if path.name != '1791710009_purchase_receipts.js': shutil.copy(path, previous)
             pb.args = [arg for arg in pb.args if not arg.startswith('--migrationsDir=')] + [f'--migrationsDir={previous}']
             return pb
         fixture = StockOperationsTests('test_partial_receipt_and_remainder')

@@ -11,6 +11,36 @@ class TraceabilityTests(check_stock_operations.StockOperationsTests):
         status, record = self.save(body); self.assertEqual(status, 200, record)
         status, record = self.action(record); self.assertEqual(status, 200, record)
         return record
+    def test_serial_partial_delivery_keeps_identities_and_backorder(self):
+        self.tracked()
+        receipt = self.receive([dict(number='BL-SERIAL-1', quantity=1), dict(number='BL-SERIAL-2', quantity=1)], 2)
+        quote = self.customer_order()
+        status, draft = self.prepare_delivery(quote); self.assertEqual(status, 200, draft)
+        self.assertEqual(draft['readiness']['ready'], 2)
+        quantities = [dict(id=draft['lines'][0]['id'], quantity=2, traces=receipt['lines'][0]['traces'])]
+        status, done = self.pb.request('POST', 'horizon/inventory/operations/transition', dict(id=draft['id'], updated=draft['updated'], action='validate', quantities=quantities), self.token)
+        self.assertEqual(status, 200, done)
+        self.assertEqual(len(done['lines'][0]['traces']), 2)
+        self.assertEqual(done['lines'][0]['planned_quantity'], 4)
+        self.assertEqual(self.balance()['physical'], 0)
+        status, page = self.pb.request('GET', 'horizon/inventory/operations?kind=OUT&status=draft&sales_quote=' + quote['id'], token=self.token)
+        self.assertEqual(status, 200, page); self.assertEqual(page['totalItems'], 1)
+        self.assertEqual(page['items'][0]['lines'][0]['quantity'], 2)
+        self.assertEqual(page['items'][0]['lines'][0]['traces'], [])
+
+    def test_delivery_readiness_and_validation_exclude_quarantined_lots(self):
+        self.tracked('lot'); receipt = self.receive([dict(number='BL-LOT', quantity=4)], 4)
+        quote = self.customer_order(); status, draft = self.prepare_delivery(quote)
+        self.assertEqual(status, 200, draft); self.assertEqual(draft['readiness']['ready'], 4)
+        lot = self.pb.request('GET', 'collections/inventory_lots/records/' + receipt['lines'][0]['traces'][0]['lot'], token=self.pb.admin_token)[1]
+        status, _ = self.pb.request('POST', 'horizon/inventory/traces/lot', dict(id=lot['id'], updated=lot['updated'], status='quarantine', expiry_date=''), self.token)
+        self.assertEqual(status, 200)
+        status, ready = self.pb.request('GET', 'horizon/inventory/operations/readiness/' + draft['id'], token=self.token)
+        self.assertEqual(status, 200, ready); self.assertEqual(ready['ready'], 0)
+        quantities = [dict(id=draft['lines'][0]['id'], quantity=4, traces=receipt['lines'][0]['traces'])]
+        status, _ = self.pb.request('POST', 'horizon/inventory/operations/transition', dict(id=draft['id'], updated=draft['updated'], action='validate', quantities=quantities), self.token)
+        self.assertIn(status, [400, 409]); self.assertEqual(self.balance()['physical'], 4)
+
     def test_serial_receipt_delivery_duplicate_and_return(self):
         self.tracked()
         received = self.receive([dict(number='SER-001', quantity=1), dict(number='SER-002', quantity=1)], 2)

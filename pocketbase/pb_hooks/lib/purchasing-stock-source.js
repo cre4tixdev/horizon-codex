@@ -2,6 +2,32 @@
 // and to update the aggregate reception status after a committed stock operation.
 const c = require(`${__hooks}/lib/purchasing-common.js`)
 module.exports = {
+  deliveryCandidates(app, receipt) {
+    const result = [], orderCache = new Map(), accounts = new Map(), orderLists = new Map(), quotes = new Map()
+    for (const line of JSON.parse(receipt.getString('lines') || '[]').filter((item) => item.product && item.quantity > 0 && (item.purpose || 'stock') === 'stock')) {
+      const purchased = line.source_line && receipt.getString('purchase_order') ? c.get(app, 'purchasing_order_lines', line.source_line) : null
+      const requested = purchased?.getString('request_line') ? c.get(app, 'purchasing_request_lines', purchased.getString('request_line')) : null
+      const direct = requested?.getString('source_line') ? c.get(app, 'sales_order_lines', requested.getString('source_line')) : null
+      for (const allocation of line.allocations || []) {
+        if (!accounts.has(allocation.analytic_account)) accounts.set(allocation.analytic_account, c.get(app, 'accounting_analytic_accounts', allocation.analytic_account))
+        const analytic = accounts.get(allocation.analytic_account)
+        if (!analytic.getString('opportunity') || !(allocation.quantity > 0)) continue
+        const scope = direct ? direct.getString('order') : analytic.getString('opportunity'), scopeKey = `${direct ? 'order' : 'affair'}/${scope}`
+        if (!orderLists.has(scopeKey)) orderLists.set(scopeKey, direct ? [c.get(app, 'sales_orders', scope)] : app.findRecordsByFilter('sales_orders', 'opportunity = {:id} && status = "confirmed"', 'created,id', 100, 0, { id: scope }))
+        const orders = orderLists.get(scopeKey)
+        const options = orders.flatMap((order) => {
+          if (order.getString('status') !== 'confirmed' || order.getString('opportunity') !== analytic.getString('opportunity')) return []
+          if (!quotes.has(order.getString('quote'))) quotes.set(order.getString('quote'), c.get(app, 'sales_quotes', order.getString('quote')))
+          const quote = quotes.get(order.getString('quote'))
+          if (quote.getString('status') !== 'accepted' || quote.getString('archived_at') || analytic.getString('source_quote') && analytic.getString('source_quote') !== quote.id) return []
+          if (!orderCache.has(order.id)) orderCache.set(order.id, app.findRecordsByFilter('sales_order_lines', 'order = {:id} && kind = "item"', 'position', 0, 0, { id: order.id }))
+          return orderCache.get(order.id).filter((sale) => sale.getString('product') === line.product && sale.getString('unit') === line.unit && (!direct || direct.id === sale.id)).map((sale) => ({ sales_quote: quote.id, sales_line: sale.id, label: `${quote.getString('quote_number')} · ${sale.getString('description')}` }))
+        })
+        result.push({ line_id: line.id, analytic_account: analytic.id, label: `${line.description} · ${analytic.getString('code')}`, options })
+      }
+    }
+    return result
+  },
   receiptIdentity(app, id) {
     const record = c.get(app, 'purchasing_orders', id), snapshot = JSON.parse(record.getString('document_snapshot') || 'null')
     const fields = snapshot?.supplier_fields || require(`${__hooks}/lib/contacts-document-context.js`)(app, c.get(app, 'contacts_companies', record.getString('supplier'))).fields

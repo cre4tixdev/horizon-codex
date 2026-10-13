@@ -28,10 +28,12 @@ const lockCheck = (app, ids, exclude = '') => {
   const locks = app.findRecordsByFilter('inventory_operations', 'kind = "INV" && status = "counting" && lock_movements = true && id != {:exclude}', '', 0, 0, { exclude })
   if (locks.some((record) => JSON.parse(record.getString('scope') || '[]').some((id) => ids.includes(id)))) throw new ApiError(409, 'Un inventaire en cours verrouille ces emplacements. Préparez le brouillon ou terminez le comptage.')
 }
-const dto = (app, user, record) => {
+const dto = (app, user, record, readinessContext) => {
   const rights = c.policy.permissions(app, user), output = record.publicExport(), source = record.getString('opportunity') && rights.includes('crm.read') ? c.get(app, 'crm_opportunities', record.getString('opportunity')) : null
-  delete output.creation_key; delete output.creation_hash; delete output.document_snapshot
-  return { ...output, ...require(`${__hooks}/lib/stock-operation-details.js`)(app, record), can_inspect_purchase: rights.includes('purchasing.read'), opportunity: source?.id || '', opportunity_name: source ? `${source.getString('opportunity_number')} · ${source.getString('title')}` : '', warehouse_name: c.get(app, 'inventory_warehouses', record.getString('warehouse')).getString('name'), destination_warehouse_name: record.getString('destination_warehouse') ? c.get(app, 'inventory_warehouses', record.getString('destination_warehouse')).getString('name') : '', purchase_order: record.getString('purchase_order'), sales_quote: rights.includes('sales.read') ? record.getString('sales_quote') : '', lines: lines(record).map((line) => ({ ...line, allocations: rights.includes('crm.read') ? line.allocations : [], unit_cost: rights.includes('purchasing.read') ? line.unit_cost : null })) }
+  delete output.creation_key; delete output.creation_hash; delete output.document_snapshot; delete output.delivery_matches
+  const delivery = require(`${__hooks}/lib/stock-delivery-readiness.js`), ready = delivery.project(record, readinessContext || delivery.context(app, [record]))
+  const candidates = !readinessContext && record.getString('kind') === 'IN' && record.getString('status') === 'done' && rights.includes('sales.read') && rights.includes('crm.read') && app.findAllRecords('settings_stock')[0].getBool('auto_prepare_deliveries') ? require(`${__hooks}/lib/stock-deliveries.js`).candidates(app, record).filter((item) => item.options.length !== 1 && !(JSON.parse(record.getString('delivery_matches') || '[]') || []).some((match) => match.line_id === item.line_id && match.analytic_account === item.analytic_account)) : []
+  return { ...output, readiness: ready, delivery_candidates: candidates, ...require(`${__hooks}/lib/stock-operation-details.js`)(app, record), can_inspect_purchase: rights.includes('purchasing.read'), opportunity: source?.id || '', opportunity_name: source ? `${source.getString('opportunity_number')} · ${source.getString('title')}` : '', warehouse_name: c.get(app, 'inventory_warehouses', record.getString('warehouse')).getString('name'), destination_warehouse_name: record.getString('destination_warehouse') ? c.get(app, 'inventory_warehouses', record.getString('destination_warehouse')).getString('name') : '', purchase_order: record.getString('purchase_order'), sales_quote: rights.includes('sales.read') ? record.getString('sales_quote') : '', lines: lines(record).map((line) => ({ ...line, planned_quantity: line.planned_quantity ?? line.quantity, allocations: rights.includes('crm.read') ? line.allocations : [], unit_cost: rights.includes('purchasing.read') ? line.unit_cost : null })) }
 }
 const source = (app, user, kind, purchaseId, quoteId, dropship = false, originId = '') => {
   if (!kinds.includes(kind) || kind === 'RET' && (purchaseId || quoteId || dropship)) throw new BadRequestError('Sources incompatibles avec cette opération.')
@@ -75,9 +77,9 @@ const normalize = (app, user, input) => {
   if (!Array.isArray(input.lines) || input.lines.length > (input.kind === 'INV' ? 2000 : 200)) throw new BadRequestError('Limitez la pièce à 200 lignes.')
   const seen = new Set(), sourceSeen = new Set()
   result.lines = input.lines.map((line, index) => {
-    c.exact(line, ['id', 'product', 'quantity', 'from_location', 'to_location', 'source_line', 'sales_line', 'origin_line', 'counted', 'expected', 'description', 'brand', 'reference', 'unit', 'unit_cost', 'allocations', 'traces', 'tracking', 'purpose'])
+    c.exact(line, ['id', 'product', 'quantity', 'from_location', 'to_location', 'source_line', 'sales_line', 'origin_line', 'counted', 'expected', 'description', 'brand', 'reference', 'unit', 'unit_cost', 'allocations', 'traces', 'tracking', 'purpose', 'planned_quantity'])
     const id = line.id || `line-${index + 1}`; if (!/^[a-zA-Z0-9-]{1,64}$/.test(id) || seen.has(id)) throw new BadRequestError('Identifiant de ligne invalide.'); seen.add(id)
-    const empty = { id, product: '', description: '', brand: '', reference: '', unit: '', quantity: c.number(line.quantity ?? 0, 0, 1000000), from_location: '', to_location: '', source_line: '', sales_line: '', origin_line: '', unit_cost: 0, allocations: [], counted: line.counted == null ? null : c.number(line.counted, 0, 1000000), expected: 0 }
+    const empty = { id, product: '', description: '', brand: '', reference: '', unit: '', quantity: c.number(line.quantity ?? 0, 0, 1000000), planned_quantity: c.number(line.quantity ?? 0, 0, 1000000), from_location: '', to_location: '', source_line: '', sales_line: '', origin_line: '', unit_cost: 0, allocations: [], counted: line.counted == null ? null : c.number(line.counted, 0, 1000000), expected: 0 }
     if (!line.product) return empty
     const product = c.get(app, 'inventory_products', line.product); if (input.kind !== 'INV' && (!product.getBool('active') || product.getString('stock_policy') === 'none')) throw new BadRequestError('Choisissez un produit géré en stock.')
     const traces = require(`${__hooks}/lib/stock-traces.js`).normalize(line.traces)
@@ -149,9 +151,45 @@ const execute = (app, user, record, receiving = false) => {
   if (kind === 'IN') require(`${__hooks}/lib/internal-assets.js`).receive(app, user, record)
   if (!JSON.parse(record.getString('document_snapshot') || 'null')) { record.set('document_snapshot', require(`${__hooks}/lib/stock-document-context.js`)(app, user, record.id).fields); app.save(record) }
   if (record.getString('purchase_order')) require(`${__hooks}/lib/purchasing-stock-source.js`).refresh(app, user, record.getString('purchase_order'))
+  if (kind === 'IN') { try { require(`${__hooks}/lib/stock-deliveries.js`).fromReceipt(app, user, record) } catch (error) { console.error('[stock-deliveries] Receipt preparation failed', String(error)); throw error } }
+  if (kind === 'OUT' && record.getString('sales_quote') && !record.getBool('dropship')) require(`${__hooks}/lib/stock-deliveries.js`).sync(app, user, record.getString('sales_quote'), record.getString('warehouse'), record.id)
 }
 module.exports = {
   consumed, lockCheck, execute, ledger,
+  prepareDelivery(event) {
+    write(event.app, event.auth); const body = event.requestInfo().body; c.exact(body, ['sales_quote', 'warehouse']); let output
+    event.app.runInTransaction((app) => {
+      write(app, event.auth); require(`${__hooks}/lib/sales-procurement.js`)(app, event.auth, body.sales_quote)
+      const warehouses = app.findRecordsByFilter('inventory_warehouses', 'active = true', 'code,id', 0, 0)
+      const warehouse = body.warehouse || warehouses.find((row) => row.getString('code') === 'MEU')?.id || (warehouses.length === 1 ? warehouses[0].id : '')
+      if (!warehouse) throw new BadRequestError('Choisissez un entrepôt pour préparer la livraison.')
+      activeWarehouse(app, warehouse)
+      const record = require(`${__hooks}/lib/stock-deliveries.js`).sync(app, event.auth, body.sales_quote, warehouse)
+      if (!record) throw new ApiError(409, 'Cette commande est déjà entièrement livrée ou préparée.')
+      output = dto(app, event.auth, record)
+    }); return event.json(200, output)
+  },
+  prepareReceiptDeliveries(event) {
+    write(event.app, event.auth); const body = event.requestInfo().body; c.exact(body, ['id', 'updated', 'matches']); let output
+    if (!c.policy.permissions(event.app, event.auth).includes('sales.read') || !c.policy.permissions(event.app, event.auth).includes('crm.read')) throw new ForbiddenError('Accès aux commandes clients nécessaire.')
+    if (!Array.isArray(body.matches) || !body.matches.length || body.matches.length > 200) throw new BadRequestError('Sélectionnez les commandes à livrer.')
+    event.app.runInTransaction((app) => {
+      write(app, event.auth); const record = c.get(app, 'inventory_operations', body.id); checkRevision(record, body.updated)
+      if (record.getString('kind') !== 'IN' || record.getString('status') !== 'done' || record.getString('archived_at')) throw new BadRequestError('Choisissez une réception réalisée active.')
+      if (!app.findAllRecords('settings_stock')[0].getBool('auto_prepare_deliveries')) throw new BadRequestError('Activez la préparation des BL dans les paramètres Stock.')
+      const candidates = require(`${__hooks}/lib/stock-deliveries.js`).candidates(app, record), seen = new Set()
+      for (const match of body.matches) {
+        c.exact(match, ['line_id', 'analytic_account', 'sales_quote', 'sales_line']); const key = `${match.line_id}/${match.analytic_account}`
+        if (seen.has(key) || !candidates.some((candidate) => candidate.line_id === match.line_id && candidate.analytic_account === match.analytic_account && candidate.options.some((item) => item.sales_quote === match.sales_quote && item.sales_line === match.sales_line))) throw new BadRequestError('Rattachement de livraison invalide ou répété.')
+        seen.add(key)
+      }
+      const before = record.publicExport(), previous = (JSON.parse(record.getString('delivery_matches') || '[]') || [])
+      const matches = [...previous.filter((item) => !seen.has(`${item.line_id}/${item.analytic_account}`)), ...body.matches]
+      record.set('delivery_matches', matches); app.save(record)
+      require(`${__hooks}/lib/stock-deliveries.js`).fromReceipt(app, event.auth, record, body.matches)
+      c.audit(app, event.auth, record, before, 'Commandes de livraison affectées à la réception'); output = dto(app, event.auth, record)
+    }); return event.json(200, output)
+  },
   syncPurchase(app, user, order) {
     const source = require(`${__hooks}/lib/purchasing-stock-source.js`).receiptData(app, order)
     require(`${__hooks}/lib/stock-purchase-receipts.js`).sync(app, source, user.id, (record, before, label) => c.audit(app, user, record, before, label))
@@ -178,8 +216,10 @@ module.exports = {
       const zone = new Timezone('Europe/Paris'), today = new DateTime().time().in(zone).format('2006-01-02')
       forecast = require(`${__hooks}/lib/stock-operation-forecast.js`)(base.filter((record) => !record.getBool('internal_use')).map((record) => ({ kind: record.getString('kind'), status: record.getString('status'), scrap: record.getBool('scrap'), dropship: record.getBool('dropship'), archived: !!record.getString('archived_at'), planned_date: record.getString('planned_date'), completed_date: record.getDateTime('validated_at').isZero() ? '' : record.getDateTime('validated_at').time().in(zone).format('2006-01-02') })), today)
     }
-    return event.json(200, { items: result.map((record) => dto(app, event.auth, record)), summary, forecast, page, totalItems: selected.length, totalPages: Math.max(1, Math.ceil(selected.length / 30)) })
+    const readinessContext = require(`${__hooks}/lib/stock-delivery-readiness.js`).context(app, result)
+    return event.json(200, { items: result.map((record) => dto(app, event.auth, record, readinessContext)), summary, forecast, page, totalItems: selected.length, totalPages: Math.max(1, Math.ceil(selected.length / 30)) })
   },
+  readiness(event) { read(event.app, event.auth); const record = c.get(event.app, 'inventory_operations', event.request.pathValue('id')), delivery = require(`${__hooks}/lib/stock-delivery-readiness.js`); return event.json(200, delivery.project(record, delivery.context(event.app, [record]))) },
   record(event) { read(event.app, event.auth); return event.json(200, dto(event.app, event.auth, c.get(event.app, 'inventory_operations', event.request.pathValue('id')))) },
   source(event) { read(event.app, event.auth); const query = event.requestInfo().query; c.exact(query, ['kind', 'purchase_order', 'sales_quote', 'dropship', 'origin']); const result = source(event.app, event.auth, query.kind, query.purchase_order || '', query.sales_quote || '', query.dropship === 'true', query.origin || ''), rights = c.policy.permissions(event.app, event.auth); return event.json(200, { ...result, opportunity: rights.includes('crm.read') ? result.opportunity : '', lines: result.lines.map((line) => ({ ...line, unit_cost: rights.includes('purchasing.read') ? line.unit_cost : null, allocations: rights.includes('crm.read') ? line.allocations : [] })) }) },
   product(event) { read(event.app, event.auth); const product = c.get(event.app, 'inventory_products', event.request.pathValue('id')); if (product.getString('stock_policy') === 'none') throw new BadRequestError('Ce produit ne possède pas de stock.'); return event.json(200, { id: product.id, description: product.getString('name'), brand: product.getString('manufacturer'), reference: product.getString('sku'), unit: c.get(event.app, 'inventory_units', product.getString('base_unit')).getString('code'), tracking: product.getString('tracking'), purpose: 'stock', traces: [], unit_cost: require(`${__hooks}/lib/catalog.js`).valuationCost(event.app, product.id) }) },
@@ -187,27 +227,30 @@ module.exports = {
     write(event.app, event.auth); const body = event.requestInfo().body; c.exact(body, ['id', 'updated', 'creation_key', 'input']); let output
     event.app.runInTransaction((app) => {
       write(app, event.auth); const input = normalize(app, event.auth, body.input)
+      require(`${__hooks}/lib/stock-deliveries.js`).checkPrepared(app, input, body.id || '')
       if (!/^[a-zA-Z0-9-]{16,100}$/.test(body.creation_key || '')) throw new BadRequestError('Clé de création invalide.')
       const hash = c.hash(input), prior = body.id ? c.get(app, 'inventory_operations', body.id) : app.findRecordsByFilter('inventory_operations', 'creation_key = {:key}', '', 1, 0, { key: body.creation_key })[0]
       if (prior && !body.id) { if (prior.getString('creation_hash') !== hash || prior.getString('actor') !== event.auth.id) throw new ApiError(409, 'Cette clé existe avec d’autres valeurs.'); output = dto(app, event.auth, prior); return }
       const record = prior || new Record(app.findCollectionByNameOrId('inventory_operations')), before = prior ? prior.publicExport() : null
-      if (prior) { checkRevision(record, body.updated); if (!['draft', 'counting'].includes(record.getString('status')) || record.getString('archived_at')) throw new BadRequestError('Cette opération ne peut plus être modifiée.'); if (record.getString('kind') !== input.kind) throw new BadRequestError('Le type de cette opération est conservé.'); if (record.getString('kind') === 'IN' && record.getString('purchase_order') && record.getString('purchase_order') !== input.purchase_order) throw new BadRequestError('La commande fournisseur source est conservée.'); if (record.getString('warehouse') !== input.warehouse) { if (record.getString('status') !== 'draft' || record.getString('kind') !== 'IN' || !record.getString('purchase_order')) throw new BadRequestError('L’entrepôt est conservé pour cette opération.'); record.set('number', number(app, input.warehouse, input.kind)) } }
+      if (prior) { checkRevision(record, body.updated); if (!['draft', 'counting'].includes(record.getString('status')) || record.getString('archived_at')) throw new BadRequestError('Cette opération ne peut plus être modifiée.'); if (record.getString('kind') !== input.kind) throw new BadRequestError('Le type de cette opération est conservé.'); if (record.getString('kind') === 'IN' && record.getString('purchase_order') && record.getString('purchase_order') !== input.purchase_order) throw new BadRequestError('La commande fournisseur source est conservée.'); if (record.getString('kind') === 'OUT' && record.getString('sales_quote') && record.getString('sales_quote') !== input.sales_quote) throw new BadRequestError('La commande client source est conservée.'); if (record.getString('warehouse') !== input.warehouse) { if (record.getString('status') !== 'draft' || !(record.getString('kind') === 'IN' && record.getString('purchase_order') || record.getString('kind') === 'OUT' && record.getString('sales_quote'))) throw new BadRequestError('L’entrepôt est conservé pour cette opération.'); record.set('number', number(app, input.warehouse, input.kind)) } }
       else { record.set('number', number(app, input.warehouse, input.kind)); record.set('status', 'draft'); record.set('actor', event.auth.id); record.set('creation_key', body.creation_key); record.set('creation_hash', hash) }
       if (prior?.getString('status') === 'counting') {
         const previous = lines(prior)
         if (input.lines.length !== previous.length || input.lines.some((line, index) => line.id !== previous[index].id || line.product !== previous[index].product || line.from_location !== previous[index].from_location) || JSON.stringify(input.scope) !== record.getString('scope')) throw new BadRequestError('Le périmètre est figé pendant le comptage.')
         input.lines = previous.map((line, index) => ({ ...line, counted: input.lines[index].counted })); for (const field of ['planned_date', 'inventory_mode', 'destination_warehouse', 'purchase_order', 'sales_quote', 'origin', 'opportunity', 'dropship', 'scrap']) input[field] = record.get(field)
       }
+      if (prior && record.getString('creation_key').startsWith('sales-delivery-')) record.set('creation_hash', hash)
       for (const [key, value] of Object.entries(input)) record.set(key, value)
       record.set('internal_use', input.kind === 'OUT' && input.lines.some((line) => line.product && line.purpose !== 'stock'))
       app.save(record); c.audit(app, event.auth, record, before, prior ? 'Opération de stock modifiée' : 'Opération de stock créée'); output = dto(app, event.auth, record)
     }); return event.json(200, output)
   },
   transition(event) {
-    write(event.app, event.auth, true); const body = event.requestInfo().body; c.exact(body, ['id', 'updated', 'action']); let output
+    write(event.app, event.auth, true); const body = event.requestInfo().body; c.exact(body, ['id', 'updated', 'action', 'quantities']); let output
     event.app.runInTransaction((app) => {
       write(app, event.auth, true); const record = c.get(app, 'inventory_operations', body.id); checkRevision(record, body.updated); const before = record.publicExport(), status = record.getString('status'), kind = record.getString('kind')
       if (body.action === 'restore' && record.getString('archived_at')) { record.set('archived_at', ''); app.save(record); c.audit(app, event.auth, record, before, 'Opération désarchivée'); output = dto(app, event.auth, record); return }
+      if (body.quantities !== undefined && (body.action !== 'validate' || !require(`${__hooks}/lib/stock-delivery-readiness.js`).delivery(record))) throw new BadRequestError('Quantités partielles réservées à la validation d’un BL.');
       if (record.getString('archived_at')) throw new BadRequestError('Cette pièce est archivée.')
       if (body.action === 'archive') { if (!['done', 'cancelled'].includes(status)) throw new BadRequestError('Terminez ou annulez la pièce avant archivage.'); record.set('archived_at', new Date().toISOString()); app.save(record) }
       else if (body.action === 'cancel') { if (!['draft', 'counting'].includes(status)) throw new BadRequestError('Une réalisation ou un transfert en transit se corrige par une opération liée.'); record.set('status', 'cancelled'); app.save(record) }
@@ -224,7 +267,7 @@ module.exports = {
         for (const line of items) { if (line.counted == null) throw new BadRequestError('Renseignez toutes les quantités comptées.'); const current = line.traces?.length ? require(`${__hooks}/lib/stock-traces.js`).balance(app, line.product, line.from_location, line.traces[0]) : stock.balance(app, line.product, line.from_location); if (Math.abs(current.physical - line.expected) > 0.000001) throw new ApiError(409, 'Le stock a changé pendant le comptage. Annulez puis recommencez le comptage sur ce périmètre.'); if (line.counted + 0.000001 < current.reserved) throw new BadRequestError('Le comptage est inférieur au stock réservé. Réaffectez les réservations avant validation.'); lockCheck(app, [line.from_location], record.id); ledger(app, record, line, line.from_location, rounded(line.counted - line.expected), 'count') }
         record.set('lines', items); record.set('status', 'done'); app.save(record)
       }
-      else if (body.action === 'validate' && status === 'draft' && kind !== 'INV') execute(app, event.auth, record)
+      else if (body.action === 'validate' && status === 'draft' && kind !== 'INV') { if (body.quantities !== undefined) require(`${__hooks}/lib/stock-deliveries.js`).partial(record, body.quantities); execute(app, event.auth, record) }
       else if (body.action === 'receive' && status === 'transit' && kind === 'INT') execute(app, event.auth, record, true)
       else throw new BadRequestError('Transition non autorisée.')
       if (record.getString('status') === 'done' && !JSON.parse(record.getString('document_snapshot') || 'null')) { record.set('document_snapshot', require(`${__hooks}/lib/stock-document-context.js`)(app, event.auth, record.id).fields); app.save(record) }
@@ -233,11 +276,11 @@ module.exports = {
   },
   settings(event) {
     if (!c.policy.settings(event.app, event.auth)) throw new ForbiddenError('Paramètres réservés aux administrateurs habilités.')
-    return event.json(200, { warehouses: event.app.findAllRecords('inventory_warehouses').map((record) => ({ id: record.id, name: record.getString('name'), code: record.getString('code'), active: record.getBool('active') })), lock_inventory: event.app.findAllRecords('settings_stock')[0].getBool('lock_inventory') })
+    return event.json(200, { warehouses: event.app.findAllRecords('inventory_warehouses').map((record) => ({ id: record.id, name: record.getString('name'), code: record.getString('code'), active: record.getBool('active') })), lock_inventory: event.app.findAllRecords('settings_stock')[0].getBool('lock_inventory'), auto_prepare_deliveries: event.app.findAllRecords('settings_stock')[0].getBool('auto_prepare_deliveries') })
   },
   saveSettings(event) {
     if (!c.policy.settings(event.app, event.auth)) throw new ForbiddenError('Paramètres réservés aux administrateurs habilités.')
-    const body = event.requestInfo().body; c.exact(body, ['warehouses', 'lock_inventory']); if (!Array.isArray(body.warehouses) || !body.warehouses.length || body.warehouses.length > 100 || typeof body.lock_inventory !== 'boolean') throw new BadRequestError('Paramètres invalides.')
+    const body = event.requestInfo().body; c.exact(body, ['warehouses', 'lock_inventory', 'auto_prepare_deliveries']); if (body.auto_prepare_deliveries !== undefined && typeof body.auto_prepare_deliveries !== 'boolean') throw new BadRequestError('Paramètre de livraison invalide.'); if (!Array.isArray(body.warehouses) || !body.warehouses.length || body.warehouses.length > 100 || typeof body.lock_inventory !== 'boolean') throw new BadRequestError('Paramètres invalides.')
     event.app.runInTransaction((app) => {
       const seen = new Set(); for (const input of body.warehouses) {
         c.exact(input, ['id', 'name', 'code', 'active']); if (!/^[A-Z]{3}$/.test(input.code) || seen.has(input.code) || typeof input.active !== 'boolean') throw new BadRequestError('Chaque code doit comporter trois lettres majuscules uniques.'); seen.add(input.code)
@@ -246,7 +289,7 @@ module.exports = {
         if (input.id && !input.active) { const places = app.findRecordsByFilter('inventory_locations', 'warehouse = {:id}', '', 0, 0, { id: input.id }); for (const place of places) { const products = [...new Set(app.findRecordsByFilter('inventory_moves', 'location = {:id}', '', 0, 0, { id: place.id }).map((move) => move.getString('product')))]; if (products.some((id) => stock.balance(app, id, place.id).physical !== 0) || app.findRecordsByFilter('inventory_reservations', 'location = {:id} && active = true', '', 1, 0, { id: place.id }).length) throw new BadRequestError('Videz le stock et libérez les réservations avant de désactiver cet entrepôt.'); } if (app.findRecordsByFilter('inventory_operations', '(warehouse = {:id} || destination_warehouse = {:id}) && status != "done" && status != "cancelled"', '', 1, 0, { id: input.id }).length) throw new BadRequestError('Terminez les opérations de cet entrepôt avant de le désactiver.'); }
         record.set('name', c.text(input.name, 120, true)); record.set('code', input.code); record.set('active', input.active); if (!input.id) record.set('counters', {}); app.save(record); c.policy.audit(app, 'inventory_warehouses', record.id, event.auth.id, before, record.publicExport(), before ? 'update' : 'create')
       }
-      const settings = app.findAllRecords('settings_stock')[0], before = settings.publicExport(); settings.set('lock_inventory', body.lock_inventory); app.save(settings); c.policy.audit(app, 'settings_stock', settings.id, event.auth.id, before, settings.publicExport(), 'update')
+      const settings = app.findAllRecords('settings_stock')[0], before = settings.publicExport(); settings.set('lock_inventory', body.lock_inventory); if (body.auto_prepare_deliveries !== undefined) settings.set('auto_prepare_deliveries', body.auto_prepare_deliveries); app.save(settings); c.policy.audit(app, 'settings_stock', settings.id, event.auth.id, before, settings.publicExport(), 'update')
     }); return module.exports.settings(event)
   },
 }

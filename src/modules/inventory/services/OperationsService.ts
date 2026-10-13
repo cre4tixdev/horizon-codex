@@ -3,7 +3,7 @@ import { environment } from '../../../core/config/environment'
 import { sessionService } from '../../../core/auth/services/session'
 import { hasPermission } from '../../../core/auth/types/session'
 import { createOperationsRepository } from '../repositories/OperationsRepository'
-import type { OperationSourceQuery, OperationsQuery, OperationInput, StockSettings } from '../schemas/operations'
+import type { OperationSourceQuery, OperationsQuery, OperationInput, StockSettings, DeliveryQuantity, DeliveryMatch } from '../schemas/operations'
 const repository = environment.pocketBaseUrl ? createOperationsRepository(environment.pocketBaseUrl) : undefined
 async function run<T>(right: string, fn: (repo: ReturnType<typeof createOperationsRepository>) => Promise<T>) {
   const session = sessionService.getSnapshot()
@@ -12,10 +12,13 @@ async function run<T>(right: string, fn: (repo: ReturnType<typeof createOperatio
 }
 export const operationsService = {
   list: (query: OperationsQuery) => run('inventory.read', (repo) => repo.list(query)),
+  readiness: (id: string) => run('inventory.read', (repo) => repo.readiness(id)),
   record: (id: string) => run('inventory.read', (repo) => repo.record(id)), choices: () => run('inventory.read', (repo) => repo.choices()),
   source: (query: OperationSourceQuery) => run('inventory.read', (repo) => repo.source(query)),
   product: (id: string) => run('inventory.read', (repo) => repo.product(id)),
   save: (input: OperationInput, key: string, id?: string, updated?: string) => run('inventory.write', (repo) => repo.save(input, key, id, updated)),
-  transition: (id: string, updated: string, action: string) => run('inventory.stock.validate', (repo) => repo.transition(id, updated, action)),
+  transition: (id: string, updated: string, action: string, quantities?: DeliveryQuantity[]) => run('inventory.stock.validate', (repo) => repo.transition(id, updated, action, quantities)),
+  prepareDelivery: (quote: string, warehouse = '') => run('inventory.write', (repo) => repo.prepareDelivery(quote, warehouse)),
+  prepareReceiptDeliveries: (id: string, updated: string, matches: DeliveryMatch[]) => run('inventory.write', (repo) => repo.prepareReceiptDeliveries(id, updated, matches)),
   settings: () => run('settings.references', (repo) => repo.settings()), saveSettings: (input: StockSettings) => run('settings.references', (repo) => repo.saveSettings(input)),
 }

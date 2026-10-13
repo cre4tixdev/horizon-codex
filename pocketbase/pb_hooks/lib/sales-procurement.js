@@ -1,10 +1,16 @@
 // Sales owns the snapshot of a confirmed customer order used by stock and Purchasing.
 module.exports = (app, user, quoteId) => {
   if (!require(`${__hooks}/lib/activity.js`).allowed(app, user, false, 'sales')) throw new ForbiddenError('Accès à la commande client nécessaire.')
+  return module.exports.deliverySource(app, quoteId)
+}
+
+// Internal, read-only snapshot boundary for receipt-driven stock automation.
+// Public stock routes must still check the caller's Sales permission.
+module.exports.deliverySource = (app, quoteId) => {
   const quote = app.findRecordById('sales_quotes', quoteId)
   const order = app.findRecordsByFilter('sales_orders', 'quote = {:id} && status = "confirmed"', '-order_sequence', 1, 0, { id: quote.id })[0]
   if (quote.getString('status') !== 'accepted' || !order || quote.getString('archived_at')) throw new BadRequestError('Choisissez une commande client active confirmée.')
-  return { quote, order, lines: app.findRecordsByFilter('sales_order_lines', 'order = {:id} && kind = "item"', 'position', 0, 0, { id: order.id }) }
+  return { quote, order, destination: app.findRecordById('contacts_companies', order.getString('company') || quote.getString('company')).getString('name'), lines: app.findRecordsByFilter('sales_order_lines', 'order = {:id} && kind = "item"', 'position', 0, 0, { id: order.id }) }
 }
 
 module.exports.sourceNumber = (app, user, orderId) => {
