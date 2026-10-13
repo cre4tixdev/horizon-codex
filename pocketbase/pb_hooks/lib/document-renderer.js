@@ -10,7 +10,7 @@ const rich = (node, headings) => {
   return `<${tag}${node.type === 'heading' ? ` style="${cssStyle(headings[(node.attrs?.level || 2) - 1])}"` : ''}>${content}</${tag}>`
 }
 const backgroundColor = (style) => style.backgroundOpacity === undefined || style.backgroundOpacity === 1 ? style.background : `rgba(${[1, 3, 5].map((start) => parseInt(style.background.slice(start, start + 2), 16)).join(',')},${style.backgroundOpacity})`
-const cssStyle = (style) => `font-family:'${style.font}',sans-serif;font-size:${style.size}px;color:${style.color};background:${backgroundColor(style)};text-align:${style.align};font-weight:${style.bold ? 600 : 400};font-style:${style.italic ? 'italic' : 'normal'};text-transform:${style.uppercase ? 'uppercase' : 'none'};${style.border ? 'border-bottom:1px solid currentColor;' : ''}`
+const cssStyle = (style) => `font-family:'${style.font}',sans-serif;font-size:${style.size}px;color:${style.color};background:${backgroundColor(style)};text-align:${style.align};font-weight:${style.bold ? 600 : 400};font-style:${style.italic ? 'italic' : 'normal'};text-transform:${style.uppercase ? 'uppercase' : 'none'};${style.borders ? ['top', 'bottom', 'left', 'right'].map((side) => `border-${side}:${style.borders[side] ? `${style.borders.width}px solid ${style.borders.color}` : 'none'};`).join('') : style.border ? 'border-bottom:1px solid currentColor;' : ''}`
 module.exports = (layout, context) => {
   require(`${__hooks}/lib/document-layout.js`).validate(layout)
   const data = context.fields, currency = String(data['quote.currency'] || 'EUR')
@@ -21,10 +21,11 @@ module.exports = (layout, context) => {
   const table = (block) => {
     const head = `<colgroup>${block.columns.map((column) => `<col style="width:${column.width}%">`).join('')}</colgroup><thead><tr>${block.columns.map((column) => `<th${block.tableHeader ? ` style="${cssStyle(block.tableHeader)}"` : ''}>${escape(column.label)}</th>`).join('')}</tr></thead>`
     const body = context.lines.map((line) => {
-      if (['section', 'subsection', 'subsection3', 'note'].includes(line.kind)) {
+      if (line.kind === 'spacer') return `<tr class="spacer"><td colspan="${block.columns.length}" style="height:24px;padding:0;border:none;">&nbsp;</td></tr>`
+      if (['section', 'subsection', 'subsection3', 'subtitle', 'note'].includes(line.kind)) {
         const level = ['section', 'subsection', 'subsection3'].indexOf(line.kind)
-        const amount = line.show_total ? `${money(line.section_total)}${line.section_options_total ? ` (${money(line.section_options_total)})` : ''}` : ''
-        return `<tr class="section"><td colspan="${block.columns.length}" style="${level >= 0 ? cssStyle((block.tableHeadings || layout.headings)[level]) : block.tableNote ? cssStyle(block.tableNote) : 'font-style:italic;'}"><span>${escape(line.description)}</span>${amount ? `<span style="float:right">${amount}</span>` : ''}</td></tr>`
+        const amount = level >= 0 && line.show_total ? `${money(line.section_total)}${line.section_options_total ? ` (${money(line.section_options_total)})` : ''}` : ''
+        return `<tr class="section"><td colspan="${block.columns.length}" style="${level >= 0 ? cssStyle((block.tableHeadings || layout.headings)[level]) : line.kind === 'subtitle' ? cssStyle(block.tableSubtitle || { ...block.style, bold: true, italic: false }) : block.tableNote ? cssStyle(block.tableNote) : 'font-style:italic;'}"><span>${escape(line.description)}</span>${amount ? `<span style="float:right">${amount}</span>` : ''}</td></tr>`
       }
       return `<tr>${block.columns.map((column) => `<td class="${['unit_price', 'line_total', 'quantity', 'discount'].includes(column.field) ? 'number' : ''}"${block.tableLine ? ` style="${cssStyle(block.tableLine)}${['unit_price', 'line_total', 'quantity', 'discount'].includes(column.field) ? 'text-align:right;' : ''}"` : ''}>${column.field === 'description' ? `${escape(line.description)}${line.is_option ? ' <small>(option)</small>' : ''}` : ['unit_price', 'line_total'].includes(column.field) ? money(line[column.field], column.field === 'unit_price') : escape(line[column.field])}</td>`).join('')}</tr>`
     }).join('')

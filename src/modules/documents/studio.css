@@ -252,3 +252,11 @@
 .studio-barcode-placeholder small { font-size: 9px; }
 .dialog-content.document-preview-dialog.document-label-preview-dialog { width: min(1100px, calc(100vw - var(--workspace-sidebar-width) - 64px)); height: min(640px, calc(100dvh - 64px)); }
 .document-label-preview-dialog .document-preview-body { min-height: 340px; }
+
+.studio-rich-editor .h-rich-editor .tiptap h1 { border-top:var(--studio-h1-border-top,none);border-bottom:var(--studio-h1-border-bottom,none);border-left:var(--studio-h1-border-left,none);border-right:var(--studio-h1-border-right,none); }
+
+.studio-rich-editor .h-rich-editor .tiptap h2 { border-top:var(--studio-h2-border-top,none);border-bottom:var(--studio-h2-border-bottom,none);border-left:var(--studio-h2-border-left,none);border-right:var(--studio-h2-border-right,none); }
+
+.studio-rich-editor .h-rich-editor .tiptap h3 { border-top:var(--studio-h3-border-top,none);border-bottom:var(--studio-h3-border-bottom,none);border-left:var(--studio-h3-border-left,none);border-right:var(--studio-h3-border-right,none); }
+
+.studio-heading-levels.studio-border-sides { grid-template-columns: repeat(2, minmax(0, 1fr)); }

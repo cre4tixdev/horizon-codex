@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { emptyQuoteLine, salesSettingsSchema } from '../schemas/quotes'
-import { defaultQuoteTerms, isUnusedQuoteLine, prefilledQuoteTitle } from './quoteDefaults'
+import { defaultQuoteTerms, isUnusedQuoteLine, prefilledQuoteTitle, quoteLinesForSave } from './quoteDefaults'
 
 describe('quote creation defaults', () => {
   it('selects only the configured active default terms', () => {
@@ -17,4 +17,13 @@ describe('quote creation defaults', () => {
     expect(prefilledQuoteTitle('Affaire A', 'Affaire A', 'Affaire B')).toBe('Affaire B')
     expect(prefilledQuoteTitle('Mon titre', 'Affaire A', 'Affaire B')).toBe('Mon titre')
   })
+})
+
+
+it('preserves consecutive blank rows as spacers without swallowing partial entries', () => {
+  const blank = emptyQuoteLine(), partial = { ...blank, unit_price: 12 }
+  const result = quoteLinesForSave([blank, blank, { ...emptyQuoteLine('note'), description: '   ' }, partial])
+  expect(result.map((line) => line.kind)).toEqual(['spacer', 'spacer', 'spacer', 'item'])
+  expect(result[0]).toMatchObject({ description: '', quantity: 0, unit: '', unit_price: 0 })
+  expect(result[3]).toBe(partial)
 })

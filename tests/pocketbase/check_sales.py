@@ -1,5 +1,6 @@
 """Sales draft numbering, pricing, cancellation, revenue and access policy."""
 import unittest
+from unittest.mock import patch
 import json
 import base64
 from urllib.request import Request, urlopen
@@ -250,6 +251,17 @@ class SalesTests(unittest.TestCase):
         self.assertEqual(self.pb.request('POST', 'horizon/sales/settings', {**body, 'terms': [None]}, self.token)[0], 400)
 
     def test_default_terms_migration_keeps_existing_quotes(self):
+        self.pb.close()
+        factory = check_crm.LocalPocketBase
+        def before_default_terms():
+            pb = factory()
+            previous = Path(pb.temp.name) / 'before_default_terms'; previous.mkdir()
+            for path in (Path(__file__).resolve().parents[2] / 'pocketbase/pb_migrations').glob('*.js'):
+                if path.name != '1791710020_quote_default_terms.js': shutil.copy(path, previous)
+            pb.args = [arg for arg in pb.args if not arg.startswith('--migrationsDir=')] + [f'--migrationsDir={previous}']
+            return pb
+        # Exercise this backfill specifically, regardless of later additive migrations.
+        with patch('check_crm.LocalPocketBase', side_effect=before_default_terms): self.setUp()
         settings = self.pb.request('GET', 'horizon/sales/settings', token=self.token)[1]
         terms = [{'id': 'migration-terms-first', 'label': 'Actives', 'content': 'Texte A', 'active': True},
                  {'id': 'migration-terms-other', 'label': 'Autres', 'content': 'Texte B', 'active': True}]
@@ -257,7 +269,7 @@ class SalesTests(unittest.TestCase):
         status, quote = self.quote_save(terms_id=terms[1]['id'])
         self.assertEqual(status, 200, quote)
         self.pb.process.terminate(); self.pb.process.wait(timeout=5)
-        subprocess.run(self.pb.args + ['migrate', 'down', '1'], input='y\n', text=True, env=self.pb.environment, check=True, stdout=subprocess.DEVNULL)
+        self.pb.args = [arg for arg in self.pb.args if not arg.startswith('--migrationsDir=')] + [f'--migrationsDir={Path(__file__).resolve().parents[2] / "pocketbase/pb_migrations"}']
         for _ in range(2):
             subprocess.run(self.pb.args + ['migrate', 'up'], env=self.pb.environment, check=True, stdout=subprocess.DEVNULL)
         self.pb.launch_and_authenticate(self.pb.args)
@@ -323,6 +335,38 @@ class SalesTests(unittest.TestCase):
         self.assertEqual(self.quote_save(key='quote-after-cancellation')[1]['quote_number'], '00001-3')
         self.pb.request('PATCH', f'collections/sales_orders/records/{order["id"]}', {'status': 'cancelled'}, self.pb.admin_token)
         self.assertEqual(self.pb.request('GET', path, token=self.token)[1]['orderCount'], 0)
+
+    def test_blank_spacers_keep_order_and_customer_order_without_money(self):
+        self.grant_lifecycle()
+        status, quote = self.quote_save(lines=[{'description': 'Avant', 'quantity': 1, 'unit_price': 10}, {'kind': 'spacer', 'description': ''}, {'kind': 'spacer', 'description': ''}, {'description': 'Après', 'quantity': 1, 'unit_price': 5}])
+        self.assertEqual(status, 200, quote)
+        self.assertEqual([line['kind'] for line in quote['lines']], ['item', 'spacer', 'spacer', 'item'])
+        self.assertEqual(quote['subtotal'], 15)
+        self.assertEqual(quote['lines'][1]['quantity'], 0)
+        for changes in [{'quantity': 1}, {'unit_price': 1}, {'product': self.opp['id']}, {'description': 'Texte'}]:
+            self.assertEqual(self.quote_save(key='bad-spacer', lines=[{'kind': 'spacer', 'description': '', **changes}])[0], 400)
+        status, finalized = self.transition('finalize', quote); self.assertEqual(status, 200, finalized)
+        status, confirmed = self.transition('confirm', finalized); self.assertEqual(status, 200, confirmed)
+        status, lines = self.pb.request('GET', 'collections/sales_order_lines/records?filter=order="' + confirmed['order']['id'] + '"&sort=position', token=self.pb.admin_token)
+        self.assertEqual(status, 200, lines)
+        self.assertEqual([line['kind'] for line in lines['items']], ['item', 'spacer', 'spacer', 'item'])
+        self.assertEqual(lines['items'][1]['description'], '')
+
+    def test_subtitle_persists_through_customer_confirmation_without_changing_totals(self):
+        self.grant_lifecycle()
+        status, quote = self.quote_save(lines=[{'kind': 'section', 'description': 'Section', 'show_total': True}, {'description': 'Article', 'quantity': 2, 'unit_price': 10}, {'kind': 'subtitle', 'description': 'Sous-titre'}, {'description': 'Suite', 'quantity': 1, 'unit_price': 5}])
+        self.assertEqual(status, 200, quote)
+        self.assertEqual(quote['lines'][2]['kind'], 'subtitle')
+        self.assertEqual(quote['lines'][2]['quantity'], 0)
+        self.assertEqual(quote['lines'][0]['section_total'], 25)
+        status, finalized = self.pb.request('POST', 'horizon/sales/quotes/finalize', {'id': quote['id'], 'updated': quote['updated']}, self.token)
+        self.assertEqual(status, 200, finalized)
+        status, confirmed = self.pb.request('POST', 'horizon/sales/quotes/confirm', {'id': quote['id'], 'updated': finalized['updated'], 'awaiting_customer_order': True, 'customer_order_number': ''}, self.token)
+        self.assertEqual(status, 200, confirmed)
+        status, lines = self.pb.request('GET', 'collections/sales_order_lines/records?filter=order="' + confirmed['order']['id'] + '"&sort=position', token=self.pb.admin_token)
+        self.assertEqual(status, 200, lines)
+        self.assertEqual(lines['items'][2]['kind'], 'subtitle')
+        self.assertEqual(confirmed['subtotal'], 25)
 
     def test_sections_options_discount_cost_and_activity(self):
         lines = [

@@ -4,7 +4,12 @@ const keys = (value, allowed) => { if (!value || typeof value !== 'object' || Ar
 const numeric = (value, min, max) => { if (typeof value !== 'number' || !Number.isFinite(value) || value < min || value > max) throw new BadRequestError('Dimensions du modèle invalides.') }
 const color = (value) => { if (!/^#[a-f0-9]{6}$/i.test(value || '')) throw new BadRequestError('Couleur du modèle invalide.') }
 const style = (value) => {
-  keys(value, ['font', 'size', 'color', 'background', 'backgroundOpacity', 'align', 'bold', 'italic', 'uppercase', 'border'])
+  keys(value, ['font', 'size', 'color', 'background', 'backgroundOpacity', 'align', 'bold', 'italic', 'uppercase', 'border', 'borders'])
+  if (value.borders !== undefined) {
+    keys(value.borders, ['top', 'bottom', 'left', 'right', 'color', 'width'])
+    if (['top', 'bottom', 'left', 'right'].some((side) => typeof value.borders[side] !== 'boolean')) throw new BadRequestError('Côtés de bordure invalides.')
+    color(value.borders.color); numeric(value.borders.width, 0, 10)
+  }
   if (!['Inter', 'Montserrat', 'Arial', 'Roboto', 'Open Sans', 'Lato', 'Source Sans 3', 'Noto Serif'].includes(value.font)) throw new BadRequestError('Police du modèle invalide.')
   if (value.backgroundOpacity !== undefined) numeric(value.backgroundOpacity, 0, 1)
   numeric(value.size, 8, 48); color(value.color); color(value.background)
@@ -31,7 +36,7 @@ const validate = (layout) => {
   const page = pageDimensions(layout), width = (layout.pageSize ? page.width * 96 / 25.4 : layout.orientation === 'portrait' ? 794 : 1123) - layout.margin * 96 / 25.4 * 2, ids = new Set()
   if (width < 20 || page.height * 96 / 25.4 - layout.margin * 96 / 25.4 * 2 - layout.headerHeight - layout.footerHeight < 20) throw new BadRequestError('Les marges et zones fixes ne laissent pas assez de place pour le contenu.')
   for (const block of layout.blocks) {
-    keys(block, ['id', 'sameLine', 'anchorX', 'anchorY', 'imageRatio', 'lockAspect', 'tableSource', 'tableHeadings', 'tableHeader', 'tableLine', 'tableNote', 'kind', 'zone', 'x', 'y', 'width', 'height', 'style', 'text', 'content', 'field', 'image', 'columns'])
+    keys(block, ['id', 'sameLine', 'anchorX', 'anchorY', 'imageRatio', 'lockAspect', 'tableSource', 'tableHeadings', 'tableHeader', 'tableLine', 'tableNote', 'tableSubtitle', 'kind', 'zone', 'x', 'y', 'width', 'height', 'style', 'text', 'content', 'field', 'image', 'columns'])
     if (!/^[a-zA-Z0-9-]{1,100}$/.test(block.id || '') || ids.has(block.id)) throw new BadRequestError('Identifiant de bloc invalide.')
     ids.add(block.id)
     if (!['text', 'field', 'barcode', 'image', 'table', 'totals', 'terms', 'separator', 'spacer', 'pageBreak', 'pageNumber'].includes(block.kind) || !['header', 'body', 'footer'].includes(block.zone)) throw new BadRequestError('Bloc invalide.')
@@ -48,7 +53,7 @@ const validate = (layout) => {
       if (block.kind !== 'table' || !Array.isArray(block.tableHeadings) || block.tableHeadings.length !== 3) throw new BadRequestError('Les styles de sections appartiennent à un tableau et doivent comporter trois niveaux.')
       block.tableHeadings.forEach(style)
     }
-    for (const property of ['tableHeader', 'tableLine', 'tableNote']) {
+    for (const property of ['tableHeader', 'tableLine', 'tableNote', 'tableSubtitle']) {
       if (block[property] !== undefined) {
         if (block.kind !== 'table') throw new BadRequestError('Les styles de lignes appartiennent à un tableau.')
         style(block[property])

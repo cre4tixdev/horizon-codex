@@ -148,3 +148,25 @@ it('inherits options through three heading levels and stops at the next peer hea
   expect(server.subtotal).toBe(preview.subtotal)
   expect(() => pricing.exports.quoteLines([{ description: 'Invalid', quantity: 1, unit_price: 100, discount: 101 }], 0, 'amount')).toThrow()
 })
+
+
+it('keeps subtitles descriptive without ending sections or affecting totals', async () => {
+  const { emptyQuoteLine } = await import('../schemas/quotes')
+  const { quotePreview } = await import('./quotePreview')
+  const lines = [{ ...emptyQuoteLine('section'), description: 'Section' }, { ...emptyQuoteLine(), description: 'Article', quantity: 2, unit_price: 10 }, { ...emptyQuoteLine('subtitle'), description: 'Sous-titre' }, { ...emptyQuoteLine(), description: 'Suite', quantity: 1, unit_price: 5 }]
+  const result = pricing.exports.quoteLines(lines)
+  expect(result.subtotal).toBe(25)
+  expect(result.lines[0]?.section_total).toBe(25)
+  expect(result.lines[2]?.line_total).toBe(0)
+  expect(quotePreview(lines).subtotal).toBe(result.subtotal)
+})
+
+
+it('keeps spacing rows in order, excludes them from totals and rejects monetary spacers', () => {
+  const input = [{ description: 'Avant', quantity: 1, unit_price: 10 }, { kind: 'spacer', description: '' }, { kind: 'spacer', description: '' }, { description: 'Après', quantity: 1, unit_price: 5 }]
+  const result = pricing.exports.quoteLines(input)
+  expect(result.lines).toHaveLength(4)
+  expect(result.lines.map((line) => line.line_total)).toEqual([10, 0, 0, 5])
+  expect(result.subtotal).toBe(15)
+  for (const change of [{ unit_price: 1 }, { quantity: 1 }, { quantity: 'bad' }, { product: 'product' }, { description: 'Texte' }]) expect(() => pricing.exports.quoteLines([{ kind: 'spacer', description: '', ...change }])).toThrow()
+})

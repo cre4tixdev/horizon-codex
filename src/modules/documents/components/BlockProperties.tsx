@@ -1,4 +1,4 @@
-import { backgroundColor } from './textStyle'
+import { backgroundColor, textStyle } from './textStyle'
 import { StudioSection } from './StudioSection'
 import { HColorField } from '../../../shared/ui/HColorField'
 import { OpacityControl } from './OpacityControl'
@@ -7,9 +7,10 @@ import { HCombobox } from '../../../shared/ui/HCombobox'
 import { HRichTextEditor } from '../../../shared/ui/HRichTextEditor'
 import { HButton } from '../../../shared/ui/HButton'
 import { useId, useRef, useState, type ReactNode, type CSSProperties } from 'react'
-import { ArrowUp, ArrowDown, Bold, Italic, CaseUpper, PanelBottom, AlignLeft, AlignCenter, AlignRight, ImagePlus, X, Link, Unlink } from 'lucide-react'
+import { ArrowUp, ArrowDown, Bold, Italic, CaseUpper, AlignLeft, AlignCenter, AlignRight, ImagePlus, X, Link, Unlink } from 'lucide-react'
 import { bindingLabels, bindingGroups, fonts, columnLabels, fitImage, resizeBlock, resizeColumns, type Block, type TextStyle, type DocumentType } from '../schemas/templates'
 export function StyleProperties({ value, onChange, richText = false, collapsible = true }: { collapsible?: boolean; richText?: boolean; value: TextStyle; onChange: (value: TextStyle) => void }) {
+  const borders = value.borders || { top: false, bottom: value.border, left: false, right: false, color: value.color, width: 1 }
   const controls = <>
     <div className="studio-font-grid">
       <label>Police<HCombobox label="Police du texte" required clearable={false} showCodes={false} value={value.font} options={fonts.map((font) => ({ value: font, label: font }))} onChange={(font) => { const selected = fonts.find((item) => item === font); if (selected) onChange({ ...value, font: selected }) }} /></label>
@@ -17,23 +18,26 @@ export function StyleProperties({ value, onChange, richText = false, collapsible
     </div>
     <div className="studio-format-tools">
       <div className="studio-text-tools" role="group" aria-label="Style du texte">
-        {([{ key: 'bold', label: 'Gras', icon: Bold }, { key: 'italic', label: 'Italique', icon: Italic }, { key: 'uppercase', label: 'Majuscules', icon: CaseUpper }, { key: 'border', label: 'Trait sous le bloc', icon: PanelBottom }] as const).filter((tool) => !richText || !['bold', 'italic'].includes(tool.key)).map(({ key, label, icon: Icon }) => <HButton key={key} size="icon" variant="ghost" title={label} aria-label={label} aria-pressed={value[key]} onClick={() => onChange({ ...value, [key]: !value[key] })}><Icon size={14} /></HButton>)}
+        {([{ key: 'bold', label: 'Gras', icon: Bold }, { key: 'italic', label: 'Italique', icon: Italic }, { key: 'uppercase', label: 'Majuscules', icon: CaseUpper }] as const).filter((tool) => !richText || !['bold', 'italic'].includes(tool.key)).map(({ key, label, icon: Icon }) => <HButton key={key} size="icon" variant="ghost" title={label} aria-label={label} aria-pressed={value[key]} onClick={() => onChange({ ...value, [key]: !value[key] })}><Icon size={14} /></HButton>)}
       </div>
       <div className="studio-text-tools" role="group" aria-label="Alignement du texte">{([{ align: 'left', label: 'Aligner le texte à gauche', icon: AlignLeft }, { align: 'center', label: 'Centrer le texte', icon: AlignCenter }, { align: 'right', label: 'Aligner le texte à droite', icon: AlignRight }] as const).map(({ align, label, icon: Icon }) => <HButton key={align} size="icon" variant="ghost" title={label} aria-label={label} aria-pressed={value.align === align} onClick={() => onChange({ ...value, align })}><Icon size={14} /></HButton>)}</div>
     </div>
     <div className="studio-color-row"><HColorField caption="Texte" label="Couleur du texte" value={value.color} onChange={(color) => onChange({ ...value, color })} /><HColorField caption="Fond du bloc" label="Couleur du fond du bloc" value={value.background} onChange={(background) => onChange({ ...value, background })} /></div>
+    <div role="group" aria-label="Bordures"><span className="contact-muted">Bordures</span><div className="studio-heading-levels studio-border-sides">{([{ side: 'top', label: 'Haut' }, { side: 'bottom', label: 'Bas' }, { side: 'left', label: 'Gauche' }, { side: 'right', label: 'Droite' }] as const).map(({ side, label }) => <HButton key={side} size="small" variant="ghost" aria-label={`Bordure ${label.toLowerCase()}`} aria-pressed={borders[side]} onClick={() => onChange({ ...value, borders: { ...borders, [side]: !borders[side] } })}>{label}</HButton>)}</div></div>
+    <div className="studio-properties-fields"><HColorField caption="Bordure" label="Couleur de la bordure" value={borders.color} onChange={(color) => onChange({ ...value, borders: { ...borders, color } })} /><label>Épaisseur · px<HInput aria-label="Épaisseur de la bordure (px)" type="number" min={0} max={10} step={0.5} value={borders.width} onChange={(event) => onChange({ ...value, borders: { ...borders, width: Number(event.target.value) } })} /></label></div>
     <OpacityControl label="Opacité du fond" value={value.backgroundOpacity ?? 1} onChange={(backgroundOpacity) => onChange({ ...value, backgroundOpacity })} />
   </>
   return collapsible ? <StudioSection id="appearance" title="Apparence">{controls}</StudioSection> : <div className="studio-style-controls">{controls}</div>
 }
 
 export function BlockProperties({ block, documentType = 'quote', maxWidth, maxHeight, headings, moving, onChange, onError, disabled, placement }: { documentType?: DocumentType; placement: ReactNode; disabled: boolean; maxWidth: number; maxHeight: number; headings: TextStyle[]; block: Block; moving: boolean; onChange: (value: Block) => void; onError: (message: string) => void }) {
-  const imageInput = useRef<HTMLInputElement>(null), imageId = useId(), [tableStyle, setTableStyle] = useState<0 | 1 | 2 | 'tableHeader' | 'tableLine' | 'tableNote'>(0)
-  const tableStyleValue = typeof tableStyle === 'number' ? (block.tableHeadings || headings)[tableStyle]! : block[tableStyle] || (tableStyle === 'tableHeader' ? { ...block.style, size: 11, bold: true, align: 'left' as const, background: '#EDF1F7', backgroundOpacity: 1, border: false } : { ...block.style, ...(tableStyle === 'tableNote' ? { italic: true } : {}) })
+  const imageInput = useRef<HTMLInputElement>(null), imageId = useId(), [tableStyle, setTableStyle] = useState<0 | 1 | 2 | 'tableHeader' | 'tableLine' | 'tableNote' | 'tableSubtitle'>(0)
+  const tableStyleValue = typeof tableStyle === 'number' ? (block.tableHeadings || headings)[tableStyle]! : block[tableStyle] || (tableStyle === 'tableHeader' ? { ...block.style, size: 11, bold: true, align: 'left' as const, background: '#EDF1F7', backgroundOpacity: 1, border: false } : { ...block.style, ...(tableStyle === 'tableNote' ? { italic: true } : tableStyle === 'tableSubtitle' ? { bold: true, italic: false } : {}) })
   const group = block.field.split('.')[0]
   const editorStyle: CSSProperties & Record<string, string | number | undefined> = { '--studio-font': block.style.font, '--studio-size': `${block.style.size}px`, '--studio-color': block.style.color, '--studio-align': block.style.align, '--studio-weight': block.style.bold ? 600 : 400, '--studio-italic': block.style.italic ? 'italic' : 'normal' }
   headings.forEach((heading, i) => { for (const [key, value] of Object.entries(heading)) editorStyle[`--studio-h${i + 1}-${key}`] = key === 'size' ? `${value}px` : key === 'bold' ? value ? 600 : 400 : key === 'italic' ? value ? 'italic' : 'normal' : String(value) })
   headings.forEach((heading, i) => { editorStyle[`--studio-h${i + 1}-background`] = backgroundColor(heading.background, heading.backgroundOpacity) })
+  headings.forEach((heading, i) => { const borders = textStyle(heading); for (const side of ['Top', 'Bottom', 'Left', 'Right'] as const) editorStyle[`--studio-h${i + 1}-border-${side.toLowerCase()}`] = borders[`border${side}`] || 'none' })
   return <>
     {block.kind === 'image' && <StudioSection id="image" title="Image"><div className="studio-image-upload">
       {block.image ? <img src={block.image} alt="Logo importé" onLoad={(event) => { if (block.imageRatio || disabled) return; const image = event.currentTarget, ratio = image.naturalWidth / image.naturalHeight; if (!image.naturalWidth || !image.naturalHeight || ratio < 0.0001 || ratio > 10000) return; const fitted = fitImage(block, image.naturalWidth, image.naturalHeight, block.width, Math.min(maxHeight, block.height || 60)); if (fitted.height > maxHeight) return; const offset = block.style.align === 'right' ? block.width - fitted.width : block.style.align === 'center' ? (block.width - fitted.width) / 2 : 0; onChange({ ...fitted, x: block.x + offset }) }} /> : <ImagePlus size={30} />}
@@ -69,8 +73,8 @@ export function BlockProperties({ block, documentType = 'quote', maxWidth, maxHe
       </div>
     </StudioSection>}
     {block.kind === 'table' && <StudioSection id="table-headings" title="Titres des lignes">
-      <div className="studio-heading-levels" role="group" aria-label="Style des titres du tableau">{([{ value: 'tableHeader', label: 'En-tête' }, { value: 'tableLine', label: 'Ligne' }, { value: 'tableNote', label: 'Note' }, { value: 0, label: 'Titre 1' }, { value: 1, label: 'Titre 2' }, { value: 2, label: 'Titre 3' }] as const).map(({ value, label }) => <HButton key={value} size="small" variant="ghost" aria-pressed={tableStyle === value} onClick={() => setTableStyle(value)}>{label}</HButton>)}</div>
-      <p className="contact-muted">{tableStyle === 'tableHeader' ? 'Première ligne du tableau. Les noms des colonnes se modifient dans Données du tableau.' : tableStyle === 'tableLine' ? 'Articles de la source. Les valeurs numériques restent alignées à droite.' : tableStyle === 'tableNote' ? 'Notes de la source, en italique par défaut.' : 'Sections des lignes du devis · styles propres à ce tableau.'}</p>
+      <div className="studio-heading-levels" role="group" aria-label="Style des titres du tableau">{([{ value: 'tableHeader', label: 'En-tête' }, { value: 'tableLine', label: 'Ligne' }, { value: 'tableNote', label: 'Note' }, { value: 0, label: 'Titre 1' }, { value: 1, label: 'Titre 2' }, { value: 2, label: 'Titre 3' }, { value: 'tableSubtitle', label: 'Sous-titre' }] as const).map(({ value, label }) => <HButton key={value} size="small" variant="ghost" aria-pressed={tableStyle === value} onClick={() => setTableStyle(value)}>{label}</HButton>)}</div>
+      <p className="contact-muted">{tableStyle === 'tableHeader' ? 'Première ligne du tableau. Les noms des colonnes se modifient dans Données du tableau.' : tableStyle === 'tableLine' ? 'Articles de la source. Les valeurs numériques restent alignées à droite.' : tableStyle === 'tableNote' ? 'Notes de la source, en italique par défaut.' : tableStyle === 'tableSubtitle' ? 'Sous-titres descriptifs, sans montant ni niveau de section.' : 'Sections des lignes du devis · styles propres à ce tableau.'}</p>
       <StyleProperties collapsible={false} value={tableStyleValue} onChange={(style) => onChange(typeof tableStyle === 'string' ? { ...block, [tableStyle]: style } : { ...block, tableHeadings: (block.tableHeadings || headings).map((item, i) => i === tableStyle ? style : item) })} />
     </StudioSection>}
     {placement}

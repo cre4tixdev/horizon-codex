@@ -838,5 +838,7 @@ test('Devis : préremplissage, ligne initiale, ajout produit sans sélection et 
   await expect(page.getByRole('combobox', { name: 'Conditions générales de vente', exact: true })).toContainText('CGV alternatives')
   await page.getByRole('button', { name: 'Enregistrer', exact: true }).click()
   await expect(page).toHaveURL(/sales\/quotes\/(?!new)/)
-  await expect(page.locator('.quote-edit-table tbody tr')).toHaveCount(0)
+  await expect(page.locator('.quote-edit-table tbody tr')).toHaveCount(1)
+  await expect(page.getByLabel('Description ligne 1', { exact: true })).toBeEmpty()
+  await expect(page.getByLabel('Quantité ligne 1', { exact: true })).toHaveCount(0)
 })

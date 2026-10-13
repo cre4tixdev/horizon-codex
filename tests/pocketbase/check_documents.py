@@ -236,6 +236,46 @@ class DocumentsTests(unittest.TestCase):
             bad = copy.deepcopy(content); bad['blocks'][1][property]['color'] = 'invalid'
             self.assertEqual(self.call('templates/save', dict(self.payload, content_json=bad))[0], 400)
 
+    def test_empty_rows_render_as_spacing_in_html_and_pdf(self):
+        status, quote = self.quote_save(key='empty-spacing-test-01', lines=[{'description': 'Avant espace', 'quantity': 1, 'unit_price': 10}, {'kind': 'spacer', 'description': ''}, {'kind': 'spacer', 'description': ''}, {'description': 'Après espace', 'quantity': 1, 'unit_price': 5}])
+        self.assertEqual(status, 200, quote)
+        status, preview = self.call('preview', dict(quote_id=quote['id'], content_json=layout(), format='html'))
+        self.assertEqual(status, 200, preview)
+        self.assertEqual(preview['html'].count('<tr class="spacer">'), 2)
+        self.assertIn('height:24px;padding:0;border:none;', preview['html'])
+        self.assertLess(preview['html'].index('Avant espace'), preview['html'].index('<tr class="spacer">'))
+        self.assertLess(preview['html'].rindex('<tr class="spacer">'), preview['html'].index('Après espace'))
+        request = Request(self.pb.url + '/api/horizon/documents/preview', method='POST', headers={'Authorization': self.manager, 'Content-Type': 'application/json'}, data=json.dumps(dict(quote_id=quote['id'], content_json=layout(), format='pdf')).encode())
+        with urlopen(request, timeout=10) as response: self.assertTrue(response.read().startswith(b'%PDF-'))
+        self.assertEqual(Converter.payloads[-1].decode().count('<tr class="spacer">'), 2)
+
+    def test_subtitle_borders_in_html_and_pdf_transport(self):
+        status, quote = self.quote_save(key='subtitle-borders', lines=[{'kind': 'section', 'description': 'Titre bordé'}, {'kind': 'subtitle', 'description': 'Sous-titre distinct'}, {'kind': 'note', 'description': 'Note conservée'}, {'description': 'Article', 'quantity': 1, 'unit_price': 10}])
+        self.assertEqual(status, 200, quote)
+        content = layout(); table = content['blocks'][1]
+        borders = dict(top=True, bottom=False, left=True, right=True, color='#123456', width=2.5)
+        table['tableHeadings'] = [dict(STYLE, borders=borders) for _ in range(3)]
+        table['tableSubtitle'] = dict(STYLE, bold=True, color='#7B3FC7', borders=borders)
+        status, saved = self.call('templates/save', dict(self.payload, content_json=content))
+        self.assertEqual(status, 200, saved)
+        self.assertEqual(saved['content_json']['blocks'][1]['tableSubtitle']['borders'], borders)
+        status, preview = self.call('preview', dict(quote_id=quote['id'], content_json=content, format='html'))
+        self.assertEqual(status, 200, preview)
+        for side in ['top', 'left', 'right']: self.assertIn('border-' + side + ':2.5px solid #123456;', preview['html'])
+        self.assertIn('border-bottom:none;', preview['html'])
+        self.assertIn('font-size:12px;color:#7B3FC7', preview['html'])
+        self.assertIn('><span>Sous-titre distinct</span></td>', preview['html'])
+        request = Request(self.pb.url + '/api/horizon/documents/preview', method='POST', headers={'Authorization': self.manager, 'Content-Type': 'application/json'}, data=json.dumps(dict(quote_id=quote['id'], content_json=content, format='pdf')).encode())
+        with urlopen(request, timeout=10) as response: self.assertTrue(response.read().startswith(b'%PDF-'))
+        payload = Converter.payloads[-1].decode()
+        self.assertIn('Sous-titre distinct', payload)
+        self.assertIn('border-top:2.5px solid #123456;', payload)
+        for change in [dict(width=11), dict(color='red;display:none'), dict(top='true'), dict(extra=True)]:
+            bad = copy.deepcopy(content); bad['blocks'][1]['tableSubtitle']['borders'].update(change)
+            self.assertEqual(self.call('templates/save', dict(self.payload, content_json=bad))[0], 400)
+        bad = copy.deepcopy(content); bad['blocks'][0]['tableSubtitle'] = table['tableSubtitle']
+        self.assertEqual(self.call('templates/save', dict(self.payload, content_json=bad))[0], 400)
+
     def test_layout_validation(self):
         for modify in [lambda value: value.update(script='bad'), lambda value: value['blocks'][0].update(image='https://private.invalid/logo'), lambda value: value['blocks'][0].update(x=1000), lambda value: value['blocks'][0].update(style=dict(STYLE, color='red;display:none'))]:
             bad = copy.deepcopy(layout()); modify(bad)

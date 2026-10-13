@@ -7,7 +7,8 @@ module.exports = {
     const optionSections = []
     const lines = input.map((line, index) => {
       const kind = line.kind || 'item', description = String(line.description || '').trim(), unit = String(line.unit || '').trim(), brand = String(line.brand || '').trim(), reference = String(line.reference || '').trim()
-      if (!['item', 'section', 'subsection', 'subsection3', 'note'].includes(kind) || !description || description.length > 2000 || unit.length > 40 || brand.length > 160 || reference.length > 160) throw new BadRequestError('Description ou type de ligne invalide.')
+      if (!['item', 'section', 'subsection', 'subsection3', 'subtitle', 'spacer', 'note'].includes(kind) || kind !== 'spacer' && !description || description.length > 2000 || unit.length > 40 || brand.length > 160 || reference.length > 160) throw new BadRequestError('Description ou type de ligne invalide.')
+      if (kind === 'spacer' && (description || line.product || line.product_supplier || brand || reference || unit || ['quantity', 'unit_price', 'unit_cost', 'discount'].some((key) => line[key] !== undefined && line[key] !== 0))) throw new BadRequestError('Une ligne d’espacement doit rester entièrement vide.')
       for (const name of ['is_option', 'show_total']) if (line[name] !== undefined && typeof line[name] !== 'boolean') throw new BadRequestError('Option de ligne invalide.')
       const level = ['section', 'subsection', 'subsection3'].indexOf(kind) + 1
       if (level) while (optionSections.length && optionSections[optionSections.length - 1].level >= level) optionSections.pop()
