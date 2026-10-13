@@ -598,6 +598,8 @@ Le module Comptabilité expose l’API interne de gestion analytique même lorsq
 
 Les modules ne doivent pas recréer leurs propres systèmes de codes affaires.
 
+Périmètre livré le 12 octobre : racine d’opportunité et enfants de commandes dans le même référentiel Accounting, liés par identifiants stables ; le code affiché est modifiable sans changer la relation. Les comptes fixes Stock / Interne appartiennent aussi à ce référentiel. Purchasing conserve compte et quantité par allocation de ligne ; Inventory conserve provenance et ventilation des mouvements. Le service d’analyse consolide racine/enfants une seule fois, distingue engagement d’achat et consommation valorisée, filtre own/all et retire les champs financiers sans droit. Les lecteurs Planning/TimeReport sont des adaptateurs de lecture ; ils ne créent ni heures réalisées ni profils de coûts. Le document 05 fixe les relations, le document 06 leurs permissions.
+
 ---
 
 # Cycle de vie documentaire
@@ -671,6 +673,8 @@ Le moteur d’approvisionnement tient compte de :
 Une demande d’achat peut contenir plusieurs codes analytiques.
 
 La ventilation analytique est conservée lors de la conversion en commande fournisseur.
+
+La confirmation Sales peut appeler explicitement la préparation Purchasing après réservation Inventory, dans la même transaction : commande client, réservations et DA draft sont toutes annulées si une étape échoue. Aucun accès direct React aux collections et aucune commande fournisseur définitive silencieuse. Une DA peut être créée manuellement ; un BC peut être créé directement sans DA. La validation DA prépare des BC draft ; la validation BC crée une réception IN en attente via le service Stock, sans entrée physique avant réalisation. Les corrections conservent leurs liens sources et l’historique ; l’envoi reste la responsabilité future de Messaging.
 
 ---
 
@@ -767,7 +771,9 @@ core_activity_events
 
 Les mentions génèrent des notifications.
 
-Les tâches peuvent être rattachées à n’importe quel objet Horizon.
+Les tâches peuvent être rattachées aux objets Horizon autorisés par le service Core.
+
+Lecture livrée : `ActivityRepository` → routes Core `/api/horizon/activity/events` et `/api/horizon/activity/tasks` → `lib/activity-read.js`. Autoriser la fiche réelle avant de lire événements/tâches ; corréler module, entité et identifiant, conserver la View Rule de la source publique ou la politique explicite des sources privées. Le compteur porte sur la seule source autorisée ; ne pas exécuter un COUNT soumis aux jointures de toutes les branches polymorphes pour afficher une fiche. AO regroupe son opportunité si lisible. DTO en allowlist, pagination 20 événements, refus explicite au-delà de 10 000 tâches ; écritures et fichiers protégés gardent leurs règles. Le service de photos réutilise cette autorisation sans exposer le profil utilisateur. Incident et tests du 12 octobre : documents 06 / 09.
 
 ---
 
@@ -912,6 +918,7 @@ Le stock distingue :
 physical_quantity
 reserved_quantity
 available_quantity
+incoming_quantity
 ```
 
 Avec :
@@ -923,6 +930,10 @@ available = physical - reserved
 Les mouvements sont la source de vérité opérationnelle.
 
 Les numéros de série / lots sont gérés par unités de suivi distinctes.
+
+Inventory reste propriétaire des opérations, réservations, identités et écritures de valorisation. Les types IN / OUT / PREP / RET / INT partagent réalisation, traçabilité et documents ; la préparation chantier est une sortie réelle avec affaire. Les transferts gardent une étape de transit. Le code d’entrepôt (MEU / SEV) sert à la numérotation serveur continue par entrepôt/type ; pas de trigramme indépendant.
+
+Pricing commercial et valorisation sont deux référentiels distincts : les devis snapshotent le coût commercial ; les mouvements valorisés conservent méthode, coût et couches historiques. Changement standard/CUMP/FIFO = ouverture/régularisation datée autorisée, pas recalcul rétroactif. Le parc interne référence les séries existantes et les opérations IN/OUT/RET ; Accounting possède le registre d’immobilisations, la qualification et les futurs échanges Sage. Aucun second stock interne ni copie de numéro de série comme vérité indépendante.
 
 Un stock peut être :
 
@@ -1754,3 +1765,7 @@ AO autonome — 8 octobre 2026 : `crm_tenders` est la racine du volet AO avant d
 Studio Documents D01 : `src/modules/documents` possède les modèles / versions, le service et le repository. La projection `sales-document-context.js` appartient à Ventes et expose seulement les données client autorisées. Le renderer Documents valide des blocs / styles structurés, échappe les textes et produit l’HTML commun ; le provider `gotenberg.js` réalise le seul appel externe PDF côté serveur. Les textes enrichis utilisent le composant Tiptap partagé. Les fiches devis utilisent désormais le même adapter RecordWorkspace pour la page et le popup, sans deuxième formulaire.
 
 Documents — pagination HTML : PaginatedDocument compose le HTML contrôlé déjà retourné par Documents Service ; aucune nouvelle projection de données, route ou migration. La bibliothèque embarquée et le runtime du module sont exécutés dans une iframe `sandbox="allow-scripts"` sans `allow-same-origin`. CSP limitant le script à un nonce et les images / polices aux data URI ; aucun accès réseau, session, formulaires ou navigation. Le message de fin est contrôlé par la fenêtre source et le nonce. Le composant parent affiche seulement l’anneau commun jusqu’au rendu complet ; erreurs visibles et loggées.
+
+Accueil Achats commun — 13 octobre 2026 : PurchasesPage → PurchasingService.overview → PurchasingRepository → GET /api/horizon/purchasing/overview. Le serveur réutilise la lecture filtrée des DA / BC, vérifie purchasing.read et les droits CRM sur un contexte affaire, trie les enregistrements avant pagination globale et projette uniquement la page demandée. Type de pièce dérivé, collections et services de mutation conservés ; aucune fusion des cycles métier. Sous-listes dédiées réutilisées sans deuxième formulaire.
+
+Livraisons — 13 octobre 2026 : QuotePage / OperationPage → OperationsService → OperationsRepository → routes Inventory. `stock-deliveries.js` orchestre préparation et reliquats dans la transaction Stock ; source de commande exposée par Sales, candidats de réception par Purchasing. Les brouillons n’émettent aucun mouvement. `stock-delivery-readiness.js` calcule une projection commune fiche/liste : quatre agrégations bornées par produit/emplacement, jointures explicites avec ON, paramètres liés et cartes mémoire ; aucune jointure polymorphe Activity. La fiche actualise séparément sa projection toutes les 15 s sans remplacer le formulaire en cours ; liste toutes les 30 s.

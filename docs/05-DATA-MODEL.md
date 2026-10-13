@@ -1047,6 +1047,8 @@ active
 
 ## `purchasing_requests`
 
+Projection commune Achats — 13 octobre 2026 : `/api/horizon/purchasing/overview` réunit les collections existantes purchasing_requests / purchasing_orders avec pagination et tri globaux. `kind` (requests / orders) est une valeur de projection déterminant le lien de fiche ; elle n’est pas un nouveau champ stocké. Les filtres virtuels pending / requests / orders ne sont pas des statuts métier.
+
 Demande d’achat / besoin d’approvisionnement.
 
 ```text
@@ -3903,3 +3905,5 @@ La préparation d’achat saisie pendant la confirmation reste une sélection te
 CGV par défaut : settings_sales.terms[].is_default booléen, un seul jeu par défaut et obligatoirement actif. Migration 1791710020_quote_default_terms initialise les anciennes listes avec les premières conditions actives par défaut. Aucun devis historique ni snapshot de CGV modifié. Sans CGV par défaut définies, le nouveau devis conserve un choix vide.
 
 Lecture Core Activity : projection autorisée par source, utilisant les indices source_entity/source_record_id existants et une corrélation explicite source_module. Les relations métier et snapshots ne changent pas. Aucun champ, collection ou migration ajouté pour la correction des jointures de lecture du fil.
+
+Livraisons — contrat du 13 octobre 2026 : settings_stock.auto_prepare_deliveries bool default false ; inventory_operations.delivery_parent relation optionnelle vers inventory_operations pour les reliquats OUT, et delivery_matches JSON pour les affectations explicites d’une réception. Les lignes JSON conservent planned_quantity, quantité prévue serveur ; quantity reste la quantité à réaliser en draft, réellement réalisée après validation. Les valeurs de disponibilité sont des projections, pas des soldes stock stockés. Index ciblés sales_quote / purchase_order / parent sur les opérations et product/location sur mouvements/réservations ; index de mouvements de traces existant réutilisé ; règles privées inchangées. Migration additive 1791840000_stock_deliveries.js, sans réécriture des réalisations ou snapshots historiques.

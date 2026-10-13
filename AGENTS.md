@@ -470,8 +470,25 @@ Pour chaque tâche :
 6. modifier le minimum ;
 7. ajouter / adapter les tests ;
 8. vérifier lint / typecheck / tests ;
-9. mettre à jour la doc si impact structurel ;
+9. documenter l’avancement après chaque intervention et mettre à jour les documents thématiques si les décisions ou contrats changent ;
 10. résumer les changements.
+
+## Suivi d’avancement obligatoire après chaque intervention
+
+Avant de terminer une intervention (fonctionnalité, correctif, ajustement UX,
+investigation ou documentation), ajouter une note datée dans le journal de
+`docs/10-DECISIONS-ROADMAP.md`. Indiquer brièvement :
+
+- le périmètre et le résultat obtenu ;
+- les vérifications réellement exécutées et leurs limites ;
+- les travaux restants, obstacles et prochaine action ;
+- l’état de livraison : local, commit/push, pack préparé, NAS installé ou non confirmé.
+
+Actualiser les travaux actifs et les statuts concernés ; recalculer les compteurs
+si un statut change. Une investigation sans modification peut rester une courte
+entrée de journal. Ne pas annoncer une installation ou une recette non effectuée.
+Les règles et décisions durables restent dans leurs documents canoniques, avec
+un lien depuis le suivi ; ne pas créer un fichier d’avancement séparé par tâche.
 
 ---
 

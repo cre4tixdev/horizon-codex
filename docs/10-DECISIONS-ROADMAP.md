@@ -824,7 +824,7 @@ avant Ventes / Achats / Facturation
 → représentation monétaire exacte
 → conventions finales de numérotation
 → règles TVA CVS détaillées
-→ seuils / approbateurs
+→ permissions de validation métier (aucun moteur de seuils)
 
 avant SSO Microsoft
 → delegated vs application / stratégie Entra ID
@@ -1049,12 +1049,48 @@ docs/assets/horizon-ui-reference-quote.png
 Ils donnent la direction générale sans constituer une spécification pixel-perfect.
 
 
+## H-071 — Composants métier et navigation réutilisés
+
+Status : `IMPLEMENTED` (périmètre courant)
+
+Une fiche ouverte en popup réutilise son éditeur canonique via `RecordWorkspace`, avec les mêmes validations, droits et actions. `ProductPicker` est commun aux devis et aux achats. Les smart boutons sont exclusivement des liens vers des listes filtrées ; les créations, réservations et préparations sont des actions de fiche, hors de leur zone. Les règles de densité, de tableaux, d’onglets à pictogrammes et d’apparence sont centrales dans le document 07.
+
+## H-072 — Pricing commercial indépendant de la valorisation du stock
+
+Status : `IMPLEMENTED`
+
+Le coût commercial du produit (manuel ou offre favorite) et son coefficient alimentent les nouvelles lignes de devis. Leurs snapshots ne sont pas recalculés depuis le stock. Standard, CUMP et FIFO concernent la valorisation Inventory ; changer cette méthode ne change ni coût ni PUV des devis. Le démarrage avait été décidé au standard ; la décision utilisateur du 12 octobre retient désormais **CUMP pour le stock**, tout en conservant le coût commercial du catalogue pour les devis. Le paramètre administrateur existe ; son application effective sur le NAS n’est pas confirmée. Procédure datée, motif, ouverture complète et absence de transfert en cours requis ; aucun historique réécrit. Voir le contrat V01 dans les documents 04 / 05 / 06.
+
+## H-073 — Analyse affaire racine et commandes enfants
+
+Status : `IMPLEMENTED` (socle ; raccordements incomplets)
+
+L’opportunité porte le compte racine ; chaque commande dispose d’un enfant stable, ex. `00003-1`, `00003-2`. Consolidation racine + enfants sans doublon, coûts communs conservés à la racine sans répartition implicite. Analyse accessible sur l’opportunité, la commande et Finance → Analyse des affaires. Lecture opérationnelle, montants et coûts individuels sont des droits distincts avec périmètre own / all. Les heures **BE et PROD** réalisées validées doivent entrer dans l’analyse et la marge à date ; le lecteur est préparé, mais la saisie TimeReport, les heures vendues, les coûts effectifs et les frais ne sont pas encore raccordés. Une donnée absente reste indisponible.
+
+## H-074 — Achats stock et internes sans affaire client artificielle
+
+Status : `IMPLEMENTED` (premier périmètre)
+
+Ventilation par ligne Affaire / Stock / Interne. Comptes fixes initiaux Stock `99101`, Interne `99201` à `99205`, catégories structurelles et identifiants relationnels stables ; numéro et libellé administrables. Une commande peut mêler plusieurs destinations. Réception physique et affectation au parc / consommation sont transactionnelles ; qualification des immobilisations séparée en Finance. Aucun amortissement ni écriture Sage automatique. Voir T01 / I01 et analytique fixe dans les documents 04 / 05 / 06.
+
+## H-075 — Lecture du fil ciblée sur la fiche autorisée
+
+Status : `IMPLEMENTED` (code et tests locaux ; installation NAS à confirmer)
+
+Les nouvelles lectures Core utilisent la source réelle autorisée, des paramètres liés et des DTO en allowlist. Elles évitent le COUNT global des règles polymorphes : le journal du 12 octobre prouve des jointures sans ON et une expiration après 30 s. Les sources privées restent fermées en REST ; aucun élargissement de permissions. AO et opportunité liée sont regroupés uniquement si lisibles. Écriture et protection des fichiers conservent leur politique existante. Aucun changement de schéma pour ce correctif.
+
+## H-076 — Livraison locale du portail et pack NAS PocketBase seulement
+
+Status : `ACCEPTED`
+
+Tant que le portail est développé localement, les packs remis pour le NAS contiennent uniquement `pb_hooks`, `pb_migrations` et les informations de version / vérification. Ils ne contiennent ni frontend, ni `pb_data`, ni secrets. Un commit ou un push ne vaut pas déploiement NAS. Migrations et hooks sont installés ensemble lorsqu’une évolution de contrat l’exige ; un correctif de hooks seul nécessite leur remplacement et le redémarrage. Sauvegarde et recette suivent les documents 06 / 09.
+
 # Décisions ouvertes
 
 À figer ultérieurement :
 
 ```text
-SSO Microsoft ou auth locale
+activation éventuelle de Microsoft OAuth2 / Entra en complément du login natif
 formats métier initiaux de numérotation (configurables dans Paramètres)
 règles TVA CVS détaillées
 valeurs des coûts analytiques horaires
@@ -1255,36 +1291,41 @@ Les statuts de réalisation sont distincts des statuts de décision `ACCEPTED` /
 | À vérifier | Implémentation disponible, vérifications ou recette encore nécessaires |
 | Terminé | Critères de livraison satisfaits et preuves de vérification référencées |
 
-Après chaque lot ou changement significatif :
+Après chaque intervention, y compris correctif, ajustement UX, investigation ou audit documentaire :
 
 1. mettre à jour son statut et la date du suivi ;
 2. renseigner les tâches restantes et les éventuels obstacles dans les travaux actifs ;
 3. référencer les fichiers, migrations, tests et résultats qui justifient sa clôture ;
 4. recalculer les compteurs par phase et le total ;
-5. ajouter une entrée au journal et préciser la prochaine action.
+5. ajouter une courte entrée datée au journal : périmètre, résultat, vérifications effectivement réalisées / limites et prochaine action ;
+6. préciser local / commit-push / pack préparé / installation NAS confirmée ou non ; ne jamais déduire le déploiement d’un push.
+
+Les compteurs sont recalculés lorsqu’un statut change. Les décisions durables sont documentées dans leur fichier canonique, référencé depuis le suivi. Cette règle s’applique à chaque intervention et figure dans AGENTS.md ; aucune note de suivi séparée par fonctionnalité.
 
 Un lot terminé n'est rouvert que si ses critères ne sont plus satisfaits. Une évolution de périmètre crée ou ajuste un lot explicitement, avec une entrée au journal. Le responsable et l'échéance sont renseignés au démarrage ; aucune date de livraison n'est engagée dans l'état initial.
 
 ## Tableau de bord global
 
-Dernière mise à jour : **7 octobre 2026**.
+Dernière mise à jour : **12 octobre 2026**. Les statuts couvrent les critères complets des lots ; « À vérifier » distingue une réalisation locale testée de sa recette d’exploitation. Le journal historique est conservé.
 
 | Phase | Lots | Terminés | En cours | À vérifier | Bloqués | À faire |
 |---|---:|---:|---:|---:|---:|---:|
 | 1 — Fondation | 8 | 2 | 2 | 3 | 0 | 1 |
-| 2 — Référentiel | 10 | 0 | 2 | 1 | 0 | 7 |
-| 3 — Commercial | 5 | 0 | 2 | 0 | 0 | 3 |
-| 4 — Opérations | 8 | 0 | 0 | 0 | 0 | 8 |
+| 2 — Référentiel | 10 | 0 | 3 | 4 | 0 | 3 |
+| 3 — Commercial | 5 | 0 | 3 | 2 | 0 | 0 |
+| 4 — Opérations | 8 | 0 | 3 | 1 | 0 | 4 |
 | 5 — Ressources / RH interne | 4 | 0 | 1 | 0 | 0 | 3 |
-| 6 — Finance | 6 | 0 | 0 | 0 | 0 | 6 |
-| 7 — Consolidation | 5 | 0 | 0 | 0 | 0 | 5 |
-| **Total** | **46** | **2** | **7** | **4** | **0** | **33** |
+| 6 — Finance | 6 | 0 | 3 | 0 | 0 | 3 |
+| 7 — Consolidation | 5 | 0 | 3 | 0 | 0 | 2 |
+| **Total** | **46** | **2** | **18** | **10** | **0** | **16** |
 
-**Progression de livraison : 2 / 46 lots terminés (4,3 %).** Calcul : lots terminés / lots du périmètre suivi. Cet indicateur mesure les lots livrés, sans pondérer leur taille ; il ne représente ni une estimation de charge ni le temps restant. La documentation existante est un acquis de cadrage, hors de ce compteur d'implémentation.
+**Clôture complète : 2 / 46 lots.** Ce compteur conservateur porte sur tous les critères de chaque lot, dont les raccordements et la recette NAS ; il ne signifie pas que seuls deux modules fonctionnent. Le tableau des travaux ci-dessous décrit les périmètres déjà livrés et leurs limites. Aucune estimation de temps restant n’en découle.
 
 La roadmap reste organisée en sept phases. Certains prérequis transverses doivent être livrés plus tôt que leur module complet : ressources RH avant planning, calculs monétaires / TVA / change avant validation de documents financiers. La phase d'un lot indique son rattachement, sans interdire de livrer un prérequis en amont.
 
 ## Registre complet des lots
+
+Les IDs de ce registre sont stables. Les appellations de livraisons historiques ne sont pas des IDs uniques : « Analytique A01 » se rattache surtout à C01 / C04 / X01, « Analytique fixe A02 » à R02 / O01 / O02 / A04, et « Achats A01 » à O01 / O02. Ne pas les confondre avec A01 (TVA / devises) et A02 (numérotation) du registre. T01 / I01 couvrent O04 et le parc interne / registre préparatoire d’A04 ; le parc installé client O07 reste distinct.
 
 ### Phase 1 — Fondation
 
@@ -1305,33 +1346,33 @@ La roadmap reste organisée en sept phases. Certains prérequis transverses doiv
 |---|---|---|---|---|
 | R01 | Contacts : sociétés et personnes | Fondation | Fiches, rôles, adresses, logo société et avatar contact ; CRUD autorisé et archivage vérifiés | À vérifier |
 | R02 | Paramètres et organisation | Fondation | Référentiels, équipes, politiques et administration protégée ; constantes métier paramétrables centralisées | En cours |
-| R03 | Catalogue produits | R01, R02 | Catégories, unités, images, kind, stock / replenishment policies, tracking et composition distincts ; cycles interdits | À faire |
-| R04 | Fournisseurs et tarifs produits | R03 | Plusieurs fournisseurs, références, devises, conditionnements, validité et historique des prix préservés | À faire |
+| R03 | Catalogue produits | R01, R02 | Catégories, unités, images, kind, stock / replenishment policies, tracking et composition distincts ; cycles interdits | En cours |
+| R04 | Fournisseurs et tarifs produits | R03 | Plusieurs fournisseurs, références, devises, conditionnements, validité et historique des prix préservés | À vérifier |
 | R05 | Imports Excel / Odoo | R01–R04 | Parsing, normalisation, matching, dry run, conflits et apply explicite ; rejeu sans doublons via références externes | À faire |
-| R06 | Documents et templates | Fondation | Tiptap JSON, versions de modèles, fichiers protégés, liens métier et archivage documentaire | À faire |
+| R06 | Documents et templates | Fondation | Tiptap JSON, versions de modèles, fichiers protégés, liens métier et archivage documentaire | En cours |
 | R07 | Messagerie e-mail | Fondation, configuration Microsoft | Messaging Service / MailProvider, Graph principal et SMTP de secours, From serveur, outbox et erreurs suivies | À faire |
 | R08 | Chat interne | Fondation | Conversations, membres, messages, pièces jointes, lecture et non-lus via REST / realtime ; non-membres refusés | À faire |
-| R09 | Calendrier | Fondation | Vues et agrégation des dates métier avec respect de la propriété et des permissions des objets sources | En cours |
-| R10 | Activity Feed, tâches et mentions | Fondation | core_activity_events distinct de l'audit, notes explicites, tâches, mentions et notifications sans élévation de droits | À faire |
+| R09 | Calendrier | Fondation | Vues et agrégation des dates métier avec respect de la propriété et des permissions des objets sources | À vérifier |
+| R10 | Activity Feed, tâches et mentions | Fondation | core_activity_events distinct de l'audit, notes explicites, tâches, mentions et notifications sans élévation de droits | À vérifier |
 
 ### Phase 3 — Commercial
 
 | ID | Lot | Dépendances | Résultat attendu pour clôture | Statut |
 |---|---|---|---|---|
-| C01 | CRM direct et analytique | R01, R02, socle accounting | Opportunité et compte analytique créés de manière cohérente ; activités et code affaire commun | En cours |
-| C02 | CRM / Appels d'offres | C01, R06, R09 | Extension AO transactionnelle, Kanban / drag & drop, liste, planning, visites multiples, tags, documents et archivage realtime | En cours |
-| C03 | Devis, pricing et marge | C01, R03, R04, A01, A02 | Brouillons, calculs serveur, validation par permissions, snapshots et révisions ; plusieurs devis acceptés par opportunité | À faire |
-| C04 | Commandes client | C03 | Conversion totale ou partielle, reliquats et plusieurs commandes sur le même compte analytique | À faire |
-| C05 | PDF et envoi commercial | C03, R06, R07 | Tiptap → HTML → Gotenberg → PDF, versions envoyées figées, envoi autorisé et parcours commercial testé | À faire |
+| C01 | CRM direct et analytique | R01, R02, socle accounting | Opportunité et compte analytique créés de manière cohérente ; activités et code affaire commun | À vérifier |
+| C02 | CRM / Appels d'offres | C01, R06, R09 | Extension AO transactionnelle, Kanban / drag & drop, liste, planning, visites multiples, tags, documents et archivage realtime | À vérifier |
+| C03 | Devis, pricing et marge | C01, R03, R04, A01, A02 | Brouillons, calculs serveur, validation par permissions, snapshots et révisions ; plusieurs devis acceptés par opportunité | En cours |
+| C04 | Commandes client | C03 | Conversion totale ou partielle, reliquats et plusieurs commandes sur le même compte analytique | En cours |
+| C05 | PDF et envoi commercial | C03, R06, R07 | Tiptap → HTML → Gotenberg → PDF, versions envoyées figées, envoi autorisé et parcours commercial testé | En cours |
 
 ### Phase 4 — Opérations
 
 | ID | Lot | Dépendances | Résultat attendu pour clôture | Statut |
 |---|---|---|---|---|
-| O01 | Approvisionnement et demandes d'achat | C03, C04, R03, R04 | Besoins sourcés, lignes, quantités, composants, fournisseur proposé et ventilation ; demande contrôlable en draft | À faire |
-| O02 | Commandes et réceptions fournisseurs | O01, A01, A02 | Validation serveur, allocations multi-analytiques, réceptions partielles et reliquats ; pas de RFQ | À faire |
-| O03 | Stock réel et livraisons | R03, O02 | Mouvements audités, physique / réservé / disponible / attendu, réservations, livraisons et coûts analytiques cohérents | À faire |
-| O04 | Lots, séries, retours et inventaires | O03 | Traçabilité, RMA, quarantaine, inventaires et corrections par mouvements ; historique préservé | À faire |
+| O01 | Approvisionnement et demandes d'achat | C03, C04, R03, R04 | Besoins sourcés, lignes, quantités, composants, fournisseur proposé et ventilation ; demande contrôlable en draft | En cours |
+| O02 | Commandes et réceptions fournisseurs | O01, A01, A02 | Validation serveur, allocations multi-analytiques, réceptions partielles et reliquats ; pas de RFQ | En cours |
+| O03 | Stock réel et livraisons | R03, O02 | Mouvements audités, physique / réservé / disponible / attendu, réservations, livraisons et coûts analytiques cohérents | À vérifier |
+| O04 | Lots, séries, retours et inventaires | O03 | Traçabilité, RMA, quarantaine, inventaires et corrections par mouvements ; historique préservé | En cours |
 | O05 | Projets et pilotage | C04, R10 | Agrégation de commandes, phases, jalons, tâches, baseline immuable et révisions de budget | À faire |
 | O06 | Recette, réserves et clôtures | O05, R06 | PV / FAT / SAT, réserves suivies, dérogation autorisée et clôtures opérationnelle / financière distinctes | À faire |
 | O07 | Parc installé et garanties | O04–O06 | Assets liés aux séries stock, origine projet / commande / livraison / analytique et garanties conservées | À faire |
@@ -1352,10 +1393,10 @@ Le périmètre global conserve la trajectoire comptable entière. A05 est une é
 
 | ID | Lot | Dépendances | Résultat attendu pour clôture | Statut |
 |---|---|---|---|---|
-| A01 | Montants, TVA et devises | R02, contrat de données | Calcul déterministe serveur, précision intermédiaire, arrondis, TaxService, BCE quotidienne et snapshots commerciaux / fiscaux | À faire |
-| A02 | Numérotation et anciennes références | Fondation, R02 | Séquences atomiques, tokens contrôlés, patterns futurs, IDs techniques stables et anciennes références recherchables | À faire |
+| A01 | Montants, TVA et devises | R02, contrat de données | Calcul déterministe serveur, précision intermédiaire, arrondis, TaxService, BCE quotidienne et snapshots commerciaux / fiscaux | En cours |
+| A02 | Numérotation et anciennes références | Fondation, R02 | Séquences atomiques, tokens contrôlés, patterns futurs, IDs techniques stables et anciennes références recherchables | En cours |
 | A03 | Facturation et règlements | C04, O02, A01, A02, R06 | Factures / avoirs clients et fournisseurs, draft / validation, échéanciers, paiements, PDF et historique immuable | À faire |
-| A04 | Pré-comptabilité et Sage | A03 pour exports, environnement Sage | Référentiels comptables, Accounting Service / Provider, mappings, écritures préparées, exports suivis, retries et rejeu sans duplication ; Sage officiel | À faire |
+| A04 | Pré-comptabilité et Sage | A03 pour exports, environnement Sage | Référentiels comptables, Accounting Service / Provider, mappings, écritures préparées, exports suivis, retries et rejeu sans duplication ; Sage officiel | En cours |
 | A05 | Comptabilité Horizon progressive | A04, validation comptable dédiée | Modèle complet, shadow accounting comparé à Sage puis bascule explicitement validée ; équilibre, périodes, lettrage, rapprochement, clôtures et FEC testés | À faire |
 | A06 | E-invoicing SUPER PDP | A03, configuration provider | Émission et réception, webhooks vérifiés, statuts corrélés, retries et idempotence ; intégration factures clients et fournisseurs testée | À faire |
 
@@ -1363,11 +1404,12 @@ Le périmètre global conserve la trajectoire comptable entière. A05 est une é
 
 | ID | Lot | Dépendances | Résultat attendu pour clôture | Statut |
 |---|---|---|---|---|
-| X01 | Dashboard et reporting économique | Modules sources, analytique | Prévu / engagé / réalisé / facturé / payé, marges et indicateurs cohérents ; droits sur coûts respectés | À faire |
+| X01 | Dashboard et reporting économique | Modules sources, analytique | Prévu / engagé / réalisé / facturé / payé, marges et indicateurs cohérents ; droits sur coûts respectés | En cours |
 | X02 | Recherche globale | Modules exposés, F05, A02 | Recherche multi-domaines et anciennes références, filtrage effectif avant réponse, aucun objet interdit révélé | À faire |
-| X03 | Notifications et automatisations | R10, événements des modules | NotificationService central, préférences / canaux, échéances et jobs observables sans moteur d'approbation par seuils | À faire |
+| X03 | Notifications et automatisations | R10, événements des modules | NotificationService central, préférences / canaux, échéances et jobs observables sans moteur d'approbation par seuils | En cours |
 | X04 | API externe | Services métier concernés, F05, F07 | Routes dédiées, clients techniques, allowlists, clés serveur hashées / affichées une fois, rotation, révocation et limites testées | À faire |
-| X05 | Archivage, exploitation et release | Lots concernés et environnement de livraison | Politiques de conservation, purge distincte, sauvegarde externe / restauration testée, HTTPS production, PREPROD, E2E, déploiement et rollback vérifiés | À faire |
+| X05 | Archivage, exploitation et release | Lots concernés et environnement de livraison | Politiques de conservation, purge distincte, sauvegarde externe / restauration testée, HTTPS production, PREPROD, E2E, déploiement et rollback vérifiés | En cours |
+
 
 ## Critères communs de clôture
 
@@ -1399,9 +1441,9 @@ La recette métier est documentée pour les parcours concernés. Une livraison s
 | Q10 | Coûts horaires, règles de découpage projet et durées de conservation | H01 / O05 / X05 | À définir avec les responsables métier |
 | Q11 | Rotation des clés API et limites par défaut | Avant mise en production X04 | À préciser |
 | Q12 | Critères et autorisation de bascule comptable | Avant achèvement A05 | Validation future dédiée ; Sage reste officiel au lancement |
-| Q13 | Cohérence documentaire : mentions anciennes de seuils / ApprovalService / pending approval et choix exclusif SSO ou auth locale | Avant implémentation des domaines concernés | À harmoniser ; appliquer H-060 et H-064 déjà acceptées |
+| Q13 | Cohérence documentaire validation / authentification | Audit du 12 octobre 2026 | Harmonisé : validation serveur par permissions (H-064), login natif et Microsoft complémentaire (H-060), MFA reporté |
 
-Ces points ne bloquent pas tous les travaux : la préparation du frontend et du Design System peut avancer pendant les vérifications restantes de Q02. Aucun secret ou identifiant d'administration n'est consigné dans ce suivi. Toute nouvelle action doit être confirmée au préalable par l'utilisateur, selon sa demande ; une autorisation d'inventaire ne vaut pas autorisation de modifier PocketBase.
+Ces points ne bloquent pas tous les travaux : la préparation du frontend et du Design System peut avancer pendant les vérifications restantes de Q02. Aucun secret ou identifiant d'administration n'est consigné dans ce suivi. Les autorisations de réalisation locale sont conservées dans le journal ; une lecture d’inventaire ou un audit documentaire ne vaut pas autorisation de modifier l’instance NAS.
 
 ## Options et éléments hors périmètre initial
 
@@ -1415,22 +1457,26 @@ Ces points ne bloquent pas tous les travaux : la préparation du frontend et du 
 
 ## Travaux actifs et prochaine livraison
 
-**Prochaine recette : valider les fiches Contacts / Référentiels avec l’utilisateur. La recherche d’entreprises utilise désormais l’API publique de l’État directement depuis le navigateur ; aucun raccordement Pappers ou déploiement NAS supplémentaire pour cette fonction.**
+**État au 12 octobre 2026 : aucun développement applicatif lancé par cet audit documentaire.** Les changements applicatifs précédents sont committés et poussés sur `origin/main` (`8e0de25`, puis correctif fil `f9bf927`). Le portail reste développé localement. L’installation du dernier pack PocketBase et le rétablissement des fils sur le NAS ne sont pas confirmés.
 
-| Lot | Responsable | Échéance | Prochaine action | Résultat / obstacle actuel |
-|---|---|---|---|---|
-| F01 | Agent de développement | Non fixée | Vérifier digest de l’image, historique des migrations et restauration de sauvegarde | Préproduction, projet Synology, chemins / flags et hook auth confirmés ; restauration non vérifiée |
-| F02 | Agent de développement | Livré le 2026-10-04 | Lot clôturé ; préparer la suite après confirmation utilisateur | Socle modulaire, scripts et contrôles opérationnels ; preuves dans le journal |
-| F06 | Agent de développement | Livré le 2026-10-04 | Lot clôturé ; étendre les composants au besoin des modules | Sidebar, pictogramme officiel, navigation, breadcrumb, recherche des espaces et composants communs vérifiés ; pages métier temporaires À venir |
-| F03 | Agent de développement | Non fixée | Poursuivre le realtime avec les repositories métier | Client partagé auth / Contacts, erreurs sans objets SDK, URL raccordée et cache purgé à déconnexion |
-| F04 | Agent de développement | Non fixée | Installer la migration d’évolution Contacts / Référentiels selon 06 et vérifier l’historique NAS | Reconstruction, reprise des codes / devises et refus de conflits testés localement ; archive prête |
-| F05 | Agent de développement | Non fixée | Recetter les permissions Contacts sur préproduction après installation | Login, déconnexion / reconnexion, rechargement et révocation du compte de test confirmés par l’utilisateur ; comptes créés par lui dans le dashboard |
-| R01 | Agent de développement | Non fixée | Installer et recetter les nouvelles fiches, adresses / personnes associées et permissions sur NAS | V1 installée ; évolution frontend / backend locale testée, recherche publique directe validée ; compteurs des futurs modules restant à raccorder |
-| R02 | Agent de développement | Non fixée | Installer le lot Utilisateurs / Employés avec premier Admin explicite, recetter les quatre profils ; paramètres complémentaires ensuite | Référentiels, CRM, Séquences, comptes / accréditations et équipes livrés localement avec contrôles serveur |
-| H01 | Agent de développement | Non fixée | Recetter liste / fiches / organigramme ; compléter ensuite capacité, calendriers, compétences et coûts protégés | Ressources sans compte, équipes, managers, photos, organigramme et périmètres HR livrés localement |
-| F07 | Agent de développement | Non fixée | Étendre / recetter le socle audit au-delà des changements Contacts | Writer transactionnel et collection verrouillée préparés comme prérequis Contacts |
+| Périmètre / lots | Réalisation vérifiée localement | Travail restant / prochaine action |
+|---|---|---|
+| Fil partagé — R10 / F03 / F07 | Lecture ciblée, pagination, catégories, tâches, AO/opportunité, photos et droits ; correctif du timeout 30 s | **Priorité immédiate :** installer les hooks à jour, redémarrer PocketBase puis recetter chargement et publication sur Contacts, CRM, Produits, Ventes et Achats ; contrôler le journal |
+| Installation — F01 / F04 / X05 | Pack PocketBase seulement, migrations jusqu’à `1791710020_quote_default_terms.js`, reconstruction et régressions locales | Vérifier migrations effectivement présentes sur NAS ; sauvegarde / restauration et retour arrière à recetter. Ne pas considérer le push Git comme une installation |
+| Accès / profil — F05 / R02 / H01 | Accréditations, périmètres, employés distincts, identité/avatar/mot de passe, présence manuelle à quatre états | Recette des droits réels et des photos ; capacité RH et profils de coûts datés à compléter. MFA reporté, non activé |
+| Catalogue — R03 / R04 | Marques obligatoires, coût/coefficient auto ou manuel, image partagée, logistique, stock/réservations, historique d’achats, cartes et code-barres unique | Comptabilité/TVA produit, composition et conversions d’unités à compléter ; import Excel/Odoo contrôlé à réaliser. Groupe de variantes = regroupement de produits autonomes |
+| Documents — R06 / C05 | Studio réutilisé, versions publiées, aperçu/PDF, étiquettes et formats en mm | Recette Gotenberg / impression réelle NAS et étiqueteuse ; envoi avec archivage du PDF envoyé via Messaging à réaliser |
+| Devis / commandes — C03 / C04 | Cycle/frise, retours contrôlés, CGV par défaut, copie, snapshots, confirmation avec stock/achats, suivis réservés à accepted | Recette intégrée après installation ; conversions partielles/révisions complètes et facturation restent à compléter. Envoyé réservé au futur envoi réel |
+| Achats — O01 / O02 | Accueil commun DA / BC en attente, cartes de type / état et Nouvelle commande à droite ; DA manuelles/sourcées, BC directs ou préparés, ventilations affaire/commande/stock/interne, brouillons incomplets, réception IN en attente à validation | Installer les hooks du pack accueil Achats puis redémarrer ; recette multi-affaires et retours en brouillon ; politique d’annulation après envoi à décider avant Messaging. Pas de RFQ |
+| Stock — O03 / O04 | Réceptions/livraisons/PREP/RET/INT, BL automatiques optionnels, disponibilité, livraisons partielles et reliquats liés, réservations, rebut, dropshipping, inventaires, lots/séries/quarantaine, dashboards | Migration BL 1791840000 et recette métier NAS ; reprise des identités d’un ancien stock à cadrer. RMA fournisseur, prêts/location et maintenance ne sont pas livrés |
+| Valorisation — O03 / A04 | Standard/CUMP/FIFO, journal immuable, changements administrateur et ouverture datée | Décision actuelle CUMP ; vérifier/appliquer le paramètre sur l’instance cible avec les contrôles prévus. Frais d’approche/change/factures/dépréciations et raccordement Sage restent à faire |
+| Parc / immobilisations — O04 / A04 | Affectation interne auditable, parc avec droits RH, registre draft/qualification/déclassement, retour lié | Recette du parc et validation comptable des règles ; aucun amortissement, export ou écriture Sage automatique |
+| Analyse — C01 / C04 / X01 | Racine + enfants, vues opportunité/commande/Finance, accès opérationnels/financiers distincts, 5 KPI et lecteurs BE/PROD préparés | Raccorder TimeReport réel validé, planning, heures vendues, profils de coût effectifs, frais, factures/paiements. Marge à date complète indisponible jusque-là |
+| Dashboard / calendrier — R09 / X01 | Période mois courant/trimestre/année, courbes sur sources accessibles, carrousel, échéances, événements manuels | Raccorder facturation/paiements/réalisé ; Outlook et invitations non livrés. La refonte visuelle rejetée n’est pas une direction à réintroduire |
+| Messagerie — R07 / R08 | Frontières MailProvider et permissions déjà décidées ; présence préparée | Développer le mail/chat, cadrer Graph/SMTP, historique d’envoi, reprise et erreurs ; aucune simulation de statut Envoyé |
+| Suite métier — O05–O08 / H02–H04 / A03–A06 / X04 | Contrats documentaires préparés | Projets/recette/parc client/SAV, planning/TimeReport/congés/notes de frais, facturation/Sage/SUPER PDP/API externe restent des lots distincts à lancer explicitement |
 
-Ce tableau expose la file de travail immédiate. F01 reste `En cours` ; F02 et F06 sont `Terminé`. F03 / F04 / F05 sont `À vérifier` après préparation locale autorisée et tests : déploiement / recette Synology et realtime des futurs repositories restent à compléter. R01 est `À vérifier` après livraison locale Contacts et F07 `En cours` pour son prérequis audit ; les autres lots restent `À faire`. Les phases suivantes seront détaillées progressivement avec leurs tâches, responsables et échéances. Les autorisations de F02 / F06 ne valent pas autorisation de modifier PocketBase ou de démarrer un nouveau lot.
+Responsable technique : agent de développement pour les tâches autorisées. Recette fonctionnelle / exploitation : utilisateur et responsables métier concernés. Aucune échéance nouvelle n’est engagée. L’utilisateur a autorisé les réalisations locales précédentes ; cet audit ne lance ni déploiement NAS ni nouvelle intégration.
 
 ## Journal d'avancement et preuves
 
@@ -1933,3 +1979,71 @@ Analytique fixe A02 — comptes Stock 99101 et Interne 99201..99205 configurable
 12 octobre 2026 — CGV par défaut explicites dans les paramètres ; nouveaux devis préremplis (conditions désignées, titre opportunité, ligne initiale), HT prioritaire au TTC, recherche produit sans sélection intermédiaire et fiche produit par flèche de ligne.
 
 12 octobre 2026 — Correctif Core Activity : le log serveur confirme un timeout 30 s du COUNT DISTINCT à jointures polymorphes sans ON. Lecture via routes Core ciblées par fiche, permissions explicites et projection bornée, sans modification de données ou ouverture des collections privées ; avatar autorisé par sa source. Pack PocketBase complet, redémarrage requis, aucune nouvelle migration pour ce correctif.
+
+### Consolidation documentaire et publication Git — 12 octobre 2026
+
+Évolutions applicatives poussées sur main : `8e0de25` et `f9bf927`, workspace propre après push. Dernière vérification `pnpm check` : lint / TypeScript / 205 tests Vitest (46 fichiers) / build réussis. Correctif Activity : 14 tests serveur, scénarios navigateur ciblés devis, AO, avatar et achats ; pas une nouvelle exécution de toute la suite E2E. Installation NAS non effectuée depuis cette session. Audit documentaire : suivi global remis à jour, décisions structurantes H-071 à H-076, limites TimeReport/Messaging/Sage/MFA explicites et contradictions historiques corrigées ; aucun code applicatif modifié.
+
+12 octobre 2026 — Règle demandée par l’utilisateur : documentation de l’avancement après chaque intervention, inscrite dans AGENTS.md et les règles de tenue du suivi. Audit final limité à la documentation ; aucune modification applicative ou installation NAS.
+
+### Prise de connaissance pour reprise du développement — 12 octobre 2026
+
+- Lecture du README et d’AGENTS.md ; repérage des documents canoniques, des contrats transverses, de la base UX Contacts et des travaux actifs. Examen du routage, des couches Contacts (page / hook / service / repository), des composants partagés, des routes Activity et des configurations de vérification.
+- Vérifications : inventaire local et `git status --short` ; modifications documentaires préexistantes conservées. Aucun lint, typecheck, test applicatif ou contrôle navigateur exécuté pour cette prise de connaissance ; aucun audit exhaustif du code revendiqué.
+- Suite : préciser le prochain besoin métier, puis approfondir ses sections documentaires et son code avant modification. Statuts et compteurs inchangés ; priorité de recette NAS du fil conservée.
+- Livraison : note locale uniquement, sans commit/push, nouveau pack ni installation NAS ; installation du correctif Activity toujours non confirmée.
+
+### Ordre des sous-menus Stock — 12 octobre 2026
+
+- Navigation commune réordonnée : Opérations → Produits → Disponibilités → Inventaires → Parc interne, selon la demande utilisateur ; destinations conservées.
+- Vérifications : `pnpm check` réussi (lint, TypeScript, 205 tests Vitest et build) ; ordre rendu contrôlé dans Chromium sur le frontend local en mode aperçu. Pas de recette authentifiée NAS ; avertissement de build sur les chunks volumineux.
+- Livraison locale uniquement, sans commit/push, pack ni installation NAS. Aucun travail restant pour cet ajustement ; statuts et compteurs des lots inchangés.
+
+### Harmonisation des paginations sur la référence CRM — 12 octobre 2026
+
+- Composant partagé `HListPagination` extrait du rendu CRM : compteur « Page N / M » et chevrons compacts dans le fil d’Ariane, style et accessibilité communs. Raccordement Contacts, CRM/AO, devis/commandes, achats, produits, disponibilités, opérations/inventaires, parc interne, immobilisations et analyses ; pagination Analyse remontée depuis le pied du tableau. Critères et callbacks métier préservés, blocage pendant les requêtes et les opérations CRM conservé. Règle durable dans le document 07.
+- Vérifications : `pnpm check` réussi (lint, TypeScript, 205 tests Vitest, build) ; 2 tests Playwright authentifiés locaux réussis, couvrant 14 parcours en clair/sombre/mobile et navigation entre pages avec conservation URL / blocage en chargement. Captures Analyse inspectées dans les trois modes ; `git diff --check` réussi. Suite E2E complète et recette NAS non exécutées ; avertissement de build sur les chunks volumineux toujours présent. Détail dans le document 09.
+- Livraison locale, sans commit/push, pack ni installation NAS. Aucun changement de schéma, de permissions ou de données métier. Ajustement terminé localement ; statuts et compteurs des lots inchangés, installation du correctif Activity toujours non confirmée.
+
+### Placement des smart boutons des demandes d’achat — 12 octobre 2026
+
+- Le raccourci Commandes fournisseurs quitte le bloc sous la frise et réutilise HRecordLinks dans le slot related du fil d’Ariane. Compteur et lien filtré par demande conservés ; variante commune intégrée pour les popups, état des préparations disponible au survol. Style local obsolète supprimé ; contrat précisé dans le document 07.
+- Vérifications : `pnpm check` réussi (lint, TypeScript, 205 tests Vitest, build), `git diff --check` réussi. Parcours Playwright Achats réussi avec placement du lien, consultation des commandes et contrôles clair/sombre/mobile ; captures inspectées. Dans la même exécution, scénario Commande client échoué sur un retour à la connexion avant Finaliser Devis, puis réussi isolément ; anomalie de session groupée à surveiller (document 09). Dossier utilisateur non recetté sur son instance ; aucune mutation de ses données.
+- Livraison : correctif local, sans commit/push, pack ou installation NAS. Aucun changement serveur, de schéma ni de permissions. Statuts et compteurs inchangés ; recette de la fiche utilisateur après rechargement, installation du correctif Activity toujours non confirmée.
+
+### Accueil Achats : DA en attente et Nouvelle commande — 12 octobre 2026
+
+- Clic Achats / route racine → liste des DA non archivées draft / validated / partially_ordered via le filtre serveur pending, sans nouveau statut métier. Cartes partagées En attente / Brouillon / Validée / Partiellement traitée, tri récent et filtres URL conservés, Nouvelle commande principale à droite et Nouvelle demande secondaire. Tableau regroupé borné dans GroupedResults pour éviter un débordement mobile. Contrats docs 04 / 07 et installation doc 06 actualisés.
+- Vérifications : `pnpm check` réussi (lint, TypeScript, 205 tests Vitest, build), 19 tests serveur Achats et 3 tests Playwright ciblés réussis (accueil Achats et régression paginations), captures clair/sombre/mobile inspectées, `git diff --check` réussi. Première recette mobile a révélé le débordement corrigé ; attente du rendu responsive ajoutée au test. Suite E2E complète et recette NAS non exécutées ; avertissement de build sur les chunks volumineux inchangé.
+- Livraison locale sans commit/push ; pack PocketBase seulement préparé à `/private/tmp/horizon-purchasing-pending-nas.zip` (169 fichiers hooks/assets/migrations + manifeste SHA-256), contenu et empreintes vérifiés, ni frontend, base ni secret. Aucun nouveau schéma / permission. Installer les hooks et redémarrer l’instance cible pour activer pending, aucune migration nouvelle pour cet ajustement. NAS non installé par l’agent ; statuts et compteurs des lots inchangés.
+
+### Accueil Achats commun aux DA et bons de commande — 13 octobre 2026
+
+- Complément demandé et confirmé : `/purchasing` réunit DA et BC dans une liste, type visible et lien vers chaque fiche canonique. Cartes DA en attente / Brouillon / Validée / Bons de commande ; recherche dans le contexte Achats, regroupement, tri et pagination globaux côté serveur. Ouverture puis retour breadcrumb conserve l’accueil et ses critères ; sous-listes dédiées conservées, Nouvelle commande reste à droite. Route de lecture overview réutilisant les filtres et permissions Achats ; aucun nouveau statut, schéma ou formulaire. Contrats actualisés docs 03 / 04 / 05 / 07, installation doc 06.
+- Vérifications : `pnpm check` réussi (lint, TypeScript, 207 tests Vitest, build), 21 tests serveur Achats réussis, exécution finale de 3 tests Playwright ciblés réussie (liste DA/BC et régression des paginations), captures clair/sombre/mobile inspectées. Première assertion de type corrigée pour cibler le contenu du badge plutôt que le nom accessible de la cellule incluant le lien de ligne ; pas de défaut de donnée constaté. `git diff --check` réussi. Suite E2E complète et recette NAS non exécutées ; avertissement de build sur les chunks volumineux inchangé.
+- Livraison locale, sans commit/push ni déploiement. Pack consolidé PocketBase uniquement préparé à `/private/tmp/horizon-purchasing-overview-nas.zip`, 169 fichiers hooks/assets/migrations + manifeste SHA-256, ZIP et empreintes vérifiés ; ni frontend, données ni secrets. Installer les hooks actualisés et redémarrer PocketBase pour overview, aucune migration nouvelle. NAS non installé par l’agent ; statuts et compteurs des lots inchangés.
+
+### Investigation : préparation des BL à réception et livraisons partielles — 13 octobre 2026
+
+- Besoin utilisateur examiné : paramètre préparant les BL draft après réception affectée à des affaires, préparation préremplie depuis commande même sans stock, indicateur prêt à livrer et création automatique du reliquat après livraison partielle. Lecture des contrats Stock/Ventes/Achats, des paramètres Stock, des sources de mouvements, des validations et du mécanisme existant de reliquats de réceptions. Préremplissage depuis source disponible via action explicite ; création automatique de BL client et indicateur de disponibilité non constatés dans le périmètre examiné.
+- Approche proposée : réutiliser les opérations OUT et leur éditeur ; préparation serveur commune, rattachement aux lignes de commandes clients confirmé plutôt qu’à une affaire ambiguë, déduction des livraisons réalisées et des brouillons déjà préparés, indicateur calculé sur stock disponible / réservations de la commande, validation partielle transactionnelle avec reliquat draft lié. Paramètre versionné et contrats à préciser avant implémentation.
+- Vérifications : lectures et inventaire Git uniquement ; aucun nouveau test ou contrôle navigateur pour cette investigation, aucune mutation applicative ou NAS. Suite : présenter le fonctionnement proposé à l’utilisateur avant développement ; statuts et compteurs des lots inchangés. Livraison : note locale, sans commit/push ou nouveau pack ; installation NAS non effectuée.
+
+### BL préparés, disponibilité et reliquats — 13 octobre 2026
+
+- Périmètre livré localement : règle Paramètres Stock → Livraisons, préparation OUT draft depuis commande même à stock nul, préparation à réception unique ou multi-affaires, affectation explicite des ambiguïtés, indicateur prêt à livrer fiche/liste et confirmation des quantités réellement livrées avec sélection des séries. Livraison 2/4 → mouvement de 2 et reliquat draft lié de 2 dans une transaction ; brouillons existants et sorties archivées pris en compte sans doublon. Source client protégée et brouillons manuels conservés. Contrats durables docs 03/04/05/06/07.
+- Intégrité : migration additive 1791840000, aucune réécriture des mouvements ou snapshots historiques ; index ciblés, agrégations de disponibilité bornées avec ON explicites, aucune modification du fil Activity ni des API Rules privées. Test de reprise réussi sur base antérieure : historique identique, double migration et règle initialement désactivée.
+- Vérifications exécutées : pnpm check réussi (lint, TypeScript, 214 tests Vitest, build), Stock 28 tests serveur, traçabilité 37, valorisation 6 et Activity 14 réussis, plus test de reprise de migration réussi. Trois parcours Playwright BL et deux parcours Stock existants réussis ; captures confirmation, affectation, liste clair/sombre/mobile et onglets Paramètres inspectées. L’exécution groupée a rencontré l’assertion responsive immédiate du Dashboard existant ; Stock passe isolément. Détails et limites doc 09. Avertissement de build sur les chunks volumineux conservé ; aucune suite exhaustive ni recette NAS revendiquée.
+- Livraison : fichiers locaux sans commit/push. Pack PocketBase uniquement `/private/tmp/horizon-deliveries-nas.zip`, 172 fichiers hooks/assets/migrations + manifeste SHA-256 ; ZIP et empreintes vérifiés, sans frontend, base ou secrets. NAS non installé. Suite : sauvegarde et application de migration avec hooks, livraison frontend, activation volontaire de la règle puis recette cible. O03 reste À vérifier, compteurs inchangés ; périmètre actif actualisé. Installation du correctif Activity toujours non confirmée.
+
+### Référence fournisseur proposée sur la fiche produit — 13 octobre 2026
+
+- À l’ajout d’une ligne fournisseur, reprise de la Référence produit (sku) actuellement saisie, y compris avant sauvegarde. Champ modifiable ; modification du produit ensuite sans écrasement des références des lignes existantes. Préremplissage frontend uniquement via SupplierPrices existant ; aucun changement de schéma, de permissions ou des données enregistrées. Contrat précisé dans le document 04.
+- Vérifications : pnpm check réussi (lint, TypeScript, 214 tests Vitest et build), contrôle lint/typecheck final et git diff --check réussis. Parcours Playwright ciblé réussi : valeur proposée, modification manuelle, deuxième ajout après changement du sku, conservation de la première référence puis sauvegarde/rechargement. Scénario Catalogue complet tenté : assertions fournisseur réussies puis timeout sur ancien bouton de sélection produit dans Devis ; suite complète non annoncée comme réussie. Première fixture ciblée corrigée pour utiliser category.label. Avertissement existant sur les chunks volumineux conservé.
+- Livraison : locale, sans commit/push, nouveau pack ou installation NAS. Aucun travail restant sur ce préremplissage ; ancien scénario Catalogue/Devis à actualiser séparément. Statuts et compteurs des lots inchangés.
+
+### Publication Git des ajustements Achats / Stock — 13 octobre 2026
+
+- Commits applicatifs créés et poussés sur origin/main : 70310fc (accueil DA/BC, navigation et pagination partagée), 8173eb8 (BL préparés, disponibilité, quantités partielles et reliquats transactionnels), 81bbf9e (référence fournisseur proposée). Documentation canonique et règle de suivi AGENTS.md consolidées dans le commit documentaire associé.
+- Vérifications de publication : git fetch origin puis comparaison HEAD/origin/main avant commit (aucune divergence), git diff --check réussi, push applicatif confirmé. Vérifications applicatives conservées dans les entrées précédentes : pnpm check, tests serveur et navigateur ciblés ; pas de nouvelle exécution exhaustive à l’occasion du push. Limite connue du scénario Catalogue/Devis conservée.
+- État : code applicatif publié sur Git, documentation préparée pour publication dans la même intervention. Aucun déploiement NAS ni installation de migration effectué ; pack BL préparé inchangé. Prochaine action : livraison cible avec sauvegarde, migration 1791840000, hooks et frontend cohérents puis recette métier. Statuts des lots et compteurs inchangés.

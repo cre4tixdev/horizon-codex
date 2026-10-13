@@ -417,17 +417,16 @@ produit avec prix fournisseur USD
 
 Vérifier que la marge historique ne change pas après modification du catalogue.
 
-## Approbation vente
+## Validation vente par permissions
 
 ```text
 devis draft
-→ remise dépasse seuil
-→ pending approval
-→ approbateur valide
-→ validation devis possible
+→ données et pricing validés côté serveur
+→ sales.quote.validate requis pour finaliser
+→ sales.order.confirm requis pour confirmer le client
 ```
 
-Test refus + commentaire.
+Tester autorisation et refus sans droit, invariants et snapshots, transition auditée et absence de doublon au rejeu. Aucun état pending approval ni seuil de montant/remise/marge selon H-064.
 
 ## Révision devis
 
@@ -1545,3 +1544,33 @@ Confirmation intégrée Stock/Achats : check_purchasing vérifie aperçu des lig
 CGV et création de devis : migration 1791710020_quote_default_terms (base neuve, rollback/remontée sur liste ancienne, devis historique conservé), tests serveur d’unicité et disponibilité, unitaires de préremplissage et conservation du titre manuel, navigateur des paramètres et du nouveau devis avec première ligne, produit, popup canonique et HT prioritaire.
 
 Régression lecture du fil : check_activity teste pagination/filtres/documents/tâches, utilisateur non habilité, source supprimée, AO + opportunité, collections privées Produits/Stock/Achats, et lecture en présence de 20 lignes dans chacune des 10 collections sources sans jointure transversale. Navigateur : commentaires/tâches des devis, historique AO et photos des auteurs ; conservation des API Rules et contrôle de source serveur.
+
+### État des vérifications avant push — 12 octobre 2026
+
+`pnpm check` réussi avant les commits `8e0de25` / `f9bf927` : lint, TypeScript strict, **205 tests Vitest dans 46 fichiers**, build. Le build conserve l’avertissement connu de taille de certains chunks ; aucune dépendance ajoutée pour le correctif du fil. `git diff --check` réussi ; dépôt propre après push sur origin/main.
+
+Correctif Activity : suite serveur de 14 tests passée ; test de volume/sources privées rejoué après l’ajustement final. Playwright ciblé : avatar d’un autre auteur (Account), historique AO/opportunité (Tenders), devis/commentaires/tâches (Sales), suite Achats (2 parcours). Cette preuve ne vaut pas rejeu complet de toutes les suites E2E ni recette NAS. Les preuves des lots précédents restent dans leurs entrées ci-dessus.
+
+À recetter sur l’instance cible : migration/hook compatibles, chargement/publication du fil après redémarrage, droits et fichiers protégés, confirmation avec réservation/DA, BC→réception, traçabilité/parc et configuration CUMP. Conversion Gotenberg réelle / imprimante et restauration de sauvegarde restent des vérifications d’exploitation séparées. L’audit documentaire qui suit n’exécute aucun déploiement et ne modifie aucun code applicatif ; contrôle limité aux liens, cohérence du suivi et diff documentaire.
+
+## Pagination commune des listes — 12 octobre 2026
+
+`tests/auth/pagination.spec.ts` compare 14 parcours paginés au CRM : compteur, dimensions des boutons, chevrons, couleurs et position dans le fil d’Ariane, en clair / sombre / mobile, sans débordement horizontal. Une seconde vérification couvre passage entre deux pages, bornes, blocage pendant une requête et conservation des critères URL. Les listes vides utilisent la fixture PocketBase locale ; la réponse du scénario à deux pages est interceptée côté navigateur, sans création de données métier. Exécution réussie : `POCKETBASE_BINARY=/private/tmp/horizon-crm-tools/pocketbase pnpm exec playwright test --config=playwright.auth.config.ts tests/auth/pagination.spec.ts` (2 tests). Captures Analyse clair / sombre / mobile inspectées ; aucune recette NAS ni nouvelle exécution de toute la suite E2E.
+
+### Smart bouton de demande d’achat — 12 octobre 2026
+
+Le scénario Achats de `tests/auth/purchasing.spec.ts` vérifie désormais le lien Commandes fournisseurs dans la zone related du fil d’Ariane, son compteur et sa destination filtrée par demande ; captures clair/sombre/mobile inspectées et absence de débordement mobile contrôlée. Exécution du fichier sur PocketBase éphémère : parcours Achats réussi ; scénario Commande client interrompu après retour à la connexion (session invalide), puis réussi en exécution isolée avec `--grep "Commande client"`. Cet échec de session en exécution groupée reste à surveiller ; aucune validation de toute la suite E2E ou du dossier réel sur NAS revendiquée.
+
+### Accueil Achats — 12 octobre 2026
+
+`tests/auth/purchasing-home.spec.ts` vérifie clic Achats → DA en attente, quatre cartes communes, compteur, filtre URL / conservation recherche et regroupement, remise à la première page, rechargement et Nouvelle commande à droite. Captures clair/sombre/mobile inspectées. Régression du tableau groupé sur mobile corrigée dans la grille partagée ; le test attend le rendu après changement de viewport. Exécution finale combinée avec pagination.spec.ts : 3 tests réussis sur PocketBase jetable (14 parcours de pagination conservés). Suite serveur Achats : 19 tests réussis, dont filtre pending, archives, autres états, compteurs contextuels et permissions. `pnpm check` réussi : lint, TypeScript, 205 tests Vitest et build ; lint/typecheck revérifiés après ajustement final du test. Aucun test contre NAS ; suite E2E complète non exécutée.
+
+### Accueil commun DA / BC — 13 octobre 2026
+
+Le parcours purchasing-home.spec.ts couvre désormais une même liste contenant DA et BC : types visibles, cartes DA en attente / Bons de commande, liens de fiches distincts, retour à l’accueil par breadcrumb avec critères conservés, recherche/regroupement URL, création de commande, clair/sombre/mobile. Le scénario est réussi sur fixture PocketBase jetable ; contrôles de pagination des listes dédiées conservés. Backend Achats : 21 tests réussis, dont 34 pièces mixtes sur deux pages, tri global, compteurs indépendants du type sélectionné, exclusion des pièces terminées en vue pending et refus de lecture sans droit. Deux tests Vitest supplémentaires vérifient les filtres de la liste commune, dont le choix explicite de toutes les pièces non archivées. Aucun appel aux données NAS dans ces tests.
+
+### BL préparés et partiels — 13 octobre 2026
+
+`pnpm check` réussi : lint, TypeScript, 214 tests Vitest (48 fichiers) et build ; avertissement existant sur les chunks volumineux. Tests PocketBase locaux jetables : Stock 28 tests, traçabilité 37 tests, valorisation 6 tests, Activity 14 tests réussis. Stock inclut absence de stock, réservation propre/étrangère, non-duplication des brouillons, réalisation archivée, réception unique/ambiguë/multi-affaires, concurrence, permissions et source client protégée. Traçabilité couvre livraison partielle sérialisée et lot en quarantaine avec rollback. Sept tests unitaires de disponibilité couvrent stock partagé entre lignes, unités mixtes et historique prévu/réalisé. Test de reprise de migration supplémentaire réussi : ledger et snapshot historiques identiques, double migrate up et paramètre false.
+
+Playwright ciblé : trois parcours BL (stock nul → 2/4 → reliquat, réception ambiguë et sélection explicite, séries partielles) et deux parcours Stock existants ; captures liste clair/sombre/mobile, confirmation et paramètres comparées. Une exécution groupée a échoué sur l’assertion responsive immédiate du Dashboard existant ; les deux parcours Stock réussissent isolément, sans modification du Dashboard. Une assertion de comparaison des onglets a été adaptée au bouton Changer de méthode de Valorisation existant. Pas de suite E2E/backend exhaustive ni de recette NAS ; résultats exclusivement locaux.

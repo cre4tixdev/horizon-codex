@@ -65,7 +65,13 @@ pnpm install --frozen-lockfile
 pnpm dev
 ```
 
-Vite écoute uniquement sur `127.0.0.1` ; utiliser l'adresse affichée dans le terminal. Le frontend affiche le layout Horizon, un dashboard avec états vides, la navigation réductible, le fil d'Ariane et une recherche des espaces (⌘ K / Ctrl K). Les espaces non implémentés sont signalés « À venir ». Le module Contacts propose les listes et fiches sociétés / personnes, les rôles, adresses, images et archivage ; son utilisation nécessite l’installation de la migration et des hooks Contacts et les permissions appropriées, selon le document 06. Le CRM propose les opportunités classiques en liste / Kanban, leurs fiches et le fil partagé après installation du lot CRM décrit dans le document 06. Employés fournit l’annuaire et l’organigramme ; Paramètres → Utilisateurs et accès gère les comptes et les accréditations après installation du lot décrit dans le document 06. Ventes propose désormais les brouillons de devis, leurs lignes HT libres, l’annulation et les liens depuis le CRM après installation du lot décrit dans le document 06. Stock propose le catalogue Produits, les familles tarifaires, les photos et les offres fournisseurs avec fournisseur favori ; les produits peuvent être ajoutés aux devis après installation du lot Catalogue P01 décrit dans le document 06. Les autres modules métier restent à venir. Sans URL PocketBase, le serveur de développement reste en aperçu du layout ; `/login` permet d'examiner l'écran de connexion.
+Vite écoute uniquement sur `127.0.0.1` ; utiliser l’adresse affichée dans le terminal. Sans URL PocketBase, le développement permet un aperçu du layout et de `/login` ; la production exige une connexion configurée. Les espaces non implémentés sont indiqués À venir.
+
+**État de référence au 12 octobre 2026 :** les parcours Contacts, CRM/AO, Employés/accès, Documents/studio/étiquettes, catalogue Produits, devis/commandes clients, achats, opérations/inventaires/valorisation de stock, lots/séries, parc interne, registre préparatoire d’immobilisations, compte personnel, calendrier et premières analyses sont disponibles dans leur périmètre local testé. Cette liste ne vaut pas clôture de tous leurs raccordements. Voir [les travaux actifs et tâches restantes](10-DECISIONS-ROADMAP.md#travaux-actifs-et-prochaine-livraison), les contrats du document 04 et l’installation du document 06.
+
+Le portail est développé localement ; les packs NAS remis actuellement sont **PocketBase seulement** (hooks, migrations, manifeste), sans frontend, base ni secrets. Les commits `8e0de25` / `f9bf927` sont poussés sur main. L’installation du dernier correctif des fils d’activité sur le NAS reste à confirmer : hooks à jour et redémarrage, aucune nouvelle migration pour ce correctif ; les évolutions antérieures nécessitent leurs migrations jusqu’à `1791710020_quote_default_terms.js`. Un push ne déploie pas le NAS.
+
+Messaging mail/chat, saisie Planning/TimeReport, projets/SAV, facturation et intégrations Sage/SUPER PDP ne sont pas livrés par ces derniers lots. Les chiffres financiers indisponibles ne sont pas remplacés par zéro. Le MFA est reporté ; la présence manuelle est préparée pour la future messagerie.
 
 `.env.example` fournit l'URL publique de l'instance PocketBase de développement. Pour préparer cette configuration, copier le fichier vers `.env.local` ; ce fichier est ignoré par Git. Les valeurs `VITE_*` sont publiques et ne doivent contenir aucun secret. Avec cette URL, le login natif utilise `core_users` : appliquer d'abord les migrations et provisionner un compte Horizon, selon la procédure de `06-SECURITY-OPS.md`. Aucun compte superuser ne doit être utilisé dans le frontend. Sans variable, l'aperçu est limité au développement ; la production exige une connexion configurée.
 
@@ -93,7 +99,7 @@ Stock
 Projets
 TimeReport
 Congés
-Dépenses
+Notes de frais
 Facturation
 Comptabilité
 Documents
@@ -142,6 +148,8 @@ Messagerie Chat
 # Règle documentaire
 
 Chaque information doit avoir un seul emplacement principal.
+
+Après chaque intervention, documenter le résultat, les vérifications, les tâches restantes et l’état local / Git / NAS dans le journal et les travaux actifs du document 10, selon la règle obligatoire d’AGENTS.md.
 
 Avant de créer un nouveau document, vérifier si le sujet appartient déjà à l’un des documents canoniques.
 
@@ -258,7 +266,7 @@ La V8 ajoute notamment :
 
 - pricing / coûts / marges ;
 - pilotage économique par compte analytique ;
-- workflows d’approbation ;
+- validation métier par permissions ;
 - révisions devis ;
 - commandes et réceptions partielles ;
 - stock réservé / disponible ;
@@ -395,3 +403,5 @@ CRM — paramètres du 7 octobre 2026 : page dédiée Présentation / Étapes / 
 Paramètres — séquences et étapes fixes : rubrique Séquences pour les compteurs des modules activés, configuration par engrenage et couleurs personnalisées. Le CRM conserve les six étapes demandées, sans ajout / suppression ni changement de signification. Installer le lot consolidé Séquences décrit dans le document 06 ; numérotation et historique conservés.
 
 Stock S02 : les opérations physiques et les inventaires planifiés sont disponibles dans Stock → Opérations / Inventaires ; entrepôts et verrou de comptage dans Paramètres → Stock. Contrats et limites : docs/04 et docs/05 ; tests / déploiement : docs/09 et docs/06.
+
+Livraisons — 13 octobre 2026 : BL préremplis depuis commande, préparation optionnelle à réception, disponibilité et reliquats partiels vérifiés localement. Migration additive `1791840000_stock_deliveries.js` nécessaire ; contrats docs 04/05, installation doc 06, vérifications doc 09. NAS non installé.

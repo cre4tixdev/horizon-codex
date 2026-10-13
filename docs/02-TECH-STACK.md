@@ -342,7 +342,7 @@ Sans ajouter de nouvelle infrastructure lourde, Horizon prévoit des services in
 SearchService
 PricingService
 MarginService
-ApprovalService
+Validation métier serveur par permissions
 NotificationService
 ArchiveService
 ExchangeRateService
