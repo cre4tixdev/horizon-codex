@@ -1,4 +1,5 @@
 const modules = [
+  { key: 'expenses', label: 'Notes de frais', available: true, actions: ['read', 'write', 'submit', 'validate', 'reimburse'], scopes: ['self', 'reports', 'all'] },
   { key: 'billing', label: 'Facturation', available: true, actions: ['read', 'write', 'invoice.validate', 'payment.manage'], scopes: ['all'] },
   { key: 'accounting', label: 'Immobilisations', available: true, actions: ['read', 'assets.manage'], scopes: ['all'] },
   { key: 'analysis', label: 'Analyse des affaires', available: true, actions: ['read', 'financial', 'labor_costs'], scopes: ['own', 'all'] },
@@ -9,7 +10,7 @@ const modules = [
   { key: 'purchasing', label: 'Achats', available: true, actions: ['read', 'write', 'request.validate', 'order.validate'], scopes: ['all'] },
   { key: 'sales', label: 'Ventes', available: true, actions: ['read', 'write', 'quote.validate', 'order.confirm'], scopes: ['all'] },
   { key: 'hr', label: 'Employés', available: true, actions: ['read', 'write', 'organisation.manage'], scopes: ['self', 'reports', 'team', 'all'] },
-  ...[['projects', 'Projets'], ['planning', 'Planning'], ['time', 'TimeReport'], ['leave', 'Congés'], ['expenses', 'Dépenses'], ['service', 'SAV'], ['messaging', 'Messagerie'], ['documents', 'Documents']].map(([key, label]) => ({ key, label, available: false, actions: [], scopes: [] })),
+  ...[['projects', 'Projets'], ['planning', 'Planning'], ['time', 'TimeReport'], ['leave', 'Congés'], ['service', 'SAV'], ['messaging', 'Messagerie'], ['documents', 'Documents']].map(([key, label]) => ({ key, label, available: false, actions: [], scopes: [] })),
 ]
 const permissions = (app, user) => {
   if (!user || user.collection().name !== 'core_users' || !user.getBool('active')) return []
@@ -35,7 +36,7 @@ const grantsFor = (app, user) => {
   const rights = permissions(app, user); const result = {}
   for (const module of modules.filter((item) => item.available)) {
     const actions = module.actions.filter((action) => rights.includes(`${module.key}.${action}`))
-    if (actions.length) result[module.key] = { actions, scope: module.key === 'hr' ? user.getString('hr_scope') || 'all' : module.key === 'analysis' ? 'own' : 'all' }
+    if (actions.length) result[module.key] = { actions, scope: module.key === 'hr' ? user.getString('hr_scope') || 'all' : module.key === 'expenses' ? user.getString('expenses_scope') || 'self' : module.key === 'analysis' ? 'own' : 'all' }
   }
   return result
 }
@@ -50,6 +51,8 @@ const validateGrants = (profile, grants) => {
     if (key === 'analysis' && grant.actions.includes('labor_costs') && !grant.actions.includes('financial')) throw new BadRequestError('Les coûts individuels nécessitent l’analyse financière.')
     if (key === 'hr' && grant.actions.includes('organisation.manage') && grant.scope !== 'all') throw new BadRequestError('La gestion de hiérarchie nécessite le périmètre global Employés.')
     if (key === 'hr' && grant.actions.includes('organisation.manage') && !grant.actions.includes('write')) throw new BadRequestError('La gestion de hiérarchie nécessite la contribution Employés.')
+    if (key === 'expenses' && grant.actions.includes('validate') && grant.scope === 'self') throw new BadRequestError('La validation nécessite un périmètre collaborateurs ou global.');
+    if (key === 'expenses' && grant.actions.includes('reimburse') && grant.scope !== 'all') throw new BadRequestError('Le remboursement nécessite le périmètre global.');
     for (const action of grant.actions) rights.add(`${key}.${action}`)
   }
   if (['admin', 'superuser'].includes(profile)) { rights.add('settings.references'); rights.add('documents.template.manage') }
@@ -58,7 +61,7 @@ const validateGrants = (profile, grants) => {
 }
 const audit = (app, entity, id, actor, before, after, action) => {
   const record = new Record(app.findCollectionByNameOrId('core_audit'))
-  for (const [key, value] of Object.entries({ user: actor, module: entity.startsWith('billing_') ? 'billing' : entity.startsWith('purchasing_') ? 'purchasing' : entity.startsWith('inventory_') ? 'inventory' : entity.startsWith('hr_') ? 'hr' : entity.startsWith('documents_') ? 'documents' : 'core', entity, entity_id: id, action, before, after, metadata: { source: 'server' } })) record.set(key, value)
+  for (const [key, value] of Object.entries({ user: actor, module: entity.startsWith('expenses_') ? 'expenses' : entity.startsWith('billing_') ? 'billing' : entity.startsWith('purchasing_') ? 'purchasing' : entity.startsWith('inventory_') ? 'inventory' : entity.startsWith('hr_') ? 'hr' : entity.startsWith('documents_') ? 'documents' : 'core', entity, entity_id: id, action, before, after, metadata: { source: 'server' } })) record.set(key, value)
   app.save(record)
 }
 module.exports = { modules, permissions, admin, settings, hrAllowed, grantsFor, validateGrants, audit }

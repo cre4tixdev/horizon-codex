@@ -12,7 +12,8 @@ import { catalogService } from '../../modules/inventory/services/CatalogService'
 import { useCatalogAccess } from '../../modules/inventory/hooks/useCatalogAccess'
 import type { Product } from '../../modules/inventory/schemas/catalog'
 import { formatUnitAmount as formatAmount } from '../formatters/money'
-export function ProductPicker({ usage, actionLabel, onChoose, onClose }: { initialProduct: string; usage: 'sale' | 'purchase'; actionLabel: string; onChoose: (id: string) => Promise<void | false>; onClose: () => void }) {
+const quantities = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 6 })
+export function ProductPicker({ usage, actionLabel, showAvailableStock = false, onChoose, onClose }: { initialProduct: string; usage: 'sale' | 'purchase'; actionLabel: string; showAvailableStock?: boolean; onChoose: (id: string) => Promise<void | false>; onClose: () => void }) {
   const access = useCatalogAccess(), client = useQueryClient(), openRecord = useRecordWorkspace(), input = useRef<HTMLInputElement>(null)
   const [search, setSearch] = useState(''), [page, setPage] = useState(1), [workspaceError, setWorkspaceError] = useState('')
   const deferredSearch = useDeferredValue(search)
@@ -34,6 +35,7 @@ export function ProductPicker({ usage, actionLabel, onChoose, onClose }: { initi
     { header: 'Fournisseur', size: 150, cell: ({ row }) => { const name = choices.data?.suppliers.find((supplier) => supplier.id === row.original.pricing.supplier)?.name || '—'; return <span className="quote-product-text" title={name}>{name}</span> } },
     { header: 'Coût HT', size: 105, cell: ({ row }) => <span className="quote-product-price">{formatAmount(row.original.pricing.unit_cost, row.original.sale_currency)}</span> },
     { header: 'PUV HT', size: 105, cell: ({ row }) => <span className="quote-product-price">{row.original.pricing.unit_price === null ? 'À vérifier' : formatAmount(row.original.pricing.unit_price, row.original.sale_currency)}</span> },
+    ...(showAvailableStock ? [{ id: 'available_quantity', header: 'Disponible', size: 110, cell: ({ row }) => <span className="quote-product-price" title="Stock disponible après réservations, tous emplacements actifs">{row.original.available_quantity === null ? '—' : `${quantities.format(row.original.available_quantity)} ${row.original.unit_code}`}</span> } satisfies ColumnDef<Product>] : []),
     { id: 'actions', header: 'Actions', size: 90, enableResizing: false, cell: ({ row }) => <div className="quote-product-row-actions">{openRecord && <HButton variant="secondary" size="icon" disabled={add.isPending} title="Consulter ou modifier le produit" aria-label={`Ouvrir la fiche : ${row.original.name}`} onClick={() => void launch(row.original.id)}><ArrowUpRight size={14} /></HButton>}<HButton variant="primary" size="icon" className="quote-product-add" disabled={add.isPending} title={`Ajouter ${actionLabel}`} aria-label={`Ajouter ${row.original.name} ${actionLabel}`} onClick={() => add.mutate(row.original.id)}><Plus size={14} strokeWidth={2.25} /></HButton></div> },
   ]
   const busy = query.isFetching || deferredSearch !== search
@@ -41,7 +43,7 @@ export function ProductPicker({ usage, actionLabel, onChoose, onClose }: { initi
     <div className="dialog-form">
       <div className="quote-product-search"><Search size={16} /><HInput ref={input} autoFocus type="search" aria-label="Rechercher un produit" placeholder="Marque, référence / modèle, description…" maxLength={200} value={search} disabled={add.isPending} onChange={(event) => { setSearch(event.target.value); setPage(1); add.reset() }} />{access.canWrite && openRecord && <HButton disabled={add.isPending} onClick={() => void launch()}><Plus size={14} />Créer un produit</HButton>}</div>
       <div className="quote-product-results" aria-busy={busy}>
-        {query.data && <HDataTable resizable columnBorders data={query.data.items} columns={columns} />}
+        {query.data && <HDataTable resizable columnBorders columnAlignments={{ available_quantity: 'right' }} data={query.data.items} columns={columns} />}
         {query.isPending && <HLoadingIndicator label="Recherche des produits" />}
         {query.data && !query.data.items.length && <p className="quote-product-empty">Aucun produit trouvé. Essayez une autre référence ou créez le produit.</p>}
       </div>

@@ -2194,6 +2194,8 @@ remaining
 
 # 19. Dépenses
 
+Le [contrat Expenses E01](#contrat-notes-de-frais-e01--13-octobre-2026) ci-dessous définit les collections réellement migrées. Les listes initiales suivantes restent la cible générale : project/export comptable sont des raccordements futurs ; E01 utilise employee/month/validator et tax_amount, receipts multiples protégés, statuts et snapshots explicites.
+
 ## `expenses_reports`
 
 ```text
@@ -3988,3 +3990,11 @@ Projection Achats — séparation DA/BC : overview accepte kind=requests|orders 
 Catalogue / liste Produits — 13 octobre 2026 : projection serveur `physical_quantity` (nullable), somme des mouvements sur les emplacements/entrepôts actifs, en unité de base. Distincte de `available_quantity`, qui déduit les réservations actives. Valeur nulle pour stock_policy=none, zéro réel si aucun mouvement, aucun champ persistant ni migration ; calcul groupé pour les produits de la page.
 
 B01 / préparation fournisseur depuis commande — 13 octobre 2026 : projection propriétaire purchasing-billing-source utilise `purchasing_orders.order_number` comme numéro canonique du BC (DTO number), pas un champ générique number. source_orders et source_line/source_order restent les relations contractuelles existantes. Préparation transmise à l’UI sans création implicite ; dates/numéro fournisseur saisis conservés lors du rattachement dans la nouvelle facture, recalcul des conditions/échéance et réinitialisation de l’échéancier préparatoire. Aucune nouvelle colonne/migration ni modification des snapshots historiques validés.
+
+### Contrat Notes de frais E01 — 13 octobre 2026
+
+Module propriétaire expenses, migrations additives sans reprise destructive. expenses_categories : code unique, label, mode structurel general/meal/travel/fuel/purchase, active, sort_order. expenses_reports : user (acteur propriétaire), employee (ressource HR), month YYYY-MM, supplement_of (note du même mois validée/remboursée), title, status draft/submitted/returned/validated/reimbursed/cancelled, validator (core_users snapshoté à soumission), total, tax, reimbursable_total, currency EUR, exchange_rate/tax_exchange_rate (1 en E01, snapshotés), notes, return_reason, submitted_at, validated_by/at, reimbursed_by/at, reimbursement_date/reference, snapshot JSON (identités et totaux à validation), archived_at, creation_key/creation_hash, created/updated. Index unique employee/month sur note principale ; creation_key unique pour création idempotente. expenses_lines : report, position, date, category, description, company/contact/opportunity, analytic_account, internal, guests (contacts_people multiples), internal_guests, route, vehicle, payment_method personal/company, amount TTC, tax_amount, currency EUR, receipt (fichier multiple protégé), snapshot JSON à validation, created/updated. Création/modification REST directe verrouillée ; viewRule par propriétaire/validateur/global, protégée et héritée par les pièces des lignes.
+
+core_users.expenses_scope self/reports/all/none, piloté par Access Service ; grants Expenses read/write/submit/validate/reimburse, droit read requis, scope reports/all pour validate et all pour reimburse. Profil Admin reprend les droits administratifs du module ; ressources et permissions restent distinctes, employés actifs requis pour la saisie. Notes historisées conservées si un compte ou employé devient inactif. core_activity_events et NotificationService existants pour les événements et alertes ; aucun journal ou moteur de notifications parallèle.
+
+Expenses / fil et mois — 14 octobre 2026 : aucun champ supplémentaire, mutation du mois contrôlée sur brouillon/retour principal uniquement, intitulé actualisé, dates et justificatifs inchangés, index employee/month conservé. Migration 1791840010_expense_activity ajoute une branche corrélée à expenses_reports pour View/File et Create d’événements / Update de tâches ; lectures paginées via les routes Activity existantes et scope Expenses du service propriétaire. Backfill de metadata.author sur les anciens événements Expenses seulement, sans réécriture des snapshots de pièces.

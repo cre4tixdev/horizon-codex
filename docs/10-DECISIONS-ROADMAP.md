@@ -1306,7 +1306,7 @@ Un lot terminé n'est rouvert que si ses critères ne sont plus satisfaits. Une 
 
 ## Tableau de bord global
 
-Dernière mise à jour : **13 octobre 2026**. Les statuts couvrent les critères complets des lots ; « À vérifier » distingue une réalisation locale testée de sa recette d’exploitation. Le journal historique est conservé.
+Dernière mise à jour : **14 octobre 2026**. Les statuts couvrent les critères complets des lots ; « À vérifier » distingue une réalisation locale testée de sa recette d’exploitation. Le journal historique est conservé.
 
 | Phase | Lots | Terminés | En cours | À vérifier | Bloqués | À faire |
 |---|---:|---:|---:|---:|---:|---:|
@@ -1314,10 +1314,10 @@ Dernière mise à jour : **13 octobre 2026**. Les statuts couvrent les critères
 | 2 — Référentiel | 10 | 0 | 3 | 4 | 0 | 3 |
 | 3 — Commercial | 5 | 0 | 3 | 2 | 0 | 0 |
 | 4 — Opérations | 8 | 0 | 3 | 1 | 0 | 4 |
-| 5 — Ressources / RH interne | 4 | 0 | 1 | 0 | 0 | 3 |
+| 5 — Ressources / RH interne | 4 | 0 | 2 | 0 | 0 | 2 |
 | 6 — Finance | 6 | 0 | 4 | 0 | 0 | 2 |
 | 7 — Consolidation | 5 | 0 | 3 | 0 | 0 | 2 |
-| **Total** | **46** | **2** | **19** | **10** | **0** | **15** |
+| **Total** | **46** | **2** | **20** | **10** | **0** | **14** |
 
 **Clôture complète : 2 / 46 lots.** Ce compteur conservateur porte sur tous les critères de chaque lot, dont les raccordements et la recette NAS ; il ne signifie pas que seuls deux modules fonctionnent. Le tableau des travaux ci-dessous décrit les périmètres déjà livrés et leurs limites. Aucune estimation de temps restant n’en découle.
 
@@ -1385,7 +1385,7 @@ Les IDs de ce registre sont stables. Les appellations de livraisons historiques 
 | H01 | Employés, capacité et coûts | Fondation, R02 | Salariés / freelances / intérimaires / externes sans compte obligatoire ; calendriers, compétences et coûts datés protégés | En cours |
 | H02 | Planning ressources | H01, C01, O05 pour liens projet, H04 pour absences | Semaine, internes / externes, jour / nuit, multi-codes, ATE / IDF / DEP, BE / Production, copie et surcharge visible | À faire |
 | H03 | TimeReport | H01, H02 | Temps réel distinct du prévu, validation serveur, coûts historiques et comparaison prévu / réalisé par analytique | À faire |
-| H04 | Congés et dépenses | H01, R06, C01 pour analytique | Demandes / validations, soldes, absences reliées au planning, justificatifs et dépenses analytiques | À faire |
+| H04 | Congés et dépenses | H01, R06, C01 pour analytique | Notes de frais E01 locales : saisie mensuelle, pièces et invités, validation manager/notifs, remboursements distincts ; congés/soldes/planning et export comptable restent à livrer | En cours |
 
 ### Phase 6 — Finance
 
@@ -1463,7 +1463,7 @@ Ces points ne bloquent pas tous les travaux : la préparation du frontend et du 
 |---|---|---|
 | Recherche / filtres partagés | Recherche élargie sur desktop (720 px maximum / 62 %), panneau SearchFilters et pastilles communs ; croix contiguë au bouton Filtres pour réinitialiser critères/groupement/tri, recherche/vue/contexte conservés et première page | Validation utilisateur de la réinitialisation rapide ; frontend seulement |
 | Fil partagé — R10 / F03 / F07 | Lecture ciblée, pagination, catégories, tâches, AO/opportunité, photos et droits ; correctif du timeout 30 s | **Priorité immédiate :** installer les hooks à jour, redémarrer PocketBase puis recetter chargement et publication sur Contacts, CRM, Produits, Ventes et Achats ; contrôler le journal |
-| Installation — F01 / F04 / X05 | Pack PocketBase seulement, migrations jusqu’à `1791840003_billing.js`, reconstruction et régressions locales | Vérifier migrations effectivement présentes sur NAS ; sauvegarde / restauration et retour arrière à recetter. Ne pas considérer le push Git comme une installation |
+| Installation — F01 / F04 / X05 | Pack PocketBase seulement, migrations jusqu’à `1791840010_expense_activity.js`, reconstruction et régressions locales | Vérifier migrations effectivement présentes sur NAS ; sauvegarde / restauration et retour arrière à recetter. Ne pas considérer le push Git comme une installation |
 | Accès / profil — F05 / R02 / H01 | Accréditations, périmètres, employés distincts, identité/avatar/mot de passe, présence manuelle à quatre états ; vues Employés Cartes par défaut / Liste / Organigramme avec photos protégées gérées visuellement sur Employés et reprises par les comptes associés, tri par nom de famille puis prénom en A → Z par défaut et filtres/groupes conservés | Recette des droits réels et des photos ; capacité RH et profils de coûts datés à compléter. MFA reporté, non activé |
 | Catalogue — R03 / R04 | Marques obligatoires, coût/coefficient auto ou manuel, image partagée, logistique, stock/réservations, historique d’achats, cartes, code-barres unique et colonne Qté en stock physique dans la liste à la place d’Unité | Comptabilité/TVA produit, composition et conversions d’unités à compléter ; import Excel/Odoo contrôlé à réaliser. Groupe de variantes = regroupement de produits autonomes |
 | Documents — R06 / C05 | Studio réutilisé, bordures par côté et style Sous-titre, versions publiées, aperçu/PDF, étiquettes et formats en mm | Migration Sous-titre 1791840001 puis recette Gotenberg / impression réelle NAS et étiqueteuse ; envoi avec archivage du PDF envoyé via Messaging à réaliser |
@@ -1476,7 +1476,8 @@ Ces points ne bloquent pas tous les travaux : la préparation du frontend et du 
 | Analyse — C01 / C04 / X01 | Racine + enfants, vues opportunité/commande/Finance, accès opérationnels/financiers distincts, 5 KPI et lecteurs BE/PROD préparés | Raccorder TimeReport réel validé, planning, heures vendues, profils de coût effectifs, frais, factures/paiements. Marge à date complète indisponible jusque-là |
 | Dashboard / calendrier — R09 / X01 | Période mois courant/trimestre/année, courbes sur sources accessibles, carrousel, échéances, événements manuels | Raccorder facturation/paiements/réalisé ; Outlook et invitations non livrés. La refonte visuelle rejetée n’est pas une direction à réintroduire |
 | Messagerie — R07 / R08 | Frontières MailProvider et permissions déjà décidées ; présence préparée | Développer le mail/chat, cadrer Graph/SMTP, historique d’envoi, reprise et erreurs ; aucune simulation de statut Envoyé |
-| Suite métier — O05–O08 / H02–H04 / A05–A06 / X04 | Contrats documentaires préparés | Projets/recette/parc client/SAV, planning/TimeReport/congés/notes de frais, facturation/Sage/SUPER PDP/API externe restent des lots distincts à lancer explicitement |
+| Notes de frais — H04 / E01 | Mes notes / À valider, note mensuelle avec mois modifiable sur principal brouillon/retour et compléments, popup par zones et fil d’activité partagé, catégories paramétrées, invités restaurant, affaire/client/contact ou interne, pièces protégées multiples et aperçu partagé, retour/resoumission/validation et notifications, remboursement complet manuel, snapshots et ordre des lignes | Installer migrations 1791840009/1791840010 et hooks/frontend cohérents, configurer employés/managers/droits et recetter sur NAS ; EUR seulement, export comptable, virement, marge d’affaire et congés non raccordés |
+| Suite métier — O05–O08 / H02–H04 / A05–A06 / X04 | Contrats documentaires préparés, notes de frais E01 traitées séparément ci-dessus | Projets/recette/parc client/SAV, planning/TimeReport/congés, intégrations Sage/SUPER PDP/API externe restent des lots distincts à lancer explicitement |
 
 Responsable technique : agent de développement pour les tâches autorisées. Recette fonctionnelle / exploitation : utilisateur et responsables métier concernés. Aucune échéance nouvelle n’est engagée. L’utilisateur a autorisé les réalisations locales précédentes ; cet audit ne lance ni déploiement NAS ni nouvelle intégration.
 
@@ -2333,3 +2334,60 @@ Analytique fixe A02 — comptes Stock 99101 et Interne 99201..99205 configurable
 - Périmètre : changements cumulés depuis la dernière publication, filtres dynamiques Ventes/Achats/Stock et paramètres UX, règles partagées d’archivage/recherche/regroupements, bascule Opérations, cartes Employés par défaut et tri par nom de famille, photos gérées sur Employés et reprises par les comptes, quantité physique dans Produits, croix/largeur de recherche, onglets et cartes Facturation, préparation fournisseur depuis BC. Documentation canonique, migrations additives 1791840007/1791840008 et régressions incluses. Statuts et compteurs inchangés.
 - Vérifications préalables à la publication : pnpm check réussi (lint, TypeScript, 247 tests / 57 fichiers, build), git diff --check réussi ; fetch origin et comparaison HEAD/origin/main sans divergence avant commit. Parcours navigateur et tests PocketBase ciblés réalisés pendant les interventions et détaillés dans leurs entrées ; suites exhaustives backend/navigateur non rejouées pour cette publication. Avertissement build de chunks conservé.
 - Livraison Git : lot vérifié pour commit et push sur origin/main à la demande utilisateur ; résultat confirmé par les commandes Git de l’intervention. Aucun déploiement ni installation NAS effectué. Dernier pack PocketBase fournisseur préparé séparément ; application des hooks/migrations et recette NAS restent à effectuer, Sage/SUPER PDP en standby.
+
+
+### Notes de frais : proposition de cadrage mensuel et validation manager — 13 octobre 2026
+
+- Investigation à la demande utilisateur : contrats Expenses existants dans docs 04/05, permissions/hiérarchie HR et notifications existantes examinés. Module non livré ; entrée de navigation présente, droits Expenses encore indisponibles. Proposition à valider : note mensuelle avec lignes catégorisées, justificatifs protégés multiples et aperçu partagé, invités restaurant liés aux contacts, affaire/analytique ou client/contact, parcours Mes notes / À valider, soumission/validation/retour motivé avec notifications internes ; remboursement distinct de la validation.
+- Vérifications : lecture de documentation, navigation, schémas Employés, policy d’accès et NotificationService ; aucun changement de code, migration ou test exécuté. Statuts/compteurs inchangés : H04 reste À faire. La proposition ne constitue pas un contrat validé ni une fonctionnalité livrée.
+- Livraison : investigation et suivi local seulement, sans commit/push ni installation NAS. Prochaine action : validation du cadrage utilisateur, puis mise à jour des contrats canoniques, migrations et implémentation ; dépenses internes sans client à arbitrer. Sage/SUPER PDP restent en standby.
+
+
+### Notes de frais E01 : saisie mensuelle, validation manager et justificatifs — 14 octobre 2026
+
+- Livré localement après validation du cadrage : module expenses intégré au routeur/navigation/permissions, onglets Mes notes / À valider, synthèse, recherche/filtres multi-états/archives séparées/groupes/tri/pagination partagés et contexte URL. Une note principale par employé/mois, création idempotente, compléments liés après validation. Fiche avec frise, informations, Dépenses / Historique, totaux sous les lignes ; table réordonnable seulement en édition, déplacement persisté côté serveur. Popup de dépense : formulaire à gauche et aperçu à droite via HAttachmentWorkspace/details, picker partagé extrait des commandes, fichiers multiples/import/retrait, picto rose. Catégories restaurant/invités contacts/participants internes, parking, carburant/véhicule, train/avion/hôtel/trajet, matériel et autres paramétrées via table et popup Paramètres communs. Affaire reprenant son analytique et client/contact, rattachement simple ou frais internes ; paiement personnel/entreprise, TVA justificative et remboursement personnel distinct.
+- Workflow serveur transactionnel : brouillon → soumis → validé → remboursé, retour motivé/resoumission, annulation/reprise, compléments/archives, réaffectation globale motivée. Principal habilité par défaut, secours global explicite, absence bloquante ; aucune auto-validation ni seuils. Justificatifs/complétude requis à soumission, brouillons privés, fichiers protégés par scope, notes/pièces figées après validation, snapshots des identités/libellés/relations/montants/devise/taux. Audit core_audit distinct du fil core_activity_events ; notifications internes aux destinataires avec lien/lecture. Aucun virement, Sage/PDP, export comptable ou raccordement de marge d’affaire ; EUR/taux 1 en E01. Contrats 04/05/06/07/09 et README actualisés, architecture 08 conservée. H04 passe à En cours : compteurs 2 terminés / 20 en cours / 10 à vérifier / 0 bloqué / 14 à faire sur 46 ; congés et raccordements H04 restent à traiter.
+- Vérifications : pnpm check réussi (lint, TypeScript, 250 tests / 58 fichiers, build), lint/TypeScript rejoués après les derniers messages et titres mensuels, git diff --check réussi. 17 tests serveur Expenses/Access-HR/Notifications réussis puis test de montée depuis 1791840008 réussi : données anciennes conservées, droits Admin additifs, migrate up répété sans doublon ; les cinq tests Expenses rejoués sur la version finale. Trois parcours Playwright Facturation/dashboard et commandes/PJ + Expenses réussis ensemble, puis Expenses rejoué avec captures mobile stabilisées et derniers messages, réussi. Couvre mois unique, catégories/rattachements/analytique/invité, justificatifs multiples/aperçu, refus sans PJ, fonds entreprise exclus, manager en lecture seule, notification/lien/lecture, correction/resoumission/validation/historique/remboursement, clair/mobile sombre et popup mobile. Captures inspectées ; fixtures seules, aucune recette sur base réelle/NAS, suites backend/navigateur exhaustives non rejouées. Avertissement build de chunks et logs d’annulations/ResourceWarning des fixtures conservés.
+- Livraison locale sans commit/push ni installation NAS. Pack /private/tmp/horizon-pocketbase-expenses-20261014.zip préparé : 201 hooks/assets/migrations plus manifeste/instructions, ZIP et empreintes vérifiés, sans frontend/base/exécutable/secrets ; SHA-256 8356d32b35d184cb31cb51a902aa56e4bd600ac75458df763f4dcea09072fac5. Depuis supplier-invoice : trois ajouts Expenses (hook/lib/migration), Access policy/management et Tax à remplacer, migrate up puis redémarrage avec frontend cohérent. Prochaine action : installation et recette utilisateur des habilitations/saisie/validation/remboursement sur ses données.
+
+
+### Notes de frais : popup structuré, mois éditable et vrai fil Horizon — 14 octobre 2026
+
+- Correction locale à la demande utilisateur : popup en zones HSectionHeading/panneaux communs La dépense / Montants et paiement / Rattachement / Participants ou déplacement/véhicule ; justificatifs nommés et aperçu à droite conservés. Densité corrigée en ciblant les sections directes du volet partagé et en réutilisant access-fieldset, sans nouveaux composants de formulaire. Fiche : mois éditable sur principal draft/returned, dates/PJ conservées, conflit mensuel refusé, dépenses hors mois signalées et soumission bloquée ; mois des compléments et pièces validées figés. Titre Lignes de frais et espace de contenu canonique. Suppression de l’onglet/tableau Historique, ActivityPanel partagé sous les lignes : commentaires, mentions, tâches, documents, auteurs/avatars et transitions/motifs lisibles. Cache de destinataires isolé par fiche et filtre du périmètre avant limite de résultats. Contrats 04/05/06/07/09 et README actualisés, travaux actifs à jour ; statuts/compteurs inchangés.
+- Serveur : source Expenses raccordée aux services Activity existants, contrôle propriétaire/validateur/global et archivage sur chaque opération, aucun accès via mention. Migration 1791840010 avec une branche corrélée source pour View/File/contribution des événements/tâches ; lecture paginée via routes métier existantes, pas d’expansion globale de ListRule. Backfill metadata.author des seuls anciens événements Expenses ; notes, snapshots et preuves financières conservés. Aucun nouveau champ financier ni intégration externe.
+- Vérifications : pnpm check réussi (lint, TypeScript, 250 tests / 58 fichiers, build), lint/typecheck rejoués après derniers ajustements. 22 tests PocketBase Expenses/Activity/Notifications réussis ; deux tests additionnels fichiers du fil/mise à niveau E01 réussis (IDs/corps/dates/notes conservés, migrate up répété), scénario de destinataires/tâches rejoué avec succès après optimisation du filtre. Trois parcours Playwright Facturation et Expenses réussis ensemble puis deux parcours commande/PJ et Expenses rejoués après correction de densité, réussis : zones, changement de mois/retour, dates et PJ intactes, commentaire dans le vrai fil, circuits user/manager/remboursement, clair/mobile sombre et popup mobile. Captures inspectées, git diff --check et ZIP/empreintes vérifiés. Premier test mention attendait 400 au lieu du refus 403 réel, corrigé sans modifier les permissions ; suites exhaustives backend/navigateur non rejouées, aucune recette sur base réelle/NAS. Avertissement build de chunks et logs d’annulations/ResourceWarning de fixture conservés.
+- Livraison locale sans commit/push ni installation NAS. Pack /private/tmp/horizon-pocketbase-expenses-ux-20261014.zip préparé : 202 hooks/assets/migrations plus manifeste/instructions, sans frontend/base/exécutable/secrets ; SHA-256 1deb5ec93df0ccdcb8643dce2b6c79dc7f1e3d09f72130afb78cb266bb05e84e. Depuis E01 : ajouter migration 1791840010, remplacer Expenses + Activity/core/read/request, migrate up et redémarrage avec frontend cohérent. Prochaine action : installation et validation utilisateur de la fiche harmonisée.
+
+
+### Notes de frais : colonne Actions compacte et centrée — 14 octobre 2026
+
+- Ajustement local du tableau des dépenses : colonne Actions de 88 px, titre centré et boutons regroupés/centrés horizontalement et verticalement, sans retour à la ligne. Largeurs optionnelles dans HDataTable et classe partagée h-table-cell-actions ; tableaux existants inchangés par défaut. Règle durable ajoutée au Design System. Aucun changement PocketBase.
+- Vérifications : lint et TypeScript réussis, parcours Playwright Expenses réussi (saisie/PJ, édition, lecture manager, validation/remboursement, mobile sombre), capture desktop inspectée et git diff --check réussi. Pas de suite exhaustive ni de recette NAS.
+- Livraison locale sans commit/push ; pack backend précédent inchangé. Statuts/compteurs inchangés. Prochaine action : validation visuelle utilisateur.
+
+
+### Recherche sociétés : rappel du fournisseur utilisé — 14 octobre 2026
+
+- Investigation : documentation Contacts/Intégrations/Sécurité et CompanyLookupRepository confirment l’API publique recherche-entreprises.api.gouv.fr, appelée depuis le navigateur par nom/SIREN/SIRET. Pappers est une ancienne décision remplacée. Sélection puis sauvegarde explicite.
+- Vérifications : lecture du code et des contrats locaux uniquement ; aucun appel externe ni test exécuté. Aucun changement applicatif ou backend, statuts/compteurs inchangés. Documentation locale sans commit/push ; aucune installation NAS. Pas de travail restant pour ce rappel.
+
+
+### Commande fournisseur : stock disponible dans le sélecteur produit — 14 octobre 2026
+
+- Ajout local de Disponible avant Actions dans Ajouter un produit depuis une commande fournisseur. ProductPicker commun avec option explicite activée sur les BC ; réutilise available_quantity serveur et unité de base, six décimales maximum, zéro réel et tiret si valeur absente/sans stock. Aucun calcul de solde React, nouvelle requête, schéma ou migration ; contrat 04 actualisé.
+- Vérifications : lint, TypeScript et git diff --check réussis ; les trois parcours Playwright Purchasing réussis (44,8 s), capture du popup BC inspectée avec 0 u visible avant Actions. Suites exhaustives non rejouées, aucune recette sur base réelle/NAS. Logs des refus attendus et requêtes annulées des fixtures conservés.
+- Livraison locale sans commit/push ; aucun changement du pack backend. Statuts/compteurs inchangés. Prochaine action : validation utilisateur.
+
+
+### Liste Produits : quantité disponible après le stock physique — 14 octobre 2026
+
+- Ajout local de Qté disponible immédiatement après Qté en stock dans la liste /inventory et ses groupes. Projection available_quantity existante, unité de base/format six décimales, alignement à droite, zéro réel et tiret sans stock/projection. Aucun changement serveur, schéma ou migration ; spécification 04 actualisée.
+- Vérifications : lint et TypeScript réussis ; parcours Playwright Catalogue cartes/disponibilité/contexte réussi (6,9 s), vérifications des deux en-têtes/ordre et quantités physiques/disponibles adaptées, captures desktop et mobile sombre inspectées ; git diff --check réussi. Tests exhaustifs non rejoués, pas de recette sur base réelle/NAS.
+- Livraison locale sans commit/push ; pack backend inchangé. Statuts/compteurs inchangés. Prochaine action : validation utilisateur.
+
+
+### Publication du lot Notes de frais et quantités disponibles — 14 octobre 2026
+
+- Publication demandée par l’utilisateur : ensemble local E01/UX notes de frais, habilitations/notifications/fil, migrations 1791840009 et 1791840010, composants partagés et corrections Actions/stock disponible dans BC et liste Produits. Aucun secret/base/pack NAS dans Git.
+- Vérification finale pnpm check réussie : lint, TypeScript, 250 tests sur 58 fichiers et build ; avertissement connu de taille des chunks. git diff --check réussi. Régressions backend et navigateur précédemment exécutées documentées dans les entrées du lot ; trois parcours Purchasing et parcours Catalogue ciblé réussis sur les dernières colonnes. Pas de nouvelle recette NAS ni de suite backend exhaustive.
+- État avant publication : lot vérifié localement, commit/push sur main en cours ; pack PocketBase Expenses UX inchangé, installation NAS non confirmée. Statuts/compteurs inchangés.

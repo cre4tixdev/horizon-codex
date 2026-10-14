@@ -1,0 +1,7 @@
+.expenses-lines .h-button[data-receipts=true] { color:var(--theme-rose-text, #F52F96); background:var(--theme-surface-rose, #f9e9f2); }
+.expenses-line-dialog { max-width:1100px; }
+.expenses-guests { display:flex; flex-wrap:wrap; gap:6px; grid-column:1 / -1; }
+
+.expense-editor-zones { display:grid; gap:var(--hz-record-section-gap); }
+.expense-editor-zones .contact-panel { margin:0; }
+.expenses-report-tab { margin-top:var(--record-tab-content-gap, 8px); }

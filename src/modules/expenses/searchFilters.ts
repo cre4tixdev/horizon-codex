@@ -1,0 +1,5 @@
+import type { SearchFilter } from '../../shared/search/filters'
+import { states } from './schemas/expenses'
+export const expenseFilters: SearchFilter[] = [{ key: 'status', label: 'État', defaultValue: '', multiple: true, options: [{ value: '', label: 'Tous les états' }, ...Object.entries(states).map(([value, label]) => ({ value, label }))] }, { key: 'state', label: 'Archives', appearance: 'compact', defaultValue: 'active', options: [{ value: 'active', label: 'Non archivées' }, { value: 'archived', label: 'Archivées' }] }]
+export const expenseGrouping: SearchFilter = { key: 'group', label: 'Regrouper par', defaultValue: 'none', options: [{ value: 'none', label: 'Aucun regroupement' }, { value: 'employee', label: 'Employé' }, { value: 'month', label: 'Mois' }, { value: 'status', label: 'État' }] }
+export const expenseSort: SearchFilter = { key: 'sort', label: 'Trier par', defaultValue: '-month', options: [{ value: '-month', label: 'Mois récent' }, { value: 'month', label: 'Mois ancien' }, { value: 'employee', label: 'Nom de famille' }, { value: 'amount', label: 'Montant à rembourser décroissant' }] }

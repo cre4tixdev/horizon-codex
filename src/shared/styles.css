@@ -321,6 +321,7 @@
 .h-data-table th, .h-data-table td { padding: 2px 12px; border-bottom: 1px solid var(--theme-border-subtle, #edf0f4); }
 .h-data-table :is(th, td)[data-align=left] { text-align: left; }
 .h-data-table :is(th, td)[data-align=center] { text-align: center; }
+.h-table-cell-actions { display: inline-flex; align-items: center; justify-content: center; gap: 4px; vertical-align: middle; white-space: nowrap; }
 .h-data-table :is(th, td)[data-align=right] { text-align: right; font-variant-numeric: tabular-nums; }
 .h-data-table th[data-align=center] > button:not(.h-table-column-resizer) { justify-content: center; }
 .h-data-table th[data-align=right] > button:not(.h-table-column-resizer) { justify-content: flex-end; }
@@ -2449,8 +2450,9 @@
 .h-attachment-dialog .dialog-form { flex: 1; padding: 0; gap: 0; overflow: hidden; }
 .h-attachment-dialog .field-error { padding: 8px 18px; }
 .h-attachment-workspace { display: grid; grid-template-columns: 290px minmax(0, 1fr); flex: 1; min-height: 0; min-width: 0; }
+.h-attachment-workspace--details { grid-template-columns: minmax(350px, .9fr) minmax(0, 1.1fr); }
 .h-attachment-sidebar { display: flex; flex-direction: column; gap: 20px; padding: 16px; overflow-y: auto; border-right: 1px solid var(--theme-border, #dce5f0); }
-.h-attachment-sidebar section { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.h-attachment-sidebar > section { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 .h-attachment-sidebar h3 { font-size: 12px; font-weight: 600; margin: 0; color: var(--theme-text-muted, #7b8794); }
 .h-attachment-sidebar .quote-command-upload--compact { min-height: 130px; }
 .h-attachment-sidebar .quote-command-upload--compact label { padding: 8px; font-size: 12px; }
@@ -2505,3 +2507,6 @@ button.contact-card-title { padding: 0; border: 0; background: transparent; text
 .employee-photo-details .account-photo-actions { flex-wrap: wrap; }
 .employee-photo-details > strong { font-size: 13px; }
 .employee-photo-details > p { text-align: left; margin: 6px 0 0; overflow-wrap: anywhere; }
+
+.h-document-summary { margin-left:auto; max-width:340px; display:grid; gap:8px; padding-top:14px; }
+.h-document-summary > div { display:flex; justify-content:space-between; gap:14px; }

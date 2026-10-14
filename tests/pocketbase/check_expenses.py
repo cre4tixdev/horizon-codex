@@ -1,0 +1,222 @@
+"""Monthly expenses workflows and protected files against disposable PocketBase."""
+import json
+import shutil
+import subprocess
+from pathlib import Path
+import unittest
+from check_auth import LocalPocketBase, ROOT
+from check_employee_photos import PNG
+from urllib.request import Request, urlopen
+from urllib.error import HTTPError
+
+class ExpensesTests(unittest.TestCase):
+    def setUp(self):
+        self.pb = LocalPocketBase().start(); self.addCleanup(self.pb.close)
+        self.people = {}
+        for key, rights, scope in [('owner', ['read','write','submit'], 'self'), ('manager', ['read','validate'], 'reports'), ('other', ['read','write','submit'], 'self'), ('finance', ['read','validate','reimburse','write'], 'all')]:
+            role = self.pb.create('core_roles', {'name':'expenses_'+key,'label':key,'active':True,'permissions':['expenses.'+r for r in rights]+['contacts.read','crm.read']})
+            employee = self.pb.create('hr_employees', {'first_name':key,'last_name':'Fixture','status':'active','employment_type':'employee','is_manager':key=='manager'})
+            user = self.pb.create_user(key+'-expenses@local.invalid', role['id'])
+            self.pb.request('PATCH','collections/core_users/records/'+user['id'],{'employee':employee['id'],'expenses_scope':scope},self.pb.admin_token)
+            token = self.pb.login(key+'-expenses@local.invalid')[1]['token']
+            self.people[key] = dict(user=user, employee=employee, token=token)
+        self.pb.request('PATCH','collections/hr_employees/records/'+self.people['owner']['employee']['id'],{'manager':self.people['manager']['employee']['id']},self.pb.admin_token)
+        self.token = self.people['owner']['token']
+        self.categories = self.call('GET','choices')[1]['categories']
+        self.input = dict(date='2026-10-05',category=self.categories[1]['id'],description='Parking chantier',company='',contact='',opportunity='',internal=True,guests=[],internal_guests='',route='',vehicle='',payment_method='personal',amount=12.50,tax_amount=2.00)
+    def call(self,method,path,body=None,token=None): return self.pb.request(method,'horizon/expenses/'+path,body,token or self.token)
+    def report(self,key='create-report-fixture',**extra):
+        code,r=self.call('POST','reports',dict(month='2026-10',notes='',validator='',creation_key=key,**extra));self.assertEqual(code,200,r);return r
+    def line(self,r,files=True,**changes):
+        data=dict(self.input,**changes)
+        if not files: return self.call('POST','reports/'+r['id']+'/lines',dict(updated=r['updated'],input=data))
+        boundary='expenses-fixture'; fields={'updated':r['updated'],'input':json.dumps(data)}
+        parts=[f'--{boundary}\r\nContent-Disposition: form-data; name="{k}"\r\n\r\n{v}\r\n'.encode() for k,v in fields.items()]
+        parts += [f'--{boundary}\r\nContent-Disposition: form-data; name="receipt"; filename="ticket.png"\r\nContent-Type: image/png\r\n\r\n'.encode()+PNG+b'\r\n',f'--{boundary}--\r\n'.encode()]
+        req=Request(self.pb.url+'/api/horizon/expenses/reports/'+r['id']+'/lines',data=b''.join(parts),headers={'Authorization':self.token,'Content-Type':'multipart/form-data; boundary='+boundary},method='POST')
+        try:
+            with urlopen(req) as res:return res.status,json.loads(res.read())
+        except HTTPError as err:return err.code,json.loads(err.read())
+    def transition(self,r,action,who='owner',**extra):return self.call('POST','reports/'+r['id']+'/transition',dict(updated=r['updated'],action=action,**extra),self.people[who]['token'])
+    def test_month_workflow_notifications_and_receipt_permissions(self):
+        r=self.report();self.assertEqual(self.report()['id'],r['id'])
+        self.assertEqual(self.call('GET','reports/'+r['id'],token=self.people['manager']['token'])[0],403)
+        self.assertEqual(self.call('GET','reports?area=review',token=self.people['manager']['token'])[1]['totalItems'],0)
+        self.assertEqual(self.call('POST','reports',dict(month='2026-10',notes='',validator='',creation_key='second-note-for-month'))[0],409)
+        self.assertEqual(self.line(r,files=False,date='2026-09-30')[0],400)
+        code,r=self.line(r,files=False);self.assertEqual(code,200,r)
+        self.assertEqual(self.transition(r,'submit')[0],400)
+        # Updating a saved line with its protected receipt.
+        line=r['lines'][0];self.input.update(description='Carburant véhicule',category=next(c['id'] for c in self.categories if c['mode']=='fuel'),vehicle='AB-123-CD')
+        code,r=self.line(r);self.assertEqual(code,200,r)
+        # Remove the first line without a receipt.
+        code,r=self.call('POST','reports/'+r['id']+'/remove',dict(updated=r['updated'],line_id=line['id']));self.assertEqual(code,200,r)
+        self.assertEqual(self.call('GET','reports/'+r['id'],token=self.people['other']['token'])[0],403)
+        code,r=self.transition(r,'submit');self.assertEqual(code,200,r);self.assertEqual(r['status'],'submitted');self.assertEqual(r['validator'],self.people['manager']['user']['id'])
+        self.assertEqual(self.line(r)[0],403)
+        self.assertEqual(self.transition(r,'validate')[0],403)
+        self.assertEqual(self.transition(r,'validate','finance')[0],403)
+        self.assertEqual(self.transition(r,'return','manager')[0],400)
+        notes=self.pb.request('GET','collections/core_notifications/records',token=self.people['manager']['token'])[1]['items'];self.assertEqual(notes[0]['source_record_id'],r['id'])
+        l=r['lines'][0];path='files/'+l['collectionId']+'/'+l['id']+'/'+l['receipt'][0]
+        for who,expected in [('owner',200),('manager',200),('other',404)]:
+            token=self.people[who]['token'];ft=self.pb.request('POST','files/token',{},token)[1]['token']
+            req=Request(self.pb.url+'/api/'+path+'?token='+ft)
+            try:
+                with urlopen(req) as res:code=res.status
+            except HTTPError as err:code=err.code
+            self.assertEqual(code,expected)
+        code,r=self.transition(r,'return','manager',reason='Ligne 1 : préciser le déplacement');self.assertEqual(code,200,r);self.assertEqual(r['status'],'returned')
+        code,r=self.transition(r,'submit');self.assertEqual(code,200,r)
+        stale=r
+        code,r=self.transition(r,'validate','manager');self.assertEqual(code,200,r);self.assertEqual(r['total'],12.5);self.assertEqual(r['reimbursable_total'],12.5);self.assertTrue(r['lines'][0]['snapshot'])
+        self.assertEqual(self.transition(stale,'validate','manager')[0],409)
+        self.assertEqual(self.call('POST','reports/'+r['id']+'/remove',dict(updated=r['updated'],line_id=l['id']))[0],403)
+        code,r=self.transition(r,'reimburse','finance',date='2026-10-06',reference='VIR-42');self.assertEqual(code,200,r)
+        code,r=self.transition(r,'archive');self.assertEqual(code,200,r)
+        self.assertEqual(self.call('GET','reports')[1]['totalItems'],0)
+        self.assertEqual(self.call('GET','reports?state=archived')[1]['totalItems'],1)
+        supplement=self.report('supplement-month-fixture',supplement_of=r['id']);self.assertEqual(supplement['supplement_of'],r['id'])
+    def test_no_self_approval_or_foreign_mutation_and_tax_validation(self):
+        r=self.report()
+        for extra in [dict(amount=10,tax_amount=11),dict(amount=1.001),dict(category=self.categories[0]['id'],guests=[]),dict(internal=True,company='invalid')]:
+            if extra.get('category'):continue
+            self.assertEqual(self.line(r,files=False,**extra)[0],400)
+        code,r=self.line(r,payment_method='company');self.assertEqual(code,200,r)
+        self.assertEqual(r['reimbursable_total'],0)
+        self.assertEqual(self.call('POST','reports/'+r['id']+'/lines',dict(updated=r['updated'],input=self.input),self.people['other']['token'])[0],403)
+        code,r=self.transition(r,'submit');self.assertEqual(code,200,r)
+        self.assertEqual(self.pb.request('PATCH','collections/expenses_reports/records/'+r['id'],{'status':'validated'},self.token)[0],403)
+        self.assertEqual(self.call('GET','reports?area=review',token=self.people['other']['token'])[0],403)
+        self.pb.request('PATCH','collections/core_roles/records/'+self.people['manager']['user']['role'],{'active':False},self.pb.admin_token)
+        self.assertEqual(self.transition(r,'validate','manager')[0],403)
+
+    def test_fallback_reassignment_immutability_and_historical_labels(self):
+        r=self.report();code,r=self.line(r);self.assertEqual(code,200,r)
+        self.pb.request('PATCH','collections/hr_employees/records/'+self.people['owner']['employee']['id'],{'manager':''},self.pb.admin_token)
+        self.assertEqual(self.transition(r,'submit')[0],400)
+        code,r=self.call('POST','reports',dict(id=r['id'],updated=r['updated'],month=r['month'],notes='Déplacement',validator=self.people['finance']['user']['id'],supplement_of='',creation_key=''))
+        self.assertEqual(code,200,r)
+        code,r=self.transition(r,'submit');self.assertEqual(code,200,r);self.assertEqual(r['validator'],self.people['finance']['user']['id'])
+        self.assertEqual(self.transition(r,'reassign','finance',validator=self.people['owner']['user']['id'],reason='Changement')[0],403)
+        self.pb.request('PATCH','collections/hr_employees/records/'+self.people['owner']['employee']['id'],{'manager':self.people['manager']['employee']['id']},self.pb.admin_token)
+        code,r=self.transition(r,'reassign','finance',validator=self.people['manager']['user']['id'],reason='Responsable rétabli');self.assertEqual(code,200,r)
+        code,r=self.transition(r,'validate','manager');self.assertEqual(code,200,r)
+        original=r['lines'][0]['category_label']; category=r['lines'][0]['category']
+        self.pb.request('PATCH','collections/expenses_categories/records/'+category,{'label':'Libellé modifié'},self.pb.admin_token)
+        self.pb.request('PATCH','collections/hr_employees/records/'+self.people['owner']['employee']['id'],{'last_name':'Autre nom'},self.pb.admin_token)
+        code,current=self.call('GET','reports/'+r['id']);self.assertEqual(code,200,current)
+        self.assertEqual(current['lines'][0]['category_label'],original);self.assertEqual(current['employee_name'],r['employee_name']);self.assertEqual(current['exchange_rate'],1)
+        self.assertEqual(self.call('POST','reports/'+r['id']+'/lines',dict(id=r['lines'][0]['id'],updated=r['updated'],input=self.input,removed=r['lines'][0]['receipt']))[0],403)
+        self.assertEqual(self.transition(r,'reimburse','finance',date='2099-10-01',reference='future')[0],400)
+
+    def test_line_order_monthly_key_and_submission_completeness(self):
+        r=self.report()
+        self.assertEqual(self.call('POST','reports',dict(month='2026-11',notes='',validator='',creation_key='create-report-fixture'))[0],409)
+        code,r=self.line(r,category=self.categories[0]['id']);self.assertEqual(code,200,r)
+        self.assertEqual(self.transition(r,'submit')[0],400)  # restaurant needs participants
+        code,r=self.line(r,category=next(c['id'] for c in self.categories if c['mode']=='travel'),route='');self.assertEqual(code,200,r)
+        ids=[l['id'] for l in r['lines']]
+        self.assertEqual(self.call('POST','reports/'+r['id']+'/order',dict(updated=r['updated'],ids=[ids[0],ids[0]]))[0],400)
+        code,r=self.call('POST','reports/'+r['id']+'/order',dict(updated=r['updated'],ids=list(reversed(ids))));self.assertEqual(code,200,r);self.assertEqual([l['id'] for l in r['lines']],list(reversed(ids)))
+        code,r=self.transition(r,'cancel');self.assertEqual(code,200,r)
+        code,r=self.transition(r,'reopen');self.assertEqual(code,200,r);self.assertEqual(r['status'],'draft')
+        self.assertEqual(self.call('GET','reports?status=draft,returned&sort=employee')[0],200)
+        self.assertEqual(self.call('GET','reports?status=deleted')[0],400)
+        self.assertEqual(self.call('GET','reports?sort=unsafe')[0],400)
+
+    def test_changing_month_preserves_dates_receipts_and_rejects_collisions(self):
+        r=self.report();code,r=self.line(r);self.assertEqual(code,200,r)
+        receipt=r['lines'][0]['receipt']; date=r['lines'][0]['date']
+        code,r=self.call('POST','reports',dict(id=r['id'],updated=r['updated'],month='2026-11',notes='Mois corrigé',validator='',supplement_of='',creation_key=''));self.assertEqual(code,200,r)
+        self.assertEqual(r['month'],'2026-11');self.assertIn('novembre',r['title']);self.assertEqual(r['lines'][0]['date'],date);self.assertEqual(r['lines'][0]['receipt'],receipt)
+        self.assertEqual(self.transition(r,'submit')[0],400)
+        code,occupied=self.call('POST','reports',dict(month='2026-10',notes='',validator='',creation_key='other-month-fixture'));self.assertEqual(code,200,occupied)
+        self.assertEqual(self.call('POST','reports',dict(id=r['id'],updated=r['updated'],month='2026-10',notes='',validator='',supplement_of='',creation_key=''))[0],409)
+        current=self.call('GET','reports/'+r['id'])[1];self.assertEqual(current['month'],'2026-11');self.assertEqual(current['lines'][0]['receipt'],receipt)
+
+    def test_shared_activity_scope_comments_mentions_and_tasks(self):
+        r=self.report();self.assertEqual(self.pb.request('GET','horizon/activity/events?entity=expenses_reports&id='+r['id'],token=self.people['manager']['token'])[0],403)
+        body=dict(source_module='expenses',source_entity='expenses_reports',source_record_id=r['id'],type='note',body='Justificatif en cours',mentions=[],metadata={})
+        code,event=self.pb.request('POST','collections/core_activity_events/records',body,self.token);self.assertEqual(code,200,event)
+        feed=self.pb.request('GET','horizon/activity/events?entity=expenses_reports&id='+r['id'],token=self.token)[1];self.assertTrue(any(e['body']=='Justificatif en cours' for e in feed['items']));self.assertTrue(all(e['metadata'].get('author') for e in feed['items']))
+        self.assertIn(self.pb.request('POST','collections/core_activity_events/records',dict(body,body='Tentative étrangère'),self.people['other']['token'])[0],[400,403])
+        self.assertEqual(self.pb.request('GET','horizon/activity/events?entity=expenses_reports&id='+r['id'],token=self.people['other']['token'])[0],403)
+        self.assertEqual(self.pb.request('POST','collections/core_activity_events/records',dict(body,mentions=[self.people['other']['user']['id']]),self.token)[0],403)
+        code,r=self.line(r);self.assertEqual(code,200,r);code,r=self.transition(r,'submit');self.assertEqual(code,200,r)
+        code,event=self.pb.request('POST','collections/core_activity_events/records',dict(body,body='Vérification manager',mentions=[self.people['owner']['user']['id']]),self.people['manager']['token']);self.assertEqual(code,200,event)
+        users=self.pb.request('GET','horizon/activity/users?module=expenses&id='+r['id'],token=self.people['manager']['token'])[1]['items'];self.assertIn(self.people['owner']['user']['id'],[u['id'] for u in users]);self.assertNotIn(self.people['other']['user']['id'],[u['id'] for u in users])
+        task=dict(body,type='task',body='Contrôler le justificatif',metadata={'task':dict(title='Contrôle',assigned_to=self.people['owner']['user']['id'],due_date='',priority='normal')})
+        code,event=self.pb.request('POST','collections/core_activity_events/records',task,self.people['manager']['token']);self.assertEqual(code,200,event)
+        tasks=self.pb.request('GET','horizon/activity/tasks?entity=expenses_reports&id='+r['id'],token=self.token)[1]['items'];self.assertEqual(len(tasks),1)
+        self.assertEqual(self.pb.request('PATCH','collections/core_tasks/records/'+tasks[0]['id'],{'status':'done'},self.token)[0],200)
+        code,r=self.transition(r,'validate','manager');self.assertEqual(code,200,r)
+        self.assertEqual(self.pb.request('POST','collections/core_activity_events/records',dict(body,body='Note après validation'),self.token)[0],200)
+        self.assertEqual(self.line(r)[0],403)
+
+    def test_shared_feed_files_follow_the_expense_source_scope(self):
+        r=self.report();boundary='expense-feed-file'
+        values=dict(source_module='expenses',source_entity='expenses_reports',source_record_id=r['id'],type='note',body='Document du fil',mentions='[]',metadata='{}')
+        parts=[f'--{boundary}\r\nContent-Disposition: form-data; name="{k}"\r\n\r\n{v}\r\n'.encode() for k,v in values.items()]
+        parts += [f'--{boundary}\r\nContent-Disposition: form-data; name="attachments"; filename="preuve.png"\r\nContent-Type: image/png\r\n\r\n'.encode()+PNG+b'\r\n',f'--{boundary}--\r\n'.encode()]
+        req=Request(self.pb.url+'/api/collections/core_activity_events/records',data=b''.join(parts),headers={'Authorization':self.token,'Content-Type':'multipart/form-data; boundary='+boundary},method='POST')
+        with urlopen(req) as res:event=json.loads(res.read())
+        def file_status(who):
+            ft=self.pb.request('POST','files/token',{},self.people[who]['token'])[1]['token']
+            try:
+                with urlopen(self.pb.url+'/api/files/'+event['collectionId']+'/'+event['id']+'/'+event['attachments'][0]+'?token='+ft) as res:return res.status
+            except HTTPError as error:return error.code
+        self.assertEqual(file_status('owner'),200);self.assertEqual(file_status('manager'),404);self.assertEqual(file_status('other'),404)
+        code,r=self.line(r);self.assertEqual(code,200,r);code,r=self.transition(r,'submit');self.assertEqual(code,200,r)
+        self.assertEqual(file_status('manager'),200);self.assertEqual(file_status('other'),404)
+        self.assertEqual(self.pb.request('GET','horizon/activity/events/'+event['id']+'/avatar',token=self.people['other']['token'])[0],403)
+
+class ExpensesMigrationTests(unittest.TestCase):
+    def test_upgrade_preserves_existing_data_and_is_repeatable(self):
+        pb=LocalPocketBase();self.addCleanup(pb.close)
+        previous=Path(pb.temp.name)/'previous_migrations';previous.mkdir()
+        for path in (ROOT/'pocketbase/pb_migrations').glob('*.js'):
+            if path.name<'1791840009':shutil.copy(path,previous)
+        original=pb.args[:];pb.args=[arg for arg in pb.args if not arg.startswith('--migrationsDir=')]+[f'--migrationsDir={previous}'];pb.start()
+        employee=pb.create('hr_employees',dict(first_name='Existant',last_name='À conserver',employment_type='employee',status='active'))
+        company=pb.create('contacts_companies',dict(name='Société historique',active=True))
+        admin_role=pb.create('core_roles',dict(name='expenses_upgrade_admin',label='Admin',active=True,permissions=['settings.users','contacts.read']))
+        admin=pb.create_user('expenses-upgrade-admin@local.invalid',admin_role['id'],'admin')
+        status,admin=pb.request('PATCH','collections/core_users/records/'+admin['id'],dict(employee=employee['id']),pb.admin_token);self.assertEqual(status,200)
+        reader=pb.user.copy()
+        pb.process.terminate();pb.process.wait(timeout=10)
+        for _ in range(2):
+            result=subprocess.run(original+['migrate','up'],env=pb.environment,capture_output=True,text=True);self.assertEqual(result.returncode,0,result.stderr+result.stdout)
+        pb.args=original;pb.launch_and_authenticate(original)
+        current=pb.request('GET','collections/core_users/records/'+admin['id'],token=pb.admin_token)[1]
+        for key in ['id','name','email','employee','role','active']:self.assertEqual(current[key],admin[key])
+        self.assertEqual(current['expenses_scope'],'all')
+        current_reader=pb.request('GET','collections/core_users/records/'+reader['id'],token=pb.admin_token)[1];self.assertEqual(current_reader['role'],reader['role']);self.assertEqual(current_reader['expenses_scope'],'none')
+        self.assertEqual(pb.request('GET','collections/hr_employees/records/'+employee['id'],token=pb.admin_token)[1]['last_name'],employee['last_name'])
+        self.assertEqual(pb.request('GET','collections/contacts_companies/records/'+company['id'],token=pb.admin_token)[1]['name'],company['name'])
+        self.assertEqual(pb.request('GET','collections/expenses_categories/records',token=pb.admin_token)[1]['totalItems'],8)
+        rights=pb.request('GET','collections/core_roles/records/'+admin_role['id'],token=pb.admin_token)[1]['permissions'];self.assertIn('contacts.read',rights);self.assertIn('expenses.validate',rights)
+
+class ExpensesActivityUpgradeTests(unittest.TestCase):
+    def test_activity_upgrade_preserves_notes_events_and_dates(self):
+        pb=LocalPocketBase();self.addCleanup(pb.close);previous=Path(pb.temp.name)/'old_expenses';previous.mkdir()
+        for path in (ROOT/'pocketbase/pb_migrations').glob('*.js'):
+            if path.name<'1791840010':shutil.copy(path,previous)
+        original=pb.args[:];pb.args=[arg for arg in pb.args if not arg.startswith('--migrationsDir=')]+[f'--migrationsDir={previous}'];pb.start()
+        role=pb.create('core_roles',dict(name='expense_activity_upgrade',label='Expense',active=True,permissions=['expenses.read','expenses.write']))
+        employee=pb.create('hr_employees',dict(first_name='Note',last_name='Ancienne',employment_type='employee',status='active'))
+        user=pb.create_user('expenses-activity-upgrade@local.invalid',role['id']);pb.request('PATCH','collections/core_users/records/'+user['id'],dict(employee=employee['id'],expenses_scope='self'),pb.admin_token)
+        token=pb.login('expenses-activity-upgrade@local.invalid')[1]['token']
+        code,r=pb.request('POST','horizon/expenses/reports',dict(month='2026-10',notes='À conserver',validator='',creation_key='legacy-note-upgrade'),token);self.assertEqual(code,200,r)
+        events=pb.request('GET','collections/core_activity_events/records?filter=source_record_id="'+r['id']+'"',token=pb.admin_token)[1]['items'];event=events[0]
+        code,event=pb.request('PATCH','collections/core_activity_events/records/'+event['id'],dict(metadata={'legacy':'preserved'}),pb.admin_token);self.assertEqual(code,200,event)
+        pb.process.terminate();pb.process.wait(timeout=10)
+        for _ in range(2):
+            result=subprocess.run(original+['migrate','up'],env=pb.environment,capture_output=True,text=True);self.assertEqual(result.returncode,0,result.stdout+result.stderr)
+        pb.args=original;pb.launch_and_authenticate(original)
+        current=pb.request('GET','collections/core_activity_events/records/'+event['id'],token=pb.admin_token)[1]
+        for key in ['id','body','created','source_record_id']:self.assertEqual(current[key],event[key])
+        self.assertEqual(current['metadata']['legacy'],'preserved');self.assertTrue(current['metadata']['author']['name'])
+        current_report=pb.request('GET','horizon/expenses/reports/'+r['id'],token=token)[1];self.assertEqual(current_report['updated'],r['updated']);self.assertEqual(current_report['month'],r['month']);self.assertEqual(current_report['notes'],r['notes'])
+
+if __name__=='__main__':unittest.main()

@@ -82,7 +82,7 @@ function ActivityComposer({ source, origin, onPublished, onCancelOrigin }: { sou
   const [assignee, setAssignee] = useState<ActivityUser | undefined>(user ? { id: user.id, name: user.name, initials: user.name.trim().split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase() } : undefined)
   const [due, setDue] = useState('')
   const [priority, setPriority] = useState<'low' | 'normal' | 'high'>('normal')
-  const users = useQuery({ queryKey: ['activity-users', source.entity, query], queryFn: () => activityService.users(query, source), enabled: Boolean(picker), retry: false })
+  const users = useQuery({ queryKey: ['activity-users', source.entity, source.id, query], queryFn: () => activityService.users(query, source), enabled: Boolean(picker), retry: false })
   const publication = useMutation({ mutationFn: () => {
     const input: Publication = { body, type: mode, mentions: mentions.map((item) => item.id), ...(origin ? { origin_event: origin.id } : {}), ...(mode === 'task' ? { task: { title, assigned_to: assignee?.id ?? '', due_date: due, priority } } : {}) }
     return activityService.publish(source, input, files)

@@ -1,5 +1,5 @@
 import { z } from 'zod'
-export const activitySourceSchema = z.object({ entity: z.enum(['contacts_companies', 'contacts_people', 'crm_opportunities', 'crm_tenders', 'sales_quotes', 'inventory_products', 'inventory_operations', 'inventory_internal_assets', 'purchasing_requests', 'purchasing_orders', 'billing_invoices', 'billing_supplier_invoices', 'billing_credit_notes', 'billing_supplier_credit_notes']), id: z.string().regex(/^[a-z0-9]{15}$/) })
+export const activitySourceSchema = z.object({ entity: z.enum(['expenses_reports', 'contacts_companies', 'contacts_people', 'crm_opportunities', 'crm_tenders', 'sales_quotes', 'inventory_products', 'inventory_operations', 'inventory_internal_assets', 'purchasing_requests', 'purchasing_orders', 'billing_invoices', 'billing_supplier_invoices', 'billing_credit_notes', 'billing_supplier_credit_notes']), id: z.string().regex(/^[a-z0-9]{15}$/) })
 export type ActivitySource = z.infer<typeof activitySourceSchema>
 export const userChoiceSchema = z.object({ id: z.string(), name: z.string(), initials: z.string() })
 export type ActivityUser = z.infer<typeof userChoiceSchema>

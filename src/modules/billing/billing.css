@@ -10,8 +10,6 @@
 .billing-lines td { vertical-align:middle; }
 .billing-allocations { display:grid; gap:6px; }
 .billing-allocation-row { display:grid; grid-template-columns:minmax(0,1fr) 75px 30px; gap:6px; align-items:center; }
-.billing-summary { margin-left:auto; max-width:340px; display:grid; gap:8px; padding-top:14px; }
-.billing-summary > div { display:flex; justify-content:space-between; gap:14px; }
 @media(max-width:900px) { .billing-dashboard-tables { grid-template-columns:minmax(0,1fr); } .billing-fields { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 @media(max-width:480px) { .billing-fields { grid-template-columns:minmax(0,1fr); } }
 

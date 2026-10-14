@@ -1,9 +1,10 @@
 // Read one authorized business source without expanding the polymorphic collection rule.
-const moduleFor = (entity) => entity.startsWith('billing_') ? 'billing' : entity.startsWith('purchasing_') ? 'purchasing' : entity.startsWith('inventory_') ? 'inventory' : entity.startsWith('sales_') ? 'sales' : entity.startsWith('crm_') ? 'crm' : 'contacts'
+const moduleFor = (entity) => entity === 'expenses_reports' ? 'expenses' : entity.startsWith('billing_') ? 'billing' : entity.startsWith('purchasing_') ? 'purchasing' : entity.startsWith('inventory_') ? 'inventory' : entity.startsWith('sales_') ? 'sales' : entity.startsWith('crm_') ? 'crm' : 'contacts'
 const readSource = (event, entity, id, expectedModule) => {
   const activity = require(`${__hooks}/lib/activity.js`), module = moduleFor(entity)
   if (expectedModule !== undefined && expectedModule !== module || !activity.allowed(event.app, event.auth, false, module)) throw new ForbiddenError('Accès au fil refusé.')
   const source = activity.source(event.app, entity, id)
+  activity.authorizeSource(event.app, event.auth, source)
   // Catalogue, Stock and Purchasing expose their private collections through
   // module services. Their activity policy is module.read + an existing source.
   const privateSources = ['inventory_products', 'inventory_operations', 'inventory_internal_assets', 'purchasing_requests', 'purchasing_orders', 'billing_invoices', 'billing_supplier_invoices', 'billing_credit_notes', 'billing_supplier_credit_notes']
