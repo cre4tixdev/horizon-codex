@@ -1,3 +1,4 @@
+import { useListTableSorting } from '../../../shared/search/useListTableSorting'
 import { HViewSwitch } from '../../../shared/ui/HViewSwitch'
 import { useCrmRealtime } from '../hooks/useCrmRealtime'
 import { GroupedResults } from '../../../shared/search/GroupedResults'
@@ -12,7 +13,7 @@ import { usePreferredView } from '../hooks/usePreferredView'
 import { useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import type { ColumnDef, SortingState } from '@tanstack/react-table'
+import type { ColumnDef } from '@tanstack/react-table'
 import { Plus, Columns3, List, Target, CalendarDays, Building2 } from 'lucide-react'
 import { HPageBreadcrumb } from '../../../shared/ui/HPageBreadcrumb'
 import { HListPagination } from '../../../shared/ui/HListPagination'
@@ -84,33 +85,33 @@ export function CrmPage() {
     moving.mutate({ id, stage, updated: original.updated })
   }
   function changeParam(key: string, value: string) { if (key === 'view' && (value === 'kanban' || value === 'list')) rememberView(value); setParams((current) => { const next = new URLSearchParams(current); if (value) next.set(key, value); else next.delete(key); if (key !== 'page') next.delete('page'); return next }) }
-  const sorting: SortingState = [{ id: sort.replace(/^-/, ''), desc: sort.startsWith('-') }]
+  const listSorting = useListTableSorting('-created', { opportunity_number: 'opportunity_number', type: 'type', title: 'title', company: 'company', stage: 'stage', market_types: 'market_types', estimated_value: 'estimated_value', probability: 'probability', expected_date: 'expected_date', owner: 'owner', reference: 'reference', tags: 'tags', publication_date: 'publication_date', visits: 'visits', preparation: 'preparation', submission_deadline: 'submission_deadline', documents: 'documents' })
   const columns: ColumnDef<Opportunity>[] = [
     { id: 'opportunity_number', header: 'Code', accessorKey: 'opportunity_number', size: 90 },
-    { id: 'type', header: 'Type', enableSorting: false, cell: ({ row }) => <HTag tone={row.original.type === 'tender' ? 'violet' : 'blue'}>{row.original.type === 'tender' ? 'AO' : 'Directe'}</HTag> },
+    { id: 'type', header: 'Type', cell: ({ row }) => <HTag tone={row.original.type === 'tender' ? 'violet' : 'blue'}>{row.original.type === 'tender' ? 'AO' : 'Directe'}</HTag> },
     { id: 'title', header: 'Opportunité', accessorKey: 'title', cell: ({ row }) => <strong className="crm-table-title">{row.original.title}</strong> },
-    { id: 'company', header: 'Société', enableSorting: false, cell: ({ row }) => <OpportunityCompany record={row.original} /> },
-    { id: 'stage', header: 'Étape', enableSorting: false, cell: ({ row }) => { const stage = stages.data?.find((item) => item.id === row.original.stage); return stage ? <HTag color={stage.color} tone={stage.tone}>{stage.label}</HTag> : '—' } },
-    { id: 'market_types', header: 'Types de marché', enableSorting: false, cell: ({ row }) => <div className="crm-market-tags">{row.original.market_types.map((id) => { const market = markets.data?.find((item) => item.id === id); return <HTag key={id} color={market?.color} tone={market?.tone || 'blue'}>{market?.label || 'Référence indisponible'}</HTag> })}</div> },
+    { id: 'company', header: 'Société', cell: ({ row }) => <OpportunityCompany record={row.original} /> },
+    { id: 'stage', header: 'Étape', cell: ({ row }) => { const stage = stages.data?.find((item) => item.id === row.original.stage); return stage ? <HTag color={stage.color} tone={stage.tone}>{stage.label}</HTag> : '—' } },
+    { id: 'market_types', header: 'Types de marché', cell: ({ row }) => <div className="crm-market-tags">{row.original.market_types.map((id) => { const market = markets.data?.find((item) => item.id === id); return <HTag key={id} color={market?.color} tone={market?.tone || 'blue'}>{market?.label || 'Référence indisponible'}</HTag> })}</div> },
     { id: 'estimated_value', header: 'Montant estimé', accessorKey: 'estimated_value', cell: ({ row }) => formatAmount(row.original.estimated_value, row.original.currency) },
-    { id: 'probability', header: 'Probabilité', enableSorting: false, cell: ({ row }) => `${row.original.probability} %` },
-    { id: 'expected_date', header: 'Échéance', cell: ({ row }) => row.original.expected_date ? new Date(row.original.expected_date.replace(' ', 'T')).toLocaleDateString('fr-FR') : '—' },
-    { id: 'owner', header: 'Responsable', enableSorting: false, cell: ({ row }) => <div className="crm-responsible-cell"><OpportunityResponsible record={row.original} /><span>{row.original.expand?.owner?.name || '—'}</span></div> },
+    { id: 'probability', header: 'Probabilité', cell: ({ row }) => `${row.original.probability} %` },
+    { id: 'expected_date', header: 'Échéance', accessorKey: 'expected_date', cell: ({ row }) => row.original.expected_date ? new Date(row.original.expected_date.replace(' ', 'T')).toLocaleDateString('fr-FR') : '—' },
+    { id: 'owner', header: 'Responsable', cell: ({ row }) => <div className="crm-responsible-cell"><OpportunityResponsible record={row.original} /><span>{row.original.expand?.owner?.name || '—'}</span></div> },
   ]
   if (ao) columns.splice(0, columns.length,
     { id: 'reference', header: 'Référence AO', accessorFn: (item) => item.tender?.reference || '—', size: 110 },
-    { id: 'company', header: 'Société', enableSorting: false, cell: ({ row }) => <OpportunityCompany record={row.original} /> },
+    { id: 'company', header: 'Société', cell: ({ row }) => <OpportunityCompany record={row.original} /> },
     { id: 'title', header: 'Appel d’offres', accessorKey: 'title', cell: ({ row }) => <strong className="crm-table-title">{row.original.title}</strong> },
-    { id: 'tags', header: 'Tags', enableSorting: false, cell: ({ row }) => <div className="crm-market-tags">{[...row.original.market_types, ...(row.original.tender?.tags || [])].map((id) => { const tag = [...(markets.data || []), ...(aoTags.data || [])].find((item) => item.id === id); return <HTag key={id} color={tag?.color} tone={tag?.tone || 'blue'}>{tag?.label || 'Référence indisponible'}</HTag> })}</div> },
+    { id: 'tags', header: 'Tags', cell: ({ row }) => <div className="crm-market-tags">{[...row.original.market_types, ...(row.original.tender?.tags || [])].map((id) => { const tag = [...(markets.data || []), ...(aoTags.data || [])].find((item) => item.id === id); return <HTag key={id} color={tag?.color} tone={tag?.tone || 'blue'}>{tag?.label || 'Référence indisponible'}</HTag> })}</div> },
     { id: 'publication_date', header: 'Publication', accessorFn: (item) => item.tender?.publication_date, cell: ({ row }) => row.original.tender?.publication_date ? new Date(row.original.tender.publication_date).toLocaleDateString('fr-FR', { timeZone: 'UTC' }) : '—' },
-    { id: 'visits', header: 'Visites', enableSorting: false, cell: ({ row }) => <span title={row.original.tender?.visit_required ? 'Visite obligatoire' : 'Visite facultative'}>{row.original.visit_count} date(s){row.original.tender?.visit_required ? ' · obligatoire' : ''}</span> },
-    { id: 'preparation', header: 'Préparation', enableSorting: false, cell: ({ row }) => { const stage = aoStages.data?.find((item) => item.id === row.original.tender?.status); return canWrite && !archived && row.original.tender ? <div className="tender-stage-cell h-tone" data-tone={stage?.tone || 'blue'} style={stage?.color ? { '--tag-color': stage.color } as React.CSSProperties : undefined}><HCombobox label={`Préparation de ${row.original.title}`} value={stage?.id || ''} showCodes={false} required clearable={false} disabled={moving.isPending} options={(aoStages.data || []).filter((item) => item.active || item.id === stage?.id).map((item) => ({ value: item.id, label: item.label, disabled: !item.active }))} onChange={(value) => move(row.original.id, value)} /></div> : stage ? <HTag color={stage.color} tone={stage.tone || 'blue'}>{stage.label}</HTag> : '—' } },
+    { id: 'visits', header: 'Visites', cell: ({ row }) => <span title={row.original.tender?.visit_required ? 'Visite obligatoire' : 'Visite facultative'}>{row.original.visit_count} date(s){row.original.tender?.visit_required ? ' · obligatoire' : ''}</span> },
+    { id: 'preparation', header: 'Préparation', cell: ({ row }) => { const stage = aoStages.data?.find((item) => item.id === row.original.tender?.status); return canWrite && !archived && row.original.tender ? <div className="tender-stage-cell h-tone" data-tone={stage?.tone || 'blue'} style={stage?.color ? { '--tag-color': stage.color } as React.CSSProperties : undefined}><HCombobox label={`Préparation de ${row.original.title}`} value={stage?.id || ''} showCodes={false} required clearable={false} disabled={moving.isPending} options={(aoStages.data || []).filter((item) => item.active || item.id === stage?.id).map((item) => ({ value: item.id, label: item.label, disabled: !item.active }))} onChange={(value) => move(row.original.id, value)} /></div> : stage ? <HTag color={stage.color} tone={stage.tone || 'blue'}>{stage.label}</HTag> : '—' } },
     { id: 'submission_deadline', header: 'Remise', accessorFn: (item) => item.tender?.submission_deadline, cell: ({ row }) => row.original.tender?.submission_deadline ? displayDate(row.original.tender.submission_deadline, row.original.tender.timezone) : '—' },
     { id: 'estimated_value', header: 'Montant estimé', accessorKey: 'estimated_value', cell: ({ row }) => formatAmount(row.original.estimated_value, row.original.currency) },
-    { id: 'documents', header: 'Documents', enableSorting: false, cell: ({ row }) => row.original.document_count || '—' },
-    { id: 'owner', header: 'Responsable', enableSorting: false, cell: ({ row }) => <div className="crm-responsible-cell"><OpportunityResponsible record={row.original} /><span>{row.original.expand?.owner?.name || '—'}</span></div> },
+    { id: 'documents', header: 'Documents', cell: ({ row }) => row.original.document_count || '—' },
+    { id: 'owner', header: 'Responsable', cell: ({ row }) => <div className="crm-responsible-cell"><OpportunityResponsible record={row.original} /><span>{row.original.expand?.owner?.name || '—'}</span></div> },
   )
-  const renderTable = (items: Opportunity[]) => <HDataTable columnBorders columnAlignments={{ type: 'center', stage: 'center', estimated_value: 'right', probability: 'right', expected_date: 'center', publication_date: 'center', visits: 'center', preparation: 'center', submission_deadline: 'center', documents: 'center' }} data={items} columns={columns} sorting={sorting} onSortingChange={(update) => { const next = typeof update === 'function' ? update(sorting) : update; const selected = next[0]; changeParam('sort', selected ? `${selected.desc ? '-' : ''}${selected.id}` : '-created') }} getRowLink={(record) => ({ href: crmRecordHref(record), label: `Ouvrir l’opportunité ${record.title}`, state: { crmListQuery: listQuery } })} />
+  const renderTable = (items: Opportunity[]) => <HDataTable columnBorders columnAlignments={{ type: 'center', stage: 'center', estimated_value: 'right', probability: 'right', expected_date: 'center', publication_date: 'center', visits: 'center', preparation: 'center', submission_deadline: 'center', documents: 'center' }} data={items} columns={columns} listSorting={listSorting} getRowLink={(record) => ({ href: crmRecordHref(record), label: `Ouvrir l’opportunité ${record.title}`, state: { crmListQuery: listQuery } })} />
   if (!canRead) return <HEmptyState icon={Target} title="CRM" description="Vous ne disposez pas de la permission de consulter les opportunités." />
   return <div className="crm-directory"><HPageBreadcrumb items={[{ label: 'Accueil', href: '/' }, ...(ao ? [{ label: 'CRM', href: '/crm' }, { label: 'Appels d’offres' }] : [{ label: 'CRM' }])]} />
     <HListPagination page={page} totalPages={records.data?.totalPages} label="Pagination des opportunités" busy={records.isFetching || moving.isPending || dragBusy} onPageChange={(nextPage) => changeParam('page', String(nextPage))} />

@@ -1,3 +1,4 @@
+import { withColumnSortOptions } from '../../shared/search/filters'
 import type { SearchFilter } from '../../shared/search/filters'
 import { operationKinds, operationLabels, operationStates, type Operation } from './schemas/operations'
 export const operationArchiveFilter: SearchFilter = { key: 'state', label: 'Archives', defaultValue: 'active', appearance: 'compact', options: [{ value: 'active', label: 'Non archivés' }, { value: 'archived', label: 'Archivés' }] }
@@ -15,4 +16,4 @@ export function operationGroup(item: Pick<Operation, 'kind' | 'status' | 'wareho
   if (group === 'opportunity') { const items = [...new Map(item.opportunities.map((item) => [item.id, item])).values()].sort((a, b) => a.id.localeCompare(b.id)); return { key: items.map((item) => item.id).join(',') || item.opportunity || 'none', label: items.map((item) => item.name).join(' / ') || item.opportunity_name || 'Sans opportunité' } }
   return { key: item.warehouse, label: item.warehouse_name }
 }
-export const operationSortFilter: SearchFilter = { key: 'sort', label: 'Trier par', defaultValue: '-created', options: [{ value: '-created', label: 'Plus récentes' }, { value: 'number', label: 'Numéro' }, { value: 'planned_date', label: 'Date planifiée' }] }
+export const operationSortFilter: SearchFilter = withColumnSortOptions({ key: 'sort', label: 'Trier par', defaultValue: '-created', options: [{ value: '-created', label: 'Plus récentes' }, { value: 'number', label: 'Numéro' }, { value: 'planned_date', label: 'Date planifiée' }] }, { number: 'Numéro', title: 'Titre', planned_date: 'Date planifiée', document_date: 'Date' , "from_name": "De", "to_name": "Vers", "source_document": "Document d’origine", "operation": "Opération", "warehouse_name": "Entrepôt", "affairs": "Affaires", "readiness": "Prêt à livrer", "status": "État"})

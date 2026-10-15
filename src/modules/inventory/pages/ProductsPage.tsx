@@ -1,3 +1,4 @@
+import { useListTableSorting } from '../../../shared/search/useListTableSorting'
 import { useSearchParams, Link } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
 import { Package, Plus, LayoutGrid, List, Monitor, Cable, Wrench } from 'lucide-react'
@@ -25,6 +26,7 @@ const categoryPresentation: Record<string, { icon: typeof Package; tone: 'blue' 
   services: { icon: Wrench, tone: 'violet' },
 }
 export function ProductsPage() {
+  const listSorting = useListTableSorting('name', {"Produit": "name", "sku": "sku", "manufacturer": "manufacturer", "category_label": "category_label", "Coût / u.": "unit_cost", "PUV HT": "unit_price", "stock": "physical_quantity", "available": "available_quantity"})
   const [params, setParams] = useSearchParams(), access = useCatalogAccess()
   const view = params.get('view') === 'cards' ? 'cards' : 'list'
   const page = Math.max(1, Number(params.get('page')) || 1)
@@ -38,7 +40,7 @@ export function ProductsPage() {
     { id: 'available', header: 'Qté disponible', cell: ({ row }) => <span title={row.original.stock_policy === 'none' ? 'Sans gestion de stock' : 'Stock disponible après réservations, tous les emplacements actifs'}>{row.original.available_quantity === null ? '—' : `${quantities.format(row.original.available_quantity)} ${row.original.unit_code}`}</span> },
   ]
   if (!access.canRead) return <HEmptyState icon={Package} title="Catalogue" description="Vous ne disposez pas de la permission de consulter les produits." />
-  const table = (items: Product[]) => <HDataTable columnAlignments={{ stock: 'right', available: 'right' }} data={items} columns={columns} getRowLink={(item) => ({ href: `/inventory/products/${item.id}`, label: `Ouvrir ${item.name}`, state: { productListQuery: params.toString() } })} />
+  const table = (items: Product[]) => <HDataTable listSorting={listSorting} columnAlignments={{ stock: 'right', available: 'right' }} data={items} columns={columns} getRowLink={(item) => ({ href: `/inventory/products/${item.id}`, label: `Ouvrir ${item.name}`, state: { productListQuery: params.toString() } })} />
   const results = (items: Product[]) => view === 'cards' ? <ProductCards items={items} listQuery={params.toString()} /> : table(items)
   const groups = query.data && ['category', 'manufacturer'].includes(params.get('group') || '') ? groupResults(query.data.items, (item) => params.get('group') === 'manufacturer' ? { key: item.manufacturer || 'none', label: item.manufacturer || 'Sans marque' } : { key: item.category, label: item.category_label }) : undefined
   return <div className="contact-directory"><HPageBreadcrumb items={[{ label: 'Accueil', href: '/' }, { label: 'Catalogue' }]} /><HPageHeader title="Produits" description="Catalogue, prix de vente et fournisseurs." actions={access.canWrite && <HButton asChild variant="primary"><Link to="/inventory/products/new" state={{ productListQuery: params.toString() }}><Plus size={14} />Nouveau produit</Link></HButton>} />

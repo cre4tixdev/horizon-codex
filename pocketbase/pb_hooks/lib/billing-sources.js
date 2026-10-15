@@ -46,6 +46,7 @@ module.exports = {
       let quantity = Math.max(0, line.quantity - (covered.get(line.id) || 0)); if (operations.length) quantity = Math.min(quantity, selected.get(line.id) || 0)
       if (body.mode === 'deposit') quantity = line.quantity * b.number(body.deposit_percent, 0.0001, 100) / 100
       if (quantity <= 0.000001) return []
+      if (type.direction === 'customer' && body.mode !== 'deposit') line = { ...line, unit_price: require(`${__hooks}/lib/billing-order-balance.js`).price(app, item, line) }
       const tax = codes.find((code) => Math.abs(code.rate - line.tax_rate) < 0.000001); if (!tax) throw new BadRequestError('Configurez un code TVA correspondant à la source.')
       if (operations.length) {
         let remaining = quantity

@@ -37,7 +37,7 @@ module.exports = {
     if (financial && rights.includes('sales.read')) {
       const orders = records(event.app, 'sales_orders', 'status != "draft" && status != "cancelled" && order_date >= {:wideFrom} && order_date < {:wideTo}' + (own ? ' && opportunity.owner = {:owner}' : ''), params).filter((record) => inPeriod(record.getString('order_date')))
       const rows = orders.map((record) => {
-        const snapshot = JSON.parse(record.getString('quote_snapshot') || '{}'), subtotal = record.getFloat('subtotal')
+        const snapshot = record.getString('current_revision') ? JSON.parse(event.app.findRecordById('sales_order_revisions', record.getString('current_revision')).getString('after_snapshot')).header : JSON.parse(record.getString('quote_snapshot') || '{}'), subtotal = record.getFloat('subtotal')
         let cost = null
         if (typeof snapshot.cost_total === 'number' && Math.round(snapshot.subtotal * 100) === Math.round(subtotal * 100)) cost = snapshot.cost_total
         else {

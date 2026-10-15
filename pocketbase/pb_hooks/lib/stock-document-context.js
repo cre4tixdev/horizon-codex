@@ -1,7 +1,7 @@
 module.exports = (app, user, id) => {
   const c = require(`${__hooks}/lib/purchasing-common.js`); require(`${__hooks}/lib/stock.js`).guard(app, user)
   const record = c.get(app, 'inventory_operations', id), rights = c.policy.permissions(app, user), items = JSON.parse(record.getString('lines') || '[]'), fields = {}, labels = { IN: 'BON DE RÉCEPTION', OUT: record.getBool('internal_use') ? 'AFFECTATION INTERNE' : record.getBool('scrap') ? 'MISE AU REBUT' : 'BON DE LIVRAISON', PREP: 'PRÉPARATION CHANTIER', RET: 'BON DE RETOUR', INT: 'TRANSFERT INTERNE', INV: 'INVENTAIRE' }
-  for (const key of ['number', 'title', 'document_date', 'planned_date', 'destination']) fields[`stock.${key}`] = record.getString(key)
+  for (const key of ['number', 'title', 'document_date', 'planned_date', 'destination']) fields[`stock.${key}`] = key === 'number' ? require(`${__hooks}/lib/stock-operation-number.js`)(app, record) : record.getString(key)
   fields['stock.label'] = labels[record.getString('kind')]; fields['stock.warehouse'] = c.get(app, 'inventory_warehouses', record.getString('warehouse')).getString('name')
   fields['stock.state'] = record.getString('status') === 'done' ? 'Réalisé' : record.getString('status') === 'transit' ? 'En transit' : 'Brouillon'; fields['quote.currency'] = 'EUR'
   if (rights.includes('crm.read') && record.getString('opportunity')) { const opportunity = c.get(app, 'crm_opportunities', record.getString('opportunity')); fields['opportunity.number'] = opportunity.getString('opportunity_number'); fields['opportunity.title'] = opportunity.getString('title') }

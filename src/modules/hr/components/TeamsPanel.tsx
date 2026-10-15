@@ -1,3 +1,4 @@
+import { useListTableSorting } from '../../../shared/search/useListTableSorting'
 import type { ColumnDef } from '@tanstack/react-table'
 import { HDataTable } from '../../../shared/ui/HDataTable'
 import { useId, useState } from 'react'
@@ -23,18 +24,19 @@ import { hrService } from '../services/HrService'
 import { EmployeeAvatar } from './EmployeeAvatar'
 
 export function TeamsPanel({ teams, employees, onEdit }: { teams: Team[]; employees: Employee[]; onEdit: (team: Team) => void }) {
+  const listSorting = useListTableSorting('name:asc', {"Équipe": "name", "Managers": "managers", "Membres visibles": "members", "État": "status"}, 'colon')
   const [params] = useSearchParams()
   const state = filterValue(params, teamStateFilter)
   const grouping = filterValue(params, teamGroupingFilter)
   const search = (params.get('q') || '').toLocaleLowerCase('fr')
-  const rows = sortResults(teams.filter((team) => (state === 'all' || team.active === (state === 'active')) && team.name.toLocaleLowerCase('fr').includes(search)), filterValue(params, teamSortFilter), (team) => team.name)
+  const rows = sortResults(teams.filter((team) => (state === 'all' || team.active === (state === 'active')) && team.name.toLocaleLowerCase('fr').includes(search)), filterValue(params, teamSortFilter), (team, field) => field === 'managers' ? team.managers.map((id) => { const employee = employees.find((item) => item.id === id); return employee ? employeeName(employee) : 'Hors périmètre' }).sort().join(' · ') : field === 'members' ? String(employees.filter((employee) => employee.team === team.id).length) : field === 'status' ? team.active ? 'Active' : 'Archivée' : team.name)
   const columns: ColumnDef<Team>[] = [
     { header: 'Équipe', cell: ({ row }) => <strong>{row.original.name}</strong> },
     { header: 'Managers', cell: ({ row: { original: team } }) => <div className="hr-team-managers">{team.managers.map((id) => { const employee = employees.find((item) => item.id === id); return employee ? <span className="access-person" key={id}><EmployeeAvatar employee={employee} />{employeeName(employee)}</span> : <span className="contact-muted" key={id}>Hors périmètre</span> })}{team.managers.length === 0 && <span className="contact-muted">À désigner</span>}</div> },
     { header: 'Membres visibles', accessorFn: (team) => employees.filter((employee) => employee.team === team.id).length },
     { header: 'État', cell: ({ row: { original: team } }) => <HBadge tone={team.active ? 'success' : 'neutral'}>{team.active ? 'Active' : 'Archivée'}</HBadge> },
   ]
-  const render = (items: Team[]) => <HDataTable data={items} columns={columns} getRowAction={(team) => ({ label: `Ouvrir l’équipe ${team.name}`, onClick: () => onEdit(team) })} />
+  const render = (items: Team[]) => <HDataTable listSorting={listSorting} data={items} columns={columns} getRowAction={(team) => ({ label: `Ouvrir l’équipe ${team.name}`, onClick: () => onEdit(team) })} />
 
   return <><div className="hr-view-toolbar"><span className="contact-muted">{rows.length} équipe{rows.length === 1 ? '' : 's'}</span></div>{grouping === 'none' ? render(rows) : <GroupedResults groups={groupResults(rows, (team) => ({ key: team.active ? 'active' : 'archived', label: team.active ? 'Actives' : 'Archivées' }))} icon={Building2} noun="équipe(s)" render={render} />}{rows.length === 0 && <p className="contact-muted">Aucune équipe correspondant aux filtres.</p>}</>
 }

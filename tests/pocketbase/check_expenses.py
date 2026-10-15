@@ -47,7 +47,7 @@ class ExpensesTests(unittest.TestCase):
         code,r=self.line(r,files=False);self.assertEqual(code,200,r)
         self.assertEqual(self.transition(r,'submit')[0],400)
         # Updating a saved line with its protected receipt.
-        line=r['lines'][0];self.input.update(description='Carburant véhicule',category=next(c['id'] for c in self.categories if c['mode']=='fuel'),vehicle='AB-123-CD')
+        line=r['lines'][0];vehicle=self.pb.create('expenses_vehicles', {'brand':'Renault','model':'Clio','registration':'AB123CD','employee':self.people['owner']['employee']['id'],'active':True});self.input.update(vehicle_record=vehicle['id'],description='Carburant véhicule',category=next(c['id'] for c in self.categories if c['mode']=='fuel'),vehicle='AB-123-CD')
         code,r=self.line(r);self.assertEqual(code,200,r)
         # Remove the first line without a receipt.
         code,r=self.call('POST','reports/'+r['id']+'/remove',dict(updated=r['updated'],line_id=line['id']));self.assertEqual(code,200,r)
@@ -125,6 +125,68 @@ class ExpensesTests(unittest.TestCase):
         self.assertEqual(self.call('GET','reports?status=deleted')[0],400)
         self.assertEqual(self.call('GET','reports?sort=unsafe')[0],400)
 
+    def test_vehicle_settings_assignment_uniqueness_and_history(self):
+        role = self.pb.create('core_roles', {'name':'vehicle_admin','label':'Véhicules','active':True,'permissions':['settings.references']})
+        self.pb.create_user('vehicle-admin@local.invalid', role['id'])
+        admin = self.pb.login('vehicle-admin@local.invalid')[1]['token']
+        data = dict(brand='Renault', model='Clio', registration='ab-123 cd', employee=self.people['owner']['employee']['id'], active=True)
+        code, vehicle = self.call('POST','vehicles',data,admin); self.assertEqual(code,200,vehicle)
+        self.assertEqual(vehicle['registration'],'AB123CD')
+        self.assertEqual(self.call('POST','vehicles',dict(data,registration='AB123CD'),admin)[0],400)
+        self.assertEqual(self.call('GET','vehicles')[0],403)
+        self.assertEqual(self.call('POST','vehicles',data)[0],403)
+        self.assertEqual(self.pb.request('GET','collections/expenses_vehicles/records',token=self.token)[0],403)
+        self.assertEqual(self.pb.request('POST','collections/expenses_vehicles/records',data,self.token)[0],403)
+        code, listing = self.call('GET','vehicles',token=admin); self.assertEqual(code,200,listing)
+        self.assertEqual(listing['items'][0]['employee_name'],'owner Fixture')
+        self.assertEqual([v['id'] for v in self.call('GET','choices')[1]['vehicles']],[vehicle['id']])
+        self.assertEqual(self.call('GET','choices',token=self.people['other']['token'])[1]['vehicles'],[])
+        fuel = next(c['id'] for c in self.categories if c['mode']=='fuel')
+        r=self.report();self.assertEqual(self.line(r,category=fuel,vehicle='Texte libre')[0],400)
+        foreign=self.pb.create('expenses_vehicles',dict(data,registration='EF456GH',employee=self.people['other']['employee']['id']))
+        self.assertEqual(self.line(r,category=fuel,vehicle_record=foreign['id'])[0],403)
+        code,r=self.line(r,category=fuel,vehicle_record=vehicle['id'],vehicle='Libellé falsifié');self.assertEqual(code,200,r)
+        label=r['lines'][0]['vehicle'];self.assertEqual(label,'Renault Clio · AB123CD')
+        # Reassignment must not invalidate or rewrite a vehicle already recorded for this expense.
+        code,changed=self.call('POST','vehicles',dict(data,id=vehicle['id'],updated=vehicle['updated'],model='Captur',employee=self.people['other']['employee']['id'],active=False),admin);self.assertEqual(code,200,changed)
+        self.assertEqual(self.call('POST','vehicles',dict(data,id=vehicle['id'],updated=vehicle['updated']),admin)[0],409)
+        self.assertEqual(self.call('GET','choices')[1]['vehicles'],[])
+        self.assertEqual(self.line(r,category=fuel,vehicle_record=vehicle['id'])[0],403)
+        code,r=self.transition(r,'submit');self.assertEqual(code,200,r)
+        code,r=self.transition(r,'validate','manager');self.assertEqual(code,200,r)
+        self.assertEqual(r['lines'][0]['vehicle'],label);self.assertEqual(r['lines'][0]['snapshot']['vehicle'],label)
+        self.assertEqual(self.pb.request('DELETE','collections/expenses_vehicles/records/'+vehicle['id'],token=self.pb.admin_token)[0],400)
+
+    def test_opportunity_number_is_projected_and_frozen_at_validation(self):
+        owner = self.people['owner']['user']
+        rights = ['expenses.read', 'expenses.write', 'expenses.submit', 'contacts.read', 'crm.read', 'crm.write']
+        code, _ = self.pb.request('PATCH', 'collections/core_roles/records/'+owner['role'], {'permissions':rights}, self.pb.admin_token)
+        self.assertEqual(code, 200)
+        company = self.pb.create('contacts_companies', {'name':'Client frais affaire', 'active':True})
+        stage = self.pb.request('GET', 'collections/crm_stages/records', token=self.token)[1]['items'][0]
+        code, opportunity = self.pb.request('POST', 'horizon/crm/save', {'creation_key':'expenses-opportunity-number', 'input':{'title':'Affaire déplacement', 'company':company['id'], 'contact':'', 'owner':owner['id'], 'stage':stage['id'], 'type':'direct', 'estimated_value':1000, 'estimated_cost':0, 'currency':'EUR', 'probability':0, 'expected_date':'', 'description':'', 'status':'open', 'market_types':[]}}, self.token)
+        self.assertEqual(code, 200, opportunity)
+        choices = self.call('GET','choices')[1]
+        option = next(item for item in choices['opportunities'] if item['id']==opportunity['id'])
+        self.assertEqual(option['number'], opportunity['opportunity_number'])
+        r = self.report()
+        code, r = self.line(r, internal=False, opportunity=opportunity['id'])
+        self.assertEqual(code, 200, r)
+        self.assertEqual(r['lines'][0]['opportunity_number'], opportunity['opportunity_number'])
+        self.assertEqual(r['lines'][0]['analytic_account'], opportunity['analytic_account'])
+        code, r = self.transition(r, 'submit'); self.assertEqual(code, 200, r)
+        code, r = self.transition(r, 'validate', 'manager'); self.assertEqual(code, 200, r)
+        snapshot = r['lines'][0]['snapshot']
+        self.assertEqual(snapshot['opportunity_number'], opportunity['opportunity_number'])
+        # Existing validated JSON, rather than the current CRM projection, is authoritative.
+        code, _ = self.pb.request('PATCH', 'collections/crm_opportunities/records/'+opportunity['id'], {'opportunity_number':'99999', 'title':'Affaire renommée'}, self.pb.admin_token)
+        self.assertEqual(code, 200)
+        code, current = self.call('GET','reports/'+r['id'])
+        self.assertEqual(code, 200, current)
+        self.assertEqual(current['lines'][0]['opportunity_number'], opportunity['opportunity_number'])
+        self.assertEqual(current['lines'][0]['opportunity_name'], opportunity['title'])
+        self.assertEqual(current['lines'][0]['snapshot'], snapshot)
+
     def test_changing_month_preserves_dates_receipts_and_rejects_collisions(self):
         r=self.report();code,r=self.line(r);self.assertEqual(code,200,r)
         receipt=r['lines'][0]['receipt']; date=r['lines'][0]['date']
@@ -196,6 +258,27 @@ class ExpensesMigrationTests(unittest.TestCase):
         self.assertEqual(pb.request('GET','collections/contacts_companies/records/'+company['id'],token=pb.admin_token)[1]['name'],company['name'])
         self.assertEqual(pb.request('GET','collections/expenses_categories/records',token=pb.admin_token)[1]['totalItems'],8)
         rights=pb.request('GET','collections/core_roles/records/'+admin_role['id'],token=pb.admin_token)[1]['permissions'];self.assertIn('contacts.read',rights);self.assertIn('expenses.validate',rights)
+
+class ExpenseVehiclesUpgradeTests(unittest.TestCase):
+    def test_upgrade_preserves_free_text_and_snapshots_without_guessing_assignments(self):
+        pb=LocalPocketBase();self.addCleanup(pb.close)
+        previous=Path(pb.temp.name)/'previous_migrations';previous.mkdir()
+        for path in (ROOT/'pocketbase/pb_migrations').glob('*.js'):
+            if path.name<'1791840011':shutil.copy(path,previous)
+        original=pb.args[:];pb.args=[arg for arg in pb.args if not arg.startswith('--migrationsDir=')]+[f'--migrationsDir={previous}'];pb.start()
+        employee=pb.create('hr_employees',dict(first_name='Conducteur',last_name='Historique',employment_type='employee',status='active'))
+        report=pb.create('expenses_reports',dict(user=pb.user['id'],employee=employee['id'],month='2026-10',title='Historique',status='validated',currency='EUR',total=10,tax=0,reimbursable_total=10))
+        fuel=next(c for c in pb.request('GET','collections/expenses_categories/records',token=pb.admin_token)[1]['items'] if c['mode']=='fuel')
+        line=pb.create('expenses_lines',dict(report=report['id'],position=1,date='2026-10-01',category=fuel['id'],description='Carburant historique',vehicle='AB-123-CD ancien véhicule',payment_method='personal',amount=10,currency='EUR',snapshot={'vehicle':'AB-123-CD ancien véhicule','historical':True}))
+        pb.process.terminate();pb.process.wait(timeout=10)
+        for _ in range(2):
+            result=subprocess.run(original+['migrate','up'],env=pb.environment,capture_output=True,text=True);self.assertEqual(result.returncode,0,result.stdout+result.stderr)
+        pb.args=original;pb.launch_and_authenticate(original)
+        current=pb.request('GET','collections/expenses_lines/records/'+line['id'],token=pb.admin_token)[1]
+        for key in ['id','report','position','date','description','vehicle','snapshot','updated']:self.assertEqual(current[key],line[key])
+        self.assertEqual(current['vehicle_record'],'')
+        self.assertEqual(pb.request('GET','collections/expenses_vehicles/records',token=pb.admin_token)[1]['totalItems'],0)
+        self.assertEqual(pb.request('GET','collections/expenses_reports/records/'+report['id'],token=pb.admin_token)[1]['updated'],report['updated'])
 
 class ExpensesActivityUpgradeTests(unittest.TestCase):
     def test_activity_upgrade_preserves_notes_events_and_dates(self):

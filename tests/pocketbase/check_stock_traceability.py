@@ -41,6 +41,25 @@ class TraceabilityTests(check_stock_operations.StockOperationsTests):
         status, _ = self.pb.request('POST', 'horizon/inventory/operations/transition', dict(id=draft['id'], updated=draft['updated'], action='validate', quantities=quantities), self.token)
         self.assertIn(status, [400, 409]); self.assertEqual(self.balance()['physical'], 4)
 
+    def test_returned_serial_can_be_redelivered_on_same_order(self):
+        self.tracked()
+        receipt = self.receive([dict(number='SER-REDELIVERY', quantity=1)], 1)
+        trace = receipt['lines'][0]['traces'][0]
+        quote = self.customer_order(1)
+        def deliver(record):
+            return self.pb.request('POST', 'horizon/inventory/operations/transition', dict(id=record['id'], updated=record['updated'], action='validate', quantities=[dict(id=record['lines'][0]['id'], quantity=1, traces=[trace])]), self.token)
+        status, draft = self.prepare_delivery(quote); self.assertEqual(status, 200, draft)
+        status, done = deliver(draft); self.assertEqual(status, 200, done)
+        body = self.build_input('RET', 1); body['origin'] = done['id']; body['lines'][0].update(origin_line=done['lines'][0]['id'], traces=[trace])
+        status, returned = self.save(body); self.assertEqual(status, 200, returned)
+        self.assertEqual(self.action(returned)[0], 200)
+        status, replacement = self.prepare_delivery(quote); self.assertEqual(status, 200, replacement)
+        status, replacement = deliver(replacement); self.assertEqual(status, 200, replacement)
+        self.assertEqual(replacement['lines'][0]['traces'][0]['serial'], trace['serial'])
+        self.assertEqual(self.balance()['physical'], 0)
+        self.assertEqual(self.prepare_delivery(quote)[0], 409)
+        self.assertEqual(self.pb.request('GET', 'collections/inventory_serials/records', token=self.pb.admin_token)[1]['totalItems'], 1)
+
     def test_serial_receipt_delivery_duplicate_and_return(self):
         self.tracked()
         received = self.receive([dict(number='SER-001', quantity=1), dict(number='SER-002', quantity=1)], 2)

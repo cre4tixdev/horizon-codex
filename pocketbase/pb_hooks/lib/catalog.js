@@ -93,15 +93,18 @@ module.exports = {
     if (query.state && !['active', 'archived'].includes(query.state)) throw new BadRequestError('Archives invalides.')
     const selectedCategories = require(`${__hooks}/lib/stock-list-filters.js`).values(query.category, (id) => /^[a-z0-9]{15}$/.test(id), 'Familles')
     if (selectedCategories.length) filters.push('(' + selectedCategories.map((id, index) => { params['category' + index] = id; return `category = {:category${index}}` }).join(' || ') + ')')
-    const filter = filters.join(' && '), sort = ['name', '-name', 'sku', '-created'].includes(query.sort) ? query.sort : 'name'
-    const matching = event.app.findRecordsByFilter('inventory_products', filter, sort + ',id', 10001, 0, params)
+    const filter = filters.join(' && '), sort = require(`${__hooks}/lib/list-sorting.js`).sql(query.sort, ['name', 'sku', 'manufacturer', 'category_label', 'unit_cost', 'unit_price', 'physical_quantity', 'available_quantity', 'created'], 'name')
+    const matching = event.app.findRecordsByFilter('inventory_products', filter, (['category_label', 'unit_cost', 'unit_price', 'physical_quantity', 'available_quantity'].includes(sort.replace(/^-/, '')) ? 'name' : sort) + ',id', 10001, 0, params)
     if (matching.length > 10000) throw new BadRequestError('Affinez la recherche du catalogue.')
     const totalItems = matching.length
-    const records = matching.slice((page - 1) * 25, page * 25)
+    const projectedSort = ['category_label', 'unit_cost', 'unit_price', 'physical_quantity', 'available_quantity'].includes(sort.replace(/^-/, ''))
+    const records = projectedSort ? matching : matching.slice((page - 1) * 25, page * 25)
     const stock = require(`${__hooks}/lib/stock.js`).balancesByProduct(event.app, event.auth, records.filter((record) => record.getString('stock_policy') !== 'none').map((record) => record.id))
+    const items = records.map((record) => ({ ...dto(event.app, record, false), physical_quantity: record.getString('stock_policy') === 'none' ? null : stock.get(record.id)?.physical || 0, available_quantity: record.getString('stock_policy') === 'none' ? null : stock.get(record.id)?.available || 0 }))
+    if (projectedSort) require(`${__hooks}/lib/list-sorting.js`).rows(items, sort, ['category_label', 'unit_cost', 'unit_price', 'physical_quantity', 'available_quantity'], 'physical_quantity', (item, field) => field === 'unit_cost' || field === 'unit_price' ? item.pricing[field] : item[field])
     const categories = arrayOf(new DynamicModel({ id: '', code: '', label: '', count: 0 }))
     event.app.db().newQuery("SELECT c.id, c.code, c.label, COUNT(p.id) AS count FROM inventory_product_categories c LEFT JOIN inventory_products p ON p.category = c.id AND p.active = {:active} GROUP BY c.id HAVING c.active = true OR COUNT(p.id) > 0 ORDER BY CASE c.code WHEN 'equipment' THEN 0 WHEN 'supplies' THEN 1 WHEN 'services' THEN 2 ELSE 3 END,c.label COLLATE NOCASE,c.id").bind({ active: params.active }).all(categories)
-    return event.json(200, { items: records.map((record) => ({ ...dto(event.app, record, false), physical_quantity: record.getString('stock_policy') === 'none' ? null : stock.get(record.id)?.physical || 0, available_quantity: record.getString('stock_policy') === 'none' ? null : stock.get(record.id)?.available || 0 })), categories, page, totalItems, totalPages: Math.ceil(totalItems / 25) })
+    return event.json(200, { items: projectedSort ? items.slice((page - 1) * 25, page * 25) : items, categories, page, totalItems, totalPages: Math.ceil(totalItems / 25) })
   },
   record(event) { guard(event.app, event.auth); const product = get(event.app, 'inventory_products', event.request.pathValue('id')); return event.json(200, { ...dto(event.app, product), last_purchase: require(`${__hooks}/lib/purchasing.js`).lastPurchase(event.app, event.auth, product.id), purchase_history: require(`${__hooks}/lib/purchasing.js`).productHistory(event.app, event.auth, product.id) }) },
   choices(event) {

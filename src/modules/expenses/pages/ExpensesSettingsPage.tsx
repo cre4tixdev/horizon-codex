@@ -1,6 +1,9 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Plus, Receipt } from 'lucide-react'
+import { useSearchParams } from 'react-router'
+import { HRecordTabs } from '../../../shared/ui/HRecordTabs'
+import { ExpenseVehiclesPanel } from '../components/ExpenseVehiclesPanel'
+import { Plus, Receipt, Car } from 'lucide-react'
 import { HSectionHeading } from '../../../shared/ui/HSectionHeading'
 import { HButton } from '../../../shared/ui/HButton'
 import { HSaveButton } from '../../../shared/ui/HSaveButton'
@@ -14,6 +17,11 @@ import { SettingsEditButton } from '../../settings/components/SettingsEditButton
 import { expensesService } from '../services/ExpensesService'
 import { categoryModes, type ExpenseCategory } from '../schemas/expenses'
 export function ExpensesSettingsPage() {
+  const [params, setParams] = useSearchParams()
+  const tab = params.get('tab') === 'vehicles' ? 'vehicles' : 'categories'
+  return <><HRecordTabs label="Paramètres Notes de frais" idPrefix="expenses-settings-tab" value={tab} onChange={(value) => setParams((previous) => { const next = new URLSearchParams(previous); next.set('tab', value); return next }, { replace: true })} items={[{ value: 'categories', label: 'Catégories', icon: Receipt, panel: 'expenses-settings-categories' }, { value: 'vehicles', label: 'Véhicules', icon: Car, panel: 'expenses-settings-vehicles' }]} /><section className="contact-panel" role="tabpanel" id={`expenses-settings-${tab}`} aria-labelledby={`expenses-settings-tab-${tab}`}>{tab === 'vehicles' ? <ExpenseVehiclesPanel /> : <CategorySettings />}</section></>
+}
+function CategorySettings() {
   const query = useQuery({ queryKey: ['expenses', 'categories'], queryFn: expensesService.categories, retry: false }), [editor, setEditor] = useState<ExpenseCategory | 'new'>()
   return <><HSectionHeading title="Catégories de frais" icon={Receipt} description="Catégories et champs complémentaires des dépenses." actions={<HButton size="small" onClick={() => setEditor('new')}><Plus size={14} />Ajouter une catégorie</HButton>} />{query.error && <p role="alert" className="field-error">{query.error.message}<HButton onClick={() => void query.refetch()}>Réessayer</HButton></p>}{query.isPending && <p role="status">Chargement…</p>}{query.data && <HSettingsTable count={query.data.length} noun="catégorie"><table className="reference-table"><thead><tr><th>Code</th><th>Catégorie</th><th>Champs complémentaires</th><th>Ordre</th><th>Active</th><th /></tr></thead><tbody>{query.data.map((c) => <tr key={c.id}><td>{c.code}</td><td>{c.label}</td><td>{categoryModes[c.mode]}</td><td>{c.sort_order}</td><td>{c.active ? 'Oui' : 'Non'}</td><td className="reference-table-actions"><SettingsEditButton label={`Modifier ${c.label}`} onClick={() => setEditor(c)} /></td></tr>)}</tbody></table></HSettingsTable>}{editor && <CategoryEditor key={editor === 'new' ? 'new' : editor.id} record={editor === 'new' ? undefined : editor} onClose={() => setEditor(undefined)} />}</>
 }

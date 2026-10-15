@@ -1,3 +1,4 @@
+import { withColumnSortOptions } from '../../shared/search/filters'
 import { Building2, List, Target, Flag } from 'lucide-react'
 import { changeFilter, resetFilters, type SearchFilter } from '../../shared/search/filters'
 import { purchaseLabels, type PurchaseKind } from './schemas/purchasing'
@@ -27,7 +28,7 @@ export function changePurchasingFilter(params: URLSearchParams, filter: SearchFi
   next.delete('page'); return next
 }
 export function resetPurchasingFilters(params: URLSearchParams, route: PurchaseKind | 'all') { const next = resetFilters(params, [...purchasingFilters('all'), purchasingSortFilter, purchasingGroupingFilter]); next.delete('page'); if (route === 'all') next.set('status', 'pending'); return next }
-export const purchasingSortFilter: SearchFilter = { key: 'sort', label: 'Trier par', defaultValue: '-created', options: [{ value: '-created', label: 'Plus récentes' }, { value: 'title', label: 'Titre' }, { value: 'document_date', label: 'Date' }] }
+export const purchasingSortFilter: SearchFilter = withColumnSortOptions({ key: 'sort', label: 'Trier par', defaultValue: '-created', options: [{ value: '-created', label: 'Plus récentes' }, { value: 'title', label: 'Titre' }, { value: 'document_date', label: 'Date' }] }, {"number": "Numéro", "title": "Titre", "document_date": "Date", "needed_date": "Date souhaitée", "kind": "Pièce", "supplier_name": "Fournisseur", "affairs": "Affaires", "amount": "Montant HT", "status": "État"})
 export const purchasingGroupingFilter: SearchFilter = { key: 'group', label: 'Regrouper par', defaultValue: 'none', options: [{ value: 'none', label: 'Aucun regroupement', icon: List }, { value: 'supplier_name', label: 'Fournisseur', icon: Building2 }, { value: 'opportunity', label: 'Opportunité', icon: Target }, { value: 'status', label: 'État', icon: Flag }] }
 
 /** Each document appears once; multi-affair documents retain all their allocations. */

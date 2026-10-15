@@ -1,3 +1,4 @@
+import { useListTableSorting } from '../../../shared/search/useListTableSorting'
 import { useEffect } from 'react'
 import { normalizeSalesFilters } from '../searchFilters'
 import { QuoteSummary } from '../components/QuoteSummary'
@@ -22,6 +23,7 @@ import { useSalesAccess } from '../hooks/useSalesAccess'
 import { quoteStatusTones, quoteStatusLabels, type Quote } from '../schemas/quotes'
 const orderLabels: Record<string, string> = { confirmed: 'Confirmée', in_progress: 'En cours', completed: 'Terminée' }
 export function QuotesPage() {
+  const listSorting = useListTableSorting('-created', {"kind": "kind", "quote_number": "quote_number", "title": "title", "Opportunité": "opportunity", "company_name": "company_name", "date": "quote_date", "amount": "subtotal", "status": "status", "customer_order_number": "customer_order_number"})
   const [params, setParams] = useSearchParams()
   const access = useSalesAccess()
   useEffect(() => { const canonical = normalizeSalesFilters(params); if (canonical.toString() !== params.toString()) setParams(canonical, { replace: true }) }, [params, setParams])
@@ -41,7 +43,7 @@ export function QuotesPage() {
     if (group === 'customer_number') return item.status !== 'accepted' ? { key: 'quote', label: 'Devis' } : { key: item.order?.customer_number?.toLowerCase() || 'attente commande', label: item.order?.customer_number || 'Attente Commande' }
     return { key: item.company, label: item.company_name }
   }
-  const table = (items: Quote[]) => <HDataTable columnBorders columnAlignments={{ date: 'center', amount: 'right', status: 'center' }} data={items} columns={columns} getRowLink={(quote) => ({ href: `/sales/quotes/${quote.id}`, label: `Ouvrir ${quote.status === 'accepted' ? 'la commande' : 'le devis'} ${quote.quote_number}`, state: { quoteListQuery: params.toString() } })} />
+  const table = (items: Quote[]) => <HDataTable listSorting={listSorting} columnBorders columnAlignments={{ date: 'center', amount: 'right', status: 'center' }} data={items} columns={columns} getRowLink={(quote) => ({ href: `/sales/quotes/${quote.id}`, label: `Ouvrir ${quote.status === 'accepted' ? 'la commande' : 'le devis'} ${quote.quote_number}`, state: { quoteListQuery: params.toString() } })} />
   return <div className="contact-directory"><HPageBreadcrumb items={[{ label: 'Accueil', href: '/' }, { label: title }]} /><HPageHeader title={title} description={orders ? 'Vos commandes client, rattachées aux affaires et à leur compte analytique.' : quotes ? 'Vos devis, rattachés aux opportunités et à leur compte analytique.' : 'Vos devis et commandes clients, rattachés aux affaires.'} actions={access.canWrite && access.canReadCrm && <HButton asChild variant="primary"><Link to={`/sales/quotes/new${opportunity ? `?opportunity=${opportunity}` : ''}`} state={{ quoteListQuery: params.toString() }}><Plus size={14} />Nouveau devis</Link></HButton>} />
     <HListPagination page={page} totalPages={query.data?.totalPages} label={`Pagination des ${noun}`} busy={query.isFetching} onPageChange={(nextPage) => setParams((current) => { const next = new URLSearchParams(current); next.set('page', String(nextPage)); return next })} />
     <QuoteSummary />

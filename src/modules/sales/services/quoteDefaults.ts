@@ -11,5 +11,5 @@ export function prefilledQuoteTitle(current: string, previous: string, opportuni
 }
 
 export function quoteLinesForSave(lines: QuoteLineInput[]): QuoteLineInput[] {
-  return lines.map((line) => isUnusedQuoteLine(line) || line.kind === 'note' && !line.description.trim() ? emptyQuoteLine('spacer') : line)
+  return lines.map((line) => isUnusedQuoteLine(line) || line.kind === 'note' && !line.description.trim() ? { ...emptyQuoteLine('spacer'), ...(line.id ? { id: line.id } : {}) } : line)
 }

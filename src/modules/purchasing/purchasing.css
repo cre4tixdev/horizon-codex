@@ -5,3 +5,6 @@
 .purchase-fixed-summary svg { color: var(--theme-accent, #f52f96); }
 .purchase-fixed-summary strong, .purchase-fixed-summary span { display: block; }
 .purchase-fixed-summary span { margin-top: 4px; color: var(--theme-text-muted, #7b8794); font-size: 12px; }
+
+.purchase-allocation-dialog .purchase-allocation-quantity { text-align: center; }
+.purchase-affairs--picker > .h-record-picker { flex: 1; min-width: 0; }

@@ -25,3 +25,5 @@ onRecordValidate((event) => {
   if (event.record.getString('code') !== 'crm') throw new BadRequestError('Configuration CRM invalide.')
   event.next()
 }, 'settings_crm')
+
+routerAdd('GET', '/api/horizon/crm/list-index', (event) => require(`${__hooks}/lib/crm-list-index.js`)(event), $apis.requireAuth('core_users'))

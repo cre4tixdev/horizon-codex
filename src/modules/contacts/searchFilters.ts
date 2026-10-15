@@ -1,3 +1,4 @@
+import { withColumnSortOptions } from '../../shared/search/filters'
 import type { SearchFilter } from '../../shared/search/filters'
 import { Building2, Globe, List } from 'lucide-react'
 
@@ -23,9 +24,9 @@ export function contactGroupingFilter(people: boolean): SearchFilter {
 
 export function contactSortFilter(people: boolean): SearchFilter {
   const name = people ? 'last_name' : 'name'
-  return { key: 'sort', label: 'Trier les contacts', defaultValue: `${name}:asc`, options: [
+  return withColumnSortOptions({ key: 'sort', label: 'Trier les contacts', defaultValue: `${name}:asc`, options: [
     { value: `${name}:asc`, label: 'Nom : A → Z' }, { value: `${name}:desc`, label: 'Nom : Z → A' },
     { value: 'email:asc', label: 'E-mail : A → Z' }, { value: 'email:desc', label: 'E-mail : Z → A' },
     ...(!people ? [{ value: 'legal_name:asc', label: 'Raison sociale : A → Z' }, { value: 'legal_name:desc', label: 'Raison sociale : Z → A' }] : []),
-  ] }
+  ] }, { phone: 'Téléphone', roles: 'Relations', status: 'Statut', ...(people ? { company: 'Société', job_title: 'Fonction' } : {}) }, 'colon')
 }

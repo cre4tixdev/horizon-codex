@@ -39,7 +39,7 @@ const store = (app, user, kind, input, key, record) => {
   return result
 }
 module.exports = {
-  dto, inputFrom,
+  dto, inputFrom, store,
   record(event) { b.guard(event.app, event.auth); const kind = event.request.pathValue('kind'), record = b.get(event.app, b.config(kind).collection, event.request.pathValue('id')); return event.json(200, dto(event.app, kind, record)) },
   list(event) {
     b.guard(event.app, event.auth); const query = event.requestInfo().query, kind = String(query.kind || 'customer'); b.config(kind)
@@ -49,8 +49,7 @@ module.exports = {
     rows = rows.filter((row) => (!query.company || row.company === query.company) && (!source || row.source_orders.includes(source)) && (!search || `${row.number} ${row.title} ${row.company_name} ${row.supplier_invoice_number}`.toLocaleLowerCase().includes(search)))
     const active = rows.filter((row) => !row.archived_at), summary = { draft: active.filter((row) => row.status === 'draft').length, validated: active.filter((row) => row.status === 'validated').length, unpaid: rows.filter((row) => row.balance > 0).length, overdue: rows.filter((row) => row.overdue).length }
     rows = rows.filter((row) => query.status === 'archived' ? row.archived_at : query.status === 'unpaid' ? row.balance > 0 : query.status === 'overdue' ? row.overdue : !row.archived_at && (!query.status || row.status === query.status))
-    const sort = ['invoice_date', 'due_date', 'number', 'company_name'].includes(query.sort) ? query.sort : '-created'
-    rows.sort((a, c) => sort === '-created' ? c.created.localeCompare(a.created) : a[sort].localeCompare(c[sort]) || a.id.localeCompare(c.id))
+    require(`${__hooks}/lib/list-sorting.js`).rows(rows, query.sort, ['created', 'invoice_date', 'due_date', 'number', 'company_name', 'total', 'balance', 'reference', 'status'], '-created', (item, field) => field === 'reference' ? item.supplier_invoice_number || item.title : field === 'status' ? (({ draft: 'Brouillon', validated: 'Validée', cancelled: 'Annulée' })[item.status] || item.status) + (item.overdue ? ' · En retard' : '') : item[field])
     const page = Math.max(1, Number(query.page) || 1), totalItems = rows.length
     return event.json(200, { items: rows.slice((page - 1) * 30, page * 30), summary, page, totalItems, totalPages: Math.max(1, Math.ceil(totalItems / 30)) })
   },
@@ -112,7 +111,8 @@ module.exports = {
   payments(event) {
     b.guard(event.app, event.auth); const query = event.requestInfo().query, search = String(query.q || '').toLocaleLowerCase(), records = event.app.findRecordsByFilter('billing_payments', '', '-payment_date,-created', 0, 0).filter((record) => (!query.company || record.getString('company') === query.company) && (!query.direction || record.getString('direction') === query.direction) && (!query.status || record.getString('status') === query.status))
     const rows = records.map((record) => ({ id: record.id, company: record.getString('company'), company_name: b.get(event.app, 'contacts_companies', record.getString('company')).getString('name'), direction: record.getString('direction'), payment_date: record.getString('payment_date'), currency: record.getString('currency'), amount: record.getFloat('amount'), method: record.getString('method'), reference: record.getString('reference'), status: record.getString('status'), allocations: b.json(record, 'allocations'), updated: record.getString('updated'), cancel_reason: record.getString('cancel_reason') })).filter((row) => !search || `${row.company_name} ${row.reference}`.toLocaleLowerCase().includes(search))
-    const sort = ['payment_date', 'company_name', 'amount'].includes(query.sort) ? query.sort : 'payment_date'; rows.sort((a, c) => sort === 'amount' ? c.amount - a.amount : sort === 'payment_date' ? c.payment_date.localeCompare(a.payment_date) : a.company_name.localeCompare(c.company_name));
+    const sort = query.sort === 'amount' ? '-paid_amount' : query.sort === 'payment_date' ? '-date' : query.sort
+    require(`${__hooks}/lib/list-sorting.js`).rows(rows, sort, ['date', 'company_name', 'paid_amount', 'reference', 'method', 'direction', 'documents', 'status'], '-date', (item, field) => field === 'paid_amount' ? item.amount : field === 'date' ? item.payment_date : field === 'direction' ? item.direction === 'customer' ? 'Client' : 'Fournisseur' : field === 'documents' ? item.allocations.length : field === 'status' ? item.status === 'validated' ? 'Enregistré' : 'Annulé' : item[field])
     const page = Math.max(1, Number(query.page) || 1); return event.json(200, { items: rows.slice((page - 1) * 30, page * 30), page, totalItems: rows.length, totalPages: Math.max(1, Math.ceil(rows.length / 30)) })
   },
   pay(event) {

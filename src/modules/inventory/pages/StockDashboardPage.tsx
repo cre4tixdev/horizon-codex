@@ -28,7 +28,7 @@ function Browse({ href, label = 'Tout voir' }: { href: string; label?: string })
 }
 function PendingOperation({ item, inventory = false }: { item: Operation; inventory?: boolean }) {
   return <Link className="stock-pending-row" to={`/inventory/operations/${item.id}`}>
-    <span className="stock-pending-identity"><strong>{inventory ? item.title || item.number : item.supplier_name || item.title || 'Entrée manuelle'}</strong><small>{item.number} · {item.warehouse_name}</small>{!inventory && <HAffairTags items={item.affair_tags} />}</span>
+    <span className="stock-pending-identity"><strong>{inventory ? item.title || item.number : item.supplier_name || item.title || 'Entrée manuelle'}</strong><small>{item.display_number || item.number || 'Brouillon'} · {item.warehouse_name}</small>{!inventory && <HAffairTags items={item.affair_tags} />}</span>
     <span className="stock-pending-date">{inventory && item.status === 'counting' ? <HTag tone="amber">Comptage en cours</HTag> : <><span>{!item.planned_date ? 'Non planifiée' : displayDate(item.planned_date)}</span><small>{inventory ? 'Date du comptage' : 'Réception souhaitée'}</small></>}</span><ArrowUpRight size={14} aria-hidden="true" />
   </Link>
 }

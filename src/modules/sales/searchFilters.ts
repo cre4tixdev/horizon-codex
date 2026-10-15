@@ -1,3 +1,4 @@
+import { withColumnSortOptions } from '../../shared/search/filters'
 import { Building2, List, Hash, Flag } from 'lucide-react'
 import { resetFilters, type SearchFilter } from '../../shared/search/filters'
 export function normalizeSalesFilters(params: URLSearchParams): URLSearchParams {
@@ -22,7 +23,7 @@ export function changeSalesFilter(params: URLSearchParams, filter: SearchFilter,
   if (filter.key === 'kind') { if (value === 'quote') { next.delete('order_status'); next.delete('customer_number'); if (next.get('group') === 'customer_number') next.delete('group') } if (value === 'order') next.delete('status') }
   return next
 }
-export const quoteSortFilter: SearchFilter = { key: 'sort', label: 'Trier par', defaultValue: '-created', options: [{ value: '-created', label: 'Plus récents' }, { value: 'quote_number', label: 'Numéro' }, { value: 'quote_date', label: 'Date du devis' }, { value: '-subtotal', label: 'Montant décroissant' }] }
+export const quoteSortFilter: SearchFilter = withColumnSortOptions({ key: 'sort', label: 'Trier par', defaultValue: '-created', options: [{ value: '-created', label: 'Plus récents' }, { value: 'quote_number', label: 'Numéro' }, { value: 'quote_date', label: 'Date du devis' }, { value: '-subtotal', label: 'Montant décroissant' }] }, {"title": "Titre", "quote_number": "Numéro", "quote_date": "Date", "subtotal": "Montant HT", "kind": "Type", "opportunity": "Opportunité", "company_name": "Société", "status": "État", "customer_order_number": "N° commande client"})
 export const quoteGroupingFilter: SearchFilter = { key: 'group', label: 'Regrouper par', defaultValue: 'none', options: [{ value: 'none', label: 'Aucun regroupement', icon: List }, { value: 'company', label: 'Société', icon: Building2 }, { value: 'status', label: 'État', icon: Flag }, { value: 'customer_number', label: 'N° commande client', icon: Hash }] }
 
 export function resetSalesFilters(params: URLSearchParams): URLSearchParams { const next = resetFilters(normalizeSalesFilters(params), [quoteKindFilter, quoteStateFilter, orderStateFilter, orderNumberFilter, quoteArchiveFilter, quoteSortFilter, quoteGroupingFilter]); next.delete('page'); return next }

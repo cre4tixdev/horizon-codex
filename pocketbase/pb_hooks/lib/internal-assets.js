@@ -50,7 +50,12 @@ module.exports = {
     for (const key of ['product', 'warehouse']) if (query[key]) { filters.push(`${key} = {:${key}}`); params[key] = query[key] }
     if (query.q) { filters.push('(number ~ {:q} || name ~ {:q} || product.sku ~ {:q} || serial.serial_number ~ {:q} || warehouse.name ~ {:q} || location.name ~ {:q} || product.manufacturer ~ {:q})'); params.q = String(query.q).slice(0, 200) }
     const filter = filters.join(' && '), page = Math.max(1, Number(query.page) || 1), total = event.app.findRecordsByFilter('inventory_internal_assets', filter, '', 0, 0, params).length
-    return event.json(200, { items: event.app.findRecordsByFilter('inventory_internal_assets', filter, query.sort === 'name' ? 'name,id' : '-created,id', 30, (page - 1) * 30, params).map((asset) => dto(event.app, event.auth, asset)), totalItems: total, totalPages: Math.max(1, Math.ceil(total / 30)), page })
+    const derived = ['brand', 'reference', 'trace', 'status', 'assigned_name', 'warehouse_name', 'location_name'], projected = derived.includes(String(query.sort || '').replace(/^-/, ''))
+    const records = event.app.findRecordsByFilter('inventory_internal_assets', filter, require(`${__hooks}/lib/list-sorting.js`).sql(query.sort, ['created', 'name', 'number'], '-created') + ',id', projected ? 10001 : 30, projected ? 0 : (page - 1) * 30, params)
+    if (records.length > 10000) throw new BadRequestError('Affinez la recherche du parc interne.')
+    let items = records.map((asset) => dto(event.app, event.auth, asset))
+    if (projected) { require(`${__hooks}/lib/list-sorting.js`).rows(items, query.sort, derived, 'status', (item, field) => field === 'trace' ? item.serial_number || item.lot_number : field === 'status' ? ({ stored: 'Disponible', assigned: 'Affecté', repair: 'En réparation', retired: 'Retiré du parc', returned: 'Remis en stock' })[item.status] : item[field]); items = items.slice((page - 1) * 30, page * 30) }
+    return event.json(200, { items, totalItems: total, totalPages: Math.max(1, Math.ceil(total / 30)), page })
   },
   record(event) { guard(event.app, event.auth); return event.json(200, dto(event.app, event.auth, c.get(event.app, 'inventory_internal_assets', event.request.pathValue('id')))) },
   save(event) {

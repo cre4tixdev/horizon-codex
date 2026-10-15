@@ -46,7 +46,7 @@ module.exports = {
       line.to_location = places.some((place) => place.id === oldPlace) ? oldPlace : destination?.id || ''
     }
     const record = reusable || new Record(app.findCollectionByNameOrId('inventory_operations')), before = reusable ? record.publicExport() : null
-    if (!reusable) { record.set('number', number(app, source.warehouse, 'IN')); record.set('creation_key', `purchase-receipt-${source.id}-${$security.randomString(20)}`); record.set('creation_hash', ''); record.set('actor', actor) }
+    if (!reusable) { record.set('creation_key', `purchase-receipt-${source.id}-${$security.randomString(20)}`); record.set('creation_hash', ''); record.set('actor', actor) }
     for (const [key, value] of Object.entries({ kind: 'IN', status: 'draft', inventory_mode: 'cycle', warehouse, purchase_order: source.id, title: `Réception · ${source.number}`, document_date: reusable?.getString('document_date') || new Date().toISOString().slice(0, 10), planned_date: source.needed_date, lines: items, scope: [] })) record.set(key, value)
     pending.filter((item) => item.id !== record.id && automatic(item)).forEach(cancel)
     if (before && JSON.stringify(previous) === JSON.stringify(items) && before.warehouse === warehouse && before.title === `Réception · ${source.number}` && before.planned_date === source.needed_date) return

@@ -1,5 +1,6 @@
+import { z } from 'zod'
 import { createPocketBaseClient } from '../../../core/pocketbase/client'
-import { choicesSchema, listSchema, reportSchema, categorySchema, type ExpenseReport, type ExpenseInput, type ReportInput, type ExpenseLine, type ExpenseCategory } from '../schemas/expenses'
+import { choicesSchema, listSchema, reportSchema, categorySchema, vehicleSchema, type ExpenseVehicle, type ExpenseVehicleInput, type ExpenseReport, type ExpenseInput, type ReportInput, type ExpenseLine, type ExpenseCategory } from '../schemas/expenses'
 export function createExpensesRepository(url: string) {
   const client = createPocketBaseClient(url), base = '/api/horizon/expenses'
   const send = (path: string, body: object) => client.send(base + path, { method: 'POST', body, requestKey: null })
@@ -13,6 +14,8 @@ export function createExpensesRepository(url: string) {
     async remove(record: ExpenseReport, line_id: string) { return reportSchema.parse(await send(`/reports/${record.id}/remove`, { updated: record.updated, line_id })) },
     async transition(record: ExpenseReport, action: string, extra: { reason?: string; date?: string; reference?: string; validator?: string }) { return reportSchema.parse(await send(`/reports/${record.id}/transition`, { updated: record.updated, action, ...extra })) },
     async fileURL(line: ExpenseLine, name: string) { const token = await client.files.getToken({ requestKey: null }); return client.files.getURL(line, name, { token }) },
+    async vehicles() { return z.object({ items: z.array(vehicleSchema), employees: z.array(z.object({ id: z.string(), label: z.string() })) }).parse(await client.send(base + '/vehicles', { requestKey: null })) },
+    async vehicle(input: ExpenseVehicleInput, record?: ExpenseVehicle) { return vehicleSchema.parse(await send('/vehicles', { ...input, ...(record ? { id: record.id, updated: record.updated } : {}) })) },
     async categories() { return categorySchema.array().parse(await client.send(base + '/categories', { requestKey: null })) },
     async category(input: Omit<ExpenseCategory, 'id' | 'updated'>, record?: ExpenseCategory) { return categorySchema.parse(await send('/categories', { ...input, ...(record ? { id: record.id, updated: record.updated } : {}) })) },
   }

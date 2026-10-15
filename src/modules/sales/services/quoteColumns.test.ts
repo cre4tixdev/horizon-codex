@@ -45,3 +45,10 @@ it('shows purchasing tracking only for customer orders and returns its space to 
   expect(visibleQuoteColumns('accepted').some(([key]) => key === 'actions')).toBe(false)
   for (const visible of ['purchase', 'receipt', 'delivery', 'invoiced']) expect(visibleQuoteColumns('accepted').some(([key]) => key === visible)).toBe(true)
 })
+
+it('offers line actions again while editing a confirmed order', () => {
+  const editable = visibleQuoteColumns('accepted', true).map(([key]) => key)
+  expect(editable).toContain('actions')
+  expect(editable).toContain('delivery')
+  expect(visibleQuoteColumns('accepted').map(([key]) => key)).not.toContain('actions')
+})

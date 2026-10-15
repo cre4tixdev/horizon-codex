@@ -35,3 +35,13 @@ export function resetFilters(params: URLSearchParams, filters: readonly SearchFi
   return next
 }
 import type { LucideIcon } from 'lucide-react'
+
+/** Makes both header directions selectable in the shared search panel. */
+export function withColumnSortOptions(filter: SearchFilter, fields: Record<string, string>, encoding: 'prefix' | 'colon' = 'prefix'): SearchFilter {
+  const options = [...filter.options]
+  for (const [field, label] of Object.entries(fields)) for (const descending of [false, true]) {
+    const value = encoding === 'colon' ? `${field}:${descending ? 'desc' : 'asc'}` : `${descending ? '-' : ''}${field}`
+    if (!options.some((option) => option.value === value)) options.push({ value, label: `${label} : ${descending ? 'décroissant' : 'croissant'}` })
+  }
+  return { ...filter, options }
+}

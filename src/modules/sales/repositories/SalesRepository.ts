@@ -2,10 +2,13 @@ import type { PurchasePreparationSelection } from '../../purchasing/schemas/purc
 import type { StockSelection } from '../../inventory/schemas/stock'
 import { z } from 'zod'
 import { createPocketBaseClient } from '../../../core/pocketbase/client'
-import { salesSettingsSchema, type SalesSettings, opportunityChoiceSchema, quotePageSchema, quoteSchema, relatedSalesSchema, type QuoteInput, type QuoteListOptions } from '../schemas/quotes'
+import { orderRevisionPreviewSchema, orderRevisionHistorySchema, salesSettingsSchema, type SalesSettings, opportunityChoiceSchema, quotePageSchema, quoteSchema, relatedSalesSchema, type QuoteInput, type QuoteListOptions } from '../schemas/quotes'
 export function createSalesRepository(url: string) {
   const client = createPocketBaseClient(url)
   return {
+    async previewOrderRevision(id: string, updated: string, input: QuoteInput, customer_order_number: string) { return orderRevisionPreviewSchema.parse(await client.send('/api/horizon/sales/orders/revision-preview', { method: 'POST', body: { id, updated, input, customer_order_number }, requestKey: null })) },
+    async reviseOrder(id: string, updated: string, input: QuoteInput, customer_order_number: string, preview_token: string) { return quoteSchema.parse(await client.send('/api/horizon/sales/orders/revise', { method: 'POST', body: { id, updated, input, customer_order_number, preview_token }, requestKey: null })) },
+    async orderRevisions(id: string) { return orderRevisionHistorySchema.parse(await client.send(`/api/horizon/sales/orders/${id}/revisions`, { method: 'GET', requestKey: null })) },
     async summary(query: Pick<QuoteListOptions, 'q' | 'opportunity' | 'company' | 'state'>) { return z.object({ draft: z.number().int().nonnegative(), validated: z.number().int().nonnegative(), sent: z.number().int().nonnegative(), accepted: z.number().int().nonnegative() }).parse(await client.send('/api/horizon/sales/quotes/summary', { method: 'GET', query, requestKey: null })) },
     async manage(id: string, updated: string, action: 'archive' | 'restore') { return quoteSchema.parse(await client.send('/api/horizon/sales/quotes/manage', { method: 'POST', body: { id, updated, action }, requestKey: null })) },
     async remove(id: string, updated: string) { return z.object({ deleted: z.literal(true) }).parse(await client.send('/api/horizon/sales/quotes/manage', { method: 'POST', body: { id, updated, action: 'delete' }, requestKey: null })) },

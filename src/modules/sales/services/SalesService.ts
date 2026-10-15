@@ -6,7 +6,7 @@ import { environment } from '../../../core/config/environment'
 import { hasPermission } from '../../../core/auth/types/session'
 import { sessionService } from '../../../core/auth/services/session'
 import { createSalesRepository } from '../repositories/SalesRepository'
-import { quoteInputSchema, type QuoteInput, type QuoteListOptions, type SalesSettings } from '../schemas/quotes'
+import { orderInputSchema, quoteInputSchema, type QuoteInput, type QuoteListOptions, type SalesSettings } from '../schemas/quotes'
 const repository = environment.pocketBaseUrl ? createSalesRepository(environment.pocketBaseUrl) : undefined
 async function run<T>(write: boolean, action: (repo: ReturnType<typeof createSalesRepository>) => Promise<T>): Promise<T> {
   const session = sessionService.getSnapshot()
@@ -25,6 +25,9 @@ async function settingsRun(write: boolean, action: (repo: ReturnType<typeof crea
   try { return await action(repository) } catch (error) { console.error('[sales-settings] Operation failed', { status: error instanceof ClientResponseError ? error.status : 0 }); throw new Error(error instanceof ClientResponseError && [400, 403, 409].includes(error.status) ? error.response.message : 'Paramètres Ventes indisponibles.', { cause: error }) }
 }
 export const salesService = {
+  previewOrderRevision: (id: string, updated: string, input: QuoteInput, number: string) => run(true, (repo) => repo.previewOrderRevision(id, updated, orderInputSchema.parse(input), number)),
+  reviseOrder: (id: string, updated: string, input: QuoteInput, number: string, token: string) => run(true, (repo) => repo.reviseOrder(id, updated, orderInputSchema.parse(input), number, token)),
+  orderRevisions: (id: string) => run(false, (repo) => repo.orderRevisions(id)),
   summary: (options: Pick<QuoteListOptions, 'q' | 'opportunity' | 'company' | 'state'>) => run(false, (repo) => repo.summary(options)),
   copyContent: (sourceId: string, sourceUpdated: string, target: QuoteInput, currency: string) => run(true, async (repo) => {
     const source = await repo.record(sourceId)

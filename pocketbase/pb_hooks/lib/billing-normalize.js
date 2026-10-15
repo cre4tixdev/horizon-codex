@@ -74,7 +74,7 @@ module.exports = (app, user, kind, input, record) => {
           if (invoiceKind === 'deposit' || current + used > operationLine.quantity + 0.000001) throw new ApiError(409, 'Cette quantité Stock est déjà facturée ou préparée.')
           line.source_operation = operation.id; line.source_operation_line = operationLine.id; sourceOperations.add(operation.id)
         }
-        if (type.direction === 'customer' && Math.abs(line.unit_price * (1 - line.discount / 100) - sourceLine.unit_price) > 0.000001) throw new BadRequestError('Le prix net de la commande client est conservé ; ajoutez une ligne manuelle pour un complément explicite.')
+        if (type.direction === 'customer' && Math.abs(line.unit_price * (1 - line.discount / 100) - (invoiceKind === 'deposit' ? sourceLine.unit_price : require(`${__hooks}/lib/billing-order-balance.js`).price(app, source, sourceLine, record?.id || ''))) > 0.000001) throw new BadRequestError('Le prix net de la commande client est conservé ; ajoutez une ligne manuelle pour un complément explicite.')
         if (type.direction === 'supplier') {
           if (!received.has(id)) received.set(id, require(`${__hooks}/lib/billing-sources.js`).quantities(app, type.direction, id))
           if (Math.abs(line.unit_price * (1 - line.discount / 100) - sourceLine.unit_price) > 0.000001) issues.push(`Prix différent de la commande · ${line.description}`)

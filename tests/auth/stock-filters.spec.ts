@@ -18,7 +18,9 @@ test('Stock : filtres multiples, archives compactes, recherche et regroupements 
   const panel = page.getByRole('dialog', { name: 'Filtres de recherche', exact: true }), rows = page.locator('.contact-directory tbody tr')
   const open = async () => { await page.getByRole('button', { name: /^Filtres de recherche/ }).click(); await expect(panel).toBeVisible() }
   const select = async (role: 'checkbox' | 'radio', name: string) => { const input = panel.getByRole(role, { name, exact: true }); await input.locator('..').click(); await expect(input).toBeChecked() }
-  await page.goto('/inventory/operations?view=list&q=filtres stock'); await open()
+  await page.goto('/inventory/operations?view=list&q=filtres stock')
+  await expect(page.getByRole('columnheader').nth(0).getByRole('button',{name:'Numéro',exact:true})).toBeVisible(); await expect(page.getByRole('columnheader').nth(1).getByRole('button',{name:'Date',exact:true})).toBeVisible(); await expect(page.getByRole('columnheader').nth(2).getByRole('button',{name:'Document d’origine',exact:true})).toBeVisible(); await expect(page.getByRole('columnheader').nth(3).getByRole('button',{name:'De',exact:true})).toBeVisible(); await expect(page.getByRole('columnheader').nth(4).getByRole('button',{name:'Vers',exact:true})).toBeVisible(); await expect(page.getByRole('columnheader').getByRole('button',{name:'Entrepôt',exact:true})).toHaveCount(0)
+  await open()
   await expect(panel.getByText('Toutes les affaires', { exact: true })).toHaveCount(0); await expect(panel.getByText('Tous les entrepôts', { exact: true })).toHaveCount(0)
   await select('checkbox', 'Réception'); await select('checkbox', 'Livraison'); await select('checkbox', 'Brouillon'); await select('checkbox', 'Réalisée')
   await expect.poll(() => new URL(page.url()).searchParams.get('kind')).toBe('IN,OUT'); await expect(rows).toHaveCount(4)

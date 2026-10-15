@@ -1,19 +1,20 @@
 module.exports = (event, navigation = false) => {
   if (!require(`${__hooks}/lib/activity.js`).allowed(event.app, event.auth)) throw new ForbiddenError('Accès refusé.')
   const query = event.request.url.query()
-  const kind = query.get('kind'); const grouping = query.get('group') || (navigation ? 'none' : ''); const state = query.get('state') || 'active'; const role = query.get('role') || 'all'
+  const kind = query.get('kind'); const grouping = query.get('group') || 'none'; const state = query.get('state') || 'active'; const role = query.get('role') || 'all'
   const people = kind === 'people'
-  const sorts = people ? ['last_name', 'email'] : ['name', 'email', 'legal_name']
+  const sorts = people ? ['last_name', 'email', 'phone', 'company', 'roles', 'status', 'job_title'] : ['name', 'email', 'legal_name', 'phone', 'roles', 'status']
   const sort = query.get('sort') || sorts[0]; const direction = query.get('direction') || 'asc'
   const page = Number(query.get('page') || 1); const text = String(query.get('q') || '').trim()
-  if (!['companies', 'people'].includes(kind) || !['country', ...(people ? ['company'] : []), ...(navigation ? ['none'] : [])].includes(grouping) || !['active', 'archived'].includes(state) || !['all', 'customer', 'supplier'].includes(role) || !sorts.includes(sort) || !['asc', 'desc'].includes(direction) || !Number.isInteger(page) || page < 1 || page > 100000 || text.length > 200) throw new BadRequestError('Regroupement invalide.')
+  if (!['companies', 'people'].includes(kind) || !['country', ...(people ? ['company'] : []), 'none'].includes(grouping) || !['active', 'archived'].includes(state) || !['all', 'customer', 'supplier'].includes(role) || !sorts.includes(sort) || !['asc', 'desc'].includes(direction) || !Number.isInteger(page) || page < 1 || page > 100000 || text.length > 200) throw new BadRequestError('Regroupement invalide.')
   const alias = people ? 'p' : 'c'
   const companyId = people ? 'p.company' : 'c.id'
   const country = `COALESCE((SELECT a.country FROM contacts_addresses a WHERE a.company = ${companyId} AND a.type = 'registered' AND (a.is_primary = 1 OR (SELECT COUNT(*) FROM contacts_addresses ax WHERE ax.company = ${companyId} AND ax.type = 'registered') = 1) ORDER BY a.is_primary DESC, a.created, a.id LIMIT 1), '')`
-  const key = grouping === 'company' ? "COALESCE(c.id, '')" : country
-  const label = grouping === 'company' ? "COALESCE(c.name, '')" : `COALESCE((SELECT label FROM settings_countries WHERE code = ${country}), ${country})`
+  const key = grouping === 'none' ? "''" : grouping === 'company' ? "COALESCE(c.id, '')" : country
+  const label = grouping === 'none' ? "''" : grouping === 'company' ? "COALESCE(c.name, '')" : `COALESCE((SELECT label FROM settings_countries WHERE code = ${country}), ${country})`
   const params = { active: state === 'active', role, limit: 25, offset: (page - 1) * 25 }
   const conditions = [`${alias}.active = {:active}`]
+  if (query.get('company')) { if (!people || !/^[a-z0-9]{15}$/.test(query.get('company'))) throw new BadRequestError('Société invalide.'); params.company = query.get('company'); conditions.push('p.company = {:company}') }
   if (role !== 'all') conditions.push(`EXISTS (SELECT 1 FROM contacts_company_roles r WHERE r.company = ${companyId} AND r.role = {:role} AND r.active = 1)`)
   const fields = people ? ['p.first_name', 'p.last_name', 'p.email', 'c.name'] : ['c.name', 'c.legal_name', 'c.email']
   text.split(/\s+/).filter(Boolean).forEach((term, index) => {
@@ -21,7 +22,8 @@ module.exports = (event, navigation = false) => {
     conditions.push(`(${fields.map((field) => `${field} LIKE {:term${index}}`).join(' OR ')})`)
   })
   const from = people ? 'contacts_people p LEFT JOIN contacts_companies c ON c.id = p.company' : 'contacts_companies c'
-  const base = `SELECT ${alias}.id AS id, ${key} AS group_key, ${label} AS group_label, ${alias}.${sort} AS sort_value FROM ${from} WHERE ${conditions.join(' AND ')}`
+  const sortExpression = sort === 'company' ? "COALESCE(c.name, '')" : sort === 'status' ? `CASE WHEN ${alias}.active = 1 THEN 'Actif' ELSE 'Archivé' END` : sort === 'roles' ? `(SELECT GROUP_CONCAT(role_label, ' · ') FROM (SELECT DISTINCT CASE r.role WHEN 'customer' THEN 'Client' WHEN 'supplier' THEN 'Fournisseur' ELSE r.role END AS role_label FROM contacts_company_roles r WHERE r.company = ${companyId} AND r.active = 1 ORDER BY role_label))` : `${alias}.${sort}`
+  const base = `SELECT ${alias}.id AS id, ${key} AS group_key, ${label} AS group_label, ${sortExpression} AS sort_value FROM ${from} WHERE ${conditions.join(' AND ')}`
   if (navigation) {
     const id = query.get('id')
     if (!/^[a-zA-Z0-9]{15}$/.test(id)) throw new BadRequestError('Fiche invalide.')

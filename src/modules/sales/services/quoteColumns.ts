@@ -1,6 +1,6 @@
 import { quoteColumns, type Quote } from '../schemas/quotes'
-export function visibleQuoteColumns(status?: Quote['status']) {
-  return quoteColumns.filter(([key]) => key === 'actions' ? status !== 'accepted' : !['purchase', 'receipt', 'delivery', 'invoiced'].includes(key) || status === 'accepted')
+export function visibleQuoteColumns(status?: Quote['status'], editable = false) {
+  return quoteColumns.filter(([key]) => key === 'actions' ? status !== 'accepted' || editable : !['purchase', 'receipt', 'delivery', 'invoiced'].includes(key) || status === 'accepted')
 }
 const minimums: Record<string, number> = { position: 42, description: 120, brand: 45, reference: 55, quantity: 40, unit: 36, unit_cost: 70, unit_price: 70, margin_percent: 48, discount: 48, line_total: 82, purchase: 60, receipt: 60, delivery: 60, invoiced: 60, is_option: 42, actions: 58 }
 export const quoteMinimumWidth = Object.values(minimums).reduce((sum, value) => sum + value, 0)

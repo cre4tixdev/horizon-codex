@@ -9,3 +9,7 @@ routerAdd('POST', '/api/horizon/expenses/reports/{id}/transition', (e) => requir
 routerAdd('GET', '/api/horizon/expenses/categories', (e) => require(`${__hooks}/lib/expenses.js`).categories(e), $apis.requireAuth('core_users'))
 routerAdd('POST', '/api/horizon/expenses/categories', (e) => require(`${__hooks}/lib/expenses.js`).category(e), $apis.requireAuth('core_users'))
 onRecordDelete(() => { throw new BadRequestError('L’historique des notes de frais est conservé.') }, 'expenses_reports', 'expenses_categories')
+
+routerAdd('GET', '/api/horizon/expenses/vehicles', (e) => require(`${__hooks}/lib/expenses.js`).vehicles(e), $apis.requireAuth('core_users'))
+routerAdd('POST', '/api/horizon/expenses/vehicles', (e) => require(`${__hooks}/lib/expenses.js`).vehicle(e), $apis.requireAuth('core_users'))
+onRecordDelete(() => { throw new BadRequestError('Désactivez le véhicule pour préserver les dépenses liées.') }, 'expenses_vehicles')

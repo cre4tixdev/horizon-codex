@@ -4,4 +4,28 @@
 
 .expense-editor-zones { display:grid; gap:var(--hz-record-section-gap); }
 .expense-editor-zones .contact-panel { margin:0; }
-.expenses-report-tab { margin-top:var(--record-tab-content-gap, 8px); }
+
+.expenses-description { grid-column: 1 / -1; }
+.expenses-description textarea.h-input { height: auto; min-height: 64px; padding: 6px 10px; resize: vertical; }
+.expenses-editor-panel { flex: 1; min-height: 0; min-width: 0; }
+.expenses-editor-panel[hidden] { display: none; }
+.expenses-editor-fields { overflow-y: auto; padding: var(--hz-panel-padding-block) var(--hz-panel-padding-inline); }
+.expenses-editor-files { display: flex; overflow: hidden; }
+.expenses-editor-form > .contact-record-navigation { margin: 0; padding-inline: var(--hz-panel-padding-inline); flex-shrink: 0; }
+.expenses-editor-form[data-receipts=true] [aria-controls=expense-editor-files] svg { color: var(--theme-rose-text, #F52F96); }
+.expense-editor-zones { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-areas: 'primary category' 'allocation category'; align-items: start; }
+.expense-editor-primary { grid-area: primary; }
+.expense-editor-category { grid-area: category; }
+.expense-editor-category > .contact-fields { grid-template-columns: minmax(0, 1fr); }
+.expense-editor-category-details { margin-top: var(--hz-record-section-gap); padding-top: var(--hz-record-section-gap); border-top: 1px solid var(--theme-border); }
+.expense-editor-affair { display: flex; align-items: center; gap: 8px; margin-top: var(--hz-record-section-gap); }
+.expense-editor-allocation { grid-area: allocation; }
+@media (max-width: 700px) { .expense-editor-zones { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'primary' 'category' 'allocation'; } }
+
+.contact-record .contact-fields.contact-fields--three.access-fieldset > label.expenses-description { grid-column: 1 / -1; }
+.expenses-line-dialog:has(.expenses-editor-form[data-section=details]) { height: auto; }
+
+.expense-line-affair { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.expense-line-affair > span:last-child { overflow: hidden; text-overflow: ellipsis; }
+
+.expense-editor-category-details .contact-fields:has(> label:only-child) { grid-template-columns: minmax(0, 1fr); }

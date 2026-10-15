@@ -67,10 +67,32 @@ class StockOperationsTests(unittest.TestCase):
         self.assertEqual(listing(q=self.opp['title'])['totalItems'], 0)
         self.assertTrue(all(not item['opportunities'] for item in listing()['items']))
 
+    def test_receipt_delivery_drafts_do_not_consume_numbers(self):
+        def counters():
+            return self.pb.request('GET', 'collections/inventory_warehouses/records/' + self.warehouse, token=self.pb.admin_token)[1]['counters']
+        initial = counters()
+        status, unused = self.save(self.build_input('IN', 1)); self.assertEqual(status, 200, unused)
+        self.assertEqual(unused['number'], ''); self.assertEqual(unused['display_number'], 'MEU/IN/-----'); self.assertEqual(counters(), initial)
+        status, cancelled = self.action(unused, 'cancel'); self.assertEqual(status, 200, cancelled)
+        self.assertEqual(self.action(cancelled, 'archive')[0], 200); self.assertEqual(counters(), initial)
+        status, preview = self.pb.request('POST', 'horizon/documents/preview', dict(stock_operation_id=unused['id'], format='html'), self.token)
+        self.assertEqual(status, 200, preview); self.assertIn('MEU/IN/-----', preview['html']); self.assertEqual(counters(), initial)
+        status, failed = self.save(self.build_input('OUT', 1)); self.assertEqual(status, 200, failed)
+        self.assertEqual(self.action(failed)[0], 409); self.assertEqual(counters(), initial)
+        receipt = self.stock(2); self.assertTrue(receipt['number'].endswith('/00001'))
+        quote = self.customer_order(quantity=2)
+        status, draft = self.prepare_delivery(quote); self.assertEqual(status, 200, draft)
+        self.assertEqual(draft['number'], '')
+        status, done = self.action(draft); self.assertEqual(status, 200, done)
+        self.assertEqual(done['number'], 'MEU/OUT/00001'); self.assertEqual(done['display_number'], done['number'])
+        status, stored = self.pb.request('GET', 'collections/inventory_operations/records/' + done['id'], token=self.pb.admin_token)
+        self.assertEqual(status, 200, stored); self.assertEqual(stored['document_snapshot']['stock.number'], done['number'])
+        self.assertEqual(self.action(done)[0], 400)
+
     def test_draft_idempotency_number_and_append_only(self):
         key = str(uuid.uuid4()); input = self.build_input()
         status, draft = self.save(input, key); self.assertEqual(status, 200, draft)
-        self.assertRegex(draft['number'], r'^MEU/IN/\d{5}$')
+        self.assertEqual(draft['number'], '')
         self.assertEqual(self.balance()['physical'], 0)
         self.assertEqual(self.save(input, key)[1]['id'], draft['id'])
         changed = copy.deepcopy(input); changed['lines'][0]['quantity'] = 12
@@ -88,9 +110,12 @@ class StockOperationsTests(unittest.TestCase):
         input['opportunity'] = self.opp['id']
         status, draft = self.save(input, record=draft); self.assertEqual(status, 200, draft)
         status, prep = self.action(draft); self.assertEqual(status, 200, prep)
+        self.assertRegex(prep['number'], r'^MEU/PREP/\d{5}$')
+        self.assertEqual(prep['to_name'],self.company['name'])
         self.assertEqual(self.balance()['physical'], 6)
         ret = self.build_input('RET', 2); ret['origin'] = prep['id']
         status, draft = self.save(ret); self.assertEqual(status, 200, draft)
+        self.assertEqual(draft['from_name'],self.company['name']);self.assertIn(draft['warehouse_name'],draft['to_name']);self.assertEqual(draft['source_documents'][0]['number'],prep['number'])
         self.assertEqual(self.action(draft)[0], 200)
         self.assertEqual(self.balance()['physical'], 8)
         ret['lines'][0]['quantity'] = 3
@@ -188,8 +213,8 @@ class StockOperationsTests(unittest.TestCase):
         input['warehouse'] = self.sevres; input['destination_warehouse'] = self.sevres
         input['lines'][0]['from_location'] = ''; input['lines'][0]['to_location'] = ''
         status, relocated = self.save(input, record=empty); self.assertEqual(status, 200, relocated)
-        self.assertRegex(relocated['number'], r'^SEV/IN/\d{5}$')
-        self.assertNotEqual(relocated['number'], draft['number'])
+        self.assertEqual(relocated['number'], ''); self.assertEqual(relocated['display_number'], 'SEV/IN/-----')
+        self.assertEqual(relocated['number'], draft['number'])
         self.assertEqual(self.action(relocated)[0], 400)
         input['lines'][0]['to_location'] = self.to
         status, relocated = self.save(input, record=relocated); self.assertEqual(status, 200, relocated)
@@ -201,6 +226,7 @@ class StockOperationsTests(unittest.TestCase):
         input['lines'][0]['unit_cost'] = None; input['lines'][0]['allocations'] = []
         status, safe = self.save(input, record=safe); self.assertEqual(status, 200, safe)
         status, done = self.action(safe); self.assertEqual(status, 200, done)
+        self.assertRegex(done['number'], r'^SEV/IN/\d{5}$')
         self.assertEqual(self.balance(self.to)['physical'], 6)
         status, preview = self.pb.request('POST', 'horizon/documents/preview', dict(stock_operation_id=done['id'], format='html'), self.token)
         self.assertEqual(status, 200, preview)
@@ -252,6 +278,38 @@ class StockOperationsTests(unittest.TestCase):
         status, page = check_purchasing.PurchasingTests.order(self, request); self.assertEqual(status, 200, page)
         status, order = check_purchasing.PurchasingTests.transition(self, 'orders', page['items'][0]); self.assertEqual(status, 200, order)
         return quote, order
+    def test_operation_route_and_source_documents_follow_the_physical_flow(self):
+        quote, order = self.sourced_purchase()
+        receipt = self.pending_receipts(order)[0]
+        self.assertEqual(receipt['from_name'], self.supplier['name'])
+        self.assertIn(receipt['warehouse_name'], receipt['to_name'])
+        self.assertEqual(receipt['source_documents'],[{'number':order['number'],'href':'/purchasing/orders/'+order['id']}])
+        status, source = self.pb.request('GET', f'horizon/inventory/operations/source?kind=OUT&purchase_order={order["id"]}&sales_quote={quote["id"]}&dropship=true', token=self.token);self.assertEqual(status,200,source)
+        data=self.build_input('OUT');data.update(dropship=True,purchase_order=order['id'],sales_quote=quote['id']);data['lines'][0].update(source['lines'][0])
+        status, direct=self.save(data);self.assertEqual(status,200,direct)
+        self.assertEqual(direct['from_name'],self.supplier['name']);self.assertEqual(direct['to_name'],self.company['name'])
+        self.assertEqual(len(direct['source_documents']),2)
+        self.assertEqual(direct['source_documents'][1]['href'],'/sales/quotes/'+quote['id'])
+        role=self.pb.create('core_roles',{'name':'route_stock_reader','label':'Stock','active':True,'permissions':['inventory.read']})
+        self.pb.create_user('stock-route-reader@local.invalid',role['id']);token=self.pb.login('stock-route-reader@local.invalid')[1]['token']
+        status, limited=self.pb.request('GET','horizon/inventory/operations/'+direct['id'],token=token);self.assertEqual(status,200,limited)
+        self.assertEqual(limited['source_documents'],[{'number':order['number'],'href':''}])
+        self.assertEqual(limited['sales_quote'],'');self.assertIsNone(limited['lines'][0]['unit_cost'])
+        # A return reverses the original flow and identifies the original stock document.
+        status, done=self.action(receipt);self.assertEqual(status,200,done)
+        data=self.build_input('RET',2);data['origin']=done['id']
+        status, returned=self.save(data);self.assertEqual(status,200,returned)
+        self.assertEqual(returned['to_name'],self.supplier['name']);self.assertIn(done['warehouse_name'],returned['from_name'])
+        self.assertEqual(returned['source_documents'],[{'number':done['number'],'href':'/inventory/operations/'+done['id']}])
+        data=self.build_input('INT',2);data['destination_warehouse']=self.sevres;data['lines'][0]['to_location']=self.to
+        status, transfer=self.save(data);self.assertEqual(status,200,transfer)
+        self.assertIn(transfer['warehouse_name'],transfer['from_name']);self.assertIn(transfer['destination_warehouse_name'],transfer['to_name'])
+        self.assertEqual(transfer['source_documents'],[])
+        for field in ['from_name','to_name','source_document']:
+            status,page=self.pb.request('GET','horizon/inventory/operations?sort='+field,token=self.token);self.assertEqual(status,200,page)
+            self.assertEqual(page['totalItems'],4)
+        self.assertEqual(self.balance()['physical'],10)
+
     def test_dropship_realization_without_local_stock(self):
         quote, order = self.sourced_purchase()
         status, source = self.pb.request('GET', f'horizon/inventory/operations/source?kind=OUT&purchase_order={order["id"]}&sales_quote={quote["id"]}&dropship=true', token=self.token); self.assertEqual(status, 200, source)
@@ -283,6 +341,10 @@ class StockOperationsTests(unittest.TestCase):
         status, draft = self.save(ret); self.assertEqual(status, 200, draft); self.assertEqual(self.action(draft)[0], 400)
         with ThreadPoolExecutor(max_workers=4) as pool:
             results = list(pool.map(lambda _: self.save(self.build_input('IN', 1)), range(4)))
+        self.assertTrue(all(status == 200 for status, _ in results), results)
+        self.assertTrue(all(not item['number'] for _, item in results))
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            results = list(pool.map(lambda item: self.action(item[1]), results))
         self.assertTrue(all(status == 200 for status, _ in results), results)
         numbers = sorted(int(item['number'].split('/')[-1]) for _, item in results)
         self.assertEqual(numbers, list(range(2, 6)))
@@ -405,6 +467,118 @@ class StockOperationsTests(unittest.TestCase):
         status, settings = self.pb.request('GET', 'horizon/inventory/settings', token=self.token); self.assertEqual(status, 200, settings)
         settings['auto_prepare_deliveries'] = True
         status, _ = self.pb.request('POST', 'horizon/inventory/settings', settings, self.token); self.assertEqual(status, 200)
+
+    def test_customer_return_updates_existing_partial_delivery_backorder(self):
+        quote = self.customer_order()
+        self.stock(4)
+        status, draft = self.prepare_delivery(quote); self.assertEqual(status, 200, draft)
+        status, done = self.delivery_partial(draft, 2); self.assertEqual(status, 200, done)
+        status, pending = self.prepare_delivery(quote); self.assertEqual(status, 200, pending)
+        self.assertEqual(pending['lines'][0]['quantity'], 2)
+        body = self.build_input('RET', 1); body['origin'] = done['id']; body['lines'][0]['origin_line'] = done['lines'][0]['id']
+        status, returned = self.save(body); self.assertEqual(status, 200, returned)
+        self.assertEqual(self.action(returned)[0], 200)
+        status, pending_after_return = self.prepare_delivery(quote); self.assertEqual(status, 200, pending_after_return)
+        self.assertEqual(pending_after_return['id'], pending['id'])
+        self.assertEqual(pending_after_return['lines'][0]['quantity'], 3)
+        status, partial = self.delivery_partial(pending_after_return, 1); self.assertEqual(status, 200, partial)
+        status, remainder = self.prepare_delivery(quote); self.assertEqual(status, 200, remainder)
+        self.assertEqual(remainder['lines'][0]['quantity'], 2)
+        self.assertEqual(self.action(remainder)[0], 200)
+        self.assertEqual(self.prepare_delivery(quote)[0], 409)
+        self.assertEqual(self.balance()['physical'], 0)
+
+    def test_customer_return_reopens_delivery_remainder(self):
+        quote = self.customer_order()
+        self.stock(4)
+        status, draft = self.prepare_delivery(quote); self.assertEqual(status, 200, draft)
+        status, done = self.action(draft); self.assertEqual(status, 200, done)
+        needed_path = 'horizon/inventory/operations/delivery-needed/' + quote['id']
+        self.assertEqual(self.pb.request('GET', needed_path, token=self.token)[1], {'needed': False})
+        body = self.build_input('RET', 1); body['origin'] = done['id']; body['lines'][0]['origin_line'] = done['lines'][0]['id']
+        status, returned = self.save(body); self.assertEqual(status, 200, returned)
+        self.assertEqual(self.pb.request('GET', needed_path, token=self.token)[1], {'needed': False})
+        status, returned = self.action(returned); self.assertEqual(status, 200, returned)
+        self.assertEqual(self.action(returned, 'archive')[0], 200)
+        self.assertEqual(self.pb.request('GET', needed_path, token=self.token)[1], {'needed': True})
+        status, source = self.pb.request('GET', 'horizon/inventory/operations/source?kind=OUT&sales_quote=' + quote['id'], token=self.token)
+        self.assertEqual(status, 200, source); self.assertEqual(source['lines'][0]['quantity'], 1)
+        status, replacement = self.prepare_delivery(quote); self.assertEqual(status, 200, replacement)
+        self.assertEqual(replacement['lines'][0]['quantity'], 1)
+        self.assertEqual(self.prepare_delivery(quote)[1]['id'], replacement['id'])
+        excessive = self.build_input('OUT', 2); excessive['sales_quote'] = quote['id']; excessive['lines'][0]['source_line'] = done['lines'][0]['source_line']
+        self.assertNotEqual(self.save(excessive)[0], 200)
+        status, choices = self.pb.request('GET', 'horizon/inventory/stock/reservations/' + quote['id'], token=self.token)
+        self.assertEqual(status, 200, choices); self.assertEqual(choices['lines'][0]['capacity'], 1)
+        status, reserved = self.pb.request('POST', 'horizon/inventory/stock/reservations', dict(quote=quote['id'], revision=choices['revision'], selections=[dict(source_line=quote['lines'][0]['id'], location=self.location, quantity=1)]), self.token)
+        self.assertEqual(status, 200, reserved)
+        self.assertEqual(self.balance()['reserved'], 1)
+        status, replacement = self.action(replacement); self.assertEqual(status, 200, replacement)
+        self.assertEqual(self.pb.request('GET', needed_path, token=self.token)[1], {'needed': False})
+        self.assertEqual(self.prepare_delivery(quote)[0], 409)
+        status, tracking = self.pb.request('GET', 'horizon/purchasing/tracking/' + quote['id'], token=self.token); self.assertEqual(status, 200, tracking)
+        detail = next(iter(tracking.values()))
+        self.assertEqual((detail['delivered_gross'], detail['returned'], detail['delivered']), (5, 1, 4))
+        self.assertEqual(self.balance()['physical'], 0)
+
+    def test_customer_return_tracking_keeps_same_product_lines_separate(self):
+        import check_catalog
+        status, quote = check_catalog.CatalogTests.quote_save(self, key=str(uuid.uuid4()), opportunity=self.opp['id'], lines=[dict(product=self.item['id'], description='Ligne A', quantity=4, unit='m', unit_price=1.08, unit_cost=0.8), dict(product=self.item['id'], description='Ligne B', quantity=2, unit='m', unit_price=1.08, unit_cost=0.8)])
+        self.assertEqual(status, 200, quote)
+        status, quote = self.pb.request('POST', 'horizon/sales/quotes/finalize', dict(id=quote['id'], updated=quote['updated']), self.token); self.assertEqual(status, 200, quote)
+        status, quote = self.pb.request('POST', 'horizon/sales/quotes/confirm', dict(id=quote['id'], updated=quote['updated'], customer_order_number='', awaiting_customer_order=True), self.token); self.assertEqual(status, 200, quote)
+        self.stock(6)
+        status, draft = self.prepare_delivery(quote); self.assertEqual(status, 200, draft)
+        status, done = self.action(draft); self.assertEqual(status, 200, done)
+        body = self.build_input('RET', 1); body['origin'] = done['id']; body['lines'][0]['origin_line'] = done['lines'][1]['id']
+        status, returned = self.save(body); self.assertEqual(status, 200, returned)
+        self.assertEqual(self.action(returned)[0], 200)
+        status, tracking = self.pb.request('GET', 'horizon/purchasing/tracking/' + quote['id'], token=self.token); self.assertEqual(status, 200, tracking)
+        first, second = [tracking[line['id']] for line in quote['lines']]
+        self.assertEqual((first['delivered_gross'], first['returned'], first['delivered']), (4, 0, 4))
+        self.assertEqual((second['delivered_gross'], second['returned'], second['delivered']), (2, 1, 1))
+
+    def test_customer_returns_update_delivery_tracking_and_linked_operations(self):
+        quote = self.customer_order()
+        self.stock(4)
+        status, draft = self.prepare_delivery(quote); self.assertEqual(status, 200, draft)
+        status, done = self.action(draft); self.assertEqual(status, 200, done)
+        path = 'horizon/purchasing/tracking/' + quote['id']
+        def tracking():
+            status, result = self.pb.request('GET', path, token=self.token)
+            self.assertEqual(status, 200, result)
+            return next(iter(result.values()))
+        self.assertEqual(tracking()['delivered'], 4)
+        body = self.build_input('RET', 1); body['origin'] = done['id']; body['lines'][0]['origin_line'] = done['lines'][0]['id']
+        status, returned = self.save(body); self.assertEqual(status, 200, returned)
+        self.assertEqual(tracking()['returned'], 0)
+        status, returned = self.action(returned); self.assertEqual(status, 200, returned)
+        self.assertEqual((tracking()['delivered_gross'], tracking()['returned'], tracking()['delivered']), (4, 1, 3))
+        status, _ = self.action(returned, 'archive'); self.assertEqual(status, 200)
+        self.assertEqual(tracking()['returned'], 1)
+        status, cancelled = self.save(body); self.assertEqual(status, 200, cancelled)
+        self.assertEqual(self.action(cancelled, 'cancel')[0], 200)
+        self.assertEqual(tracking()['returned'], 1)
+        status, second = self.save(body); self.assertEqual(status, 200, second)
+        self.assertEqual(self.action(second)[0], 200)
+        self.assertEqual((tracking()['delivered_gross'], tracking()['returned'], tracking()['delivered']), (4, 2, 2))
+        self.assertEqual(self.balance()['physical'], 2)
+        status, page = self.pb.request('GET', 'horizon/inventory/operations?sales_quote=' + quote['id'] + '&status=done', token=self.token)
+        self.assertEqual(status, 200, page)
+        self.assertIn(second['id'], [item['id'] for item in page['items']])
+        status, page = self.pb.request('GET', 'horizon/inventory/operations?sales_quote=' + quote['id'] + '&state=archived&status=done', token=self.token)
+        self.assertEqual(status, 200, page)
+        self.assertIn(returned['id'], [item['id'] for item in page['items']])
+        other = self.customer_order()
+        status, other_tracking = self.pb.request('GET', 'horizon/purchasing/tracking/' + other['id'], token=self.token)
+        self.assertEqual(status, 200, other_tracking)
+        self.assertEqual(next(iter(other_tracking.values()))['returned'], 0)
+        status, role = self.pb.request('GET', 'collections/core_roles/records/' + self.user['role'], token=self.pb.admin_token)
+        self.assertEqual(status, 200)
+        self.pb.request('PATCH', 'collections/core_roles/records/' + self.user['role'], {'permissions': [permission for permission in role['permissions'] if permission != 'inventory.read']}, self.pb.admin_token)
+        self.assertIsNone(tracking()['returned'])
+        self.assertIsNone(tracking()['delivered_gross'])
+        self.assertIsNone(tracking()['delivered'])
 
     def test_delivery_zero_stock_partial_backorder_and_retry(self):
         quote = self.customer_order()

@@ -1,6 +1,6 @@
 // Draft HT pricing. Official tax and validation snapshots remain future services.
 module.exports = {
-  quoteLines(input, discount = 0, mode = 'percent') {
+  quoteLines(input, discount = 0, mode = 'percent', allowZero = false) {
     if (typeof discount !== 'number' || !Number.isFinite(discount) || discount < 0 || !['percent', 'amount'].includes(mode) || mode === 'percent' && discount > 100 || discount > 1000000000) throw new BadRequestError('Remise globale invalide.')
     if (!Array.isArray(input) || input.length > 200) throw new BadRequestError('Maximum 200 lignes par devis.')
     let cents = 0, options = 0, costs = 0
@@ -20,7 +20,7 @@ module.exports = {
       const source = line.price_source || 'manual', margin = Number(line.margin_percent || 0)
       if (!['manual', 'margin'].includes(source) || !Number.isFinite(margin) || margin < -100 || margin > 10000000000000 || source === 'margin' && cost <= 0) throw new BadRequestError('Marge invalide ou coût absent.')
       const price = source === 'margin' ? cost * (1 + margin / 100) : Number(line.unit_price)
-      if (!Number.isFinite(quantity) || quantity < 0.001 || quantity > 1000000 || !Number.isFinite(price) || price < 0 || price > 1000000000 || !Number.isFinite(cost) || cost < 0 || cost > 1000000000 || !Number.isFinite(discount) || discount < 0 || discount > 100) throw new BadRequestError('Quantité, coût, prix ou remise de ligne invalide.')
+      if (!Number.isFinite(quantity) || quantity < (allowZero ? 0 : 0.001) || quantity > 1000000 || !Number.isFinite(price) || price < 0 || price > 1000000000 || !Number.isFinite(cost) || cost < 0 || cost > 1000000000 || !Number.isFinite(discount) || discount < 0 || discount > 100) throw new BadRequestError('Quantité, coût, prix ou remise de ligne invalide.')
       const unitPrice = Math.round(price * 1e6) / 1e6, unitCost = Math.round(cost * 1e6) / 1e6, lineCents = Math.round(quantity * unitPrice * 100 * (1 - discount / 100)), lineCost = Math.round(quantity * unitCost * 100)
       if (![lineCents, lineCost, cents + lineCents, options + lineCents, costs + lineCost].every(Number.isSafeInteger)) throw new BadRequestError('Montant hors limites.')
       if (isOption) options += lineCents; else { cents += lineCents; costs += lineCost }

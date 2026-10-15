@@ -12,7 +12,7 @@ const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').match
 /** Shared drag-and-drop for editable rows. The owner persists the resulting order. */
 export function HSortableRows({ ids, onMove, disabled = false, renderPreview, children }: { ids: readonly string[]; onMove: (from: number, to: number) => void; disabled?: boolean; renderPreview: (index: number) => ReactNode; children: ReactNode }) {
   const group = useId()
-  return <SortableRowsContext.Provider value={{ group, disabled }}><DragDropProvider sensors={sensors} onDragEnd={(event) => {
+  return <SortableRowsContext.Provider value={{ group, disabled }}><DragDropProvider key={disabled ? 'readonly' : 'editable'} sensors={sensors} onDragEnd={(event) => {
     const source = event.operation.source
     if (event.canceled || disabled || !source || !isSortable(source)) return
     const from = ids.indexOf(String(source.id)), to = source.index

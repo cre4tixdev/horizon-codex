@@ -4,16 +4,17 @@ const round = (value) => Math.round(value * 1000000) / 1000000
 const lines = (record) => JSON.parse(record.getString('lines') || '[]')
 const source = (app, quote) => require(`${__hooks}/lib/sales-procurement.js`).deliverySource(app, quote)
 const operations = (app, quote) => app.findRecordsByFilter('inventory_operations', 'sales_quote = {:quote} && (kind = "OUT" || kind = "PREP") && (status = "done" || (status = "draft" && archived_at = ""))', 'created,id', 0, 0, { quote })
-const coverage = (records) => {
+const coverage = (app, quote, records) => {
   const totals = new Map()
   for (const record of records) for (const line of lines(record)) { const id = line.sales_line || line.source_line; totals.set(id, (totals.get(id) || 0) + line.quantity) }
+  for (const [id, returned] of require(`${__hooks}/lib/stock-delivery-returns.js`)(app, quote)) totals.set(id, Math.max(0, round((totals.get(id) || 0) - returned)))
   return totals
 }
 const scale = (line, quantity) => ({ ...line, quantity, allocations: (line.allocations || []).map((item) => ({ ...item, quantity: line.quantity ? round(item.quantity * quantity / line.quantity) : 0 })) })
 module.exports = {
   checkPrepared(app, input, exclude = '') {
     if (!input.sales_quote || !['OUT', 'PREP'].includes(input.kind) || input.dropship) return
-    const sales = source(app, input.sales_quote), coveredLines = coverage(operations(app, input.sales_quote).filter((record) => record.id !== exclude))
+    const sales = source(app, input.sales_quote), coveredLines = coverage(app, input.sales_quote, operations(app, input.sales_quote).filter((record) => record.id !== exclude))
     for (const line of input.lines.filter((row) => row.product)) {
       const sale = sales.lines.find((item) => item.id === line.source_line)
       const covered = coveredLines.get(line.source_line) || 0
@@ -23,7 +24,7 @@ module.exports = {
   sync(app, user, quote, warehouse, parent = '') {
     const sales = source(app, quote), existing = operations(app, quote), destination = parent ? c.get(app, 'inventory_operations', parent).getString('destination') : sales.destination
     const reusable = existing.find((record) => record.getString('status') === 'draft' && record.getString('warehouse') === warehouse && (!parent || record.getString('destination') === destination) && record.getString('creation_key').startsWith('sales-delivery-') && !record.getString('creation_hash'))
-    const coveredLines = coverage(existing.filter((record) => record.id !== reusable?.id)), account = sales.order.getString('analytic_child') || sales.order.getString('analytic_account')
+    const coveredLines = coverage(app, quote, existing.filter((record) => record.id !== reusable?.id)), account = sales.order.getString('analytic_child') || sales.order.getString('analytic_account')
     const items = sales.lines.flatMap((line) => {
       if (!line.getString('product')) return []
       const product = c.get(app, 'inventory_products', line.getString('product'))
@@ -41,7 +42,7 @@ module.exports = {
     if (reusable && c.hash(old) === c.hash(items)) return reusable
     const record = reusable || new Record(app.findCollectionByNameOrId('inventory_operations')), before = reusable?.publicExport() || null
     if (!reusable) {
-      record.set('number', require(`${__hooks}/lib/stock-purchase-receipts.js`).number(app, warehouse, 'OUT')); record.set('actor', user.id)
+      record.set('actor', user.id)
       record.set('creation_key', `sales-delivery-${quote}-${$security.randomString(20)}`); record.set('creation_hash', '')
     }
     for (const [key, value] of Object.entries({ kind: 'OUT', status: 'draft', warehouse, sales_quote: quote, opportunity: sales.quote.getString('opportunity'), title: `Livraison · ${sales.quote.getString('quote_number')}`, destination: reusable?.getString('destination') || destination, document_date: reusable?.getString('document_date') || new Date().toISOString().slice(0, 10), lines: items, scope: [], inventory_mode: 'cycle' })) record.set(key, value)
@@ -80,6 +81,6 @@ module.exports = {
 }
 
 module.exports.needed = (app, quote) => {
-  const sales = source(app, quote), done = coverage(operations(app, quote).filter((record) => record.getString('status') === 'done'))
+  const sales = source(app, quote), done = coverage(app, quote, operations(app, quote).filter((record) => record.getString('status') === 'done'))
   return sales.lines.some((line) => line.getString('product') && c.get(app, 'inventory_products', line.getString('product')).getString('stock_policy') !== 'none' && line.getFloat('quantity') - (done.get(line.id) || 0) > 0.000001)
 }

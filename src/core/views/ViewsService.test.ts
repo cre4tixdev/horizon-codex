@@ -23,4 +23,10 @@ describe('vues enregistrées', () => {
     expect(savedViewInputSchema.safeParse({ name: 'X', context: 'contacts.companies', visibility: 'personal', params: { group: 'company' } }).success).toBe(false)
     expect(savedViewInputSchema.safeParse({ name: 'X', context: 'contacts.people', visibility: 'personal', params: { sort: 'legal_name:desc' } }).success).toBe(false)
   })
+  it('accepts the new column criteria while preserving context isolation', () => {
+    for (const context of ['contacts.companies', 'contacts.people']) for (const sort of ['roles:asc', 'roles:desc', 'phone:asc', 'status:desc']) expect(savedViewInputSchema.safeParse({ name: 'Tri', context, visibility: 'personal', params: { sort } }).success).toBe(true)
+    expect(savedViewInputSchema.safeParse({ name: 'Tri', context: 'contacts.people', visibility: 'personal', params: { sort: 'job_title:asc' } }).success).toBe(true)
+    expect(savedViewInputSchema.safeParse({ name: 'Tri', context: 'contacts.companies', visibility: 'personal', params: { sort: 'job_title:asc' } }).success).toBe(false)
+  })
+
 })

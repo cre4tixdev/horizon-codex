@@ -57,7 +57,7 @@ module.exports = {
     const requestedPage = Number(query.get('page') || 1)
     if (!Number.isSafeInteger(requestedPage) || requestedPage < 1) throw new BadRequestError('Page AO invalide.')
     const page = requestedPage
-    const allowed = ['created', 'reference', 'title', 'publication_date', 'submission_deadline', 'estimated_value']
+    const derived = ['company', 'tags', 'visits', 'preparation', 'documents', 'owner'], allowed = ['created', 'reference', 'title', 'publication_date', 'submission_deadline', 'estimated_value', ...derived]
     const requested = query.get('sort') || '-created'
     const sort = allowed.includes(requested.replace(/^-/, '')) ? requested : '-created'
     const matches = event.app.findRecordsByFilter('crm_tenders', filter, '', 10001, 0, parameters)
@@ -65,7 +65,13 @@ module.exports = {
     if (totalItems > 10000) throw new BadRequestError('Affinez les filtres de la liste AO.')
     const field = sort.replace(/^-/, ''), direction = sort.startsWith('-') ? -1 : 1
     const ordered = matches.map((record) => { const source = ['title', 'estimated_value'].includes(field) ? linked(event.app, record) || record : record; return { record, value: field === 'estimated_value' ? source.getFloat(field) : source.getString(field) } }).sort((a, b) => direction * (typeof a.value === 'number' ? a.value - b.value : String(a.value).localeCompare(String(b.value))) || a.record.id.localeCompare(b.record.id))
-    const items = ordered.slice((page - 1) * 100, page * 100).map(({ record }) => project(event.app, record))
+    const projected = derived.includes(field)
+    let items = (projected ? ordered : ordered.slice((page - 1) * 100, page * 100)).map(({ record }) => project(event.app, record))
+    if (projected) {
+      const label = (collection, id) => id ? event.app.findRecordById(collection, id).getString('label') : ''
+      require(`${__hooks}/lib/list-sorting.js`).rows(items, sort, derived, 'company', (item, key) => key === 'company' ? item.expand.company?.name : key === 'owner' ? item.expand.owner?.name : key === 'visits' ? item.visit_count : key === 'documents' ? item.document_count : key === 'preparation' ? label('crm_tender_statuses', item.tender.status) : require(`${__hooks}/lib/list-sorting.js`).text([...(item.market_types || []).map((id) => label('crm_market_types', id)), ...(item.tender.tags || []).map((id) => label('crm_tender_tags', id))]))
+      items = items.slice((page - 1) * 100, page * 100)
+    }
     return event.json(200, { items, totalItems, totalPages: Math.ceil(totalItems / 100), page })
   },
   summary(event) {

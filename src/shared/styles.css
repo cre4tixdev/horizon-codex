@@ -1789,10 +1789,11 @@
 .h-table-drag-summary > span { white-space: nowrap; font-variant-numeric: tabular-nums; }
 
 /* Compact quote cells share a center axis, with subtle column separators. */
-.sales-quote-lines { margin-top: var(--hz-record-section-gap); }
+.sales-quote-lines, .h-record-lines { margin-top: var(--hz-record-section-gap); }
 .sales-quote-lines .quote-edit-table th { text-align: center; height: 30px; color: var(--theme-text, #091c3a); }
-.sales-quote-lines .quote-edit-table td { height: var(--hz-table-row-height); border-right: 1px solid var(--theme-border-subtle, #e7edf5); }
-.sales-quote-lines .quote-edit-table td:last-child { border-right: 0; }
+.sales-quote-lines .quote-edit-table :is(th, td) { border-right: 1px solid var(--theme-border-subtle, #e7edf5); }
+.sales-quote-lines .quote-edit-table td { height: var(--hz-table-row-height); }
+.sales-quote-lines .quote-edit-table :is(th, td):last-child { border-right: 0; }
 .sales-quote-lines .quote-edit-table .h-input { height: 26px; text-align: center; padding-left: 5px; padding-right: 5px; }
 .sales-quote-lines .quote-edit-table .quote-line-description { height: auto; padding: 4px 8px; text-align: left; }
 .sales-quote-lines .quote-edit-table .h-amount-input > .h-input { padding-right: 23px; text-align: right; }
@@ -1800,7 +1801,7 @@
 .quote-purchase-status { text-align: center; }
 .sales-quote-lines .quote-edit-table .quote-row--section, .sales-quote-lines .quote-edit-table .quote-row--subsection { background: var(--quote-section-background, #e1e6ee); }
 :root[data-theme="dark"] { --quote-section-background: #2b3d56; }
-.sales-quote-lines .quote-edit-table th .quote-column-resizer { position: absolute; top: 0; right: 0; bottom: 0; width: 7px; z-index: 2; padding: 0; cursor: col-resize; touch-action: none; border-right: 1px solid var(--theme-border-subtle, #c5d2e2); }
+.sales-quote-lines .quote-edit-table th .quote-column-resizer { position: absolute; top: 0; right: 0; bottom: 0; width: 7px; z-index: 2; padding: 0; cursor: col-resize; touch-action: none; border-right: 0; }
 .sales-quote-lines .quote-column-resizer:hover, .sales-quote-lines .quote-column-resizer:focus-visible { background: var(--theme-border, #c5d2e2); }
 .quote-action-icons { width: 100%; gap: 5px; }
 .quote-total-tax label { display: flex; align-items: center; gap: 5px; font-size: 12px; }
@@ -2104,7 +2105,7 @@
 .purchasing-lines .purchase-analytic-button { max-width: 100%; padding: 0 4px; gap: 4px; font-size: 11px; }
 .purchasing-notes-panel.quote-notes-panel.contact-panel { margin-top: 0; }
 @media(max-width: 1100px) { .purchasing-lines .h-data-table { min-width: 1120px; } }
-.dialog-content.purchase-allocation-dialog { width: min(780px, calc(100vw - var(--workspace-sidebar-width) - 32px)); }
+.dialog-content.purchase-allocation-dialog { width: min(1120px, calc(100vw - var(--workspace-sidebar-width) - 32px)); }
 .purchasing-prepare-dialog { width: min(1100px, calc(100vw - 72px)); }
 .purchasing-prepare-dialog .h-data-table td { vertical-align: middle; }
 .purchasing-totals { width: min(380px, 100%); margin: 24px 12px 16px auto; display: grid; gap: 8px; }
@@ -2118,6 +2119,7 @@
 .stock-reservation-lines { margin-top: 12px; }
 .quote-tracking-link { font-size: 11px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; }
 .quote-tracking-link[data-covered=true] { color: var(--theme-success, #168665); }
+.quote-tracking-link .quote-return-count { display: inline-flex; align-items: center; gap: 2px; color: var(--theme-text-muted); white-space: nowrap; }
 @media(max-width: 760px) { .purchase-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); } .purchasing-prepare-dialog, .quote-stock-confirmation { width: calc(100vw - 24px); } }
 
 
@@ -2431,6 +2433,7 @@
 .quote-edit-table .quote-description-input-action { flex: 1; min-width: 0; border: 0; outline: 1px solid transparent; outline-offset: -1px; background: transparent; }
 .quote-edit-table .quote-description-input-action:hover, .quote-edit-table .quote-description-input-action:focus-within { outline-color: var(--theme-border, #dce5f2); }
 .quote-description-input-action > .h-button { width: 24px; height: 26px; min-width: 24px; padding: 0; border-left: 1px solid var(--theme-border, #dce5f2); border-radius: 0 4px 4px 0; align-self: center; }
+.quote-description-input-action:has(> textarea:disabled) > .h-button { color: var(--theme-text-muted, #647289); }
 
 .quote-row--subtitle .quote-line-description { font-weight: 600; }
 
@@ -2440,7 +2443,7 @@
 .h-table-sticky-heading { position: sticky; top: var(--table-sticky-top, 0px); left: 0; z-index: 5; background: var(--color-horizon-background); padding: 0 0 12px; }
 .h-table-sticky-heading > .h-section-heading { margin: 0; }
 [data-table-viewport]:has(> .h-table-sticky-heading) { border: 0; border-radius: 0; background: transparent; }
-[data-table-viewport]:has(> .h-table-sticky-heading) > table { border: 1px solid var(--theme-table-border, #dce5ef); }
+[data-table-viewport]:has(> .h-table-sticky-heading) > table { border: 1px solid var(--theme-table-border, #dce5ef); border-collapse: separate; border-spacing: 0; border-radius: 6px; }
 .contact-record .contact-fields.contact-fields--three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .contact-record .contact-fields.contact-fields--three > label:last-child { grid-column: auto; }
 @media (max-width: 760px) { .contact-record .contact-fields.contact-fields--three { grid-template-columns: minmax(0, 1fr); } }
@@ -2510,3 +2513,12 @@ button.contact-card-title { padding: 0; border: 0; background: transparent; text
 
 .h-document-summary { margin-left:auto; max-width:340px; display:grid; gap:8px; padding-top:14px; }
 .h-document-summary > div { display:flex; justify-content:space-between; gap:14px; }
+
+.h-table-sort-button { display: inline-flex; align-items: center; gap: 6px; border: 0; background: none; padding: 0; font: inherit; color: inherit; min-height: 26px; cursor: pointer; }
+.h-table-sort-button svg { flex-shrink: 0; opacity: 0.55; }
+.h-table-sort-button[data-sort-active=true] svg { opacity: 1; color: var(--theme-rose-text, #f52f96); }
+.h-table-sort-button:focus-visible { outline: 2px solid var(--theme-focus-ring, #f52f96); outline-offset: 1px; border-radius: 3px; }
+
+.h-table-sort-button { width: 100%; text-align: inherit; }
+.h-table-sort-label { flex: 1; min-width: 0; text-align: inherit; }
+.h-table-sort-button svg { margin-left: auto; }

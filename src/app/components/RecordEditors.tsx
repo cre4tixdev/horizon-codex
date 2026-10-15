@@ -7,7 +7,11 @@ const OpportunityPage = lazy(async () => ({ default: (await import('../../module
 const QuotePage = lazy(async () => ({ default: (await import('../../modules/sales/pages/QuotePage')).QuotePage }))
 const ProductPage = lazy(async () => ({ default: (await import('../../modules/inventory/pages/ProductPage')).ProductPage }))
 const PurchasePage = lazy(async () => ({ default: (await import('../../modules/purchasing/pages/PurchasePage')).PurchasePage }))
+const OperationPage = lazy(async () => ({ default: (await import('../../modules/inventory/pages/OperationPage')).OperationPage }))
+const BillPage = lazy(async () => ({ default: (await import('../../modules/billing/pages/BillPage')).BillPage }))
 const recordAdapters: Record<string, RecordAdapter> = {
+  'stock-operation': { path: '/inventory/operations', createTitle: 'Nouvelle opération', viewTitle: 'Opération de stock', render: () => <OperationPage /> },
+  ...Object.fromEntries(['customer', 'supplier', 'customer_credit', 'supplier_credit'].map((kind) => [`billing-${kind}`, { path: `/billing/${kind}`, createTitle: 'Nouvelle pièce', viewTitle: kind.endsWith('_credit') ? 'Avoir' : 'Facture', render: () => <BillPage /> }])),
   'purchase-request': { path: '/purchasing/requests', createTitle: 'Préparer les achats', viewTitle: 'Demande d’achat', render: () => <PurchasePage /> },
   'purchase-order': { path: '/purchasing/orders', createTitle: 'Nouvelle commande fournisseur', viewTitle: 'Commande fournisseur', render: () => <PurchasePage /> },
   product: { path: '/inventory/products', createTitle: 'Nouveau produit', viewTitle: 'Fiche produit', render: () => <ProductPage /> },

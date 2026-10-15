@@ -15,4 +15,12 @@ describe('tri des employés', () => {
     expect(sortEmployeeResults(rows, 'email:asc')).toEqual([...rows].reverse())
     expect(sortEmployeeResults(rows, 'job:asc')).toEqual(rows)
   })
+  it('uses the displayed values of the added columns and keeps surname sorting intact', () => {
+    const rows = [employee('Zoé', 'Durand'), employee('Alice', 'Martin')]
+    const value = (item: typeof rows[number]) => item.first_name === 'Alice' ? 'Achats' : 'Ventes'
+    expect(sortEmployeeResults(rows, 'team:asc', value)).toEqual([...rows].reverse())
+    expect(sortEmployeeResults(rows, 'team:desc', value)).toEqual(rows)
+    expect(sortEmployeeResults(rows, 'name:asc', value)).toEqual(rows)
+  })
+
 })

@@ -13,9 +13,10 @@ const dto = (app, quote) => {
   const opp = app.findRecordById('crm_opportunities', quote.getString('opportunity'))
   const company = app.findRecordById('contacts_companies', quote.getString('company'))
   const order = app.findRecordsByFilter('sales_orders', 'quote = {:id} && status != "cancelled"', '-order_sequence,created', 1, 0, { id: quote.id })[0]
+  const effective = quote.getString('status') === 'accepted' && order ? require(`${__hooks}/lib/sales-order-revisions.js`).current(app, quote, order) : null
   const proof = order?.getString('customer_order_event') ? app.findRecordById('core_activity_events', order.getString('customer_order_event')) : null
   const documents = order ? require(`${__hooks}/lib/sales-order-documents.js`).active(app, order).flatMap((record) => record.getStringSlice('attachments').map((file) => ({ event_id: record.id, file }))) : []
-  return { ...quote.publicExport(), can_delete: !require(`${__hooks}/lib/purchasing.js`).referencesQuote(app, quote.id) && !quote.getString('sent_at') && quote.getString('status') !== 'sent' && !app.findRecordsByFilter('sales_orders', 'quote = {:id}', '', 1, 0, { id: quote.id }).length, owner_name: app.findRecordById('core_users', quote.getString('owner')).getString('name'), order: order ? { status: order.getString('status'), date: order.getString('order_date'), id: order.id, number: order.getString('order_number'), customer_number: order.getString('customer_order_number').replace(/^attente commande$/i, 'Attente Commande'), event_id: proof?.id || '', files: proof?.getStringSlice('attachments') || [], documents } : null, opportunity_name: opp.getString('title'), opportunity_number: opp.getString('opportunity_number'), company_name: company.getString('name'), lines: app.findRecordsByFilter('sales_quote_lines', 'quote = {:id}', 'position', 0, 0, { id: quote.id }).map((record) => record.publicExport()) }
+  return { ...quote.publicExport(), ...(effective ? effective.header : {}), id: quote.id, updated: quote.getString('updated'), can_delete: !require(`${__hooks}/lib/purchasing.js`).referencesQuote(app, quote.id) && !quote.getString('sent_at') && quote.getString('status') !== 'sent' && !app.findRecordsByFilter('sales_orders', 'quote = {:id}', '', 1, 0, { id: quote.id }).length, owner_name: app.findRecordById('core_users', effective?.order.owner || quote.getString('owner')).getString('name'), order: order ? { status: order.getString('status'), revision: order.getInt('revision_number'), date: order.getString('order_date'), id: order.id, number: order.getString('order_number'), customer_number: order.getString('customer_order_number').replace(/^attente commande$/i, 'Attente Commande'), event_id: proof?.id || '', files: proof?.getStringSlice('attachments') || [], documents } : null, opportunity_name: opp.getString('title'), opportunity_number: opp.getString('opportunity_number'), company_name: company.getString('name'), lines: effective ? effective.lines : app.findRecordsByFilter('sales_quote_lines', 'quote = {:id}', 'position', 0, 0, { id: quote.id }).map((record) => record.publicExport()) }
 }
 const audit = (app, record, before, actor, action, previousLines) => {
   const item = new Record(app.findCollectionByNameOrId('core_audit'))
@@ -93,14 +94,22 @@ module.exports = {
     if (query.get('company')) { if (!/^[a-z0-9]{15}$/.test(query.get('company'))) throw new BadRequestError('Société invalide.'); parameters.company = query.get('company'); conditions.push('company = {:company}') }
     if (query.get('product')) { if (!require(`${__hooks}/lib/catalog.js`).allowed(event.app, event.auth)) throw new ForbiddenError('Accès produit nécessaire.'); parameters.product = query.get('product'); conditions.push('sales_quote_lines_via_quote.product ?= {:product}') }
     conditions.push(...require(`${__hooks}/lib/sales-list-filters.js`)(query, parameters))
-    if (search) { conditions.push('(quote_number ~ {:q} || title ~ {:q} || company.name ~ {:q} || opportunity.title ~ {:q} || sales_orders_via_quote.customer_order_number ?~ {:q})'); parameters.q = search }
+    if (search) { conditions.push('(quote_number ~ {:q} || title ~ {:q} || sales_orders_via_quote.current_revision.after_snapshot.header.title ?~ {:q} || company.name ~ {:q} || opportunity.title ~ {:q} || sales_orders_via_quote.customer_order_number ?~ {:q})'); parameters.q = search }
     const page = Number(query.get('page') || 1)
     if (!Number.isSafeInteger(page) || page < 1) throw new BadRequestError('Page invalide.')
-    const sort = ['-created', 'quote_number', '-quote_number', 'quote_date', '-subtotal'].includes(query.get('sort')) ? query.get('sort') : '-created'
+    const sort = require(`${__hooks}/lib/list-sorting.js`).sql(query.get('sort'), ['created', 'quote_number', 'quote_date', 'subtotal', 'title'], '-created')
     const filter = conditions.join(' && ') || 'id != ""'
     const all = event.app.findRecordsByFilter('sales_quotes', filter, `${sort},id`, 10001, 0, parameters)
     if (all.length > 10000) throw new BadRequestError('Affinez la recherche des devis.')
-    return event.json(200, { items: all.slice((page - 1) * 100, page * 100).map((quote) => dto(event.app, quote)), totalItems: all.length, totalPages: Math.ceil(all.length / 100), page })
+    const derived = ['title', 'subtotal', 'kind', 'opportunity', 'company_name', 'status', 'customer_order_number']
+    const projected = derived.includes(String(query.get('sort') || '').replace(/^-/, ''))
+    let items = (projected ? all : all.slice((page - 1) * 100, page * 100)).map((quote) => dto(event.app, quote))
+    if (projected) {
+      const states = { draft: 'Brouillon', validated: 'Finalisé', sent: 'Envoyé', accepted: 'Commande client', rejected: 'Refusé', cancelled: 'Annulé' }, orders = { confirmed: 'Confirmée', in_progress: 'En cours', completed: 'Terminée' }
+      require(`${__hooks}/lib/list-sorting.js`).rows(items, query.get('sort'), derived, 'company_name', (item, field) => field === 'kind' ? item.status === 'accepted' ? 'Commande client' : 'Devis' : field === 'opportunity' ? `${item.opportunity_number} · ${item.opportunity_name}` : field === 'customer_order_number' ? item.status === 'accepted' ? item.order?.customer_number || 'Attente Commande' : null : field === 'status' ? item.status === 'accepted' ? orders[item.order?.status] || 'Commande client' : states[item.status] : item[field])
+      items = items.slice((page - 1) * 100, page * 100)
+    }
+    return event.json(200, { items, totalItems: all.length, totalPages: Math.ceil(all.length / 100), page })
   },
   save(event) {
     permissions(event.app, event.auth, true)
@@ -142,30 +151,7 @@ module.exports = {
       const salesperson = app.findRecordById('core_users', owner)
       if (owner !== quote.getString('owner') && !require(`${__hooks}/lib/activity.js`).allowed(app, salesperson, false, 'sales')) throw new BadRequestError('Choisissez un commercial actif habilité aux ventes.')
       quote.set('owner', owner)
-      const catalog = require(`${__hooks}/lib/catalog.js`)
-      const existingProducts = previousLines.filter((line) => line.product)
-      for (const line of priced.lines.filter((line) => line.product)) {
-        const previous = existingProducts.find((old) => old.product === line.product && old.product_supplier === line.product_supplier)
-        if (previous) { if (line.unit !== previous.unit) throw new BadRequestError('Le produit utilise une autre unité de base.'); line.catalog_snapshot = previous.catalog_snapshot; continue }
-        if (!catalog.allowed(app, event.auth)) throw new ForbiddenError('Accès au catalogue refusé.')
-        const product = catalog.get(app, 'inventory_products', line.product)
-        if (!product.getBool('active') || !product.getBool('sale_enabled')) throw new BadRequestError('Choisissez un produit actif pouvant être vendu.')
-        if (product.getString('sale_currency') !== quote.getString('currency')) throw new BadRequestError('La devise du produit est différente de celle du devis.')
-        const selection = catalog.productPrice(app, product, line.product_supplier || 'reference'); if (selection.warning) throw new BadRequestError(selection.warning)
-        const supplier = line.product_supplier ? catalog.get(app, 'inventory_product_suppliers', line.product_supplier) : null
-        if (supplier && (supplier.getString('product') !== product.id || !supplier.getBool('active'))) throw new BadRequestError('Tarif fournisseur invalide.')
-        if (supplier && supplier.getString('currency') !== quote.getString('currency')) throw new BadRequestError('La devise du fournisseur est différente de celle du devis.')
-        const unit = catalog.get(app, 'inventory_units', product.getString('base_unit'))
-        if (unit.getString('code') !== line.unit) throw new BadRequestError('Le produit utilise une autre unité de base.')
-        const category = catalog.get(app, 'inventory_product_categories', product.getString('category'))
-        line.catalog_snapshot = { sku: product.getString('sku'), name: product.getString('name'), manufacturer: product.getString('manufacturer'), manufacturer_ref: product.getString('manufacturer_ref'), category: category.id, category_label: category.getString('label'), coefficient: product.getBool('coefficient_override') ? product.getFloat('manual_coefficient') : category.getFloat('coefficient'), coefficient_override: product.getBool('coefficient_override'), base_unit: unit.id, unit: unit.getString('code'), reference_cost: product.getFloat('reference_cost'), source: supplier ? 'supplier' : 'reference', supplier: supplier?.getString('supplier') || '', supplier_sku: supplier?.getString('supplier_sku') || '', list_price: supplier?.getFloat('list_price') || 0, supplier_discount: supplier?.getFloat('discount') || 0, purchase_quantity: supplier?.getFloat('purchase_quantity') || 1, currency: quote.getString('currency'), captured_at: new Date().toISOString() }
-      }
-      const previousUnits = Object.create(null)
-      for (const old of previousLines.filter((line) => line.kind === 'item')) previousUnits[old.unit] = (previousUnits[old.unit] || 0) + 1
-      for (const line of priced.lines.filter((line) => line.kind === 'item' && line.unit)) {
-        const units = app.findRecordsByFilter('inventory_units', 'code = {:code} && active = true', '', 1, 0, { code: line.unit })
-        if (!units.length) { if (!previousUnits[line.unit]) throw new BadRequestError('Choisissez une unité active du référentiel.'); previousUnits[line.unit]-- }
-      }
+      require(`${__hooks}/lib/sales-line-catalog.js`)(app, event.auth, quote.getString('currency'), priced, previousLines)
       const settings = app.findFirstRecordByData('settings_sales', 'key', 'default')
       const termsId = input.terms_id === undefined ? quote.getString('terms_id') : input.terms_id
       if (typeof termsId !== 'string' || termsId.length > 100) throw new BadRequestError('Conditions générales invalides.')
@@ -201,7 +187,7 @@ module.exports = {
     const orders = event.app.findRecordsByFilter('sales_orders', 'opportunity = {:id} && status != "cancelled" && status != "draft"', '', 10001, 0, { id: opp.id })
     if (quotes.length > 10000 || orders.length > 10000) throw new BadRequestError('Trop de documents à consolider.')
     const totals = { [opp.getString('currency')]: 0 }, ordered = {}
-    for (const order of orders) { const currency = order.getString('currency'), cents = Math.round(order.getFloat('subtotal') * 100); totals[currency] = (totals[currency] || 0) + cents; const key = `${order.getString('quote')}:${currency}`; ordered[key] = (ordered[key] || 0) + cents }
+    for (const order of orders) { const currency = order.getString('currency'), cents = Math.round(order.getFloat('subtotal') * 100); totals[currency] = (totals[currency] || 0) + cents; const key = `${order.getString('quote')}:${currency}`; const baseline = order.getString('current_revision') ? event.app.findRecordsByFilter('sales_order_revisions', 'order = {:id}', 'number', 1, 0, { id: order.id })[0] : null; ordered[key] = (ordered[key] || 0) + (baseline ? Math.round(JSON.parse(baseline.getString('before_snapshot')).order.subtotal * 100) : cents) }
     for (const quote of quotes.filter((record) => !['cancelled', 'rejected'].includes(record.getString('status')))) { const currency = quote.getString('currency'); totals[currency] = (totals[currency] || 0) + Math.max(0, Math.round(quote.getFloat('subtotal') * 100) - (ordered[`${quote.id}:${currency}`] || 0)) }
     return event.json(200, { quoteCount: quotes.length, orderCount: orders.length, revenue: Object.entries(totals).map(([currency, cents]) => ({ currency, amount: cents / 100 })) })
   },

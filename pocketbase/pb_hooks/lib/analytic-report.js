@@ -48,13 +48,13 @@ function report(app, user, opportunity, quoteId) {
     const logistics = lines.filter((line) => line.getString('product') && get(app, 'inventory_products', line.getString('product')).getString('stock_policy') !== 'none')
     bucket.item_lines += logistics.length
     for (const line of logistics) {
-      const deliveries = require(`${__hooks}/lib/stock-operations.js`).consumed(app, 'sales_quote', order.getString('quote'), ['OUT', 'PREP'], line.id)
+      const deliveries = require(`${__hooks}/lib/stock-operations.js`).deliveryTracking(app, order.getString('quote'), line.id).delivered
       if (deliveries + 0.000001 >= line.getFloat('quantity')) bucket.delivered_lines++
     }
     if (access.financial) {
       if (order.getString('currency') !== currency) throw new BadRequestError('Les devises des commandes ne permettent pas une consolidation unique.')
       bucket.revenue = safeCents(bucket.revenue + cents(order.getFloat('subtotal')))
-      const snapshot = json(order, 'quote_snapshot') || {}
+      const snapshot = order.getString('current_revision') ? json(get(app, 'sales_order_revisions', order.getString('current_revision')), 'after_snapshot').header : json(order, 'quote_snapshot') || {}
       bucket.planned_cost = safeCents(bucket.planned_cost + cents(snapshot.cost_total ?? lines.reduce((sum, line) => sum + line.getFloat('quantity') * line.getFloat('unit_cost'), 0)))
     }
   }

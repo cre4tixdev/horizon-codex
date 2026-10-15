@@ -13,9 +13,11 @@ const today = () => new DateTime().time().in(new Timezone('Europe/Paris')).forma
 const date = (v) => /^\d{4}-\d{2}-\d{2}$/.test(v) && Number.isFinite(Date.parse(v)) && new Date(v).toISOString().slice(0, 10) === v
 const lines = (app, id) => app.findRecordsByFilter('expenses_lines', 'report = {:id}', 'position,created,id', 0, 0, { id })
 const name = (app, collection, id) => { if (!id) return ''; const r = get(app, collection, id); return collection === 'hr_employees' || collection === 'contacts_people' ? `${r.getString('first_name')} ${r.getString('last_name')}`.trim() : r.getString('name') || r.getString('label') || r.getString('title') }
+const vehicleLabel = (v) => `${v.getString('brand')} ${v.getString('model')} · ${v.getString('registration')}`
+const vehicleDTO = (app, v) => ({ ...v.publicExport(), label: vehicleLabel(v), employee_name: name(app, 'hr_employees', v.getString('employee')) })
 const lineDTO = (app, l) => {
   const snapshot = JSON.parse(l.getString('snapshot') || 'null')
-  return { ...l.publicExport(), company_name: snapshot?.company_name ?? name(app, 'contacts_companies', l.getString('company')), contact_name: snapshot?.contact_name ?? name(app, 'contacts_people', l.getString('contact')), opportunity_name: snapshot?.opportunity_name ?? name(app, 'crm_opportunities', l.getString('opportunity')), category_label: snapshot?.category_label ?? name(app, 'expenses_categories', l.getString('category')), guests_names: snapshot?.guests?.map((v) => ({ id: v.id, label: v.name })) || l.getStringSlice('guests').map((id) => ({ id, label: name(app, 'contacts_people', id) })) }
+  return { ...l.publicExport(), company_name: snapshot?.company_name ?? name(app, 'contacts_companies', l.getString('company')), contact_name: snapshot?.contact_name ?? name(app, 'contacts_people', l.getString('contact')), opportunity_number: snapshot?.opportunity_number ?? (l.getString('opportunity') ? get(app, 'crm_opportunities', l.getString('opportunity')).getString('opportunity_number') : ''), opportunity_name: snapshot?.opportunity_name ?? name(app, 'crm_opportunities', l.getString('opportunity')), category_label: snapshot?.category_label ?? name(app, 'expenses_categories', l.getString('category')), guests_names: snapshot?.guests?.map((v) => ({ id: v.id, label: v.name })) || l.getStringSlice('guests').map((id) => ({ id, label: name(app, 'contacts_people', id) })) }
 }
 const dto = (app, r, details = true) => ({ ...r.publicExport(), employee_name: JSON.parse(r.getString('snapshot') || 'null')?.employee_name ?? name(app, 'hr_employees', r.getString('employee')), validator_name: JSON.parse(r.getString('snapshot') || 'null')?.validator_name ?? name(app, 'core_users', r.getString('validator')), lines: details ? lines(app, r.id).map((l) => lineDTO(app, l)) : [], history: [] })
 const event = (app, user, r, before, body, recipient = '', metadata = {}) => {
@@ -32,11 +34,11 @@ const reviewer = (app, owner, requested = '') => {
   const principal = candidates.find((u) => manager && u.getString('employee') === manager)
   if (principal) return principal
   const fallback = candidates.find((u) => u.id === requested && u.getString('expenses_scope') === 'all')
-  if (!fallback) throw new BadRequestError('Aucun manager habilité disponible. Choisissez un validateur global ou contactez votre administrateur.')
+  if (!fallback) throw new BadRequestError('Aucun manager habilité disponible. Choisissez un manager global ou contactez votre administrateur.')
   return fallback
 }
-const validateLine = (app, user, r, input, submitting = false) => {
-  const allowed = ['date', 'category', 'description', 'company', 'contact', 'opportunity', 'internal', 'guests', 'internal_guests', 'route', 'vehicle', 'payment_method', 'amount', 'tax_amount']
+const validateLine = (app, user, r, input, submitting = false, existing = null) => {
+  const allowed = ['date', 'category', 'description', 'company', 'contact', 'opportunity', 'internal', 'guests', 'internal_guests', 'route', 'vehicle', 'vehicle_record', 'payment_method', 'amount', 'tax_amount']
   fields(input, allowed)
   const result = Object.fromEntries(['date', 'category', 'description', 'company', 'contact', 'opportunity', 'internal_guests', 'route', 'vehicle'].map((k) => [k, text(input[k] || '', k === 'description' || k === 'internal_guests' ? 2000 : k === 'route' ? 500 : 200)]))
   if (typeof input.internal !== 'boolean' || !Array.isArray(input.guests) || input.guests.length > 30 || new Set(input.guests).size !== input.guests.length || !['personal', 'company'].includes(input.payment_method)) throw new BadRequestError('Informations de dépense invalides.')
@@ -56,6 +58,13 @@ const validateLine = (app, user, r, input, submitting = false) => {
   if (result.company && !get(app, 'contacts_companies', result.company).getBool('active')) throw new BadRequestError('Cette société est archivée.')
   if (result.contact) { const contact = get(app, 'contacts_people', result.contact); if (!contact.getBool('active')) throw new BadRequestError('Ce contact est archivé.'); if (result.company && contact.getString('company') !== result.company) throw new BadRequestError('Ce contact n’appartient pas à la société choisie.'); if (!result.company) result.company = contact.getString('company') }
   for (const id of input.guests) if (!get(app, 'contacts_people', id).getBool('active')) throw new BadRequestError('Un invité est archivé.')
+  result.vehicle_record = text(input.vehicle_record || '', 15)
+  if (result.vehicle_record) {
+    const vehicle = get(app, 'expenses_vehicles', result.vehicle_record)
+    const sameVehicle = existing && existing.getString('vehicle_record') === vehicle.id
+    if (!sameVehicle && (!vehicle.getBool('active') || vehicle.getString('employee') !== r.getString('employee'))) throw new ForbiddenError('Choisissez un véhicule actif rattaché à votre employé.')
+    result.vehicle = sameVehicle ? existing.getString('vehicle') : vehicleLabel(vehicle)
+  } else if (result.vehicle && (!existing || existing.getString('vehicle_record') || existing.getString('vehicle') !== result.vehicle)) throw new BadRequestError('Choisissez un véhicule dans la liste.')
   if (submitting && (!category || !result.description || result.amount <= 0 || !result.internal && !result.company && !result.contact)) throw new BadRequestError('Complétez catégorie, motif, montant et rattachement de chaque dépense.')
   if (submitting && category.getString('mode') === 'meal' && !result.guests.length && !result.internal_guests) throw new BadRequestError('Indiquez les participants du restaurant.')
   if (submitting && category.getString('mode') === 'travel' && !result.route) throw new BadRequestError('Indiquez le trajet ou le lieu du séjour.')
@@ -77,9 +86,9 @@ module.exports = {
     let principal = ''; try { principal = reviewer(e.app, owner).id } catch (error) { if (!(error instanceof BadRequestError)) throw error }
     const companies = rights.includes('contacts.read') ? e.app.findRecordsByFilter('contacts_companies', 'active = true', 'name', 0, 0).map((r) => ({ id: r.id, label: r.getString('name') })) : []
     const contacts = rights.includes('contacts.read') ? e.app.findRecordsByFilter('contacts_people', 'active = true', 'last_name,first_name', 0, 0).map((r) => ({ id: r.id, company: r.getString('company'), label: name(e.app, 'contacts_people', r.id) })) : []
-    const opportunities = rights.includes('crm.read') ? e.app.findRecordsByFilter('crm_opportunities', 'active = true', 'title', 0, 0).map((r) => ({ id: r.id, label: `${r.getString('opportunity_number')} · ${r.getString('title')}`, company: r.getString('company'), contact: r.getString('contact') })) : []
+    const opportunities = rights.includes('crm.read') ? e.app.findRecordsByFilter('crm_opportunities', 'active = true', 'title', 0, 0).map((r) => ({ id: r.id, label: `${r.getString('opportunity_number')} · ${r.getString('title')}`, number: r.getString('opportunity_number'), company: r.getString('company'), contact: r.getString('contact') })) : []
     const validators = e.app.findRecordsByFilter('core_users', 'active = true && role.active = true && id != {:id}', 'name', 0, 0, { id: e.auth.id }).filter((u) => policy.permissions(e.app, u).includes('expenses.validate') && (u.id === principal || u.getString('expenses_scope') === 'all') && u.getString('erp_profile') !== 'viewer').map((u) => ({ id: u.id, label: u.getString('name') }))
-    return e.json(200, { employee: linked?.id || '', employee_name: linked ? name(e.app, 'hr_employees', linked.id) : '', default_validator: principal, validators, categories: e.app.findRecordsByFilter('expenses_categories', '', 'sort_order,label', 0, 0).map((r) => r.publicExport()), companies, contacts, opportunities, can_review: (rights.includes('expenses.validate') || rights.includes('expenses.reimburse')) && ['reports', 'all'].includes(e.auth.getString('expenses_scope')), can_reimburse: rights.includes('expenses.reimburse') && e.auth.getString('expenses_scope') === 'all', global: e.auth.getString('expenses_scope') === 'all' })
+    return e.json(200, { employee: linked?.id || '', employee_name: linked ? name(e.app, 'hr_employees', linked.id) : '', default_validator: principal, validators, categories: e.app.findRecordsByFilter('expenses_categories', '', 'sort_order,label', 0, 0).map((r) => r.publicExport()), companies, contacts, opportunities, can_review: (rights.includes('expenses.validate') || rights.includes('expenses.reimburse')) && ['reports', 'all'].includes(e.auth.getString('expenses_scope')), can_reimburse: rights.includes('expenses.reimburse') && e.auth.getString('expenses_scope') === 'all', global: e.auth.getString('expenses_scope') === 'all', vehicles: linked ? e.app.findRecordsByFilter('expenses_vehicles', 'active = true && employee = {:employee}', 'brand,model,registration', 0, 0, { employee: linked.id }).map((v) => ({ id: v.id, label: vehicleLabel(v) })) : [] })
   },
   list(e) {
     guard(e.app, e.auth)
@@ -94,11 +103,14 @@ module.exports = {
     if (params.q) filter += ' && (title ~ {:q} || month ~ {:q} || employee.first_name ~ {:q} || employee.last_name ~ {:q} || notes ~ {:q})'
     if (q.get('month')) { if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(q.get('month'))) throw new BadRequestError('Mois invalide.'); params.month = q.get('month'); filter += ' && month = {:month}' }
 
-    const sort = ({ '-month': '-month,-created,id', month: 'month,created,id', employee: 'employee.last_name,employee.first_name,-month,id', amount: '-reimbursable_total,-month,id' })[q.get('sort') || '-month']
-    if (!sort) throw new BadRequestError('Tri invalide.')
-    const records = e.app.findRecordsByFilter('expenses_reports', filter, sort, 0, 0, params), summary = Object.fromEntries(Object.keys(statuses).map((s) => [s, records.filter((r) => r.getString('status') === s).length])), selectedRecords = records.filter((r) => !selected.length || selected.includes(r.getString('status')))
+    const sort = ({ '-month': '-month,-created,id', month: 'month,created,id', employee: 'employee.last_name,employee.first_name,-month,id', amount: '-reimbursable_total,-month,id', '-employee': '-employee.last_name,-employee.first_name,-month,id', total: 'total,id', '-total': '-total,id', reimbursable_total: 'reimbursable_total,id', '-reimbursable_total': '-reimbursable_total,id' })[q.get('sort') || '-month']
+    const derived = ['validator', 'status'].includes(String(q.get('sort') || '').replace(/^-/, ''))
+    if (!sort && !derived) throw new BadRequestError('Tri invalide.')
+    const records = e.app.findRecordsByFilter('expenses_reports', filter, sort || '-month,id', 0, 0, params), summary = Object.fromEntries(Object.keys(statuses).map((s) => [s, records.filter((r) => r.getString('status') === s).length])), selectedRecords = records.filter((r) => !selected.length || selected.includes(r.getString('status')))
     const totalItems = selectedRecords.length, totalPages = Math.max(1, Math.ceil(totalItems / 30)), page = Math.min(totalPages, Math.max(1, Math.trunc(Number(q.get('page'))) || 1))
-    return e.json(200, { items: selectedRecords.slice((page - 1) * 30, page * 30).map((r) => dto(e.app, r, false)), page, totalItems, totalPages, summary })
+    let items = (derived ? selectedRecords : selectedRecords.slice((page - 1) * 30, page * 30)).map((r) => dto(e.app, r, false))
+    if (derived) { require(`${__hooks}/lib/list-sorting.js`).rows(items, q.get('sort'), ['validator', 'status'], 'status', (item, field) => field === 'validator' ? item.validator_name : statuses[item.status]); items = items.slice((page - 1) * 30, page * 30) }
+    return e.json(200, { items, page, totalItems, totalPages, summary })
   },
   record(e) { return e.json(200, dto(e.app, read(e.app, e.auth, e.request.pathValue('id')))) },
   save(e) {
@@ -133,7 +145,7 @@ module.exports = {
       const owner = get(app, 'core_users', e.auth.id), r = read(app, owner, e.request.pathValue('id')); editable(app, owner, r); revision(r, raw.updated)
       const before = r.publicExport(), l = raw.id ? get(app, 'expenses_lines', raw.id) : new Record(app.findCollectionByNameOrId('expenses_lines'))
       if (raw.id && l.getString('report') !== r.id) throw new ForbiddenError('Cette dépense appartient à une autre note.')
-      const values = validateLine(app, owner, r, input)
+      const values = validateLine(app, owner, r, input, false, raw.id ? l : null)
       let removed = raw.removed || []; if (typeof removed === 'string') { try { removed = JSON.parse(removed) } catch { throw new BadRequestError('Pièces invalides.') } }
       const kept = l.getStringSlice('receipt'); if (!Array.isArray(removed) || removed.some((v) => !kept.includes(v))) throw new BadRequestError('Pièce à retirer invalide.')
       let files = []; if (e.request.header.get('Content-Type').startsWith('multipart/form-data')) { try { files = e.findUploadedFiles('receipt') } catch (error) { if (!String(error).endsWith('http: no such file')) throw error } };  if (kept.length - removed.length + files.length > 20) throw new BadRequestError('20 justificatifs maximum par dépense.')
@@ -160,10 +172,10 @@ module.exports = {
       if (body.action === 'submit') {
         editable(app, user, r); guard(app, user, 'submit'); const ownerEmployee = get(app, 'hr_employees', user.getString('employee')); if (ownerEmployee.id !== r.getString('employee') || ownerEmployee.getString('status') !== 'active') throw new BadRequestError('Employé associé inactif ou modifié.')
         const ls = lines(app, r.id); if (!ls.length) throw new BadRequestError('Ajoutez au moins une dépense.')
-        for (const l of ls) { const input = Object.fromEntries(['date', 'category', 'description', 'company', 'contact', 'opportunity', 'internal', 'guests', 'internal_guests', 'route', 'vehicle', 'payment_method', 'amount', 'tax_amount'].map((k) => [k, l.publicExport()[k]])); validateLine(app, user, r, input, true); if (!l.getStringSlice('receipt').length) throw new BadRequestError(`Justificatif manquant : ${l.getString('description') || 'dépense'}.`) }
+        for (const l of ls) { const input = Object.fromEntries(['date', 'category', 'description', 'company', 'contact', 'opportunity', 'internal', 'guests', 'internal_guests', 'route', 'vehicle', 'vehicle_record', 'payment_method', 'amount', 'tax_amount'].map((k) => [k, l.publicExport()[k]])); validateLine(app, user, r, input, true, l); if (!l.getStringSlice('receipt').length) throw new BadRequestError(`Justificatif manquant : ${l.getString('description') || 'dépense'}.`) }
         const v = reviewer(app, user, r.getString('validator')); r.set('validator', v.id); r.set('status', 'submitted'); r.set('submitted_at', now); recipient = v.id; label = 'Note de frais à valider'
       } else if (['validate', 'return'].includes(body.action)) {
-        guard(app, user, 'validate'); if (status !== 'submitted' || user.id === r.getString('user') || r.getString('validator') !== user.id) throw new ForbiddenError('Seul le validateur désigné peut décider de cette note ; aucune auto-validation.')
+        guard(app, user, 'validate'); if (status !== 'submitted' || user.id === r.getString('user') || r.getString('validator') !== user.id) throw new ForbiddenError('Seul le manager désigné peut décider de cette note ; aucune auto-validation.')
         if (body.action === 'return') { const reason = text(body.reason || '', 2000); if (!reason) throw new BadRequestError('Indiquez le motif de retour.'); r.set('status', 'returned'); r.set('return_reason', reason); label = 'Note de frais à corriger' }
         else { for (const l of lines(app, r.id)) { l.set('snapshot', { ...lineDTO(app, l), category_mode: get(app, 'expenses_categories', l.getString('category')).getString('mode'), guests: l.getStringSlice('guests').map((id) => ({ id, name: name(app, 'contacts_people', id) })), analytic_account: l.getString('analytic_account'), currency: 'EUR' }); app.save(l) }; r.set('snapshot', { employee_name: name(app, 'hr_employees', r.getString('employee')), validator_name: name(app, 'core_users', r.getString('validator')), currency: 'EUR', exchange_rate: 1, tax_exchange_rate: 1, tax_context: { basis: 'receipt', deductibility: 'unassessed' }, total: r.getFloat('total'), tax: r.getFloat('tax'), reimbursable_total: r.getFloat('reimbursable_total') }); r.set('status', 'validated'); r.set('validated_by', user.id); r.set('validated_at', now); label = 'Note de frais validée' }
         recipient = r.getString('user')
@@ -172,7 +184,7 @@ module.exports = {
       } else if (body.action === 'cancel') {
         editable(app, user, r); r.set('status', 'cancelled'); label = 'Note annulée'
       } else if (body.action === 'reassign') {
-        guard(app, user, 'validate'); if (user.getString('expenses_scope') !== 'all' || status !== 'submitted') throw new ForbiddenError('Réaffectation réservée au gestionnaire global.'); const v = get(app, 'core_users', body.validator); guard(app, v, 'validate'); if (!['all', 'reports'].includes(v.getString('expenses_scope')) || v.id === r.getString('user')) throw new BadRequestError('Validateur invalide.'); if (v.getString('expenses_scope') !== 'all' && get(app, 'hr_employees', v.getString('employee')).id !== get(app, 'hr_employees', r.getString('employee')).getString('manager')) throw new BadRequestError('Ce manager ne supervise pas cet employé.'); const reason = text(body.reason || '', 2000); if (!reason) throw new BadRequestError('Motif de réaffectation requis.'); r.set('validator', v.id); recipient = v.id; label = 'Validation de note réaffectée'
+        guard(app, user, 'validate'); if (user.getString('expenses_scope') !== 'all' || status !== 'submitted') throw new ForbiddenError('Réaffectation réservée au gestionnaire global.'); const v = get(app, 'core_users', body.validator); guard(app, v, 'validate'); if (!['all', 'reports'].includes(v.getString('expenses_scope')) || v.id === r.getString('user')) throw new BadRequestError('Manager invalide.'); if (v.getString('expenses_scope') !== 'all' && get(app, 'hr_employees', v.getString('employee')).id !== get(app, 'hr_employees', r.getString('employee')).getString('manager')) throw new BadRequestError('Ce manager ne supervise pas cet employé.'); const reason = text(body.reason || '', 2000); if (!reason) throw new BadRequestError('Motif de réaffectation requis.'); r.set('validator', v.id); recipient = v.id; label = 'Validation de note réaffectée'
       } else if (body.action === 'reopen') {
         guard(app, user, 'write'); if (r.getString('user') !== user.id || status !== 'cancelled') throw new ForbiddenError('Seul le propriétaire peut reprendre une note annulée.'); r.set('status', 'draft'); label = 'Note reprise en brouillon'
       } else if (['archive', 'restore'].includes(body.action)) {
@@ -181,6 +193,25 @@ module.exports = {
       totals(app, r); event(app, user, r, before, label, recipient, { action: body.action, reason: body.reason || '', validator: r.getString('validator') }); saved = r
     })
     return e.json(200, dto(e.app, saved))
+  },
+  vehicles(e) {
+    if (!policy.settings(e.app, e.auth)) throw new ForbiddenError('Paramètres réservés à Admin et Superuser.')
+    return e.json(200, { items: e.app.findRecordsByFilter('expenses_vehicles', '', 'brand,model,registration', 0, 0).map((v) => vehicleDTO(e.app, v)), employees: e.app.findRecordsByFilter('hr_employees', 'status = "active"', 'last_name,first_name', 0, 0).map((v) => ({ id: v.id, label: name(e.app, 'hr_employees', v.id) })) })
+  },
+  vehicle(e) {
+    if (!policy.settings(e.app, e.auth)) throw new ForbiddenError('Paramètres réservés à Admin et Superuser.')
+    const body = e.requestInfo().body; fields(body, ['id', 'updated', 'brand', 'model', 'registration', 'employee', 'active']); let saved
+    e.app.runInTransaction((app) => {
+      const r = body.id ? get(app, 'expenses_vehicles', body.id) : new Record(app.findCollectionByNameOrId('expenses_vehicles'))
+      if (body.id) revision(r, body.updated)
+      const before = body.id ? r.publicExport() : null, brand = text(body.brand, 60), model = text(body.model, 80), registration = text(body.registration, 30).toUpperCase().replace(/[\s-]/g, ''), employee = get(app, 'hr_employees', body.employee)
+      if (!brand || !model || !/^[A-Z0-9]{2,30}$/.test(registration) || typeof body.active !== 'boolean') throw new BadRequestError('Renseignez marque, modèle, immatriculation et employé.')
+      if (employee.getString('status') !== 'active' && (!body.id || r.getString('employee') !== employee.id)) throw new BadRequestError('Choisissez un employé actif.')
+      if (app.findRecordsByFilter('expenses_vehicles', 'registration = {:registration} && id != {:id}', '', 1, 0, { registration, id: r.id }).length) throw new BadRequestError('Cette immatriculation existe déjà.')
+      for (const [key, value] of Object.entries({ brand, model, registration, employee: employee.id, active: body.active })) r.set(key, value)
+      app.save(r); policy.audit(app, 'expenses_vehicles', r.id, e.auth.id, before, r.publicExport(), before ? 'update' : 'create'); saved = r
+    })
+    return e.json(200, vehicleDTO(e.app, saved))
   },
   categories(e) { if (!policy.settings(e.app, e.auth)) throw new ForbiddenError('Paramètres réservés à Admin et Superuser.'); return e.json(200, e.app.findRecordsByFilter('expenses_categories', '', 'sort_order,label', 0, 0).map((r) => r.publicExport())) },
   category(e) {

@@ -51,6 +51,16 @@ class PurchasingTests(unittest.TestCase):
         for query in ['kind=bad', 'kind=orders,orders', 'status=draft,bad', 'status=draft,draft']:
             self.assertEqual(self.pb.request('GET', 'horizon/purchasing/overview?' + query, token=self.token)[0], 400)
 
+    def test_allocation_command_choices_include_the_canonical_quote_only_with_source_rights(self):
+        quote=self.make_quote()
+        status,confirmed=self.pb.request('POST','horizon/sales/quotes/confirm',dict(id=quote['id'],updated=quote['updated'],customer_order_number='',awaiting_customer_order=True,reservations=[]),self.token);self.assertEqual(status,200,confirmed)
+        status,choices=self.pb.request('GET','horizon/purchasing/choices',token=self.token);self.assertEqual(status,200,choices)
+        command=next(item for item in choices['commands'] if item['quote']==quote['id'])
+        self.assertEqual(command['opportunity'],self.opp['id']);self.assertEqual(command['code'],quote['quote_number'])
+        role=self.pb.request('GET','collections/core_roles/records/'+self.user['role'],token=self.pb.admin_token)[1]
+        self.pb.request('PATCH','collections/core_roles/records/'+role['id'],{'permissions':[right for right in role['permissions'] if right!='sales.read']},self.pb.admin_token)
+        status,limited=self.pb.request('GET','horizon/purchasing/choices',token=self.token);self.assertEqual(status,200,limited);self.assertEqual(limited['commands'],[])
+
     def test_overview_combines_requests_and_orders_with_global_pagination(self):
         status, request = self.save_request(dict(self.input, title='AAA demande'))
         self.assertEqual(status, 200, request)
@@ -441,7 +451,7 @@ class PurchasingTests(unittest.TestCase):
         clean = {key: value for key, value in needs['lines'][0].items() if key not in ['sold_quantity', 'reserved', 'prepared', 'price_currency']}
         status, req = self.save_request(dict(self.input, source_order=needs['source_order'], lines=[clean]))
         self.assertEqual(status, 200, req)
-        status, stock = self.pb.request('GET', 'horizon/inventory/stock?product=' + self.item['id'], token=self.token)
+        status, stock = self.pb.request('GET', 'horizon/inventory/stock?product=' + self.item['id'] + '&location=' + self.location, token=self.token)
         self.assertEqual(status, 200, stock)
         self.assertEqual(stock['items'][0]['physical'], 4)
         self.assertEqual(stock['items'][0]['available'], 0)

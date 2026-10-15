@@ -1,5 +1,7 @@
 """Internal invoices: immutable numbering, payments, deposits and source controls."""
 import copy
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 import uuid
 import unittest
 from concurrent.futures import ThreadPoolExecutor
@@ -43,7 +45,7 @@ class BillingTests(unittest.TestCase):
         term = next(item for item in terms if item['days'] == 45)
         status, _ = self.pb.request('PATCH', 'collections/contacts_companies/records/' + self.company['id'], {'payment_term': term['id']}, self.pb.admin_token); self.assertEqual(status, 200)
         order = self.order(); status, prepared = self.prepare(order); self.assertEqual(status, 200, prepared)
-        self.assertEqual(prepared['payment_term'], term['id']); self.assertEqual(prepared['due_date'], '2026-11-27')
+        self.assertEqual(prepared['payment_term'], term['id']); self.assertEqual(prepared['due_date'], (datetime.now(ZoneInfo('Europe/Paris')).date() + timedelta(days=45)).isoformat())
         data = copy.deepcopy(self.input); data.update(payment_term=term['id'], payment_terms='Accord particulier : virement à 10 jours', due_date='2026-10-23')
         invoice = self.validated(data)
         settings = self.get('settings'); settings['default_payment_term'] = term['id']

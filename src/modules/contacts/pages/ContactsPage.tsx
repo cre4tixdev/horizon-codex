@@ -78,17 +78,17 @@ export function ContactsPage({ kind = 'companies' }: { kind?: ContactKind }) {
   }, [autoSearch, records.isSuccess, records.data, otherRecords.isSuccess, otherRecords.data, otherKind, searchParams, navigate])
   const companyColumns: ColumnDef<Company>[] = [
     { id: 'name', accessorKey: 'name', header: 'Société', cell: ({ row }) => <Link to={`/contacts/companies/${row.original.id}`} state={linkState}><ContactIdentity kind="company" {...row.original} filename={row.original.logo} /></Link> },
-    { id: 'roles', header: 'Relations', enableSorting: false, cell: ({ row }) => <span className="contact-role-list">{row.original.expand?.contacts_company_roles_via_company?.filter((role) => role.active).map((role) => <HBadge key={role.id} className={`contact-role-pill contact-role-pill--${role.role}`}>{roleLabels[role.role]}</HBadge>)}</span> },
-    { accessorKey: 'email', header: 'E-mail' }, { accessorKey: 'phone', header: 'Téléphone', enableSorting: false },
+    { id: 'roles', header: 'Relations', accessorFn: (item) => item.expand?.contacts_company_roles_via_company?.filter((role) => role.active).map((role) => role.role).join(' '), cell: ({ row }) => <span className="contact-role-list">{row.original.expand?.contacts_company_roles_via_company?.filter((role) => role.active).map((role) => <HBadge key={role.id} className={`contact-role-pill contact-role-pill--${role.role}`}>{roleLabels[role.role]}</HBadge>)}</span> },
+    { accessorKey: 'email', header: 'E-mail' }, { accessorKey: 'phone', header: 'Téléphone' },
     { accessorKey: 'legal_name', header: 'Raison sociale' },
-    { id: 'status', header: 'Statut', enableSorting: false, cell: ({ row }) => <HBadge tone={row.original.active ? 'success' : 'neutral'}>{row.original.active ? 'Actif' : 'Archivé'}</HBadge> },
+    { id: 'status', header: 'Statut', accessorFn: (item) => item.active, cell: ({ row }) => <HBadge tone={row.original.active ? 'success' : 'neutral'}>{row.original.active ? 'Actif' : 'Archivé'}</HBadge> },
   ]
   const personColumns: ColumnDef<Person>[] = [
     { id: 'last_name', accessorKey: 'last_name', header: 'Contact', cell: ({ row }) => <Link to={`/contacts/people/${row.original.id}`} state={linkState}><ContactIdentity kind="person" {...row.original} filename={row.original.avatar} name={[row.original.first_name, row.original.last_name].filter(Boolean).join(' ')} company={row.original.expand?.company} /></Link> },
-    { id: 'company', header: 'Société', enableSorting: false, cell: ({ row }) => row.original.expand?.company ? <Link to={`/contacts/companies/${row.original.company}`}>{row.original.expand.company.name}</Link> : '—' },
-    { id: 'roles', header: 'Relation', enableSorting: false, cell: ({ row }) => <span className="contact-role-list">{row.original.expand?.company?.expand?.contacts_company_roles_via_company?.filter((role) => role.active).map((role) => <HBadge key={role.id} className={`contact-role-pill contact-role-pill--${role.role}`}>{roleLabels[role.role]}</HBadge>)}</span> },
-    { id: 'status', header: 'Statut', enableSorting: false, cell: ({ row }) => <HBadge tone={row.original.active ? 'success' : 'neutral'}>{row.original.active ? 'Actif' : 'Archivé'}</HBadge> },
-    { accessorKey: 'job_title', header: 'Fonction', enableSorting: false }, { accessorKey: 'email', header: 'E-mail' }, { accessorKey: 'phone', header: 'Téléphone', enableSorting: false },
+    { id: 'company', header: 'Société', accessorFn: (item) => item.expand?.company?.name, cell: ({ row }) => row.original.expand?.company ? <Link to={`/contacts/companies/${row.original.company}`}>{row.original.expand.company.name}</Link> : '—' },
+    { id: 'roles', header: 'Relation', accessorFn: (item) => item.expand?.company?.expand?.contacts_company_roles_via_company?.filter((role) => role.active).map((role) => role.role).join(' '), cell: ({ row }) => <span className="contact-role-list">{row.original.expand?.company?.expand?.contacts_company_roles_via_company?.filter((role) => role.active).map((role) => <HBadge key={role.id} className={`contact-role-pill contact-role-pill--${role.role}`}>{roleLabels[role.role]}</HBadge>)}</span> },
+    { id: 'status', header: 'Statut', accessorFn: (item) => item.active, cell: ({ row }) => <HBadge tone={row.original.active ? 'success' : 'neutral'}>{row.original.active ? 'Actif' : 'Archivé'}</HBadge> },
+    { accessorKey: 'job_title', header: 'Fonction' }, { accessorKey: 'email', header: 'E-mail' }, { accessorKey: 'phone', header: 'Téléphone' },
   ]
   const renderRecords = (items: (Company | Person)[]) => view === 'cards' ? <ContactCards records={items} directory={directory} /> : kind === 'companies'
     ? <HDataTable getRowLink={(company) => ({ href: `/contacts/companies/${company.id}`, state: linkState, label: `Ouvrir la fiche de ${company.name}` })} data={items.filter((item): item is Company => 'name' in item)} columns={companyColumns} sorting={sorting} onSortingChange={setSorting} />

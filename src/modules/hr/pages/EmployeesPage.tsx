@@ -1,3 +1,4 @@
+import { useListTableSorting } from '../../../shared/search/useListTableSorting'
 import type { ColumnDef } from '@tanstack/react-table'
 import { HDataTable } from '../../../shared/ui/HDataTable'
 import { useState, useSyncExternalStore } from 'react'
@@ -24,6 +25,7 @@ import { EmployeeAvatar } from '../components/EmployeeAvatar'
 import { OrganisationChart } from '../components/OrganisationChart'
 import { employeeName, statusLabels, typeLabels, type Employee, type Team } from '../schemas/employees'
 export function EmployeesPage() {
+  const listSorting = useListTableSorting('name:asc', {"Collaborateur": "name", "Poste": "job", "Équipe": "team", "Responsable": "manager", "Type": "type", "État": "status", "Compte": "account"}, 'colon')
   const session = useSyncExternalStore(sessionService.subscribe, sessionService.getSnapshot)
   const allowed = session.status === 'authenticated' && hasPermission(session.user, 'hr.read')
   const writable = session.status === 'authenticated' && hasPermission(session.user, 'hr.write')
@@ -44,8 +46,9 @@ export function EmployeesPage() {
   const filteredRows = directory.data?.employees.filter((item) => (team === 'all' || item.team === team) && (status === 'all' || item.status === status) && `${employeeName(item)} ${item.job_title} ${item.professional_email}`.toLocaleLowerCase('fr').includes(search.toLocaleLowerCase('fr'))) || []
   const employees = directory.data?.employees || []
   const teams = directory.data?.teams || []
+  const managerLabel = (item: Employee) => { const manager = employees.find((employee) => employee.id === item.manager); return manager ? employeeName(manager) : item.manager ? 'Hors périmètre' : '—' }
   const grouping = filterValue(params, employeeGroupingFilter)
-  const rows = sortEmployeeResults(filteredRows, filterValue(params, employeeSortFilter))
+  const rows = sortEmployeeResults(filteredRows, filterValue(params, employeeSortFilter), (item, field) => field === 'team' ? teams.find((team) => team.id === item.team)?.name || '—' : field === 'manager' ? managerLabel(item) : field === 'type' ? typeLabels[item.employment_type] : field === 'status' ? statusLabels[item.status] : field === 'account' ? item.has_account ? item.account_active ? 'Actif' : 'Désactivé' : 'Sans compte' : field === 'email' ? item.professional_email : item.job_title)
   const groups = groupResults(rows, (item) => grouping === 'team' ? { key: item.team, label: teams.find((team) => team.id === item.team)?.name || 'Sans équipe' } : { key: item.is_direction ? 'direction' : item.is_manager ? 'manager' : 'employee', label: item.is_direction ? 'Direction' : item.is_manager ? 'Manager' : 'Collaborateur' })
   const columns: ColumnDef<Employee>[] = [
     { header: 'Collaborateur', cell: ({ row: { original: item } }) => <div className="access-person"><EmployeeAvatar employee={item} /><span className="h-data-table-record-name">{employeeName(item)}</span><IdentityTag kind={item.is_direction ? 'direction' : item.is_manager ? 'manager' : 'collaborator'}>{item.is_direction ? 'Direction' : item.is_manager ? 'Manager' : 'Collaborateur'}</IdentityTag></div> },
@@ -56,7 +59,7 @@ export function EmployeesPage() {
     { header: 'État', accessorFn: (item) => statusLabels[item.status] },
     { header: 'Compte', accessorFn: (item) => item.has_account ? item.account_active ? 'Actif' : 'Désactivé' : 'Sans compte' },
   ]
-  const renderTable = (items: Employee[]) => <><HDataTable data={items} columns={columns} getRowAction={(item) => ({ label: `Ouvrir la fiche de ${employeeName(item)}`, onClick: () => setEditor(item) })} />{items.length === 0 && <p className="contact-muted">Aucune ressource correspondant aux filtres.</p>}</>
+  const renderTable = (items: Employee[]) => <><HDataTable listSorting={listSorting} data={items} columns={columns} getRowAction={(item) => ({ label: `Ouvrir la fiche de ${employeeName(item)}`, onClick: () => setEditor(item) })} />{items.length === 0 && <p className="contact-muted">Aucune ressource correspondant aux filtres.</p>}</>
   const renderResults = (items: Employee[]) => view === 'cards' ? items.length > 0 ? <EmployeeCards employees={items} teams={teams} onOpen={setEditor} /> : <p className="contact-muted">Aucune ressource correspondant aux filtres.</p> : renderTable(items)
 
   if (!allowed) return <HEmptyState icon={UsersRound} title="Employés" description="Vous ne disposez pas de la permission de consulter les ressources." />
