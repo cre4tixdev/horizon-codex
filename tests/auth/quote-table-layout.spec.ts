@@ -28,6 +28,11 @@ test('Devis et commande : colonnes alignées et cadre arrondi après changement 
     })
   }
   async function aligned() {
+    const preview = page.locator('.h-table-drag-preview')
+    await expect(preview).toBeEmpty()
+    await expect(preview).toHaveCSS('border-top-width', '0px')
+    await expect(preview).toHaveCSS('box-shadow', 'none')
+    expect((await preview.boundingBox())?.height ?? 0).toBe(0)
     if ((await page.viewportSize())!.width >= 1000) await expect.poll(() => table.evaluate((element) => element.getBoundingClientRect().width - element.closest('[data-table-viewport]')!.clientWidth)).toBeLessThan(0.5)
     const columns = await geometry()
     for (const column of columns) {
@@ -53,10 +58,12 @@ test('Devis et commande : colonnes alignées et cadre arrondi après changement 
   await expect(table).toHaveCSS('border-radius', '6px')
   await expect(table).toHaveCSS('border-collapse', 'separate')
   await table.screenshot({ path: '/private/tmp/horizon-order-columns-20261015.png' })
+  await page.screenshot({ path: '/private/tmp/horizon-order-no-gray-line-light.png', fullPage: true })
   await page.setViewportSize({ width: 1440, height: 900 })
   await aligned()
   await page.getByRole('button', { name: 'Passer en mode sombre', exact: true }).click()
   await table.screenshot({ path: '/private/tmp/horizon-order-columns-dark-20261015.png' })
+  await page.screenshot({ path: '/private/tmp/horizon-order-no-gray-line-dark.png', fullPage: true })
   await page.setViewportSize({ width: 390, height: 844 })
   await aligned()
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
