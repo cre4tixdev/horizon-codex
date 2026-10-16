@@ -10,6 +10,11 @@ export function createActivityRepository(url: string) {
       if (!response.ok) throw new ClientResponseError({ status: response.status })
       return response.status === 204 ? null : response.blob()
     },
+    async emailAttachment(id: string, filename: string) {
+      const response = await fetch(client.buildURL(`/api/horizon/activity/events/${id}/email-attachment?filename=${encodeURIComponent(filename)}`), { headers: { Authorization: client.authStore.token }, cache: 'no-store' })
+      if (!response.ok) throw new ClientResponseError({ status: response.status })
+      return response.blob()
+    },
     async list(source: ActivitySource, page: number, category: ActivityFilter) {
       return z.object({ items: z.array(activityEventSchema), totalItems: z.number(), totalPages: z.number(), page: z.number() }).parse(await client.send('/api/horizon/activity/events', { method: 'GET', query: { ...source, page, category }, requestKey: null }))
     },

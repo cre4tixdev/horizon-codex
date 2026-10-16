@@ -34,6 +34,12 @@ services:
     environment:
       HORIZON_INITIAL_ADMIN_EMAIL: "guillaume.clairardin@cvs.fr"
       HORIZON_GOTENBERG_URL: "http://gotenberg:3000"
+      # Server-only: configure in the deployment environment; never use VITE_ prefixes.
+      HORIZON_MAIL_TENANT_ID: "${HORIZON_MAIL_TENANT_ID:-}"
+      HORIZON_MAIL_CLIENT_ID: "${HORIZON_MAIL_CLIENT_ID:-}"
+      HORIZON_MAIL_CLIENT_SECRET: "${HORIZON_MAIL_CLIENT_SECRET:-}"
+      HORIZON_MAIL_ENCRYPTION_KEY: "${HORIZON_MAIL_ENCRYPTION_KEY:-}"
+      HORIZON_MAIL_REDIRECT_URI: "${HORIZON_MAIL_REDIRECT_URI:-}"
 
 
   gotenberg:

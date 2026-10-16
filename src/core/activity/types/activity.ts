@@ -4,6 +4,7 @@ export type ActivitySource = z.infer<typeof activitySourceSchema>
 export const userChoiceSchema = z.object({ id: z.string(), name: z.string(), initials: z.string() })
 export type ActivityUser = z.infer<typeof userChoiceSchema>
 export const activityEventSchema = z.object({ id: z.string(), collectionId: z.string(), type: z.enum(['change', 'status_change', 'note', 'message', 'document', 'task', 'system']), author: z.string(), body: z.string(), created: z.string(), attachments: z.array(z.string()), metadata: z.object({
+  email: z.object({ to: z.array(z.string()), attachments: z.array(z.string()), direction: z.literal('received').optional(), from: z.string().optional(), name: z.string().optional(), subject: z.string().optional(), text: z.string().optional(), received_at: z.string().optional(), warnings: z.array(z.string()).optional() }).optional(),
   author: z.object({ name: z.string(), initials: z.string() }), action: z.string().optional(), changes: z.array(z.object({ field: z.string(), label: z.string(), before: z.union([z.string(), z.boolean()]), after: z.union([z.string(), z.boolean()]) })).optional(), mentions: z.array(z.object({ id: z.string(), name: z.string() })).optional(), origin_event: z.string().optional(), task_id: z.string().optional(),
 }) })
 export type ActivityEvent = z.infer<typeof activityEventSchema>

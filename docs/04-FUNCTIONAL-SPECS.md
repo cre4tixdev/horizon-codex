@@ -81,6 +81,13 @@ prenom.nom@cvs.fr
 
 ou alias autorisé.
 
+
+Décision du 16 octobre 2026 — cible d’envoi : **Microsoft Graph avec OAuth délégué**, choix final validé après comparaison avec SMTP/Odoo. L’administrateur configure les expéditeurs et leurs utilisateurs Horizon autorisés ; une connexion Microsoft initiale autorise chaque compte/boîte selon ses droits réels. Les jetons sont conservés chiffrés côté serveur, renouvelés et révocables ; une reconnexion peut être nécessaire selon les politiques Microsoft. Aucun utilisateur ne fournit son mot de passe Microsoft à Horizon. Le From est contrôlé côté serveur et respecte aussi les droits Microsoft ; l’affectation d’un utilisateur à l’application Entra n’est pas un droit Send As.
+
+L’envoi est déclenché dès la confirmation de mise en file enregistrée côté serveur, sans attendre la minute suivante. Le traitement périodique reste un secours durable ; les reprises différées et les résultats incertains conservent leurs règles.
+
+Premier lot local : modèles contextuels, signatures, compositeur partagé devis/BC/messages libres, PJ/PDF figés, brouillons, file d’envoi et historique. Le prototype local Graph applicatif a été retiré à la demande utilisateur, sans commit ; ses éléments indépendants ont été revus et repris pour le nouveau lot délégué. Réception IMAP et chat restent distincts et futurs. L’URI de retour Web est l’origine frontend Horizon suivie de /messaging/oauth/callback ; code échangé uniquement côté serveur, état lié à la session/onglet initiateurs. Première version : boîtes personnelles dont l’adresse correspond à /me, boîtes partagées/alias hors lot. Configuration et limites détaillées en 08 ; recette Microsoft et NAS à effectuer.
+
 ---
 
 ## 2.2 Chat interne
@@ -2587,7 +2594,8 @@ Les statuts structurels restent contrôlés par Horizon.
 
 ## 18.14 Intégrations
 
-- Microsoft Graph ;
+- Microsoft 365 SMTP / OAuth délégué ;
+- Microsoft Graph (autres usages futurs) ;
 - Sage ;
 - SUPER PDP ;
 - Gotenberg ;
@@ -3531,3 +3539,19 @@ Les règles de décompte, jours travaillés/fériés et justificatifs par type s
 Module leave : Mes congés, À valider, calendrier d’équipe et Allocations RH. Types initiaux : Congés payés (paid), Congés maladie (sick), Sans solde (unpaid), Récupération (recovery), Événement familial (family). Seuls paid/recovery consomment un crédit. Allocations et corrections signées par employé/type/année civile, motif obligatoire, registre append-only/idempotent, réservé à leave.allocate et périmètre all (fonction RH ou admin). Pas d’acquisition automatique ni règle légale présumée. Soldes : alloué, validé, réservé en attente, disponible ; annulation demandée conserve le débit jusqu’à accord manager.
 Demandes draft/submitted/approved/rejected/cancel_requested/cancelled ; dates inclusives, matin/après-midi, décompte serveur jours travaillés configurables (initialement lundi–vendredi), jours fériés de France métropolitaine exclus automatiquement (calendrier désactivable), dates supplémentaires exclues et exceptions de jours fériés travaillés paramétrables par RH. Un férié tombant hors des jours travaillés ne retire aucun jour supplémentaire. Ventilation par année ; paramètres de décompte snapshotés à la soumission pour préserver l’historique. Contrôle de chevauchement par demi-journée, toutes catégories, et de provision à soumission/validation dans la transaction. Les brouillons ne réservent rien. Refus motivé, reprise explicite en brouillon ; retrait de soumission par le propriétaire, annulation d’une demande approuvée décidée par le manager. Circuit standard : aucune auto-validation, manager hiérarchique habilité par défaut, recours explicite à un manager global si absent ; RH global peut réaffecter une demande avec motif. Exception explicitement validée : employé actif désigné Direction sans responsable rattaché et disposant de leave.submit → déclaration directe, sans manager fictif, avec consommation immédiate des jours et information des gestionnaires RH actifs (leave.read + leave.allocate, périmètre all). Une direction rattachée à un responsable reste dans le circuit standard. Contrôles serveur de solde, chevauchement et justificatifs identiques ; absence de destinataire RH bloquante avec erreur explicite. Annulation directe motivée par le propriétaire, restitution et information RH, historique conservé. Le mode de déclaration est figé dans le snapshot pour conserver ce circuit d’annulation même si l’organisation change ensuite.
 Documents protégés multiples facultatifs par défaut ; obligation configurable par type. Fil Core et notifications partagés. Compte utilisateur lié à un employé actif pour demander ; allocations possibles pour un employé sans compte. Calendrier équipe : indisponibilités pending/approved/cancel_requested, noms/dates seuls, aucun type/commentaire/justificatif aux collègues ; équipe actuelle commune, manager/directs et soi. Accès RH global explicite. Planning/TimeReport restent des raccordements futurs.
+
+
+### Fil d’activité — e-mails et pièces envoyées (16 octobre 2026)
+
+Les événements d’envoi des devis et BC affichent les destinataires **À** réellement enregistrés avec le message envoyé : « Devis envoyé à … » / « Commande envoyée à … ». Les anciens événements liés à un message envoyé bénéficient de cette présentation à la lecture, sans réécrire l’historique. Les pièces originales de cet envoi apparaissent en miniatures nommées, avec une petite loupe ouvrant l’aperçu partagé dans la page. Le filtre Documents inclut ces envois. Les images/PDF joints aux notes du fil utilisent également les miniatures ; les fichiers texte conservent leur lien. Les pièces envoyées ne sont pas supprimables depuis le fil. À la demande complémentaire du 16 octobre, l’objet, l’expéditeur et le corps texte du mail envoyé sont également projetés dans le fil de la fiche autorisée, en bloc compact dépliable. Cc/Cci et jetons restent privés dans Messaging.
+
+
+### Réception ciblée des réponses aux devis/BC — 16 octobre 2026
+
+Paramètres → E-mails → Expéditeurs : option « Recevoir les réponses dans Horizon », désactivée initialement ; enregistrer puis reconnecter la boîte personnelle pour consentir à Mail.Read. La table indique l’état de réception, la dernière relève d’une conversation et ses erreurs éventuelles ; action « Relever les réponses » pour un passage manuel. La relève automatique tourne chaque minute, par pages et file bornée ; ce n’est pas une réception instantanée, le délai augmente avec le nombre de conversations/pages.
+
+Les réponses rattachées à un envoi Horizon **sent** d’un devis ou BC créent un événement dans son fil et une notification interne de l’expéditeur encore habilité. Aucune modification automatique de l’état du devis/BC et aucun envoi de réponse automatique. Le message affiche auteur externe, date de réception réelle, objet et texte, avec miniatures et aperçu des PDF/images reçus. Les envois affichent également leur contenu dans le même bloc compact : De / À, extrait de trois lignes, « Voir le message » / « Réduire », pièces jointes. Pas de HTML externe exécuté ni d’images distantes chargées. Le contenu partagé avec les lecteurs de la fiche inclut désormais le texte métier envoyé/reçu ; Cc/Cci exclus.
+
+Rattachement par identifiants In-Reply-To/References, pas par objet : l’original doit rester retrouvable dans les Éléments envoyés grâce à l’en-tête Horizon. Recherche à ±24 h de l’envoi pour couvrir l’indexation et les décalages horaires ; si copie absente, erreur visible et recherche ultérieure. Les messages sans lien ne sont pas importés. Les descendants peuvent être reconnus via une réponse déjà importée ; si l’ordre des pages diffère, le passage suivant les reprend. Relève dans tous les dossiers de la boîte personnelle pour les conversations connues ; un message supprimé à distance avant relève peut rester indisponible. Les fichiers non pris en charge/au-delà des limites sont signalés dans le fil, à consulter dans Outlook. Pas de boîte de réception générale, de suivi des suppressions distantes, de chat ou de bouton Répondre dans ce lot.
+
+Un In-Reply-To explicite inconnu reste sans rattachement automatique, même si References mentionne un ancien envoi : éviter d’affecter une réponse à une ancienne pièce. References sert de secours lorsque In-Reply-To est absent. Une réponse à un message intermédiaire envoyé manuellement depuis Outlook (parent inconnu d’Horizon) peut donc rester uniquement dans Outlook ; aucune affectation incertaine par objet/conversation.

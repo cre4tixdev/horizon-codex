@@ -1,4 +1,5 @@
 const modules = [
+  { key: 'messaging', label: 'Messagerie e-mail', available: true, actions: ['read', 'write', 'send', 'settings'], scopes: ['all'] },
   { key: 'leave', label: 'Congés', available: true, actions: ['read', 'write', 'submit', 'validate', 'allocate', 'settings'], scopes: ['self', 'reports', 'all'] },
   { key: 'expenses', label: 'Notes de frais', available: true, actions: ['read', 'write', 'submit', 'validate', 'reimburse'], scopes: ['self', 'reports', 'all'] },
   { key: 'billing', label: 'Facturation', available: true, actions: ['read', 'write', 'invoice.validate', 'payment.manage'], scopes: ['all'] },
@@ -11,7 +12,7 @@ const modules = [
   { key: 'purchasing', label: 'Achats', available: true, actions: ['read', 'write', 'request.validate', 'order.validate'], scopes: ['all'] },
   { key: 'sales', label: 'Ventes', available: true, actions: ['read', 'write', 'quote.validate', 'order.confirm'], scopes: ['all'] },
   { key: 'hr', label: 'Employés', available: true, actions: ['read', 'write', 'organisation.manage'], scopes: ['self', 'reports', 'team', 'all'] },
-  ...[['projects', 'Projets'], ['planning', 'Planning'], ['time', 'TimeReport'], ['service', 'SAV'], ['messaging', 'Messagerie'], ['documents', 'Documents']].map(([key, label]) => ({ key, label, available: false, actions: [], scopes: [] })),
+  ...[['projects', 'Projets'], ['planning', 'Planning'], ['time', 'TimeReport'], ['service', 'SAV'], ['documents', 'Documents']].map(([key, label]) => ({ key, label, available: false, actions: [], scopes: [] })),
 ]
 const permissions = (app, user) => {
   if (!user || user.collection().name !== 'core_users' || !user.getBool('active')) return []

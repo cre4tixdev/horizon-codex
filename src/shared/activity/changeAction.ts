@@ -1,6 +1,7 @@
 import type { ActivityEvent } from '../../core/activity/types/activity'
 
 export function changeAction(item: Pick<ActivityEvent, 'body' | 'metadata'>) {
+  if (item.metadata.email) return 'a envoyé un e-mail'
   const status = item.metadata.changes?.find((change) => change.field === 'active' && change.label === 'Statut')
   if (status?.after === 'Archivé') return 'a archivé la fiche'
   if (status?.after === 'Actif' && item.metadata.action !== 'create') return 'a réactivé la fiche'

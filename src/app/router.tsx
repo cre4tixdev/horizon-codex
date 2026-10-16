@@ -1,3 +1,4 @@
+import { messagingRoutes } from '../modules/messaging'
 import { leaveRoutes } from '../modules/leave'
 import { expensesRoutes } from '../modules/expenses'
 import { billingRoutes } from '../modules/billing'
@@ -32,6 +33,7 @@ export const router = createBrowserRouter([
       { path: '/account', lazy: async () => ({ Component: (await import('./pages/AccountPage')).AccountPage }) },
       ...expensesRoutes,
       ...leaveRoutes,
+      ...messagingRoutes,
       ...billingRoutes,
       ...analysisRoutes,
       ...dashboardRoutes,
@@ -44,7 +46,7 @@ export const router = createBrowserRouter([
       ...calendarRoutes,
       ...hrRoutes,
       ...settingsRoutes,
-      ...navigationItems.filter((item) => !['/', '/contacts', '/settings', '/crm', '/hr', '/calendar', '/sales', '/inventory', '/purchasing', '/analysis', '/billing', '/expenses', '/leave'].includes(item.href)).map((item) => ({ path: item.href, element: <WorkspacePage item={item} /> })),
+      ...navigationItems.filter((item) => !['/', '/contacts', '/settings', '/crm', '/hr', '/calendar', '/sales', '/inventory', '/purchasing', '/analysis', '/billing', '/expenses', '/leave', '/messaging'].includes(item.href)).map((item) => ({ path: item.href, element: <WorkspacePage item={item} /> })),
       { path: '*', element: <NotFoundPage /> },
     ],
     }],

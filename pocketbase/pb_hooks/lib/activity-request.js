@@ -1,4 +1,12 @@
 module.exports = {
+  emailAttachment(event) {
+    const id = event.request.pathValue('id'), filename = event.request.url.query().get('filename')
+    if (!/^[a-z0-9]{15}$/.test(id) || !filename || filename.length > 255) throw new BadRequestError('Pièce jointe invalide.')
+    let record
+    try { record = event.app.findRecordById('core_activity_events', id) } catch { throw new ApiError(404, 'Publication introuvable.') }
+    require(`${__hooks}/lib/activity-read.js`).authorizeRecord(event, record)
+    return require(`${__hooks}/lib/messaging-activity.js`).file(event, record, filename)
+  },
   avatar(event) {
     const id = event.request.pathValue('id')
     if (!/^[a-z0-9]{15}$/.test(id)) throw new BadRequestError('Publication invalide.')

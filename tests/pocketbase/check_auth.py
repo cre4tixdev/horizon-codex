@@ -19,7 +19,8 @@ TEST_PASSWORD = 'Local-Horizon-test-only-2026!'
 
 class LocalPocketBase:
     def __init__(self, port=None):
-        self.environment = dict(os.environ)
+        self.environment = {k: v for k, v in os.environ.items() if not k.startswith('HORIZON_MAIL_')}
+        self.environment.pop('HORIZON_TEST_MODE', None)
         self.environment.pop('PAPPERS_API_KEY', None)
         self.environment.pop('HORIZON_INITIAL_ADMIN_EMAIL', None)
         self.binary = os.environ.get('POCKETBASE_BINARY', 'pocketbase')
@@ -329,7 +330,7 @@ if __name__ == '__main__':
             pb.start()
             writer_role = pb.create('core_roles', {'name': 'contacts_writer', 'label': 'Contacts', 'active': True, 'permissions': ['contacts.read', 'contacts.write']})
             writer = pb.create_user('writer@local.invalid', writer_role['id'])
-            admin_role = pb.create('core_roles', {'name': 'erp_admin', 'label': 'Admin', 'active': True, 'permissions': ['settings.users', 'settings.references', 'documents.template.manage', 'contacts.read', 'contacts.write', 'crm.read', 'crm.write', 'hr.read', 'hr.write', 'hr.organisation.manage', 'sales.read', 'sales.write', 'sales.quote.validate', 'sales.order.confirm', 'inventory.read', 'inventory.write', 'inventory.stock.reserve', 'inventory.stock.adjust', 'inventory.stock.validate', 'purchasing.read', 'purchasing.write', 'purchasing.request.validate', 'purchasing.order.validate', 'calendar.read', 'calendar.write', 'billing.read', 'billing.write', 'billing.invoice.validate', 'billing.payment.manage', 'expenses.read', 'expenses.write', 'expenses.submit', 'expenses.validate', 'expenses.reimburse', 'leave.read', 'leave.write', 'leave.submit', 'leave.validate', 'leave.allocate', 'leave.settings']})
+            admin_role = pb.create('core_roles', {'name': 'erp_admin', 'label': 'Admin', 'active': True, 'permissions': ['settings.users', 'settings.references', 'documents.template.manage', 'contacts.read', 'contacts.write', 'crm.read', 'crm.write', 'hr.read', 'hr.write', 'hr.organisation.manage', 'sales.read', 'sales.write', 'sales.quote.validate', 'sales.order.confirm', 'inventory.read', 'inventory.write', 'inventory.stock.reserve', 'inventory.stock.adjust', 'inventory.stock.validate', 'purchasing.read', 'purchasing.write', 'purchasing.request.validate', 'purchasing.order.validate', 'calendar.read', 'calendar.write', 'billing.read', 'billing.write', 'billing.invoice.validate', 'billing.payment.manage', 'expenses.read', 'expenses.write', 'expenses.submit', 'expenses.validate', 'expenses.reimburse', 'leave.read', 'leave.write', 'leave.submit', 'leave.validate', 'leave.allocate', 'leave.settings', 'messaging.read', 'messaging.write', 'messaging.send', 'messaging.settings']})
             admin_user = pb.create_user('erp-admin@local.invalid', admin_role['id'], 'admin')
             pb.request('PATCH', f'collections/core_users/records/{admin_user["id"]}', {'hr_scope': 'all', 'expenses_scope': 'all', 'leave_scope': 'all'}, pb.admin_token)
             catalog_reader_role = pb.create('core_roles', {'name': 'catalog_reader', 'label': 'Catalogue lecture', 'active': True, 'permissions': ['inventory.read']})

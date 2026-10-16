@@ -8,67 +8,49 @@ Les modules métier ne dépendentent pas directement des fournisseurs externes.
 
 ---
 
-# E-mail
+# E-mail — Microsoft Graph et OAuth délégué
 
-Les boîtes CVS sont hébergées sur **Microsoft 365 / Exchange Online**.
-
-Provider principal :
+**Choix final validé le 16 octobre 2026**, après comparaison de la maintenance SMTP : Microsoft Graph avec OAuth délégué. PocketBase standard et hooks JS, aucun nouveau conteneur, SDK ou binaire personnalisé. Cela remplace la cible SMTP intermédiaire et le prototype Graph client_credentials retiré avant commit.
 
 ```text
-Microsoft Graph
+Module métier → Messaging Service → MailProvider → Microsoft Graph v1.0
 ```
 
-Provider secondaire :
+Les modules métier ne contactent pas Graph. `sales-mail.js` et `purchasing-mail.js` sont les contrats propriétaires de projection/transition des pièces. Envoi partagé de messages libres, devis finalisés et BC validés ; PDF généré par Documents/Gotenberg et conservé dans les fichiers protégés du message. Templates/signatures Tiptap à variables allowlistées, HTML construit côté serveur sans HTML utilisateur exécutable. La réception ciblée des réponses aux devis/BC est ajoutée ci-dessous ; chat, factures, boîte de réception générale et boîtes partagées restent hors de ce lot.
 
-```text
-SMTP
-```
+## Connexion administrée
 
-Architecture :
+Dans Paramètres → E-mails → Expéditeurs, créer l’adresse, les utilisateurs Horizon explicitement autorisés, puis Connecter. Profil Admin/Superuser et droits messaging.read/settings requis pour configurer ; From contrôlé par l’allowlist même pour l’administrateur. **Première version : une boîte personnelle connectée par expéditeur** ; `/me` de Graph doit renvoyer exactement l’adresse sélectionnée (mail, sinon UPN). Aucun alias/Send As implicite ; boîtes partagées à traiter explicitement dans un lot ultérieur.
 
-```text
-Horizon
-↓
-Messaging Service
-↓
-MailProvider
-├── MicrosoftGraphMailProvider
-└── SMTPMailProvider
-```
+Autorisation Microsoft : flux authorization_code confidentiel + PKCE S256, scopes `offline_access`, `https://graph.microsoft.com/User.Read` et `https://graph.microsoft.com/Mail.Send`. Application Entra à locataire unique ; pas de permissions Graph Application ni d’attribution Exchange Application Mail.Send pour ce mode. La connexion peut demander MFA/consentement selon les politiques existantes ; aucun assouplissement de sécurité du locataire.
 
-Les modules métier ne dépendentent jamais directement de Microsoft Graph ou SMTP.
+L’URI Web de redirection Entra doit être **l’origine frontend Horizon suivie de `/messaging/oauth/callback`**, identique à HORIZON_MAIL_REDIRECT_URI (HTTPS en déploiement ; HTTP seulement localhost/127.0.0.1 avec port en développement). Elle diffère de celle d’Odoo, qui reste intacte. Aucun implicit grant ni configuration SPA de secret. Le navigateur reçoit un code court, jamais de jeton Microsoft : état lié à son onglet dans sessionStorage, suppression immédiate de la query au retour, puis POST authentifié au backend Horizon qui échange le code et vérifie `/me`. Ne pas journaliser les paramètres de cette route au reverse proxy, ne pas ajouter de ressources tierces à cette page.
 
----
+État serveur aléatoire, hashé, propriétaire, expiration dix minutes et consommation atomique avant échange ; vérificateur PKCE chiffré. Relire permissions, version de boîte et génération de connexion avant de sauvegarder : un callback ancien ne doit pas rétablir une connexion après déconnexion/reconnexion concurrente. Pas de lecture de JWT non vérifié pour identifier l’expéditeur.
 
-# Microsoft 365 / Graph
+Jetons AES-256-GCM (helper natif PocketBase) dans une collection privée à champs cachés ; clé serveur séparée de la base. Renouvellement sérialisé par claim persistant, rotation conservée, accès révoqué → reconnexion ; un refresh interrompu ne repart pas aveuglément après expiration de son claim. Déconnecter efface les jetons locaux, invalide états OAuth et génération des envois ; la révocation du consentement dans Microsoft reste une opération distincte. Un envoi déjà transmis à Microsoft ne peut pas être rappelé.
 
-Les boîtes CVS sont hébergées sur Microsoft 365 / Exchange Online.
+## File persistante et reprises
 
-Microsoft Graph est donc le provider e-mail par défaut de Horizon.
+Enqueue côté serveur : permissions, expéditeur, connexion et version source relus ; snapshot transport `graph-delegated-v1` + génération de connexion dans l’outbox. Une seule prise en charge atomique, aucun appel réseau dans une transaction SQLite. Dès le commit de la mise en file, la route déclenche le même worker pour le seul message nouvellement ajouté, puis renvoie son état actualisé. Ce premier traitement s’exécute dans la requête HTTP (le bouton reste occupé pendant l’appel Microsoft), sans timer JS ni tâche en mémoire. Une interruption du déclenchement laisse la file durable au cron de secours toutes les minutes (cinq candidats par passage). Le worker relit état et échéance dans la transaction de claim ; double clic, traitement concurrent et Retry-After ne peuvent pas forcer une seconde prise en charge. Un nouvel enqueue sur un message déjà pending/processing/sent ne redéclenche pas ce chemin immédiat. Le bouton process reste réservé aux paramètres pour diagnostic, sans étendre ce droit aux utilisateurs habilités à envoyer. Les dates de filtrage de file utilisent le format normalisé PocketBase (espace entre date/heure), et non une comparaison SQLite avec `T`.
 
-Objectifs :
+`POST /me/sendMail`, pièces jointes limitées à **10 fichiers et 2 Mio cumulés PDF inclus**, pour rester sous la limite des requêtes Graph sans session d’upload. HTML/identité/PDF figés ; copies dans Éléments envoyés demandées. HTTP 202 → état Horizon Envoyé signifie **accepté par Microsoft**, aucune garantie de livraison/lecture. Succès déclenche les transitions métier dans les modules propriétaires. Activity projette les destinataires À, l’expéditeur, l’objet, le corps texte et les pièces originales du message envoyé pour les lecteurs autorisés à la fiche source ; Cc/Cci, jetons et HTML actif restent exclus. Le contrat Messaging vérifie le lien exact événement/message envoyé/source/auteur ; la route authentifiée `/api/horizon/activity/events/{id}/email-attachment` sert uniquement ces fichiers après autorisation de la source. Les fichiers restent stockés une seule fois dans Messaging et leurs règles natives privées restent inchangées. Les anciens événements liés sont enrichis à la lecture.
 
-- expéditeur CVS réel ;
-- pièces jointes ;
-- identifiant provider ;
-- gestion propre de la boîte ;
-- éviter les mots de passe SMTP utilisateur.
+HTTP 429 : respecter Retry-After et backoff, au plus cinq tentatives ; délai supérieur à sept jours → arrêt manuel. Erreur temporaire avant transmission du message (auth/token) : reprise bornée également. Refus définitif → Échec ; 401 demande une reconnexion. Timeout/perte de réponse après soumission, 408/5xx ou réponse inattendue positive → À vérifier, **aucune relance automatique** ; traitement processing abandonné depuis dix minutes également. Après vérification manuelle motivée, l’incident peut être clos sans envoyer ni changer la pièce. Pas de garantie exactly-once auprès de Microsoft lorsque la réponse est perdue.
 
----
+Aucun transport alternatif automatique, aucun mot de passe SMTP, aucun fallback client_credentials. Toute nouvelle connexion invalide les anciens jobs par génération, imposant remise en file explicite. Historique/message envoyé immuable et privé à son propriétaire ; recherche, archive indépendante et filtres URL via les composants communs.
 
-# SMTP
+## Compatibilité avec le pack installé
 
-SMTP reste disponible uniquement comme **fallback technique**.
+Migration 1791840018 conservée à l’identique, utilisateur ayant confirmé son installation NAS ; **1791840019** ajoute stockage OAuth et empreinte de transport. Elle arrête les anciens pending en failed et met les processing en uncertain ; aucun ancien envoi ne repart automatiquement. Historique sent/draft, boîtes, modèles et fichiers conservés. Installer hooks/migrations/frontend cohérents après sauvegarde, arrêt du worker existant et inventaire de la file. Aucun accès NAS effectué par l’agent ; recette Microsoft réelle non exécutée.
 
-Cas possibles :
+## Sources et diagnostic SMTP conservé
 
-- relais CVS ;
-- boîte générique ;
-- continuité de service si Graph est temporairement indisponible.
+[Graph sendMail v1.0](https://learn.microsoft.com/en-us/graph/api/user-sendmail?view=graph-rest-1.0), [OAuth authorization code + PKCE](https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-auth-code-flow), [throttling Graph](https://learn.microsoft.com/en-us/graph/throttling), [envoi depuis une autre boîte](https://learn.microsoft.com/en-us/graph/outlook-send-mail-from-other-user). L’implémentation utilise HTTP et les primitives natives PocketBase, sans SDK Microsoft compatible avec le runtime JS embarqué ; protocole isolé et testé avec faux fournisseur, pas de simulation présentée comme recette Entra.
 
-Configuration côté serveur uniquement.
+Le parcours [Odoo Outlook OAuth](https://www.odoo.com/documentation/19.0/applications/general/email_communication/azure_oauth.html) et les captures utilisateur montrent les permissions déléguées SMTP.Send/IMAP.AccessAsUser.All/User.Read et un callback `/microsoft_outlook/confirm`. Cela a permis de distinguer le mode délégué du mode applicatif. Le serveur sortant Odoo actif n’a pas été inspecté.
 
-Aucun mot de passe SMTP utilisateur ne doit être stocké côté frontend.
+PocketBase 0.40.4 natif ne fournit pas XOAUTH2 : [source smtp.go](https://github.com/pocketbase/pocketbase/blob/v0.40.4/tools/mailer/smtp.go), confirmé par `tests/pocketbase/check_smtp_capability.py` (base jetable, SMTP loopback refusant toutes les authentifications). Une extension Go est officiellement possible mais sa construction/maintenance Docker est évitée par le choix final Graph délégué. Ce diagnostic ne doit pas réintroduire SMTP dans le transport livré.
 
 ---
 
@@ -641,3 +623,20 @@ Standby demandé — 13 octobre 2026 : le premier lot Billing est interne unique
 ## Congés : référence des jours fériés — 16 octobre 2026
 
 France métropolitaine : calcul civil déterministe côté serveur, sans appel réseau à la saisie/soumission. Référence de vérification : [jeu de données/service DINUM des jours fériés](https://www.data.gouv.fr/dataservices/jours-feries), fixtures officielles 2026–2028 sous Licence Ouverte 2.0 dans tests/fixtures. Huit dates fixes et lundi de Pâques/Ascension/lundi de Pentecôte ; politiques locales/territoriales à saisir en dates supplémentaires, jours travaillés en exceptions RH. Aucun nouveau fournisseur externe ni ordonnanceur.
+
+
+## Réception ciblée des réponses aux envois Horizon
+
+Opt-in par boîte personnelle ; scopes OAuth délégués offline_access/User.Read/Mail.Send et **Mail.Read** uniquement lorsqu’activé. Mail.Read est stocké parmi les scopes réellement accordés et vérifié au callback/réception ; refresh des connexions antérieures conserve les scopes send-only. Réception derrière MailProvider.reader, aucun appel Graph métier/React. Sources Microsoft : [List messages](https://learn.microsoft.com/en-us/graph/api/user-list-messages?view=graph-rest-1.0), [Get message](https://learn.microsoft.com/en-us/graph/api/message-get?view=graph-rest-1.0), [List attachments](https://learn.microsoft.com/en-us/graph/api/message-list-attachments?view=graph-rest-1.0).
+
+Le transport d’envoi reste /me/sendMail, sans ajout de création de brouillon distant ni risque de renvoi lors de cette évolution. Le worker crée le suivi de l’envoi commercial après acceptation ; migration reprend les anciens envois métier sent. La relève retrouve l’original dans sentitems par date et X-Horizon-Message, stocke InternetMessageId/conversationId, puis liste /me/messages avec filtre conversationId ; In-Reply-To/References établissent le rattachement exact avant lecture du corps/pièces. Le plus proche identifiant connu dans les références prime pour séparer les sources d’une même conversation. Aucun rattachement par objet ni import de conversation aveugle. Un changement de compte Microsoft invalide les identifiants de suivi avant nouvelle découverte. Les copies Outlook envoyées sont nécessaires à la découverte ; elles ne sont pas modifiées.
+
+Cron chaque minute, au plus 20 conversations/pages dues par passage ; après tour complet, prochaine relève dans deux minutes. Pagination et déduplication persistantes, pas de webhook public ou de dépendance supplémentaire. La consultation des conversations complètes est rejouable ; délai variable selon backlog, erreurs et pages, aucun SLA instantané annoncé. Le corps est demandé au format texte et affiché échappé ; pas de HTML externe, tracking ou mutation Outlook, pas de synchronisation d’une boîte de réception générale. Les réponses aux messages libres sans source métier ne sont pas importées dans ce lot.
+
+Un In-Reply-To explicite inconnu reste sans rattachement automatique, même si References mentionne un ancien envoi : éviter d’affecter une réponse à une ancienne pièce. References sert de secours lorsque In-Reply-To est absent. Une réponse à un message intermédiaire envoyé manuellement depuis Outlook (parent inconnu d’Horizon) peut donc rester uniquement dans Outlook ; aucune affectation incertaine par objet/conversation.
+
+
+Diagnostic de relève : erreurs Microsoft HTTP et réseau différenciées, curseurs invalides signalés comme pagination, erreurs de contenu/fichiers identifiées. Les erreurs internes indiquent l’étape sans exposer la réponse Graph. Les requêtes échouées restent soumises aux échéances existantes, y compris après reconnexion ; les reprises et le transport d’envoi sont inchangés. Voir exploitation en 06.
+
+
+Pagination de réception corrigée le 16 octobre : ne pas figer les liens à /me/mailFolders/sentitems. Graph peut identifier une boîte ou un dossier par son ID ; accepter les formes de ressources correspondantes en vérifiant qu’il s’agit de la boîte connectée. Garder intégralement l’URL/query de la page suivante, conformément à [Paging Microsoft Graph](https://learn.microsoft.com/en-us/graph/paging), après contrôle strict de destination documenté en 06. L’URL réellement rejetée sur le NAS n’a pas été communiquée ; les formes canoniques sont reproduites et validées sur le faux provider, sans prétendre à une recette réelle.

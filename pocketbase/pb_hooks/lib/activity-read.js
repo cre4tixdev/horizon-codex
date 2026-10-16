@@ -25,9 +25,13 @@ const scope = (event) => {
   }
   return { filter: `(${filter})`, params }
 }
-const eventDTO = (record) => {
-  const value = record.publicExport()
-  return { id: record.id, collectionId: record.collection().id, type: value.type, author: value.author, body: value.body, created: value.created, attachments: value.attachments, metadata: value.metadata }
+const eventDTO = (app, record) => {
+  const value = record.publicExport(), metadata = JSON.parse(record.getString('metadata') || '{}')
+  delete metadata.email // Always derive this projection; never trust stored client-shaped data.
+  const email = metadata.email_id ? require(`${__hooks}/lib/messaging-activity.js`).summary(app, record) : null
+  const reply = metadata.email_reply_id ? require(`${__hooks}/lib/messaging-activity.js`).reply(app, record) : null
+  if (reply) metadata.author = { name: reply.name, initials: reply.name.trim().split(/\s+/).slice(0, 2).map((v) => v[0]).join('').toUpperCase() }
+  return { id: record.id, collectionId: record.collection().id, type: value.type, author: value.author, body: reply ? reply.text || 'Réponse sans texte.' : email ? `${record.getString('source_entity') === 'sales_quotes' ? 'Devis envoyé' : 'Commande envoyée'} à ${email.to.join('; ')}` : value.body, created: value.created, attachments: value.attachments, metadata: { ...metadata, ...(reply ? { email: reply } : email ? { email } : {}) } }
 }
 module.exports = {
   authorizeRecord(event, record) { readSource(event, record.getString('source_entity'), record.getString('source_record_id'), record.getString('source_module')) },
@@ -39,14 +43,14 @@ module.exports = {
       all: { filter: '', sql: '' },
       changes: { filter: ' && (type = "change" || type = "status_change")', sql: " AND type IN ('change', 'status_change')" },
       comments: { filter: ' && (type = "note" || type = "message")', sql: " AND type IN ('note', 'message')" },
-      documents: { filter: ' && attachments:length > 0', sql: " AND json_array_length(CASE WHEN json_valid(attachments) THEN attachments ELSE '[]' END) > 0" },
+      documents: { filter: ' && (attachments:length > 0 || ((metadata.email_id != "" || metadata.email_reply_id != "") && (source_entity = "sales_quotes" || source_entity = "purchasing_orders")))', sql: " AND (json_array_length(CASE WHEN json_valid(attachments) THEN attachments ELSE '[]' END) > 0 OR ((COALESCE(json_extract(metadata, '$.email_id'), '') != '' OR COALESCE(json_extract(metadata, '$.email_reply_id'), '') != '') AND source_entity IN ('sales_quotes','purchasing_orders')))" },
       tasks: { filter: ' && type = "task"', sql: " AND type = 'task'" },
     }
     const predicate = predicates[category], total = new DynamicModel({ total: 0 })
     event.app.db().newQuery(`SELECT COUNT(*) AS total FROM core_activity_events WHERE ${source.replaceAll('&&', 'AND').replaceAll('||', 'OR')}${predicate.sql}`).bind(params).one(total)
     const filter = source + predicate.filter
     const items = event.app.findRecordsByFilter('core_activity_events', filter, '-created,-id', 20, (page - 1) * 20, params)
-    return event.json(200, { items: items.map(eventDTO), page, totalItems: total.total, totalPages: Math.ceil(total.total / 20) })
+    return event.json(200, { items: items.map((r) => eventDTO(event.app, r)), page, totalItems: total.total, totalPages: Math.ceil(total.total / 20) })
   },
   tasks(event) {
     const { filter, params } = scope(event)

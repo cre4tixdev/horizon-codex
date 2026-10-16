@@ -6,3 +6,5 @@ routerAdd('GET', '/api/horizon/activity/events/{id}/avatar', (event) => require(
 
 routerAdd('GET', '/api/horizon/activity/events', (event) => require(`${__hooks}/lib/activity-read.js`).events(event), $apis.requireAuth('core_users'))
 routerAdd('GET', '/api/horizon/activity/tasks', (event) => require(`${__hooks}/lib/activity-read.js`).tasks(event), $apis.requireAuth('core_users'))
+
+routerAdd('GET', '/api/horizon/activity/events/{id}/email-attachment', (event) => require(`${__hooks}/lib/activity-request.js`).emailAttachment(event), $apis.requireAuth('core_users'))

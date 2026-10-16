@@ -4059,3 +4059,46 @@ Congés / déclaration Direction — 16 octobre 2026 : pas de nouvelle collectio
 Calendrier / repères publics — 16 octobre 2026 : GET horizon/calendar/events ajoute `holidays` (objet date civile ISO → libellé des fériés métropolitains pour les années couvertes, plage calculée 2000–2200). Métadonnée calculée par le même helper que Congés, sans collection, migration ni événement artificiel. Retournée également sans accès CRM/Congés ; aucune information RH ou événement privé supplémentaire exposé. Les listes items/periods restent filtrées par leurs permissions et critères existants.
 
 Calendrier / projection personnelle des Congés — 16 octobre 2026 : GET horizon/calendar/events.items accepte source_module=leave, source_entity=leave_requests, kind=leave et href=/leave/{id}. Champs communs all_day=true, timezone=Europe/Paris, date civile UTC de présentation (pas un horaire réel), identifiant déterministe leave:{request_id}:{date}, titre générique statut/demi-journée, tone amber en attente ou blue validé. Aucune catégorie/type, reason, pièce ou donnée de collègue retournée. Projection contrôlée par le module propriétaire leave depuis les demandes existantes ; aucune collection, copie ou migration.
+
+
+## Messagerie — schéma du pack installé à conserver (16 octobre 2026)
+
+L’utilisateur confirme l’installation du pack Messaging sur le NAS. La migration **1791840018_messaging_email.js** de ce pack est conservée octet pour octet malgré le retrait du prototype applicatif local ; empreinte SHA-256 `3288190d3ecafbda9c2fd962b13be55753085bebe118ce21d1762ae50af743b1`. Aucune suppression manuelle de collection ou d’entrée _migrations, aucune réutilisation de ce numéro. La reprise OAuth déléguée fait évoluer ce schéma par une migration ultérieure après inspection de l’existant. Le contenu réel de la base NAS n’a pas été interrogé par l’agent.
+
+Collections de cette migration, privées :
+
+- messaging_mailboxes : name, address, active, allowed_users[] → core_users.
+- messaging_email_templates : name, context (generic/sales_quote/purchase_order), language, subject, body_json, active, is_default ; défaut unique actif par contexte/langue.
+- messaging_email_signatures : name, user facultatif → core_users, body_json, active, is_default ; défaut unique actif par utilisateur ou société.
+- messaging_email_messages : owner/mailbox, from_address, to/cc/bcc JSON, subject, body_json, signature_snapshot, html/text, status (draft/pending/processing/sent/failed/uncertain/cancelled), source_context/id/version/label, pdf_template, attachments protégés, pdf_file, queued_at/sent_at/resolved_at/archived_at, resolution_note, provider_request_id, error, creation_key/hash cachés, created/updated. Dix fichiers PDF/PNG/JPEG/WebP de 2 Mio chacun maximum au schéma ; l’ancien service imposait en plus 2 Mio cumulés. Ces limites de transport restent applicables au transport Graph direct sans session d’upload sans modifier les données historiques. provider_request_id historique désigne une corrélation HTTP du prototype Graph, pas un identifiant de message SMTP.
+- messaging_outbox : message unique → messaging_email_messages, status (pending/processing/complete/failed/uncertain/cancelled), attempts, next_attempt_at, claimed_at, last_error, created/updated.
+
+Les trois modèles français initiaux et les droits Messagerie ajoutés aux rôles Admin existants font partie de cette migration. Aucun compte ou expéditeur inventé. Les enregistrements éventuels sur NAS et leurs fichiers doivent être conservés, y compris lors du remplacement du mécanisme d’authentification/transport. Le stockage chiffré OAuth et ses permissions sont décrits dans la migration suivante ci-dessous.
+
+
+### Reprise Graph OAuth délégué — migration 1791840019
+
+Choix final validé le 16 octobre 2026. Migration 0018 immuable. Deux collections privées sans aucune API Rule publique, propriété messaging :
+
+- messaging_oauth_connections : mailbox unique, tenant_id/client_id, account_id, account_address, access_cipher/refresh_cipher cachés (AES-256-GCM, clé serveur hors base), expires_at, connected_by, status (connected/refreshing/reconnect/disconnected), generation (nonce de connexion), refresh_claim/refresh_claimed_at cachés, created/updated. DTO paramètres explicite sans jetons/claims.
+- messaging_oauth_states : state_hash unique caché, verifier_cipher caché, owner, mailbox, mailbox_version, connection_generation, tenant_id/client_id/redirect_uri, expires_at, consumed, created/updated. État aléatoire à usage unique dix minutes, PKCE S256 ; callback transmis au serveur par la session Horizon initiatrice. État également lié à l’onglet du navigateur.
+
+Outbox : ajout transport_version et connection_generation, figés à la mise en file. Migration des anciens pending → failed, processing → uncertain avec diagnostic, sans renvoi. Les pièces jointes et historiques restent inchangés. Première version : boîtes personnelles directement connectées uniquement ; identité Graph /me contrôlée, adresse égale à l’adresse d’expéditeur autorisée, pas de Send As/boîte partagée implicite. Le support explicite des boîtes partagées reste ultérieur.
+
+
+### Projection d’envoi e-mail dans Activity — 16 octobre 2026
+
+Aucune nouvelle collection ni migration. core_activity_events.metadata.email_id référence déjà le message envoyé par sales/purchasing. La lecture du fil autorisé projette désormais metadata.email = {to[], attachments[]} depuis Messaging, après vérification status=sent, propriétaire=acteur, contexte/id/source_module/source_entity exacts ; le body de présentation indique les destinataires To. Les nouveaux événements enregistrent également ce libellé. Les anciens messages/événements ne sont pas réécrits. À la demande complémentaire du 16 octobre, l’objet, le corps texte et l’adresse d’expédition du mail envoyé sont également projetés. Cc/Cci et jetons restent exclus ; les messages libres sans fiche source restent privés.
+
+Les fichiers restent dans messaging_email_messages.attachments, sans copie dans Activity ni élargissement de sa viewRule privée. Un endpoint Activity authentifié reçoit event_id + filename, autorise d’abord la source métier, puis Messaging résout l’événement/envoi exact et ne sert qu’un nom appartenant à la liste figée. Les lecteurs de la source peuvent ainsi consulter les pièces envoyées associées, sans droit de lecture du message privé ; aucun fichier de brouillon ou d’une autre source. Aucun droit de retrait d’une pièce envoyée depuis le fil.
+
+
+### Réponses e-mail liées — migration 1791840020 (16 octobre 2026)
+
+Messaging reste propriétaire. Réception opt-in par messaging_mailboxes.receive_enabled (false pour les boîtes existantes) ; messaging_oauth_connections.granted_scopes permet de demander Mail.Read sans interrompre l’envoi des connexions antérieures. OAuth states fige receive_enabled pour le consentement.
+
+Deux collections privées (aucune API Rule), mutations via hooks uniquement :
+- messaging_email_threads : message unique (envoi sent lié à devis/BC), mailbox, account_id, internet_message_id, conversation_id ; phase discovery/conversation, next_link caché, claim/claimed_at cachés, next_attempt_at, last_sync_at, last_error. Création transactionnelle à l’envoi et reprise des envois métier existants à migration. Curseur Graph validé, claim persistant et reprise après interruption ; jamais de numéro métier ni réécriture du message envoyé.
+- messaging_email_replies : message (envoi d’origine), mailbox, provider_id, internet_message_id, dedup_key unique (hash boîte+Message-ID), sender_address/name, subject, received_at, body_text (texte seulement), attachments protégées (10 fichiers PDF/images, 2 Mio cumulés), warnings JSON. Une importation crée transactionnellement un événement core_activity_events metadata.email_reply_id et une notification de l’expéditeur s’il a toujours accès à la source. Le fil projette auteur externe, texte, date et pièces via le contrat Messaging ; aucun Cc/Cci, HTML actif, jeton ou import de message sans lien prouvé. Les fichiers originaux de réponse restent privés et sont servis via l’endpoint Activity qui contrôle la source.
+
+Rattachement par In-Reply-To/References à un envoi Horizon retrouvé dans les Éléments envoyés via X-Horizon-Message, ou à une réponse déjà liée ; conversationId/objet seuls insuffisants. Réception sans changement métier du devis/BC, sans envoi automatique, sans modification de la boîte Outlook. Les réponses sont immuables. Pas de suppression distante synchronisée ; l’historique importé est conservé.

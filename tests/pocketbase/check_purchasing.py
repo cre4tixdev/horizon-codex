@@ -555,7 +555,7 @@ class PurchasingTests(unittest.TestCase):
         self.assertEqual(self.transition('requests', req, 'cancel')[0], 200)
         status, quote = self.pb.request('POST', 'horizon/sales/quotes/reopen', dict(id=quote['id'], updated=quote['updated'], target='validated'), self.token)
         self.assertEqual(status, 200, quote)
-        self.assertEqual(self.pb.request('GET', 'horizon/inventory/stock?product=' + self.item['id'], token=self.token)[1]['items'][0]['available'], 4)
+        self.assertEqual(self.pb.request('GET', 'horizon/inventory/stock?product=' + self.item['id'] + '&location=' + self.location, token=self.token)[1]['items'][0]['available'], 4)
 
     def test_document_snapshot_and_precise_request_filter(self):
         _, req = self.save_request()
@@ -599,7 +599,7 @@ class PurchasingTests(unittest.TestCase):
         with ThreadPoolExecutor(max_workers=2) as pool:
             results = list(pool.map(confirm, [one, two]))
         self.assertEqual(sorted(item[0] for item in results), [200, 409], results)
-        self.assertEqual(self.pb.request('GET', 'horizon/inventory/stock?product=' + self.item['id'], token=self.token)[1]['items'][0]['reserved'], 4)
+        self.assertEqual(self.pb.request('GET', 'horizon/inventory/stock?product=' + self.item['id'] + '&location=' + self.location, token=self.token)[1]['items'][0]['reserved'], 4)
         path = 'horizon/inventory/stock/products/' + self.item['id'] + '/reservations'
         status, details = self.pb.request('GET', path, token=self.token)
         self.assertEqual(status, 200, details)

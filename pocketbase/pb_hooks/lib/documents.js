@@ -8,7 +8,24 @@ const dto = (app, record) => ({ ...record.publicExport(), version: record.getStr
 const audit = (app, user, record, action) => require(`${__hooks}/lib/access-policy.js`).audit(app, 'documents_templates', record.id, user.id, null, { name: record.getString('name'), status: record.getString('status'), current_version: record.getString('current_version') }, action)
 const exact = (body, keys) => { if (Object.keys(body).some((key) => !keys.includes(key))) throw new BadRequestError('Champs non autorisés.') }
 const sourceAccess = (app, user) => ({ invoice: require(`${__hooks}/lib/access-policy.js`).permissions(app, user).includes('billing.read'), stock_operation: require(`${__hooks}/lib/activity.js`).allowed(app, user, false, 'inventory'), quote: require(`${__hooks}/lib/activity.js`).allowed(app, user, false, 'sales'), purchase_order: require(`${__hooks}/lib/purchasing.js`).allowed(app, user), product_label: require(`${__hooks}/lib/catalog.js`).allowed(app, user) })
+const prepare = (app, user, body) => {
+    if ([body.quote_id, body.product_id, body.purchase_order_id, body.stock_operation_id].filter(Boolean).length !== 1) throw new BadRequestError('Choisissez une seule source pour l’aperçu.')
+    const stockOperation = Boolean(body.stock_operation_id), label = Boolean(body.product_id), purchase = Boolean(body.purchase_order_id)
+    const context = stockOperation ? require(`${__hooks}/lib/stock-document-context.js`)(app, user, body.stock_operation_id) : purchase ? require(`${__hooks}/lib/purchasing-document-context.js`)(app, user, body.purchase_order_id) : label ? require(`${__hooks}/lib/catalog.js`).documentContext(app, user, body.product_id) : require(`${__hooks}/lib/sales-document-context.js`)(app, user, body.quote_id)
+    let layout
+    if (body.content_json) { if (!manage(app, user)) throw new ForbiddenError('Accès refusé.'); layout = body.content_json } else if (stockOperation && !body.template_id) { layout = require(`${__hooks}/lib/document-default-stock.js`)(context) } else if (purchase && !body.template_id) { layout = require(`${__hooks}/lib/document-default-purchase.js`)() } else if (label && !body.template_id) { layout = require(`${__hooks}/lib/document-default-label.js`)() } else {
+      const record = get(app, body.template_id)
+      if (record.getString('status') === 'archived' || !record.getString('current_version')) throw new BadRequestError('Choisissez un modèle publié.')
+      if (record.getString('document_type') !== (stockOperation ? 'stock_operation' : purchase ? 'purchase_order' : label ? 'product_label' : 'quote')) throw new BadRequestError('Ce modèle ne correspond pas à la pièce sélectionnée.')
+      layout = JSON.parse(app.findRecordById('documents_template_versions', record.getString('current_version')).getString('content_json'))
+    }
+    if (!['html', 'pdf'].includes(body.format)) throw new BadRequestError('Format d’aperçu invalide.')
+    const rendered = require(`${__hooks}/lib/document-renderer.js`)(layout, context)
+    const filename = stockOperation ? require(`${__hooks}/lib/document-filenames.js`).filename(app, 'delivery_note', { number: context.fields['stock.number'], date: context.fields['stock.document_date'], opportunity: context.fields['opportunity.title'], opportunity_number: context.fields['opportunity.number'], title: context.fields['stock.title'] }) : label ? `Etiquette-${String(context.fields['product.reference']).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 80)}.pdf` : require(`${__hooks}/lib/document-filenames.js`).filename(app, purchase ? 'purchase_order' : 'quote', { number: context.fields[purchase ? 'purchase.number' : 'quote.quote_number'], date: context.fields[purchase ? 'purchase.document_date' : 'quote.quote_date'], company: context.fields['company.name'], opportunity: context.fields['opportunity.title'], opportunity_number: context.fields['opportunity.number'], title: context.fields[purchase ? 'purchase.title' : 'quote.title'], owner: context.fields['owner.name'], contact: context.fields['contact.name'] })
+    return { layout, rendered, filename, context }
+}
 module.exports = {
+  prepare,
   formats(event) {
     const administrative = manage(event.app, event.auth), rights = sourceAccess(event.app, event.auth)
     if (!administrative && !Object.values(rights).some(Boolean)) throw new ForbiddenError('Accès aux formats refusé.')
@@ -102,19 +119,7 @@ module.exports = {
   },
   preview(event) {
     const body = event.requestInfo().body; exact(body, ['stock_operation_id', 'quote_id', 'product_id', 'purchase_order_id', 'template_id', 'content_json', 'format'])
-    if ([body.quote_id, body.product_id, body.purchase_order_id, body.stock_operation_id].filter(Boolean).length !== 1) throw new BadRequestError('Choisissez une seule source pour l’aperçu.')
-    const stockOperation = Boolean(body.stock_operation_id), label = Boolean(body.product_id), purchase = Boolean(body.purchase_order_id)
-    const context = stockOperation ? require(`${__hooks}/lib/stock-document-context.js`)(event.app, event.auth, body.stock_operation_id) : purchase ? require(`${__hooks}/lib/purchasing-document-context.js`)(event.app, event.auth, body.purchase_order_id) : label ? require(`${__hooks}/lib/catalog.js`).documentContext(event.app, event.auth, body.product_id) : require(`${__hooks}/lib/sales-document-context.js`)(event.app, event.auth, body.quote_id)
-    let layout
-    if (body.content_json) { guard(event); layout = body.content_json } else if (stockOperation && !body.template_id) { layout = require(`${__hooks}/lib/document-default-stock.js`)(context) } else if (purchase && !body.template_id) { layout = require(`${__hooks}/lib/document-default-purchase.js`)() } else if (label && !body.template_id) { layout = require(`${__hooks}/lib/document-default-label.js`)() } else {
-      const record = get(event.app, body.template_id)
-      if (record.getString('status') === 'archived' || !record.getString('current_version')) throw new BadRequestError('Choisissez un modèle publié.')
-      if (record.getString('document_type') !== (stockOperation ? 'stock_operation' : purchase ? 'purchase_order' : label ? 'product_label' : 'quote')) throw new BadRequestError('Ce modèle ne correspond pas à la pièce sélectionnée.')
-      layout = JSON.parse(event.app.findRecordById('documents_template_versions', record.getString('current_version')).getString('content_json'))
-    }
-    if (!['html', 'pdf'].includes(body.format)) throw new BadRequestError('Format d’aperçu invalide.')
-    const rendered = require(`${__hooks}/lib/document-renderer.js`)(layout, context)
-    const filename = stockOperation ? require(`${__hooks}/lib/document-filenames.js`).filename(event.app, 'delivery_note', { number: context.fields['stock.number'], date: context.fields['stock.document_date'], opportunity: context.fields['opportunity.title'], opportunity_number: context.fields['opportunity.number'], title: context.fields['stock.title'] }) : label ? `Etiquette-${String(context.fields['product.reference']).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 80)}.pdf` : require(`${__hooks}/lib/document-filenames.js`).filename(event.app, purchase ? 'purchase_order' : 'quote', { number: context.fields[purchase ? 'purchase.number' : 'quote.quote_number'], date: context.fields[purchase ? 'purchase.document_date' : 'quote.quote_date'], company: context.fields['company.name'], opportunity: context.fields['opportunity.title'], opportunity_number: context.fields['opportunity.number'], title: context.fields[purchase ? 'purchase.title' : 'quote.title'], owner: context.fields['owner.name'], contact: context.fields['contact.name'] })
+    const { layout, rendered, filename, context } = prepare(event.app, event.auth, body)
     if (body.format === 'pdf') return require(`${__hooks}/lib/gotenberg.js`)(event, layout, rendered, filename)
     return event.json(200, { html: rendered.preview, warnings: context.warnings, filename, page: require(`${__hooks}/lib/document-layout.js`).pageDimensions(layout) })
   },

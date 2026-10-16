@@ -1,0 +1,16 @@
+.mail-cell-detail { display: block; color: var(--theme-text-muted); font-size: 11px; margin-top: 3px; }
+.dialog-content.mail-composer-dialog { width: min(1120px, calc(100vw - var(--workspace-sidebar-width) - 24px)); max-width: none; max-height: calc(100dvh - 32px); top: 50%; transform: translate(-50%, -50%); }
+.dialog-form.mail-composer-form { min-height: 0; padding: 0; gap: 0; overflow: hidden; }
+.mail-composer-form > .contact-record-navigation { padding-inline: 18px; margin: 0; flex-shrink: 0; }
+.mail-composer-content, .mail-composer-files { padding: 16px 18px; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 12px; }
+.mail-composer-form > [hidden] { display: none; }
+.mail-composer-content .h-rich-editor { flex-shrink: 0; }
+.mail-composer-content .tiptap { min-height: 150px; }
+.mail-signature .h-rich-toolbar, .mail-signature .h-rich-footer { display: none; }
+.mail-signature .tiptap { min-height: 0; }
+.mail-composer-files .h-attachment-workspace { min-height: 350px; }
+.mail-pdf-template { max-width: 360px; }
+.mail-composer-form > .field-error { margin: 8px 18px; }
+.mail-settings-users { display: flex; flex-wrap: wrap; gap: 12px; }
+
+@media (max-width: 700px) { .dialog-content.mail-composer-dialog { width: calc(100vw - var(--workspace-sidebar-width) - 24px); } .mail-composer-content, .mail-composer-files { padding-inline: 12px; } }

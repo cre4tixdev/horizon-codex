@@ -26,7 +26,7 @@
 | Jobs | PocketBase Cron |
 | Migrations | PocketBase Migrations |
 | PDF | Gotenberg / Chromium |
-| E-mail | Microsoft Graph (principal) + SMTP (fallback) |
+| E-mail | Microsoft Graph + OAuth délégué (validé le 16 octobre 2026) |
 | Comptabilité V1 | Sage via API / export |
 | Comptabilité cible | Moteur comptable Horizon |
 | Facturation électronique | SUPER PDP API |
@@ -260,11 +260,12 @@ Horizon
 Mail Service
 ↓
 MailProvider
-├── MicrosoftGraphMailProvider   ← principal
-└── SMTPMailProvider             ← fallback
+└── MicrosoftGraphMailProvider   ← OAuth délégué, appels HTTPS depuis les hooks
 ```
 
 Les modules métier ne parlent jamais directement à Microsoft Graph ou SMTP.
+
+Décision finale du 16 octobre 2026 : Graph OAuth délégué (connexion Microsoft initiale, PKCE et renouvellement serveur). Aucun SDK, service supplémentaire ou binaire PocketBase personnalisé. SMTP XOAUTH2 ne fait pas partie de ce lot. Le prototype Graph en mode application a été retiré ; aucun fallback client_credentials. Contrats et limites dans 08.
 
 ---
 

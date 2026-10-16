@@ -1,0 +1,40 @@
+routerAdd('GET', '/api/horizon/messaging/choices', (e) => require(`${__hooks}/lib/messaging.js`).choices(e), $apis.requireAuth('core_users'))
+routerAdd('POST', '/api/horizon/messaging/render', (e) => require(`${__hooks}/lib/messaging.js`).render(e), $apis.requireAuth('core_users'))
+routerAdd('POST', '/api/horizon/messaging/preview', (e) => require(`${__hooks}/lib/messaging.js`).preview(e), $apis.requireAuth('core_users'))
+routerAdd('GET', '/api/horizon/messaging/messages', (e) => require(`${__hooks}/lib/messaging.js`).list(e), $apis.requireAuth('core_users'))
+routerAdd('GET', '/api/horizon/messaging/messages/{id}', (e) => require(`${__hooks}/lib/messaging.js`).record(e), $apis.requireAuth('core_users'))
+routerAdd('POST', '/api/horizon/messaging/messages', (e) => require(`${__hooks}/lib/messaging.js`).save(e), $apis.requireAuth('core_users'))
+routerAdd('POST', '/api/horizon/messaging/messages/{id}/transition', (e) => require(`${__hooks}/lib/messaging.js`).transition(e), $apis.requireAuth('core_users'))
+routerAdd('GET', '/api/horizon/messaging/settings', (e) => require(`${__hooks}/lib/messaging-settings.js`).read(e), $apis.requireAuth('core_users'))
+routerAdd('POST', '/api/horizon/messaging/settings', (e) => require(`${__hooks}/lib/messaging-settings.js`).save(e), $apis.requireAuth('core_users'))
+routerAdd('POST', '/api/horizon/messaging/process', (e) => { require(`${__hooks}/lib/messaging-common.js`).guard(e.app, e.auth, 'settings'); return e.json(200, { processed: require(`${__hooks}/lib/messaging-worker.js`)(e.app) }) }, $apis.requireAuth('core_users'))
+cronAdd('horizon-mail-outbox', '* * * * *', () => { try { require(`${__hooks}/lib/messaging-worker.js`)($app) } catch { $app.logger().error('Messaging worker unavailable', 'error', 'Traitement interrompu ; consulter les états de la file.') } })
+onRecordUpdate((e) => { if (e.record.original().getString('status') === 'sent') { const c = require(`${__hooks}/lib/messaging-common.js`), before = e.record.original().publicExport(), after = e.record.publicExport(); for (const key of Object.keys(before).filter((k) => !['archived_at', 'updated'].includes(k))) if (c.stable(before[key]) !== c.stable(after[key])) throw new BadRequestError('Un e-mail envoyé est immuable.'); } e.next() }, 'messaging_email_messages')
+onRecordDelete(() => { throw new BadRequestError('L’historique des e-mails doit être conservé.') }, 'messaging_email_messages', 'messaging_outbox', 'messaging_mailboxes', 'messaging_email_templates', 'messaging_email_signatures')
+onRecordCreateRequest(() => { throw new ForbiddenError('Utilisez le service Messagerie.') }, 'messaging_email_messages', 'messaging_outbox', 'messaging_mailboxes', 'messaging_email_templates', 'messaging_email_signatures')
+onRecordUpdateRequest(() => { throw new ForbiddenError('Utilisez le service Messagerie.') }, 'messaging_email_messages', 'messaging_outbox', 'messaging_mailboxes', 'messaging_email_templates', 'messaging_email_signatures')
+onRecordUpdate((e) => {
+  if (!e.app.findAllCollections().some((r) => r.name === 'messaging_email_messages')) { e.next(); return }
+  const context = e.record.collection().name === 'sales_quotes' ? 'sales_quote' : 'purchase_order'
+  if (e.app.findRecordsByFilter('messaging_email_messages', 'source_context = {:context} && source_id = {:id} && (status = "pending" || status = "processing" || (status = "uncertain" && resolved_at = ""))', '', 1, 0, { context, id: e.record.id }).length) throw new BadRequestError('Un e-mail lié est en cours ou à vérifier. Traitez cet envoi avant de modifier la pièce.')
+  e.next()
+}, 'sales_quotes', 'purchasing_orders')
+
+routerAdd('POST', '/api/horizon/messaging/settings/preview', (e) => require(`${__hooks}/lib/messaging-settings.js`).preview(e), $apis.requireAuth('core_users'))
+
+routerAdd('POST', '/api/horizon/messaging/oauth/start', (e) => require(`${__hooks}/lib/messaging-oauth.js`).start(e), $apis.requireAuth('core_users'))
+routerAdd('POST', '/api/horizon/messaging/oauth/callback', (e) => require(`${__hooks}/lib/messaging-oauth.js`).callback(e), $apis.requireAuth('core_users'))
+routerAdd('POST', '/api/horizon/messaging/oauth/disconnect', (e) => require(`${__hooks}/lib/messaging-oauth.js`).disconnect(e), $apis.requireAuth('core_users'))
+onRecordCreateRequest(() => { throw new ForbiddenError('Utilisez la connexion Microsoft Horizon.') }, 'messaging_oauth_states', 'messaging_oauth_connections')
+onRecordUpdateRequest(() => { throw new ForbiddenError('Utilisez la connexion Microsoft Horizon.') }, 'messaging_oauth_states', 'messaging_oauth_connections')
+onRecordDeleteRequest(() => { throw new ForbiddenError('Utilisez la connexion Microsoft Horizon.') }, 'messaging_oauth_states', 'messaging_oauth_connections')
+cronAdd('horizon-mail-oauth-cleanup', '17 * * * *', () => {
+  for (const r of $app.findRecordsByFilter('messaging_oauth_states', 'expires_at < {:now}', '', 1000, 0, { now: new Date().toISOString().replace('T', ' ') })) $app.delete(r)
+})
+
+routerAdd('POST', '/api/horizon/messaging/replies/sync', (e) => require(`${__hooks}/lib/messaging-inbound.js`).sync(e), $apis.requireAuth('core_users'))
+cronAdd('horizon-mail-replies', '* * * * *', () => { try { require(`${__hooks}/lib/messaging-inbound.js`).process($app) } catch { $app.logger().error('Messaging reply worker unavailable') } })
+onRecordCreateRequest(() => { throw new ForbiddenError('Utilisez la relève des réponses Horizon.') }, 'messaging_email_threads', 'messaging_email_replies')
+onRecordUpdateRequest(() => { throw new ForbiddenError('Utilisez la relève des réponses Horizon.') }, 'messaging_email_threads', 'messaging_email_replies')
+onRecordDelete(() => { throw new BadRequestError('L’historique des réponses doit être conservé.') }, 'messaging_email_threads', 'messaging_email_replies')
+onRecordUpdate(() => { throw new BadRequestError('Une réponse reçue est immuable.') }, 'messaging_email_replies')

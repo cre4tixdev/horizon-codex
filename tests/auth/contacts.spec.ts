@@ -1121,7 +1121,7 @@ test('fil complet : modifications groupées, document, mention, tâche et notifi
   await panel.locator('.activity-task-fields').getByRole('button', { name: 'Responsable', exact: true }).click()
   await panel.getByLabel('Rechercher un responsable').fill('Alice')
   await panel.locator('.activity-user-options').getByRole('button', { name: /Alice Martin/ }).click()
-  await panel.getByLabel('Échéance de la tâche').fill('2026-10-15')
+  await panel.getByLabel('Échéance de la tâche', { exact: true }).fill('2026-10-15')
   await panel.getByRole('button', { name: 'Créer la tâche', exact: true }).click()
   await expect(panel.locator('.activity-task').getByText('Préparer le rendez-vous', { exact: true })).toBeVisible()
   await panel.getByRole('button', { name: 'Terminer', exact: true }).click()

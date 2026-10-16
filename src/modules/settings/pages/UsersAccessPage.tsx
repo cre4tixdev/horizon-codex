@@ -28,7 +28,7 @@ import { groupResults, sortResults } from '../../../shared/search/listPresentati
 import { filterValue } from '../../../shared/search/filters'
 import { userProfileFilter, userGroupingFilter, userSortFilter } from '../searchFilters'
 import { SettingsEditButton } from '../components/SettingsEditButton'
-const actionLabels: Record<string, string> = { allocate: 'Attribuer / corriger les droits', settings: 'Paramétrer les congés', submit: 'Soumettre', validate: 'Valider', reimburse: 'Rembourser', 'assets.manage': 'Qualifier / déclasser les immobilisations', financial: 'Analyse financière', labor_costs: 'Coûts individuels des collaborateurs', read: 'Consulter', write: 'Contribuer', 'quote.validate': 'Finaliser un devis', 'order.confirm': 'Confirmer une commande client', 'organisation.manage': 'Gérer la hiérarchie' }
+const actionLabels: Record<string, string> = { allocate: 'Attribuer / corriger les droits', settings: 'Paramétrer', send: 'Envoyer', submit: 'Soumettre', validate: 'Valider', reimburse: 'Rembourser', 'assets.manage': 'Qualifier / déclasser les immobilisations', financial: 'Analyse financière', labor_costs: 'Coûts individuels des collaborateurs', read: 'Consulter', write: 'Contribuer', 'quote.validate': 'Finaliser un devis', 'order.confirm': 'Confirmer une commande client', 'organisation.manage': 'Gérer la hiérarchie' }
 export function UsersAccessPage() {
   const session = useSyncExternalStore(sessionService.subscribe, sessionService.getSnapshot)
   const [params, setParams] = useSearchParams()

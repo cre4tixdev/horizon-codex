@@ -1,3 +1,4 @@
+import { HFileThumbnail } from '../ui/HFileThumbnail'
 import { ActivityAvatar } from './ActivityAvatar'
 import { UserAvatar } from '../../core/auth/components/UserAvatar'
 import { ActivityFileLink } from './ActivityFileLink'
@@ -5,7 +6,7 @@ import { HFieldLabel } from '../ui/HFieldLabel'
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { useLocation } from 'react-router'
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { AtSign, Check, CheckCheck, ChevronDown, Clock3, History, MessageSquare, Paperclip, Send, X, ArrowRight, Trash2, ClipboardPlus } from 'lucide-react'
+import { AtSign, Check, CheckCheck, ChevronDown, Clock3, History, MessageSquare, Paperclip, Send, X, ArrowRight, Trash2, ClipboardPlus, Mail } from 'lucide-react'
 import { sessionService } from '../../core/auth/services/session'
 import { activityService } from '../../core/activity/services/ActivityService'
 import type { ActivityEvent, ActivityFilter, ActivitySource, ActivityTask, ActivityUser, Publication, TaskStatus } from '../../core/activity/types/activity'
@@ -42,29 +43,49 @@ export function ActivityPanel({ source, editable }: { source: ActivitySource; ed
   </section>
 }
 function ActivityItem({ source, item, task, editable, taskBusy, onTaskStatus, onConvert }: { source: ActivitySource; item: ActivityEvent; task: ActivityTask | undefined; editable: boolean; taskBusy: boolean; onTaskStatus: (id: string, status: TaskStatus) => void; onConvert: () => void }) {
+  const received = item.metadata.email?.direction === 'received'
   const automatic = ['change', 'status_change', 'system'].includes(item.type)
   const comment = ['note', 'message'].includes(item.type)
   const convertAction = editable && comment ? <button type="button" className="activity-convert" aria-label="Créer une tâche à partir de cette note" title="Créer une tâche à partir de cette note" onClick={onConvert}><ClipboardPlus size={15} aria-hidden="true" /></button> : null
   const message = item.body ? <p className={`activity-message${comment ? ' activity-message--comment' : ''}`}>{mentionParts(item.body, item.metadata.mentions).map((part, index) => part.mentioned ? <span className="activity-mention" key={index}>{part.text}</span> : part.text)}</p> : !item.attachments.length ? <p className="activity-change-title">Les pièces jointes de cette publication ont été supprimées.</p> : null
   return <li className={`activity-item activity-item--${automatic ? 'change' : item.type}`}>
-    <div className="activity-date-divider"><time dateTime={item.created.replace(' ', 'T')}>{timestamp(item.created)}</time></div>
-    <div className="activity-item-content"><div className="activity-item-heading"><span className={`activity-avatar${!item.author ? ' activity-avatar--system' : ''}`} aria-hidden="true">{item.author ? <ActivityAvatar item={item} source={source} /> : <History size={15} />}</span><strong>{item.metadata.author.name}</strong><span>{item.metadata.action === 'attachment_delete' ? 'a supprimé une pièce jointe' : automatic ? changeAction(item) : item.type === 'task' ? task ? 'a créé une tâche' : 'a mis à jour une tâche' : item.type === 'document' || !item.body && item.attachments.length ? 'a ajouté un document' : item.metadata.mentions?.length ? item.metadata.mentions.length === 1 ? 'a mentionné un collègue' : 'a mentionné des collègues' : 'a publié un commentaire'}</span></div>
-      {automatic ? <div className="activity-change-row">{(!item.metadata.changes?.length || item.metadata.action === 'customer_order') && <p className="activity-change-title">{item.body}</p>}<ActivityChanges changes={item.metadata.changes} /></div> : message && (comment ? <div className="activity-comment-row">{message}{convertAction}</div> : message)}
+    <div className="activity-date-divider"><time dateTime={(item.metadata.email?.received_at || item.created).replace(' ', 'T')}>{timestamp(item.metadata.email?.received_at || item.created)}</time></div>
+    <div className="activity-item-content"><div className="activity-item-heading"><span className={`activity-avatar${!item.author ? ' activity-avatar--system' : ''}`} aria-hidden="true">{received ? <Mail size={15} /> : item.author ? <ActivityAvatar item={item} source={source} /> : <History size={15} />}</span><strong>{item.metadata.author.name}</strong><span>{received ? 'a répondu par e-mail' : item.metadata.action === 'attachment_delete' ? 'a supprimé une pièce jointe' : automatic ? changeAction(item) : item.type === 'task' ? task ? 'a créé une tâche' : 'a mis à jour une tâche' : item.type === 'document' || !item.body && item.attachments.length ? 'a ajouté un document' : item.metadata.mentions?.length ? item.metadata.mentions.length === 1 ? 'a mentionné un collègue' : 'a mentionné des collègues' : 'a publié un commentaire'}</span></div>
+      {item.metadata.email?.text !== undefined ? <ActivityMail item={item} source={source} /> : automatic ? <div className="activity-change-row">{(!item.metadata.changes?.length || item.metadata.action === 'customer_order') && <p className="activity-change-title">{item.body}</p>}<ActivityChanges changes={item.metadata.changes} /></div> : message && (comment ? <div className="activity-comment-row">{message}{convertAction}</div> : message)}
       {!automatic && <ActivityChanges changes={item.metadata.changes} />}
       {item.attachments.length > 0 && <div className="activity-attachments">{item.attachments.map((file) => <ActivityAttachment key={file} item={item} file={file} editable={editable} />)}{!item.body && convertAction}</div>}
+      {item.metadata.email?.text === undefined && item.metadata.email?.attachments.length ? <div className="activity-attachments" aria-label={received ? "Pièces jointes reçues" : "Pièces jointes envoyées"}>{item.metadata.email.attachments.map((file) => <ActivityEmailAttachment key={file} source={source} eventId={item.id} file={file} />)}</div> : null}
       {task && <div className={`activity-task activity-task--${task.status}`}><div className="activity-task-title"><CheckCheck size={17} /><strong>{task.title}</strong>{task.priority === 'high' && <span className="activity-task-priority">Prioritaire</span>}</div><div className="activity-task-meta"><span>{task.assigned_name}</span>{task.due_date && <span><Clock3 size={12} />Échéance {new Date(task.due_date.replace(' ', 'T')).toLocaleDateString('fr-FR')}</span>}</div><div className="activity-task-actions"><HCombobox label={`État de la tâche : ${task.title}`} value={task.status} onChange={(value) => { const status = taskStatuses.find((item) => item.value === value)?.value; if (status) onTaskStatus(task.id, status) }} options={taskStatuses} required showCodes={false} disabled={!editable || taskBusy} />{editable && task.status !== 'done' && task.status !== 'cancelled' && <HButton variant="ghost" size="small" disabled={taskBusy} onClick={() => onTaskStatus(task.id, 'done')}><Check size={14} />Terminer</HButton>}</div></div>}
     </div>
   </li>
+}
+function ActivityMail({ item, source }: { item: ActivityEvent; source: ActivitySource }) {
+  const email = item.metadata.email, [expanded, setExpanded] = useState(false)
+  if (!email) return null
+  const received = email.direction === 'received', text = email.text || 'Message sans texte.'
+  const canExpand = text.length > 200 || text.split('\n').length > 3
+  return <div className="activity-mail-message" aria-label={received ? 'E-mail reçu' : 'E-mail envoyé'}>
+    <strong>{email.subject || 'Sans objet'}</strong>
+    <dl><div><dt>De</dt><dd>{email.from}</dd></div>{email.to.length > 0 && <div><dt>À</dt><dd>{email.to.join('; ')}</dd></div>}</dl>
+    <p className={`activity-mail-text${expanded ? '' : ' activity-mail-text--compact'}`}>{text}</p>
+    {canExpand && <HButton variant="ghost" size="small" aria-expanded={expanded} onClick={() => setExpanded((v) => !v)}>{expanded ? 'Réduire' : 'Voir le message'}</HButton>}
+    {email.warnings?.map((warning) => <p key={warning} role="status" className="contact-muted">{warning}</p>)}
+    {email.attachments.length > 0 && <div className="activity-attachments" aria-label={received ? 'Pièces jointes reçues' : 'Pièces jointes envoyées'}>{email.attachments.map((file) => <ActivityEmailAttachment key={file} source={source} eventId={item.id} file={file} />)}</div>}
+  </div>
 }
 function ActivityChanges({ changes }: { changes: ActivityEvent['metadata']['changes'] }) {
   if (!changes?.length) return null
   const value = (input: string | boolean, field: string) => typeof input === 'boolean' ? input ? 'Oui' : 'Non' : field === 'customer_order_number' && /^attente commande$/i.test(input) ? 'Attente Commande' : input || '—'
   return <ul className="activity-diff" aria-label="Modifications de la fiche">{changes.map((change, index) => <li key={`${change.field}-${index}`}><strong>{change.label} :</strong><span className="activity-diff-before" title={value(change.before, change.field)}>{value(change.before, change.field)}</span><ArrowRight size={11} aria-label="devient" /><span>{value(change.after, change.field)}</span></li>)}</ul>
 }
+function ActivityEmailAttachment({ source, eventId, file }: { source: ActivitySource; eventId: string; file: string }) {
+  const attachment = useQuery({ queryKey: ['activity-email-file', source.entity, source.id, eventId, file], queryFn: async () => { const blob = await activityService.emailAttachment(eventId, file, source); return new File([blob], filename(file), { type: blob.type }) }, staleTime: 60_000, retry: false })
+  return attachment.data ? <HFileThumbnail source={attachment.data} name={filename(file)} pdf={/\.pdf$/i.test(file)} previewIcon /> : <span role={attachment.error ? 'alert' : 'status'}>{attachment.error ? attachment.error.message : 'Chargement de la pièce…'}{attachment.error && <HButton size="small" onClick={() => void attachment.refetch()}>Réessayer</HButton>}</span>
+}
 function ActivityAttachment({ item, file, editable }: { item: ActivityEvent; file: string; editable: boolean }) {
   const [open, setOpen] = useState(false)
   const client = useQueryClient()
-  return <div className="activity-file-group"><ActivityFileLink eventId={item.id} collectionId={item.collectionId} file={file} preview={item.metadata.action === 'customer_order'} />
+  return <div className="activity-file-group"><ActivityFileLink eventId={item.id} collectionId={item.collectionId} file={file} thumbnail={/\.(pdf|png|jpe?g|webp)$/i.test(file)} previewIcon preview={item.metadata.action === 'customer_order'} />
     {editable && item.metadata.action !== 'customer_order' && <HButton variant="ghost" size="icon" className="activity-file-delete" aria-label={`Supprimer la pièce jointe ${filename(file)}`} onClick={() => setOpen(true)}><Trash2 size={14} /></HButton>}
     <HRecordConfirmation action="delete" itemName={filename(file)} description="Le fichier sera retiré définitivement. Le commentaire reste conservé et la suppression sera tracée dans le fil." open={open} onOpenChange={setOpen} onConfirm={async () => { await activityService.removeAttachment(item.id, file); client.removeQueries({ queryKey: ['activity-file', item.id, file] }); void client.invalidateQueries({ queryKey: ['activity'] }) }} />
   </div>

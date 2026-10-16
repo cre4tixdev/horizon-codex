@@ -1,4 +1,4 @@
-import { ChartBar, SlidersHorizontal, Globe, Building2, ShieldCheck, UsersRound, Target, Package, ShoppingCart, Truck, Warehouse, Receipt, Landmark, FolderKanban, CalendarDays, Plug, ListOrdered, FileText } from 'lucide-react'
+import { Mail, ChartBar, SlidersHorizontal, Globe, Building2, ShieldCheck, UsersRound, Target, Package, ShoppingCart, Truck, Warehouse, Receipt, Landmark, FolderKanban, CalendarDays, Plug, ListOrdered, FileText } from 'lucide-react'
 export const settingsSections = [
   { slug: 'ux', title: 'Apparence et densité', group: 'Socle commun', icon: SlidersHorizontal, description: 'Réglages UX partagés avec aperçu en direct.', topics: ['Tableaux', 'Champs et textes', 'Espacements', 'Couleurs des en-têtes'], available: true },
   { slug: 'documents', title: 'Modèles de pièces', group: 'Socle commun', icon: FileText, description: 'Studio de composition et génération PDF des pièces.', topics: ['Modèles de devis', 'En-têtes et pieds de page', 'Styles de titres', 'Tableaux dynamiques', 'Noms des PDF'], available: true },
@@ -13,6 +13,7 @@ export const settingsSections = [
   { slug: 'ventes', title: 'Devis', group: 'Modules métier', icon: ShoppingCart, description: 'Présentation et valeurs par défaut des devis.', topics: ['Colonnes des devis', 'Valeurs par défaut', 'Conditions générales de vente'], available: true },
   { slug: 'achats', title: 'Achats', group: 'Modules métier', icon: Truck, description: 'Règles de préparation et suivi des achats.', topics: ['Valeurs par défaut', 'TVA', 'Délai souhaité'], available: true },
   { slug: 'stock', title: 'Stock', group: 'Modules métier', icon: Warehouse, description: 'Entrepôts, emplacements et suivi des mouvements.', topics: ['Entrepôts et emplacements', 'Types de mouvements', 'Inventaires'], available: true },
+  { slug: 'emails', title: 'E-mails', group: 'Modules métier', icon: Mail, description: 'Modèles, expéditeurs autorisés et signatures.', topics: ['Modèles et variables', 'Expéditeurs', 'Signatures', 'Microsoft 365'], available: true },
   { slug: 'leave', title: 'Congés', group: 'Modules métier', icon: CalendarDays, description: 'Décompte des absences, jours fériés et justificatifs.', topics: ['Jours travaillés', 'Jours fériés', 'Types de congés et justificatifs'], available: true },
   { slug: 'expenses', title: 'Notes de frais', group: 'Modules métier', icon: Receipt, description: 'Catégories et champs des dépenses mensuelles.', topics: ['Catégories', 'Justificatifs', 'Validation manager'], available: true },
   { slug: 'facturation', title: 'Facturation', group: 'Modules métier', icon: Receipt, description: 'Factures, règlements et documents de facturation.', topics: ['Numérotation', 'Conditions de paiement', 'Modèles et mentions'], available: true },
@@ -22,4 +23,4 @@ export const settingsSections = [
   { slug: 'integrations', title: 'Intégrations', group: 'Connexions', icon: Plug, description: 'Services externes et connexions à Horizon.', topics: ['Recherche d’entreprises (État)', 'Sage et SUPER PDP', 'Messagerie et génération PDF'], available: false },
 ] as const
 export const settingsGroups = ['Socle commun', 'Modules métier', 'Connexions'] as const
-export const settingsSectionPath = (slug: string) => ['analytic-fixed', 'ux', 'references', 'crm', 'sequences', 'users', 'ventes', 'documents', 'catalogue', 'achats', 'stock', 'facturation', 'expenses', 'leave'].includes(slug) ? `/settings/${slug}` : `/settings/modules/${slug}`
+export const settingsSectionPath = (slug: string) => ['analytic-fixed', 'ux', 'references', 'crm', 'sequences', 'users', 'ventes', 'documents', 'catalogue', 'achats', 'stock', 'facturation', 'expenses', 'leave', 'emails'].includes(slug) ? `/settings/${slug}` : `/settings/modules/${slug}`

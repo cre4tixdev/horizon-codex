@@ -12,3 +12,7 @@ it('précise la création et les transitions de la fiche elle-même', () => {
     expect(changeAction({ body: 'Fiche mise à jour', metadata: { ...metadata, changes: [{ field: 'active', label: 'Statut', before: '', after: after! }] } })).toBe(label)
   }
 })
+
+it('identifie un envoi e-mail comme une action dédiée', () => {
+  expect(changeAction({ body: 'Devis envoyé à client@example.invalid', metadata: { author: { name: 'Test', initials: 'T' }, email: { to: ['client@example.invalid'], attachments: [] } } })).toBe('a envoyé un e-mail')
+})

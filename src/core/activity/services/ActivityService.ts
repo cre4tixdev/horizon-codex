@@ -36,6 +36,11 @@ export class ActivityService {
     return this.run(true, (repo) => repo.publish(activitySourceSchema.parse(source), parsed, files), source)
   }
   updateTask(id: string, change: Parameters<ReturnType<typeof createActivityRepository>['updateTask']>[1]) { if (change.status) taskStatusSchema.parse(change.status); return this.run(true, (repo) => repo.updateTask(id, change)) }
+  emailAttachment(id: string, filename: string, source: ActivitySource) {
+    const parsed = activitySourceSchema.parse(source)
+    if (!/^[a-z0-9]{15}$/.test(id) || !filename || filename.length > 255) throw new Error('Pièce jointe invalide.')
+    return this.run(false, (repo) => repo.emailAttachment(id, filename), parsed)
+  }
   attachmentURL(collectionId: string, id: string, filename: string) { return this.run(false, (repo) => repo.attachmentURL(collectionId, id, filename)) }
   removeAttachment(id: string, filename: string) { return this.run(true, (repo) => repo.removeAttachment(id, filename)) }
 }
