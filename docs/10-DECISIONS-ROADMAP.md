@@ -2774,3 +2774,9 @@ Analytique fixe A02 — comptes Stock 99101 et Interne 99201..99205 configurable
 - Commit/push demandés pour les changements locaux accumulés : suivi des commandes et services internes/sous-traités, cadres et colonnes des tableaux Devis/Commande, révisions, paramètres UX et diagnostic détaillé Revenir en devis. Documentation et régressions incluses ; aucun pack temporaire ni donnée de test dans Git.
 - Vérifications réutilisées du dernier passage sur le même code : pnpm check réussi (lint, TypeScript, 267 tests et build), tests PocketBase et parcours navigateur consignés ci-dessus. git diff --check relancé et réussi avant commit. Pas de nouveau test métier pour cette opération Git.
 - État : livraison locale prête au commit et à la publication sur origin/main ; résultat du push à confirmer. Aucun déploiement NAS. Compteurs/statuts fonctionnels inchangés.
+
+
+### 16 octobre 2026 — Publication Git confirmée
+
+- Lot enregistré dans le commit 98dee89 (45 fichiers), puis poussé avec succès sur origin/main : 5078c20 → 98dee89. Un premier refus automatique demandait de vérifier la destination ; le connecteur GitHub a confirmé que le dépôt cre4tixdev/horizon-codex appartient au compte authentifié cre4tixdev, avec droits admin/push. Push ensuite autorisé et réussi.
+- git diff --check réussi ; vérifications fonctionnelles inchangées depuis l’entrée précédente. Cette note complète uniquement la traçabilité de livraison. Aucun déploiement NAS ni installation PocketBase effectués ; pack disponible dans l’entrée Retour en devis. Prochaine action : recette et installation cohérente frontend/PocketBase après sauvegarde.
