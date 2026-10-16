@@ -2711,6 +2711,8 @@ La structure et les transitions restent contrôlées par Horizon.
 
 Les principales fiches Horizon affichent un fil d’activité.
 
+Page transverse `/activity` (16 octobre 2026) : accès depuis Espace de travail et le résumé du dashboard, qui garde six événements. Vues Équipe (toutes les fiches autorisées), Mon activité (publications dont l’utilisateur est auteur et événements des tâches qui lui sont assignées), Mes mentions (mentions enregistrées côté serveur, sans nouveau statut lu/non lu). Recherche dans le texte, l’auteur, la référence/titre de fiche et l’objet/adresses des e-mails projetés. Filtres simultanés multisélection Modules / Type d’activité, période glissante 7/30/90/365 jours ou tout l’historique, 30 jours par défaut ; types Modifications / Commentaires / E-mails / Documents / Tâches / Événements. Documents inclut aussi les publications avec pièces, y compris e-mail. Regroupement module/type/jour et ordre récent/ancien, critères conservés dans l’URL ; pagination 20 événements. Les comptages et groupes portent uniquement sur les événements accessibles après contrôle de la fiche source ; sources supprimées/invalides ignorées. Limite explicite de 10 000 candidats par période, au-delà demander une période plus courte sans tronquer silencieusement. Rafraîchissement manuel et toutes les 30 secondes. Réutilisation du rendu Activity existant, des miniatures et blocs de correspondance 65 % desktop / 100 % mobile ; pas de publication ou modification directe depuis le fil global, les actions restent dans la fiche. Lien source ouvrant le gestionnaire de fiches partagé lorsqu’un adaptateur existe, sinon la page métier.
+
 Il permet de voir :
 
 - changements significatifs ;

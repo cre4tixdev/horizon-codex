@@ -87,28 +87,5 @@ module.exports = {
     }
     return event.json(200, { items: items.sort((a, b) => a.due_date.localeCompare(b.due_date) || a.id.localeCompare(b.id)).slice(0, 6) })
   },
-  activity(event) {
-    guard(event)
-    const service = require(`${__hooks}/lib/activity.js`)
-
-    const permitted = Object.entries(sources).filter(([module]) => service.allowed(event.app, event.auth, false, module))
-    if (!permitted.length) return event.json(200, { items: [] })
-    const clauses = [], params = {}
-    for (const [module, entities] of permitted) for (const [entity] of Object.entries(entities)) { const n = clauses.length; clauses.push(`(source_module = {:module${n}} && source_entity = {:entity${n}})`); params[`module${n}`] = module; params[`entity${n}`] = entity }
-    const items = []
-    // Paginate past orphan events so deleted sources neither leak nor hide valid activity.
-    for (let offset = 0; items.length < 6; offset += 50) {
-      const rows = event.app.findRecordsByFilter('core_activity_events', clauses.join(' || '), '-created,-id', 50, offset, params)
-      for (const record of rows) {
-        let root
-        try { root = service.source(event.app, record.getString('source_entity'), record.getString('source_record_id')) } catch { continue }
-        const entity = record.getString('source_entity'), module = record.getString('source_module')
-        const label = sourceLabel(root)
-        items.push({ id: record.id, type: record.getString('type'), body: record.getString('body').slice(0, 240), author: service.author(event.app, record.getString('author')).name, created: record.getString('created'), source: label, href: sources[module][entity] + root.id })
-        if (items.length === 6) break
-      }
-      if (rows.length < 50) break
-    }
-    return event.json(200, { items })
-  },
+  activity(event) { return require(`${__hooks}/lib/activity-feed.js`).overview(event) },
 }

@@ -39,7 +39,7 @@ export function DashboardFeeds({ userId, canCalendar, canActivity }: { userId: s
       })}</ul>}
     </section>
     <section className="panel h-dashboard-card h-tone" data-tone="navy" aria-labelledby="activity-title">
-      <div className="panel-heading"><h2 id="activity-title"><Activity size={17} aria-hidden="true" />Activité récente</h2><HBadge>Équipe</HBadge></div>
+      <div className="panel-heading"><h2 id="activity-title"><Activity size={17} aria-hidden="true" />Activité récente</h2><HBadge>Équipe</HBadge>{canActivity && <Link to="/activity" className="panel-icon-link" aria-label="Voir toute l’activité" title="Voir toute l’activité"><ArrowUpRight size={16} /></Link>}</div>
       {!canActivity ? <HEmptyState icon={ListTodo} title="Activité non accessible" description="Aucun module métier consultable." /> : activity.isPending ? <HLoadingIndicator label="Chargement de l’activité récente" /> : activity.isError ? <HEmptyState icon={Activity} title="Activité indisponible" description={activity.error.message}><HButton size="small" onClick={() => void activity.refetch()}>Réessayer</HButton></HEmptyState> : !activity.data?.items.length ? <HEmptyState icon={ListTodo} title="Aucune activité récente" description="Les notes et événements de vos modules apparaîtront ici." /> : <ul className="dashboard-feed dashboard-feed--activity">{activity.data.items.map((event) => {
         const Icon = activityIcons[event.type] || Activity
         return <li key={event.id}><Link to={event.href}>

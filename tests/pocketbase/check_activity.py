@@ -39,6 +39,68 @@ class ActivityTests(unittest.TestCase):
     def scoped(self, route='events', **query):
         return 'horizon/activity/' + route + '?' + urlencode({'entity': 'contacts_companies', 'id': self.company['id'], **query})
 
+    def test_workspace_feed_pagination_combined_filters_personal_views_and_tasks(self):
+        for index in range(23):
+            code, event = self.post(body=f'Global unique {index}')
+            self.assertEqual(code, 200, event)
+        code, mention = self.post(body='Global mention', mentions=[self.pb.user['id']])
+        self.assertEqual(code, 200, mention)
+        code, task = self.post(type='task', body='Global task', metadata={'task': {'title': 'Action globale', 'assigned_to': self.pb.user['id'], 'due_date': '', 'priority': 'high'}})
+        self.assertEqual(code, 200, task)
+        def feed(token=self.token, **query):
+            code, result = self.pb.request('GET', 'horizon/activity/feed?' + urlencode(query), token=token)
+            self.assertEqual(code, 200, result)
+            return result
+        first = feed(module='contacts', type='comments,tasks', period='7', q='Global', group='type')
+        self.assertEqual(first['totalItems'], 25)
+        self.assertEqual(first['totalPages'], 2)
+        self.assertEqual(first['groups'], {'comments': 24, 'tasks': 1})
+        self.assertEqual(len(first['items']), 20)
+        second = feed(module='contacts', type='comments,tasks', period='7', q='Global', page=2)
+        self.assertEqual(len(second['items']), 5)
+        self.assertFalse({i['id'] for i in first['items']} & {i['id'] for i in second['items']})
+        self.assertEqual(feed(view='mentions', token=self.reader)['items'][0]['id'], mention['id'])
+        self.assertEqual(feed(view='mentions')['totalItems'], 0)
+        self.assertEqual(feed(view='own', token=self.reader, q='Global')['totalItems'], 1)
+        personal = feed(view='own', token=self.reader, q='Global')['items'][0]
+        self.assertEqual(personal['task']['title'], 'Action globale')
+        self.assertEqual(personal['source'], {'entity': 'contacts_companies', 'id': self.company['id']})
+        self.assertEqual(feed(view='own', q='Global')['totalItems'], 25)
+        chronological = feed(q='Global', sort='created')
+        self.assertEqual(chronological['items'][0]['body'], 'Global unique 0')
+        self.assertEqual(feed(module='sales')['totalItems'], 0)
+        self.assertEqual(feed(q='no matching sentence')['totalItems'], 0)
+        for query in [{'view':'unknown'}, {'period':'0'}, {'module':'core'}, {'type':'unsafe'}, {'page':'0'}, {'sort':'body'}, {'group':'user'}, {'q':'x'*201}]:
+            self.assertEqual(self.pb.request('GET','horizon/activity/feed?'+urlencode(query),token=self.token)[0],400,query)
+        self.assertEqual(self.pb.request('GET','horizon/activity/feed',token=self.other)[0],403)
+        self.assertEqual(self.pb.request('GET','horizon/activity/feed')[0],401)
+
+    def test_workspace_feed_excludes_deleted_sources_before_counting_and_dashboard(self):
+        import sqlite3
+        self.post(body='Visible business event')
+        orphan = self.pb.create('contacts_companies', {'name':'Orphan source','active':True})
+        code, hidden = self.post(source_record_id=orphan['id'], body='Hidden business event')
+        self.assertEqual(code,200,hidden)
+        # Preserve an orphan event, as can happen after a maintenance purge.
+        with sqlite3.connect(self.pb.data / 'data.db') as db:
+            db.execute('DELETE FROM contacts_companies WHERE id = ?', (orphan['id'],))
+        code, result = self.pb.request('GET','horizon/activity/feed?type=comments',token=self.token)
+        self.assertEqual(code,200,result)
+        self.assertEqual(result['totalItems'],1)
+        self.assertEqual(result['items'][0]['body'],'Visible business event')
+        code, dashboard = self.pb.request('GET','horizon/dashboard/activity',token=self.token)
+        self.assertEqual(code,200,dashboard)
+        self.assertNotIn(hidden['id'],[i['id'] for i in dashboard['items']])
+        # A module permission must never bypass a source-specific record rule.
+        code, policy = self.pb.request('PATCH','collections/contacts_companies',{'viewRule': '@request.auth.id = "'+self.writer['id']+'"'},self.pb.admin_token)
+        self.assertEqual(code,200,policy)
+        for route in ['horizon/activity/feed', 'horizon/dashboard/activity']:
+            code, result = self.pb.request('GET',route,token=self.reader)
+            self.assertEqual(code,200,result)
+            self.assertEqual(result['items'],[])
+            if 'totalItems' in result:self.assertEqual(result['totalItems'],0)
+
+
     def test_scoped_feed_pagination_filters_tasks_and_permissions(self):
         baseline = len(self.events())
         for index in range(23):

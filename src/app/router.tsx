@@ -1,3 +1,4 @@
+import { activityRoutes } from '../modules/activity'
 import { messagingRoutes } from '../modules/messaging'
 import { leaveRoutes } from '../modules/leave'
 import { expensesRoutes } from '../modules/expenses'
@@ -34,6 +35,7 @@ export const router = createBrowserRouter([
       ...expensesRoutes,
       ...leaveRoutes,
       ...messagingRoutes,
+      ...activityRoutes,
       ...billingRoutes,
       ...analysisRoutes,
       ...dashboardRoutes,
@@ -46,7 +48,7 @@ export const router = createBrowserRouter([
       ...calendarRoutes,
       ...hrRoutes,
       ...settingsRoutes,
-      ...navigationItems.filter((item) => !['/', '/contacts', '/settings', '/crm', '/hr', '/calendar', '/sales', '/inventory', '/purchasing', '/analysis', '/billing', '/expenses', '/leave', '/messaging'].includes(item.href)).map((item) => ({ path: item.href, element: <WorkspacePage item={item} /> })),
+      ...navigationItems.filter((item) => !['/', '/contacts', '/settings', '/crm', '/hr', '/calendar', '/sales', '/inventory', '/purchasing', '/analysis', '/billing', '/expenses', '/leave', '/messaging', '/activity'].includes(item.href)).map((item) => ({ path: item.href, element: <WorkspacePage item={item} /> })),
       { path: '*', element: <NotFoundPage /> },
     ],
     }],

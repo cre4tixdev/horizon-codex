@@ -1156,6 +1156,8 @@ projet
 
 # 23. Activity Feed
 
+Page Activité transverse (16 octobre 2026) : conserver HPageBreadcrumb/HPageHeader, marges Contacts, HRecordTabs Équipe / Mon activité / Mes mentions, recherche et critères exclusivement dans WorkspaceSearch/SearchFilters, pastilles et réinitialisation partagée conservant le texte. Utiliser HListPagination dans le bandeau et GroupedResults ; les groupes par jour suivent l’ordre chronologique choisi. Réutiliser ActivityItem pour tous les types, auteur/date/diff, tâches en consultation, miniatures et correspondance ; aucune copie locale des cartes e-mail. Ajouter uniquement le badge module neutre et le lien de fiche au-dessus de l’événement. Le lien ouvre RecordWorkspace pour les adaptateurs existants, avec retour du focus et conservation des critères ; sinon navigation métier normale. Le widget du dashboard garde son format compact et un lien accessible Voir toute l’activité. Pas de champ de recherche supplémentaire, pas de compositeur sans fiche source, pas de statut lu/non lu inventé.
+
 Composants :
 
 ```text

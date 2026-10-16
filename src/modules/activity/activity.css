@@ -1,0 +1,6 @@
+.workspace-activity-source { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; min-width: 0; }
+.workspace-activity-source > a { display: inline-flex; align-items: center; gap: 5px; min-width: 0; color: var(--theme-text, #091c3a); font-size: 12px; font-weight: 600; overflow-wrap: anywhere; }
+.workspace-activity-source > a > svg { flex-shrink: 0; }
+.workspace-activity .contact-result-count { white-space: normal; text-align: right; }
+.workspace-activity .activity-timeline { margin-top: 16px; }
+@media (max-width: 700px) { .workspace-activity-source { flex-wrap: wrap; } }

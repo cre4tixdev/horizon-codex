@@ -15,3 +15,9 @@ export type ActivityTask = z.infer<typeof taskSchema>
 export type ActivityFilter = 'all' | 'changes' | 'comments' | 'documents' | 'tasks'
 export const publicationSchema = z.object({ body: z.string().trim().max(10000), type: z.enum(['note', 'task']), mentions: z.array(z.string().regex(/^[a-z0-9]{15}$/)).max(10), origin_event: z.string().optional(), task: z.object({ title: z.string().trim().min(1, 'Renseignez un titre.').max(160), assigned_to: z.string().regex(/^[a-z0-9]{15}$/, 'Choisissez un responsable.'), due_date: z.string().regex(/^$|^\d{4}-\d{2}-\d{2}$/), priority: z.enum(['low', 'normal', 'high']) }).optional() })
 export type Publication = z.infer<typeof publicationSchema>
+
+export const workspaceActivitySchema = z.object({
+  items: z.array(activityEventSchema.extend({ source: activitySourceSchema, module: z.string(), sourceLabel: z.string(), href: z.string(), category: z.string(), day: z.string(), task: taskSchema.nullable() })),
+  page: z.number(), totalItems: z.number(), totalPages: z.number(), groups: z.record(z.string(), z.number()),
+})
+export type WorkspaceActivityItem = z.infer<typeof workspaceActivitySchema>['items'][number]

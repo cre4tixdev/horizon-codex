@@ -34,7 +34,8 @@ const eventDTO = (app, record) => {
   return { id: record.id, collectionId: record.collection().id, type: value.type, author: value.author, body: reply ? reply.text || 'Réponse sans texte.' : email ? `${record.getString('source_entity') === 'sales_quotes' ? 'Devis envoyé' : 'Commande envoyée'} à ${email.to.join('; ')}` : value.body, created: value.created, attachments: value.attachments, metadata: { ...metadata, ...(reply ? { email: reply } : email ? { email } : {}) } }
 }
 module.exports = {
-  authorizeRecord(event, record) { readSource(event, record.getString('source_entity'), record.getString('source_record_id'), record.getString('source_module')) },
+  eventDTO,
+  authorizeRecord(event, record) { return readSource(event, record.getString('source_entity'), record.getString('source_record_id'), record.getString('source_module')) },
   events(event) {
     const { filter: source, params } = scope(event), query = event.requestInfo().query
     const category = String(query.category || 'all'), page = Number(query.page || 1)

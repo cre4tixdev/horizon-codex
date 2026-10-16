@@ -140,6 +140,11 @@ class MessagingTests(unittest.TestCase):
         self.assertEqual(self.call('GET','messages/'+message['id'],token=token)[0],403)
         code,feed=self.pb.request('GET','horizon/activity/events?'+query,token=token);self.assertEqual(code,200,feed)
         self.assertEqual(next(e for e in feed['items'] if e['id']==event['id'])['metadata']['email']['to'],[recipient])
+        code,global_feed=self.pb.request('GET','horizon/activity/feed?type=emails&module='+module+'&q='+recipient,token=token);self.assertEqual(code,200,global_feed)
+        global_event=next(e for e in global_feed['items'] if e['id']==event['id'])
+        self.assertEqual(global_event['metadata']['email'],event['metadata']['email'])
+        self.assertNotIn('bcc',json.dumps(global_event));self.assertNotIn('confidentiel@example.invalid',json.dumps(global_event))
+
         path='horizon/activity/events/'+event['id']+'/email-attachment?'+urlencode(dict(filename=message['pdf_file']))
         req=Request(self.pb.url+'/api/'+path,headers={'Authorization':token})
         with urlopen(req) as response:
@@ -409,6 +414,11 @@ class MessagingTests(unittest.TestCase):
         code,feed=self.pb.request('GET','horizon/activity/events?'+query,token=token);self.assertEqual(code,200,feed)
         event=next(e for e in feed['items'] if e['metadata'].get('email_reply_id')==reply['id'])
         self.assertEqual(event['metadata']['author']['name'],'Camille Client');self.assertIn('accord pour',event['body']);self.assertEqual(event['metadata']['email']['direction'],'received');self.assertNotIn('bcc',json.dumps(event))
+        code,global_feed=self.pb.request('GET','horizon/activity/feed?type=emails&module=sales&q=Camille',token=token);self.assertEqual(code,200,global_feed)
+        global_event=next(e for e in global_feed['items'] if e['id']==event['id'])
+        self.assertEqual(global_event['metadata']['email'],event['metadata']['email'])
+        self.assertEqual(global_event['source']['id'],message['source_id'])
+
         path='horizon/activity/events/'+event['id']+'/email-attachment?'+urlencode(dict(filename=reply['attachments'][0]))
         with urlopen(Request(self.pb.url+'/api/'+path,headers={'Authorization':token})) as response:self.assertEqual(response.read(),self.reply_bytes)
         self.assertEqual(self.pb.request('GET','collections/messaging_email_replies/records/'+reply['id'],token=token)[0],403)

@@ -1,4 +1,4 @@
-import { Boxes, ChartBar, LayoutDashboard, Mail, CalendarDays, ContactRound, Target, FileText, ShoppingCart, ShoppingCartPlus, Package, FolderKanban, Headset, UsersRound, Clock3, CalendarOff, Receipt, Wallet, Landmark, Files, Settings2, Columns3, ClipboardList, Building2, Truck, ShoppingBag, type LucideIcon } from 'lucide-react'
+import { Activity, Boxes, ChartBar, LayoutDashboard, Mail, CalendarDays, ContactRound, Target, FileText, ShoppingCart, ShoppingCartPlus, Package, FolderKanban, Headset, UsersRound, Clock3, CalendarOff, Receipt, Wallet, Landmark, Files, Settings2, Columns3, ClipboardList, Building2, Truck, ShoppingBag, type LucideIcon } from 'lucide-react'
 
 export type NavigationItem = { label: string; href: string; icon: LucideIcon; description: string; children?: NavigationItem[] }
 export type NavigationGroup = { label: string; items: NavigationItem[] }
@@ -6,6 +6,7 @@ export type NavigationGroup = { label: string; items: NavigationItem[] }
 export const navigationGroups: NavigationGroup[] = [
   { label: 'Espace de travail', items: [
     { label: 'Dashboard', href: '/', icon: LayoutDashboard, description: 'Vue d’ensemble de votre activité' },
+    { label: 'Activité', href: '/activity', icon: Activity, description: 'Échanges et événements de vos fiches' },
     { label: 'Messagerie', href: '/messaging', icon: Mail, description: 'E-mails et conversations internes' },
     { label: 'Calendrier', href: '/calendar', icon: CalendarDays, description: 'Rendez-vous, visites et échéances' },
   ] },

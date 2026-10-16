@@ -1,10 +1,11 @@
 import { ClientResponseError } from 'pocketbase'
 import { z } from 'zod'
 import { createPocketBaseClient } from '../../pocketbase/client'
-import { activityEventSchema, taskSchema, userChoiceSchema, type ActivityFilter, type ActivitySource, type Publication, type TaskStatus } from '../types/activity'
+import { workspaceActivitySchema, activityEventSchema, taskSchema, userChoiceSchema, type ActivityFilter, type ActivitySource, type Publication, type TaskStatus } from '../types/activity'
 export function createActivityRepository(url: string) {
   const client = createPocketBaseClient(url)
   return {
+    async feed(query: Record<string, string>) { return workspaceActivitySchema.parse(await client.send('/api/horizon/activity/feed', { method: 'GET', query, requestKey: null })) },
     async avatar(id: string) {
       const response = await fetch(client.buildURL(`/api/horizon/activity/events/${id}/avatar`), { headers: { Authorization: client.authStore.token }, cache: 'no-store' })
       if (!response.ok) throw new ClientResponseError({ status: response.status })

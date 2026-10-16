@@ -224,6 +224,13 @@ class LeaveTests(unittest.TestCase):
         body=dict(source_module='leave',source_entity='leave_requests',source_record_id=r['id'],type='note',body='Une précision',mentions=[],metadata={})
         code,event=self.pb.request('POST','collections/core_activity_events/records',body,self.token);self.assertEqual(code,200,event)
         self.assertIn(self.pb.request('POST','collections/core_activity_events/records',body,self.people['other']['token'])[0],[400,403])
+        for route in ['horizon/activity/feed?period=all', 'horizon/dashboard/activity']:
+            code, own = self.pb.request('GET',route,token=self.token);self.assertEqual(code,200,own)
+            self.assertIn(event['id'],[i['id'] for i in own['items']])
+            code, hidden = self.pb.request('GET',route,token=self.people['other']['token']);self.assertEqual(code,200,hidden)
+            self.assertNotIn(event['id'],[i['id'] for i in hidden['items']])
+            if 'totalItems' in hidden:self.assertEqual(hidden['totalItems'],0)
+
         self.assertEqual(self.pb.request('POST','collections/core_activity_events/records',dict(body,mentions=[self.people['manager']['user']['id']]),self.token)[0],403)
         code,r=self.transition(r,'submit');self.assertEqual(code,200,r)
         code,event=self.pb.request('POST','collections/core_activity_events/records',dict(body,mentions=[self.people['owner']['user']['id']]),self.people['manager']['token']);self.assertEqual(code,200,event)

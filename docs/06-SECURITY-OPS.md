@@ -439,6 +439,8 @@ Une mention ne donne jamais automatiquement accès à un objet auquel l’utilis
 
 `core_audit` reste non éditable par les utilisateurs.
 
+Page Activité globale (16 octobre 2026) : endpoint authentifié `core_users`, rôle/utilisateur actifs, permission de lecture du module puis autorisation de chaque fiche par le contrat `activity-read.authorizeRecord`, y compris les périmètres personnels/managers Congés et Notes de frais et les règles de consultation natives applicables. Ce contrôle précède recherche, projections, totaux, groupes et pagination ; les mentions n’accordent aucun droit. Le dashboard réutilise la même politique. Une source supprimée/refusée ou une référence historique malformée ne produit aucun résultat ; les erreurs techniques autres que refus/absence ne sont pas absorbées. Les projections/fichiers e-mail conservent le contrat Messaging et ses téléchargements protégés. Aucun nouveau rôle, permission ou schéma. Pour installer la page : remplacer les hooks à jour et redémarrer PocketBase avec le frontend correspondant ; aucune nouvelle migration après 1791840020. Pack unique PocketBase `horizon-pocketbase-activity-20261016.zip`, sans frontend, base ou secrets ; ne pas modifier les variables Microsoft ni relancer de connexion pour cette évolution.
+
 ---
 
 # Sécurité Documents Brouillon / Validé

@@ -204,6 +204,13 @@ class ExpensesTests(unittest.TestCase):
         feed=self.pb.request('GET','horizon/activity/events?entity=expenses_reports&id='+r['id'],token=self.token)[1];self.assertTrue(any(e['body']=='Justificatif en cours' for e in feed['items']));self.assertTrue(all(e['metadata'].get('author') for e in feed['items']))
         self.assertIn(self.pb.request('POST','collections/core_activity_events/records',dict(body,body='Tentative étrangère'),self.people['other']['token'])[0],[400,403])
         self.assertEqual(self.pb.request('GET','horizon/activity/events?entity=expenses_reports&id='+r['id'],token=self.people['other']['token'])[0],403)
+        for route in ['horizon/activity/feed?period=all', 'horizon/dashboard/activity']:
+            code, own = self.pb.request('GET',route,token=self.token);self.assertEqual(code,200,own)
+            self.assertIn(event['id'],[i['id'] for i in own['items']])
+            code, hidden = self.pb.request('GET',route,token=self.people['other']['token']);self.assertEqual(code,200,hidden)
+            self.assertNotIn(event['id'],[i['id'] for i in hidden['items']])
+            if 'totalItems' in hidden:self.assertEqual(hidden['totalItems'],0)
+
         self.assertEqual(self.pb.request('POST','collections/core_activity_events/records',dict(body,mentions=[self.people['other']['user']['id']]),self.token)[0],403)
         code,r=self.line(r);self.assertEqual(code,200,r);code,r=self.transition(r,'submit');self.assertEqual(code,200,r)
         code,event=self.pb.request('POST','collections/core_activity_events/records',dict(body,body='Vérification manager',mentions=[self.people['owner']['user']['id']]),self.people['manager']['token']);self.assertEqual(code,200,event)
