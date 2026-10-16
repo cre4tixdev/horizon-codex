@@ -1,0 +1,63 @@
+import { test, expect } from '@playwright/test'
+
+test('Commande mixte : services internes, sous-traitance et matériel suivent leurs flux', async ({ page, request }) => {
+  await page.setViewportSize({ width: 1600, height: 1000 })
+  await page.goto('/login')
+  await page.getByLabel('Adresse e-mail', { exact: true }).fill('erp-admin@local.invalid')
+  await page.getByLabel('Mot de passe', { exact: true }).fill('Local-Horizon-test-only-2026!')
+  await page.getByRole('button', { name: 'Se connecter', exact: true }).click()
+  await expect(page).toHaveURL('/')
+  const token = await page.evaluate(() => sessionStorage.getItem('horizon.auth.token') || '')
+  const api = async (path: string, data?: object) => {
+    const response = await request.fetch(`http://127.0.0.1:18090/api/${path}`, { method: data ? 'POST' : 'GET', headers: { Authorization: token }, ...(data ? { data } : {}) })
+    expect(response.status(), await response.text()).toBe(200)
+    return response.json()
+  }
+  const company = await api('collections/contacts_companies/records', { name: 'Client services', active: true })
+  const stages = await api('collections/crm_stages/records'), session = await api('collections/core_users/auth-refresh', {})
+  const opportunity = await api('horizon/crm/save', { creation_key: crypto.randomUUID(), input: { title: 'Affaire services', company: company.id, contact: '', owner: session.record.id, stage: stages.items[0].id, type: 'direct', estimated_value: 1000, estimated_cost: 0, currency: 'EUR', probability: 0, expected_date: '', description: '', status: 'open' } })
+  const choices = await api('horizon/inventory/choices'), families = await api('horizon/inventory/categories')
+  const products: { id: string; name: string }[] = []
+  for (const [sku, kind, manufacturer] of [['SERVICE-CVS', 'service', 'CVS'], ['SERVICE-EXTERNE', 'service', 'Partenaire'], ['MATERIEL-CVS', 'equipment', 'CVS']]) {
+    const product = await api('horizon/inventory/products/save', { creation_key: crypto.randomUUID(), input: { sku, name: sku, description: '', manufacturer, manufacturer_ref: '', barcode: '', variant_group: '', category: families.items.find((item: { code: string }) => item.code === (kind === 'service' ? 'services' : 'equipment')).id, kind, base_unit: choices.units.find((unit: { code: string }) => unit.code === 'u').id, stock_policy: kind === 'service' ? 'none' : 'stocked', replenishment_policy: 'manual', tracking: 'none', sale_enabled: true, purchase_enabled: true, sale_currency: 'EUR', reference_cost: 5, offers: [] } })
+    products.push(product)
+  }
+  const makeOrder = async (internalOnly = false) => {
+    let quote = await api('horizon/sales/quotes/save', { creation_key: crypto.randomUUID(), input: { opportunity: opportunity.id, title: internalOnly ? 'Prestation interne' : 'Commande mixte', quote_date: '2026-10-15', valid_until: '2026-11-15', lines: (internalOnly ? products.slice(0, 1) : products).map((product) => ({ product: product.id, description: product.name, quantity: 4, unit: 'u', unit_price: 10, unit_cost: 5 })) } })
+    quote = await api('horizon/sales/quotes/finalize', { id: quote.id, updated: quote.updated })
+    return api('horizon/sales/quotes/confirm', { id: quote.id, updated: quote.updated, awaiting_customer_order: true, reservations: [] })
+  }
+  const quote = await makeOrder()
+  await page.goto(`/sales/quotes/${quote.id}`)
+  const rows = page.locator('.quote-edit-table tbody tr')
+  await expect(rows).toHaveCount(3)
+  await expect(rows.nth(0).locator('.quote-purchase-status')).toHaveText(['—', '—', '—', '0/4'])
+  await expect(rows.nth(1).locator('.quote-purchase-status')).toHaveText(['0/4', '—', '—', '0/4'])
+  await expect(rows.nth(2).locator('.quote-purchase-status')).toHaveText(['0/4', '0/4', '0/4', '0/4'])
+  await expect(rows.nth(0).locator('.quote-purchase-status a')).toHaveCount(1)
+  const delivery = await api('horizon/inventory/operations/prepare-delivery', { sales_quote: quote.id })
+  expect(delivery.lines.map((line: { product: string }) => line.product)).toEqual([products[2]!.id])
+  const invoice = await api('horizon/billing/documents/prepare', { kind: 'customer', source_type: 'order', source_ids: [quote.id], mode: 'standard', deposit_percent: 30 })
+  expect(invoice.lines.map((line: { product: string }) => line.product)).toEqual(products.map((product) => product.id))
+  await api('collections/contacts_addresses/records', { company: company.id, type: 'billing', line1: 'Rue Test', city: 'Paris', postal_code: '75001', country: 'FR', is_primary: true })
+  const settings = await api('horizon/billing/settings')
+  settings.issuer = { ...settings.issuer, name: 'CVS Engineering Recette', address: 'Rue de test', city: 'Paris', postal_code: '75001', country: 'FR', siret: '00000000000000', vat_number: 'FR00000000000', late_payment_notice: 'Selon conditions contractuelles.' }
+  await api('horizon/billing/settings', settings)
+  const draft = await api('horizon/billing/documents/save', { kind: 'customer', creation_key: crypto.randomUUID(), input: { ...invoice, supplier_invoice_number: '', invoice_date: '2026-10-15', due_date: '2026-11-15', service_date: '2026-10-15', currency: 'EUR', notes: '', discrepancy_reason: '', source_invoice: '', template_id: '', schedules: [] } })
+  await api('horizon/billing/documents/transition', { kind: 'customer', id: draft.id, updated: draft.updated, action: 'validate' })
+  await page.reload()
+  for (const row of await rows.all()) await expect(row.locator('.quote-purchase-status').last()).toHaveText('4/4')
+  await page.screenshot({ path: '/private/tmp/horizon-service-tracking-light.png', fullPage: true })
+  await page.getByRole('button', { name: 'Passer en mode sombre', exact: true }).click()
+  await page.screenshot({ path: '/private/tmp/horizon-service-tracking-dark.png', fullPage: true })
+  await page.setViewportSize({ width: 390, height: 844 })
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
+  await page.screenshot({ path: '/private/tmp/horizon-service-tracking-mobile.png', fullPage: true })
+  const internal = await makeOrder(true)
+  await page.goto(`/sales/quotes/${internal.id}`)
+  await expect(page.locator('.quote-edit-table tbody tr .quote-purchase-status')).toHaveText(['—', '—', '—', '0/4'])
+  await expect(page.getByRole('button', { name: 'Préparer les achats', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Préparer la livraison', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Réserver le stock', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Préparer la facture', exact: true })).toBeVisible()
+})

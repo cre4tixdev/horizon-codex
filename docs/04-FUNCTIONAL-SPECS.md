@@ -486,6 +486,14 @@ Fonctions :
 - transformation en commande ;
 - rattachement systématique au compte analytique.
 
+### Suivi des services en commande — 15 octobre 2026
+
+Un produit de nature `service` et de marque canonique CVS est une prestation interne : aucun besoin d’achat depuis la vente. La comparaison du nom de marque est exacte, après retrait des espaces extérieurs et sans distinction de casse ; CVS Partner n’est pas CVS. Aucun champ Interne supplémentaire. Un service d’une autre marque reste achetable si `purchase_enabled`, sans flux physique. Le matériel de marque CVS conserve ses politiques ordinaires. La famille tarifaire seule et les textes libres de la ligne ne déterminent pas cette règle.
+
+Les services affichent un tiret en Réceptions/Livraisons ; les prestations internes et produits non achetables également en Achats. Facturé reste disponible pour tous. La préparation depuis devis/commande et la création de DA sourcée appliquent la règle côté serveur. Les achats déjà liés restent consultables : aucun document annulé/supprimé automatiquement ; une DA historique interne peut être conservée ou réduite, sans augmentation ni nouvelle préparation. Les lignes libres conservent leur comportement existant.
+
+La nature et la marque commerciales sont conservées dans le snapshot catalogue. Pour les anciennes lignes sans nature capturée, seule cette nature provient du produit actuel ; la marque historique est conservée lorsqu’elle existe. Aucune réécriture de document validé.
+
 ## Prix, marge et révisions
 
 Chaque devis calcule et affiche :
@@ -3227,6 +3235,8 @@ Devis — cycle commercial : frise Brouillon / Devis / Envoyé / Commande client
 
 Retours : Devis / Envoyé → Brouillon avec sales.quote.validate ; Commande client → Devis avec sales.order.confirm, uniquement tant que toutes les commandes concernées sont confirmed sans exécution. Retour annule explicitement les commandes précédentes, sans suppression, et conserve preuves / snapshots. Une confirmation ultérieure crée le rang commande suivant, sans réutiliser le numéro. Toute transition est auditée et visible dans le fil.
 
+
+Retour Commande → Devis — détails du blocage (16 octobre 2026) : les contrôles serveur restent inchangés sur le fond (opération de stock non annulée, demande d’achat active, facture/acompte non annulé). En cas de refus, la commande reste confirmée et le devis accepté, sans libération ni annulation. Le dialogue détaille chaque pièce accessible : référence, nature/état et action attendue. Un BL draft est présenté comme préparation à annuler, sans prétendre qu’il a été exécuté ; une réalisation/une facture validée impose la conservation de sa source et oriente vers Modifier la commande. Un lien ouvre la pièce canonique dans RecordWorkspace, sans nouvelle page. À la fermeture, retirer le diagnostic périmé et remettre le focus sur Confirmer ; Vérifier à nouveau recalcule toujours les contrôles côté serveur. Sans droit de lecture du module, fournir seulement un motif générique sans référence ni lien. Aucun traitement automatique ni assouplissement des engagements.
 
 Devis — annulation, archivage et suppression : `cancelled` est un état métier distinct ; `archived_at` retire une pièce des listes courantes sans modifier son état ni ses engagements. Réactivation disponible. `sent_at` conserve le premier envoi, même après retour en brouillon. Suppression serveur autorisée avec `sales.write` uniquement sans envoi historique et sans aucune commande liée (même annulée) ; les autres pièces restent archivables. Une commande doit revenir en devis avant annulation du devis.
 

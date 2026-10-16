@@ -1,6 +1,8 @@
 /* Semantic theme tokens. Light mode keeps the existing colors through CSS fallbacks. */
-:root { --theme-table-header-text: var(--hz-table-header-text-light, #4c678e); --theme-table-header: var(--hz-table-header-light, #dce5ef); --theme-table-border: var(--hz-table-border-light, #dce5ef); color-scheme: light; --theme-activity-background: #e5ebf3; --theme-red-text: #dc2626; }
+:root { --theme-order-tracking-text: var(--hz-order-tracking-text-light, #4c678e); --theme-order-tracking-header: var(--hz-order-tracking-header-light, #fff0f7); --theme-table-header-text: var(--hz-table-header-text-light, #4c678e); --theme-table-header: var(--hz-table-header-light, #dce5ef); --theme-table-border: var(--hz-table-border-light, #dce5ef); color-scheme: light; --theme-activity-background: #e5ebf3; --theme-red-text: #dc2626; }
 :root[data-theme="dark"] {
+  --theme-order-tracking-text: var(--hz-order-tracking-text-dark, #b8c5d7);
+  --theme-order-tracking-header: var(--hz-order-tracking-header-dark, #352638);
   --theme-focus-ring: #8caada;
   color-scheme: dark;
   --color-horizon-background: #0e1726;

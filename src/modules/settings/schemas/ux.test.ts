@@ -26,6 +26,19 @@ describe('Shared UX configuration', () => {
     expect(min['--hz-table-cell-height']).toBe('22px')
     expect(max['--hz-table-cell-height']).toBe('58px')
   })
+  it('defaults legacy tracking header colors and maps only validated colors', () => {
+    const legacy = Object.fromEntries(Object.entries(uxDefaults).filter(([key]) => !key.startsWith('order_tracking_header_')))
+    expect(uxInputSchema.parse(legacy)).toEqual(uxDefaults)
+    expect(uxStyle({ ...uxDefaults, order_tracking_header_light: '#AABBCC', order_tracking_header_dark: '#223344' })).toMatchObject({ '--hz-order-tracking-header-light': '#AABBCC', '--hz-order-tracking-header-dark': '#223344' })
+    expect(uxInputSchema.safeParse({ ...uxDefaults, order_tracking_header_light: 'url(evil)' }).success).toBe(false)
+    expect(uxInputSchema.safeParse({ ...uxDefaults, order_tracking_header_dark: '#fff' }).success).toBe(false)
+  })
+  it('validates and projects the tracking caption colors separately from its background', () => {
+    const legacy = Object.fromEntries(Object.entries(uxDefaults).filter(([key]) => !key.startsWith('order_tracking_text_')))
+    expect(uxInputSchema.parse(legacy)).toEqual(uxDefaults)
+    expect(uxStyle({ ...uxDefaults, order_tracking_text_light: '#70334D', order_tracking_text_dark: '#FFC1DE' })).toMatchObject({ '--hz-order-tracking-text-light': '#70334D', '--hz-order-tracking-text-dark': '#FFC1DE' })
+    for (const value of ['url(evil)', '#fff', 'red']) expect(uxInputSchema.safeParse({ ...uxDefaults, order_tracking_text_light: value }).success).toBe(false)
+  })
   it('preserves half-pixel sidebar typography and rejects smaller increments', () => {
     expect(uxInputSchema.safeParse({ ...uxDefaults, sidebar_font: 12.5, sidebar_submenu_font: 11.5 }).success).toBe(true)
     expect(uxInputSchema.safeParse({ ...uxDefaults, sidebar_font: 12.25 }).success).toBe(false)

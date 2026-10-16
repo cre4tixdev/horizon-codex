@@ -47,7 +47,7 @@ module.exports = {
     const body = event.requestInfo().body; exact(body, ['id', 'updated', 'target'])
     if (!['draft', 'validated'].includes(body.target)) throw new BadRequestError('État de retour invalide.')
     const permission = body.target === 'draft' ? 'sales.quote.validate' : 'sales.order.confirm'
-    guard(event.app, event.auth, permission); let result
+    guard(event.app, event.auth, permission); let result; const documents = []
     event.app.runInTransaction((app) => {
       guard(app, event.auth, permission)
       const quote = app.findRecordById('sales_quotes', body.id), before = quote.publicExport()
@@ -56,9 +56,12 @@ module.exports = {
       const orders = app.findRecordsByFilter('sales_orders', 'quote = {:id} && status != "cancelled"', '', 0, 0, { id: quote.id })
       if (orders.some((order) => order.getString('status') !== 'confirmed')) throw new ApiError(409, 'La commande est en cours d’exécution. Ce retour est bloqué.')
       if (body.target === 'draft' && orders.length) throw new ApiError(409, 'Revenez d’abord de Commande client à Devis.')
-      if (orders.length) require(`${__hooks}/lib/billing.js`).assertSourceReturn(app, 'customer', quote.id)
+      if (orders.length) documents.push(...require(`${__hooks}/lib/billing.js`).sourceReturnBlocks(app, 'customer', quote.id, event.auth))
+      for (const order of orders) documents.push(...require(`${__hooks}/lib/purchasing.js`).returnBlocks(app, order, event.auth))
+      // No write has occurred: report all blockers without committing a transition.
+      if (documents.length) return
       for (const order of orders) {
-        require(`${__hooks}/lib/purchasing.js`).assertReturn(app, order); require(`${__hooks}/lib/stock.js`).release(app, event.auth, order);
+        require(`${__hooks}/lib/stock.js`).release(app, event.auth, order);
         const previous = order.publicExport(); order.set('status', 'cancelled'); order.set('cancelled_at', new Date().toISOString()); order.set('cancellation_reason', 'Retour de la commande client en devis'); app.save(order)
         const entry = new Record(app.findCollectionByNameOrId('core_audit')); for (const [key, value] of Object.entries({ user: event.auth.id, module: 'sales', entity: 'sales_orders', entity_id: order.id, action: 'update', before: previous, after: order.publicExport(), metadata: { source: 'server', action: 'reopen_quote' } })) entry.set(key, value); app.save(entry)
       }
@@ -68,7 +71,7 @@ module.exports = {
       require(`${__hooks}/lib/activity.js`).publish(app, quote, event.auth.id, 'status_change', body.target === 'draft' ? 'Devis remis en brouillon' : 'Commande client remise en devis · commande précédente conservée dans l’historique', { action: 'update', changes: [{ field: 'status', label: 'État', before: body.target === 'draft' ? 'Devis' : 'Commande client', after: body.target === 'draft' ? 'Brouillon' : 'Devis' }] })
       result = require(`${__hooks}/lib/sales.js`).dto(app, quote)
     })
-    return event.json(200, result)
+    return documents.length ? event.json(400, { message: 'Le retour en devis est bloqué par les documents liés ci-dessous. La commande est conservée.', data: { documents } }) : event.json(200, result)
   },
   finalize(event) {
     guard(event.app, event.auth, 'sales.quote.validate')

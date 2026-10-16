@@ -21,7 +21,10 @@ export type QuoteLineInput = z.infer<typeof quoteLineInputSchema>
 export const emptyQuoteLine = (kind: QuoteLineInput['kind'] = 'item'): QuoteLineInput => ({ kind, product: '', product_supplier: '', price_source: 'manual', margin_percent: 0, description: '', brand: '', reference: '', quantity: kind === 'item' ? 1 : 0, unit: kind === 'item' ? 'u' : '', unit_cost: 0, unit_price: 0, discount: 0, is_option: false, show_total: false })
 
 const orderRevisionChange = z.object({ label: z.string(), before: z.string(), after: z.string() })
-const orderRevisionImpact = z.object({ message: z.string(), href: z.string(), label: z.string() })
+export const salesDocumentNoticeSchema = z.object({ message: z.string(), href: z.string(), label: z.string() })
+export type SalesDocumentNotice = z.infer<typeof salesDocumentNoticeSchema>
+export const salesDocumentErrorSchema = z.object({ documents: z.array(salesDocumentNoticeSchema).max(500) })
+const orderRevisionImpact = salesDocumentNoticeSchema
 export const orderRevisionPreviewSchema = z.object({ token: z.string(), changes: z.array(orderRevisionChange), impacts: z.array(orderRevisionImpact), blocks: z.array(orderRevisionImpact) })
 export const orderRevisionHistorySchema = z.object({ items: z.array(z.object({ id: z.string(), number: z.number(), created: z.string(), author: z.string(), currency: z.string(), changes: z.array(orderRevisionChange), impacts: z.array(orderRevisionImpact) })) })
 

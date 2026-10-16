@@ -3,13 +3,47 @@ import { fitQuoteColumns, resizeQuoteColumn, quoteVisibleIndices, quoteSectionEn
 import { quoteColumns } from '../schemas/quotes'
 const base = Object.fromEntries(quoteColumns.map(([key, , width]) => [key, width]))
 describe('quote presentation', () => {
-  it('fits every column and borrows space when resizing instead of widening the table', () => {
+  it('fits the layout and clamps resizing to the available right-hand space', () => {
     const fitted = fitQuoteColumns(base, 1200)
     expect(Object.values(fitted).reduce((sum, value) => sum + value, 0)).toBeCloseTo(1200)
-    const resized = resizeQuoteColumn(fitted, 'description', 180)
+    const resized = resizeQuoteColumn(fitted, 'description', 10)
     expect(resized.description).toBeGreaterThan(fitted.description!)
     expect(Object.values(resized).reduce((sum, value) => sum + value, 0)).toBeCloseTo(1200)
-    expect(resizeQuoteColumn(fitted, 'description', 100000).description).toBeLessThan(1200)
+    expect(Object.values(resizeQuoteColumn(fitted, 'description', 100000)).reduce((sum, width) => sum + width, 0)).toBeCloseTo(1200)
+  })
+  it('keeps left columns fixed and stops at right-hand minimums', () => {
+    const columns = quoteColumns.filter(([key]) => ['description', 'brand', 'reference'].includes(key))
+    const current = { description: 200, brand: 100, reference: 65 }
+    const resized = resizeQuoteColumn(current, 'brand', 80, columns)
+    expect(resized).toEqual({ description: 200, brand: 110, reference: 55 })
+    expect(fitQuoteColumns(resized, 365, columns)).toEqual(resized)
+    expect(resizeQuoteColumn(resized, 'reference', 30, columns)).toEqual({ description: 200, brand: 110, reference: 55 })
+    expect(resizeQuoteColumn(current, 'brand', -500, columns)).toEqual({ description: 120, brand: 45, reference: 200 })
+  })
+  it('compresses the selected column then its left neighbours and grows only the right neighbour', () => {
+    const columns = quoteColumns.filter(([key]) => ['description', 'brand', 'reference', 'quantity'].includes(key))
+    const current = { description: 200, brand: 100, reference: 65, quantity: 50 }
+    expect(resizeQuoteColumn(current, 'reference', -30, columns)).toEqual({ description: 200, brand: 80, reference: 55, quantity: 80 })
+    expect(resizeQuoteColumn(current, 'reference', -500, columns)).toEqual({ description: 120, brand: 45, reference: 55, quantity: 195 })
+    expect(resizeQuoteColumn(current, 'description', -500, columns)).toEqual({ description: 120, brand: 180, reference: 65, quantity: 50 })
+    const rounded = { description: 119.9, brand: 44.9, reference: 54.9, quantity: 50 }
+    expect(resizeQuoteColumn(rounded, 'reference', -30, columns)).toEqual(rounded)
+  })
+  it('refits oversized saved widths on a smaller viewport and fills new spare space', () => {
+    const columns = quoteColumns.filter(([key]) => ['description', 'brand'].includes(key))
+    expect(Object.values(fitQuoteColumns({ description: 400, brand: 100 }, 300, columns)).reduce((sum, width) => sum + width, 0)).toBeCloseTo(300)
+    expect(fitQuoteColumns({ description: 400, brand: 100 }, 700, columns)).toEqual({ description: 600, brand: 100 })
+  })
+  it('protects monetary content and compresses text before spare monetary width', () => {
+    const columns = quoteColumns.filter(([key]) => ['description', 'unit_price', 'line_total'].includes(key))
+    const current = { description: 300, unit_price: 160, line_total: 240 }
+    const limits = { unit_price: 130, line_total: 190 }
+    expect(fitQuoteColumns(current, 600, columns, limits)).toEqual({ description: 200, unit_price: 160, line_total: 240 })
+    const resized = resizeQuoteColumn(current, 'line_total', -250, columns, limits)
+    expect(resized).toEqual(current) // Outer edge stays fixed.
+    const clamped = resizeQuoteColumn(current, 'description', 500, columns, limits)
+    expect(clamped).toEqual({ description: 380, unit_price: 130, line_total: 190 })
+    expect(fitQuoteColumns(current, 300, columns, limits)).toEqual({ description: 120, unit_price: 130, line_total: 190 })
   })
   it('hides descendants until the next same-level heading and preserves nested folds', () => {
     const kinds = ['section', 'subsection', 'subsection3', 'item', 'subsection3', 'item', 'subsection', 'item', 'section', 'item']

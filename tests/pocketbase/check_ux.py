@@ -110,6 +110,44 @@ class UxTests(unittest.TestCase):
         self.assertEqual(config['filter_selected_text_dark'], '#AABBCC')
         self.assertEqual(config['row_height'], 32)
 
+    def test_tracking_header_colors_migrate_and_persist_without_resetting_preferences(self):
+        self.assertEqual(self.record['config']['order_tracking_header_light'], '#FFF0F7')
+        self.assertEqual(self.record['config']['order_tracking_header_dark'], '#352638')
+        for patch in [{'order_tracking_header_light': 'url(evil)'}, {'order_tracking_header_dark': '#fff'}]:
+            self.assertEqual(self.save({**self.record['config'], **patch})[0], 400)
+        status, saved = self.save({**self.record['config'], 'row_height': 40, 'order_tracking_header_light': '#FDECF4', 'order_tracking_header_dark': '#3B2938'})
+        self.assertEqual(status, 200, saved)
+        self.pb.process.terminate(); self.pb.process.wait(timeout=5)
+        with sqlite3.connect(self.pb.data / 'data.db') as connection:
+            config = json.loads(connection.execute('SELECT config FROM settings_ux').fetchone()[0])
+            config.pop('order_tracking_header_dark')
+            connection.execute('UPDATE settings_ux SET config = ?', (json.dumps(config),))
+            connection.execute('DELETE FROM _migrations WHERE file = ?', ('1791840014_order_tracking_appearance.js',))
+        for _ in range(2): subprocess.run(self.pb.args + ['migrate', 'up'], check=True, stdout=subprocess.DEVNULL)
+        self.pb.launch_and_authenticate(self.pb.args)
+        config = self.pb.request('GET', 'horizon/settings/ux', token=self.token)[1]['config']
+        self.assertEqual(config['order_tracking_header_light'], '#FDECF4')
+        self.assertEqual(config['order_tracking_header_dark'], '#352638')
+        self.assertEqual(config['row_height'], 40)
+
+    def test_tracking_text_colors_preserve_custom_headers_and_migrate_idempotently(self):
+        for patch in [{'order_tracking_text_light': 'url(evil)'}, {'order_tracking_text_dark': '#fff'}]:
+            self.assertEqual(self.save({**self.record['config'], **patch})[0], 400)
+        status, saved = self.save({**self.record['config'], 'row_height': 40, 'table_header_text_dark': '#ABCDEF', 'order_tracking_text_light': '#70334D', 'order_tracking_text_dark': '#FFC1DE'})
+        self.assertEqual(status, 200, saved)
+        self.pb.process.terminate(); self.pb.process.wait(timeout=5)
+        with sqlite3.connect(self.pb.data / 'data.db') as connection:
+            config = json.loads(connection.execute('SELECT config FROM settings_ux').fetchone()[0])
+            config.pop('order_tracking_text_dark')
+            connection.execute('UPDATE settings_ux SET config = ?', (json.dumps(config),))
+            connection.execute('DELETE FROM _migrations WHERE file = ?', ('1791840015_order_tracking_text.js',))
+        for _ in range(2): subprocess.run(self.pb.args + ['migrate', 'up'], check=True, stdout=subprocess.DEVNULL)
+        self.pb.launch_and_authenticate(self.pb.args)
+        config = self.pb.request('GET', 'horizon/settings/ux', token=self.token)[1]['config']
+        self.assertEqual(config['order_tracking_text_light'], '#70334D')
+        self.assertEqual(config['order_tracking_text_dark'], '#ABCDEF')
+        self.assertEqual(config['row_height'], 40)
+
     def test_optimistic_lock_and_superuser(self):
         role = self.pb.create('core_roles', {'name': 'ux_super', 'label': 'UX super', 'active': True, 'permissions': ['settings.references']})
         self.pb.create_user('ux-super@local.invalid', role['id'], profile='superuser')

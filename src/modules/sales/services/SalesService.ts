@@ -6,7 +6,10 @@ import { environment } from '../../../core/config/environment'
 import { hasPermission } from '../../../core/auth/types/session'
 import { sessionService } from '../../../core/auth/services/session'
 import { createSalesRepository } from '../repositories/SalesRepository'
-import { orderInputSchema, quoteInputSchema, type QuoteInput, type QuoteListOptions, type SalesSettings } from '../schemas/quotes'
+import { salesDocumentErrorSchema, type SalesDocumentNotice, orderInputSchema, quoteInputSchema, type QuoteInput, type QuoteListOptions, type SalesSettings } from '../schemas/quotes'
+export class SalesDocumentError extends Error {
+  constructor(message: string, readonly documents: SalesDocumentNotice[]) { super(message) }
+}
 const repository = environment.pocketBaseUrl ? createSalesRepository(environment.pocketBaseUrl) : undefined
 async function run<T>(write: boolean, action: (repo: ReturnType<typeof createSalesRepository>) => Promise<T>): Promise<T> {
   const session = sessionService.getSnapshot()
@@ -14,7 +17,11 @@ async function run<T>(write: boolean, action: (repo: ReturnType<typeof createSal
   if (!repository) throw new Error('Le module Ventes n’est pas configuré.')
   try { return await action(repository) } catch (error) {
     console.error('[sales] Operation failed', { status: error instanceof ClientResponseError ? error.status : 0 })
-    if (error instanceof ClientResponseError && [400, 403, 404, 409].includes(error.status)) throw new Error(error.response.message || 'Devis inaccessible ou modification refusée.', { cause: error })
+    if (error instanceof ClientResponseError && [400, 403, 404, 409].includes(error.status)) {
+      const details = salesDocumentErrorSchema.safeParse(error.response.data)
+      if (details.success && details.data.documents.length) throw new SalesDocumentError(error.response.message || 'Des documents liés bloquent cette action.', details.data.documents)
+      throw new Error(error.response.message || 'Devis inaccessible ou modification refusée.', { cause: error })
+    }
     throw new Error('Les devis sont indisponibles. Réessayez.', { cause: error })
   }
 }

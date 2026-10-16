@@ -207,13 +207,26 @@ module.exports.tracking = (event) => {
   if (!['customer', 'supplier'].includes(kind)) throw new BadRequestError('Source invalide.')
   if (!b.policy.permissions(event.app, event.auth).includes(kind === 'customer' ? 'sales.read' : 'purchasing.read')) throw new ForbiddenError('Accès au module source nécessaire.')
   const sources = require(`${__hooks}/lib/billing-sources.js`), source = sources.source(event.app, kind, id), covered = sources.coverage(event.app, kind), invoiced = sources.coverage(event.app, kind, '', false), delivered = sources.quantities(event.app, kind, id)
-  return event.json(200, Object.fromEntries(source.lines.filter((line) => line.kind === 'item').map((line) => [line.id, { ordered: line.quantity, delivered: delivered.get(line.id) || 0, invoiced: invoiced.get(line.id) || 0, prepared: Math.max(0, (covered.get(line.id) || 0) - (invoiced.get(line.id) || 0)) }])))
+  return event.json(200, Object.fromEntries(source.lines.filter((line) => line.kind === 'item').map((line) => [source.tracking_ids?.[line.id] || line.id, { ordered: line.quantity, delivered: delivered.get(line.id) || 0, invoiced: invoiced.get(line.id) || 0, prepared: Math.max(0, (covered.get(line.id) || 0) - (invoiced.get(line.id) || 0)) }])))
+}
+
+module.exports.sourceReturnBlocks = (app, kind, id, user) => {
+  const type = b.config(kind)
+  // An active draft also owns its preparation quantities until explicitly cancelled.
+  const lines = app.findRecordsByFilter(type.lines, `source_order = {:id} && ${type.parent}.status != "cancelled"`, '', 0, 0, { id })
+  if (!lines.length) return []
+  const message = 'Cette commande est liée à une facture ou un acompte. Annulez les brouillons liés ; une pièce validée conserve sa source.'
+  if (!user || !b.policy.permissions(app, user).includes('billing.read')) return [{ message, href: '', label: '' }]
+  const documents = [...new Set(lines.map((line) => line.getString(type.parent)))].map((id) => {
+    const record = b.get(app, type.collection, id), draft = record.getString('status') === 'draft'
+    return { message: draft ? 'Facture · Brouillon : annulez ce brouillon avant de revenir en devis.' : 'Facture · Validée : le retour en devis est bloqué pour conserver sa source. Utilisez Modifier la commande.', label: record.getString('number') || 'Facture brouillon', href: `/billing/${kind}/${record.id}` }
+  })
+  return documents
 }
 
 module.exports.assertSourceReturn = (app, kind, id) => {
-  const type = b.config(kind)
-  // An active draft also owns its preparation quantities until explicitly cancelled.
-  if (app.findRecordsByFilter(type.lines, `source_order = {:id} && ${type.parent}.status != "cancelled"`, '', 1, 0, { id }).length) throw new BadRequestError('Cette commande est liée à une facture ou un acompte. Annulez les brouillons liés ; une pièce validée conserve sa source.')
+  const blocks = module.exports.sourceReturnBlocks(app, kind, id)
+  if (blocks.length) throw new BadRequestError(blocks[0].message)
 }
 
 module.exports.related = (event) => {

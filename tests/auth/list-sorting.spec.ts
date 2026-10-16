@@ -2,6 +2,55 @@ import { writeFile } from 'node:fs/promises'
 import { test, expect } from '@playwright/test'
 
 test('Tri des colonnes : URL, pagination, filtres et listes principales', async ({ page, request }) => {
+  test.setTimeout(120_000)
+  const audits: { page: string; variant: string; empty: boolean; rowsChecked: number; mergedRows: number }[] = []
+  async function auditTables(label: string, variant: string) {
+    for (const table of await page.locator('[data-table-viewport] > table').all()) {
+      const frame = await table.evaluate((element) => {
+        const grid = element as HTMLTableElement, style = getComputedStyle(element), outer = getComputedStyle(element.parentElement!)
+        const lastRow = grid.tBodies[grid.tBodies.length - 1]?.rows, lastBody = lastRow?.[lastRow.length - 1]
+        const empty = !lastBody && !grid.tFoot?.rows.length
+        const last = empty ? grid.tHead?.rows[grid.tHead.rows.length - 1] : lastBody
+        const cells = [...last?.cells || []]
+        const headers = [...grid.tHead?.rows[grid.tHead.rows.length - 1]?.cells || []]
+        const ordinaryRows = [...grid.tBodies].flatMap((body) => [...body.rows]).filter((row) => [...row.cells].every((cell) => cell.colSpan === 1 && cell.rowSpan === 1))
+        const mergedRows = [...grid.tBodies].reduce((sum, body) => sum + body.rows.length, 0) - ordinaryRows.length
+        const gridIssues = ordinaryRows.flatMap((row, rowIndex) => {
+          if (row.cells.length !== headers.length) return [`row ${rowIndex}: ${row.cells.length} cells / ${headers.length} headers`]
+          return [...row.cells].flatMap((cell, index) => {
+            const header = headers[index]!, headerStyle = getComputedStyle(header), cellStyle = getComputedStyle(cell)
+            const problems = []
+            if (Math.abs(cell.getBoundingClientRect().right - header.getBoundingClientRect().right) > 0.5) problems.push(`row ${rowIndex}, column ${index}: alignment`)
+            if (headerStyle.borderRightWidth !== cellStyle.borderRightWidth || headerStyle.borderRightStyle !== cellStyle.borderRightStyle) problems.push(`row ${rowIndex}, column ${index}: missing separator`)
+            return problems
+          })
+        })
+        return { rowsChecked: ordinaryRows.length, mergedRows, gridIssues, empty, shadow: style.boxShadow, outerShadow: outer.boxShadow, border: style.borderBottomWidth, outerBorder: outer.borderBottomWidth, radius: style.borderRadius, bottomBorders: cells.map((cell) => getComputedStyle(cell).borderBottomWidth), left: cells[0] ? getComputedStyle(cells[0]).borderBottomLeftRadius : '', right: cells.length ? getComputedStyle(cells[cells.length - 1]!).borderBottomRightRadius : '' }
+      })
+      const context = `${label} / ${variant} / ${frame.empty ? 'vide' : 'rempli'}`
+      expect.soft(frame.shadow, context).toBe('none')
+      expect.soft(frame.outerShadow, context).toBe('none')
+      expect.soft(frame.border, context).toBe('1px')
+      expect.soft(frame.outerBorder, context).toBe('0px')
+      expect.soft(frame.radius, context).toBe('6px')
+      expect.soft(frame.bottomBorders.every((border) => border === '0px'), context).toBe(true)
+      expect.soft(frame.left, context).toBe('5px')
+      expect.soft(frame.right, context).toBe('5px')
+      expect.soft(frame.gridIssues, context).toEqual([])
+      audits.push({ page: label, variant, empty: frame.empty, rowsChecked: frame.rowsChecked, mergedRows: frame.mergedRows })
+    }
+  }
+  async function auditViews(label: string) {
+    await auditTables(label, 'clair')
+    await page.getByRole('button', { name: 'Passer en mode sombre', exact: true }).click()
+    await auditTables(label, 'sombre')
+    await page.setViewportSize({ width: 390, height: 844 })
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
+    await auditTables(label, 'mobile-sombre')
+    await page.screenshot({ path: `/private/tmp/horizon-table-audit-${audits.length}-mobile.png`, fullPage: true })
+    await page.setViewportSize({ width: 1600, height: 1000 })
+    await page.getByRole('button', { name: 'Passer en mode clair', exact: true }).click()
+  }
   await page.setViewportSize({ width: 1600, height: 1000 })
   await page.goto('/login')
   await page.getByLabel('Adresse e-mail', { exact: true }).fill('erp-admin@local.invalid')
@@ -46,12 +95,15 @@ test('Tri des colonnes : URL, pagination, filtres et listes principales', async 
   await expect(filters.getByRole('combobox', { name: 'Trier par', exact: true })).toContainText('Coût : décroissant')
   await filters.getByRole('button', { name: 'Terminé', exact: true }).click()
   await page.screenshot({ path: '/private/tmp/horizon-complete-sort-products.png' })
+  await auditViews('Produits')
   for (const [path, label, field, encoding] of [
     ['/contacts?view=list', 'Relations', 'roles', 'colon'],
     ['/contacts/people?view=list', 'Fonction', 'job_title', 'colon'],
     ['/crm?view=list', 'Société', 'company', 'prefix'],
     ['/crm?area=ao&view=list', 'Visites', 'visits', 'prefix'],
     ['/sales', 'Société', 'company_name', 'prefix'],
+    ['/sales/quotes?kind=quote', 'Société', 'company_name', 'prefix'],
+    ['/sales/quotes?kind=order', 'Société', 'company_name', 'prefix'],
     ['/purchasing/orders', 'Fournisseur', 'supplier_name', 'prefix'],
     ['/purchasing/requests', 'État', 'status', 'prefix'],
     ['/billing/customer', 'État', 'status', 'prefix'],
@@ -114,6 +166,7 @@ test('Tri des colonnes : URL, pagination, filtres et listes principales', async 
       await page.setViewportSize({ width: 1600, height: 1000 })
       await page.getByRole('button', { name: 'Passer en mode clair', exact: true }).click()
     }
+    await auditViews(path!)
   }
 
   await page.goto('/settings/facturation')
@@ -125,6 +178,18 @@ test('Tri des colonnes : URL, pagination, filtres et listes principales', async 
   await expect(reference).toHaveCSS('border-collapse', 'separate')
   await expect(reference.locator('..')).toHaveCSS('border-top-width', '0px')
   await page.screenshot({ path: '/private/tmp/horizon-tables-settings-frame.png', fullPage: true })
+  await auditViews('Paramètres TVA')
+  for (const path of ['/settings/catalogue', '/settings/stock', '/settings/stock?tab=deliveries', '/settings/ventes', '/settings/ventes?tab=terms', '/settings/expenses', '/settings/expenses?tab=vehicles', '/settings/references', '/settings/sequences', '/settings/crm?tab=stages', '/settings/documents']) {
+    await page.goto(path)
+    await expect(page.locator('[data-table-viewport] > table').first()).toBeVisible()
+    await auditViews(path)
+  }
+  for (const path of ['/purchasing/requests/new', '/purchasing/orders/new', '/billing/customer/new', '/billing/supplier/new', '/inventory/operations/new?kind=IN', '/inventory/operations/new?kind=OUT', '/inventory/operations/new?kind=INT']) {
+    await page.goto(path)
+    await expect(page.locator('[data-table-viewport] > table').first()).toBeVisible()
+    await auditViews(path)
+  }
+  await writeFile('/private/tmp/horizon-table-frame-audit.json', JSON.stringify(audits, null, 2))
   await page.goto('/inventory?q=SORT&sort=-unit_cost')
   await page.getByRole('button', { name: 'Passer en mode sombre', exact: true }).click()
   await page.setViewportSize({ width: 390, height: 844 })

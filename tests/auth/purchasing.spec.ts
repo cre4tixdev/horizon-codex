@@ -454,7 +454,7 @@ test('Commande client : réservation facultative, besoins nets et colonnes condi
   const back = (await page.getByRole('button', { name: 'Revenir en devis', exact: true }).boundingBox())!, preview = (await page.getByRole('button', { name: 'Aperçu', exact: true }).boundingBox())!
   expect(back.x + back.width).toBeLessThan(preview.x)
   expect(back.y).toBeCloseTo(preview.y, 0)
-  await expect(page.locator('.quote-tracking-link[href^="/purchasing/orders"]')).toHaveText('0 / 6')
+  await expect(page.locator('.quote-tracking-link[href^="/purchasing/orders"]')).toHaveText('0/6')
   await page.getByRole('button', { name: 'Préparer les achats', exact: true }).click()
   await expect(page.getByLabel('Quantité achat ligne 1', { exact: true })).toHaveValue('6')
   await expect(page.getByRole('combobox', { name: 'Devis source', exact: true })).toContainText(quote.quote_number)
@@ -466,7 +466,7 @@ test('Commande client : réservation facultative, besoins nets et colonnes condi
   const reservation = page.getByRole('dialog', { name: 'Réserver le stock', exact: true })
   await reservation.getByRole('checkbox', { name: /Réserver Câble stockable · Meudon/ }).uncheck()
   await reservation.getByRole('button', { name: 'Enregistrer les réservations', exact: true }).click(); await expect(reservation).not.toBeVisible()
-  await expect(page.locator('.quote-tracking-link[href^="/purchasing/orders"]')).toHaveText('0 / 10')
+  await expect(page.locator('.quote-tracking-link[href^="/purchasing/orders"]')).toHaveText('0/10')
   quote = await api(`horizon/sales/quotes/${quote.id}`)
   await api('collections/contacts_company_roles/records', { company: company.id, role: 'supplier', active: true })
   const purchaseInput = { title: 'Ventilation commandes et affaire', opportunity: opp.id, source_order: '', source_quote: '', supplier: company.id, document_date: '2026-10-12', needed_date: '', currency: 'EUR', exchange_rate: 1, tax_rate: 20, notes: '', lines: [

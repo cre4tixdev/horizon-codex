@@ -129,6 +129,30 @@ class BillingTests(unittest.TestCase):
         self.assertEqual(self.get('record/customer/' + invoice['id'])['balance'], 0)
         self.pb.request('PATCH', 'collections/contacts_companies/records/' + self.company['id'], {'name': 'Nom modifié'}, self.pb.admin_token)
         self.assertNotEqual(self.get('record/customer/' + invoice['id'])['company_name'], 'Nom modifié')
+    def test_return_to_quote_reports_invoice_state_and_redacts_without_billing_read(self):
+        order = self.order()
+        status, prepared = self.prepare(order); self.assertEqual(status, 200, prepared)
+        status, draft = self.save(self.prepared_input(prepared)); self.assertEqual(status, 200, draft)
+        body = dict(id=order['id'], updated=order['updated'], target='validated')
+        def blocked():
+            status, response = self.pb.request('POST', 'horizon/sales/quotes/reopen', body, self.token)
+            self.assertEqual(status, 400, response)
+            self.assertEqual(self.pb.request('GET', 'horizon/sales/quotes/' + order['id'], token=self.token)[1]['status'], 'accepted')
+            return response
+        document = blocked()['data']['documents'][0]
+        self.assertIn('Brouillon', document['message'])
+        self.assertEqual(document['href'], '/billing/customer/' + draft['id'])
+        status, invoice = self.action(draft); self.assertEqual(status, 200, invoice)
+        document = blocked()['data']['documents'][0]
+        self.assertIn('Validée', document['message'])
+        self.assertEqual(document['label'], invoice['number'])
+        role = 'collections/core_roles/records/' + self.user['role']
+        rights = self.pb.request('GET', role, token=self.pb.admin_token)[1]['permissions']
+        self.pb.request('PATCH', role, dict(permissions=[right for right in rights if right != 'billing.read']), self.pb.admin_token)
+        response = blocked()
+        self.assertTrue(all(not doc['href'] and not doc['label'] for doc in response['data']['documents']))
+        self.assertNotIn(invoice['id'], json.dumps(response))
+
     def test_partial_order_deposit_balance_and_duplicate_prevention(self):
         order = self.order()
         status, prepared = self.prepare(order, 'deposit'); self.assertEqual(status, 200, prepared)

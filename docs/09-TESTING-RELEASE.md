@@ -1530,6 +1530,24 @@ Fiche produit / détail des réservations : pnpm check réussi (200 tests), 17 t
 
 UX / texte des en-têtes : pnpm check réussi (200 tests), six tests PocketBase UX dont reprise additive des réglages, quatre parcours navigateur UX réussis. Couleur du texte vérifiée en aperçu clair / sombre, sauvegarde et token partagé ; valeurs invalides refusées côté serveur. Pack NAS PocketBase inclut 1791710015_table_header_text_appearance.js.
 
+UX / suivi des commandes — 15 octobre 2026 : migration
+`1791840014_order_tracking_appearance.js` testée sur base neuve et reprise d’une
+configuration existante, puis rejouée sans écrasement de préférences ; couleurs
+invalides refusées. Huit tests PocketBase UX réussis. Parcours navigateur du
+réglage et de la commande : aperçu partagé, persistance après rechargement,
+fond limité aux quatre en-têtes en clair/sombre, camion Livraisons et ratios
+compacts ; parcours UX et réservation/préparation des achats également réussis.
+`pnpm check` : 262 tests / 61 fichiers, lint, TypeScript et build réussis.
+
+Contrôle des tableaux — 15 octobre 2026 : le parcours `list-sorting.spec.ts`
+vérifie aussi le cadre, l’absence d’ombre, la bordure basse unique et les coins
+inférieurs sur les listes principales et les tableaux de paramètres : 33 vues,
+102 contrôles de tableaux en clair, sombre et mobile sombre, avec états vides
+et remplis. Rapport local `/private/tmp/horizon-table-frame-audit.json`.
+`purchase-table-frame.spec.ts` couvre séparément le cas Achats filtré vide et
+le défilement horizontal réel d’un tableau rempli sur mobile. Les assertions
+conservent les barres nécessaires et refusent un débordement de page.
+
 Mon compte : tests/pocketbase/check_account.py couvre identité propre, allowlist anti-escalade, conflit de version, Viewer, rôle désactivé, legacy privé, refus de l’ancien import/retrait de photo et mauvais MIME, ancien mot de passe et révocation des tokens, absence de secrets dans audit. tests/auth/account.spec.ts vérifie identité / avatar dans le menu, persistance, annulation, clair / sombre / mobile et changement de mot de passe ; les identifiants fictifs du fixture sont restaurés.
 
 Avatars / présence : check_account couvre accès photo via événement autorisé, refus sans droit sur le fil et présence personnelle avec enum contrôlé. account.spec vérifie ronde de disponibilité dans compte / menu, absence de contour, photo d’un autre auteur dans le fil et absence de présence dans la saisie / publications ; retrait de photo depuis Employés répercuté au rechargement.
@@ -1670,3 +1688,23 @@ Régression visuelle tableaux / logos — 15 octobre 2026 : list-sorting fournit
 Coins HDataTable / raccord du cadre — 15 octobre 2026 : régression géométrique dans list-sorting : cadre table 1 px, cadre viewport 0 px, première cellule à +1 px en X/Y ; échec reproduit avant correction. Capture Chromium du coin via Page.captureScreenshot avec scale=4 pour inspecter réellement l’angle, sans modifier la page ; tri/listes et géométrie devis/commande rejoués.
 
 Audit élargi des cadres — 15 octobre 2026 : list-sorting contrôle le cadre et l’alignement de première colonne sur chaque liste principale visitée, plus les reference-table des paramètres TVA. Les parcours métier Achats/Facturation/Frais/Stock/RH et l’aperçu UX complètent les tableaux intégrés/popups. Le suivi 10 distingue les passages réussis, limites et éventuels échecs hors cadre ; ne pas présenter les tests de tri comme une validation exhaustive de toutes les variantes visuelles.
+
+
+Services en commande — régressions du 15 octobre 2026 : `check_purchasing.py` couvre devis/commande mixtes, service CVS/externe/CVS Partner, matériel CVS, produit non achetable, marque historique après modification catalogue, refus de préparation forcée et DA sourcée interne, héritage de snapshot et conservation sans augmentation des achats historiques. `sales-service-tracking.spec.ts` vérifie les tirets/liens du vrai tableau, facturation des trois natures jusqu’à validation et compteurs 4/4, BL limité au matériel, absence d’actions achats/stock/livraison sur commande purement interne, rendu clair/sombre/mobile. Aucun appel comptable externe ni PDF réel dans cette recette. Les résultats et limites des passages sont consignés dans le journal du document 10.
+
+
+Devis / redimensionnement — 16 octobre 2026 : `quoteColumns.test.ts` couvre l’ajustement initial, la réduction successive des colonnes de droite jusqu’au minimum, l’arrêt du geste sans élargissement, la stabilité des colonnes de gauche et du bord extérieur, le rétrécissement et la restitution d’espace, ainsi que le recalage de largeurs enregistrées excessives. `quote-table-layout.spec.ts` vérifie les montants et sous-totaux/options longs intégralement visibles (sans scrollWidth excédant clientWidth), y compris dans les inputs monétaires et après saisie à six décimales puis formatage, une tentative d’agrandissement de PTV de 180 px à la souris limitée à l’espace disponible à droite, le geste inverse au clavier puis un déplacement souris de 220 px vers la gauche comprimant les colonnes précédentes après le minimum de PTV, la stabilité du cadre desktop, la persistance après rechargement et le passage en commande. Le défilement minimal mobile reste contenu. Contrat UX canonique du document 07 ; résultat réel consigné dans le journal 10.
+
+Lignes d’espacement / bordures — 16 octobre 2026 : le parcours `quote-table-layout.spec.ts` conserve un spacer entre deux articles, un sous-titre et une note, vide leurs descriptions dans l’éditeur puis compare les cellules de toutes les lignes aux en-têtes (colSpan=1, même nombre de cellules, mêmes limites horizontales et séparateur droit de 1 px hors dernière cellule). Contrôle en devis puis commande, consultation/édition, redimensionnement, clair/sombre/mobile. Le rendu HTML/PDF d’espacement reste distinct et inchangé.
+
+
+Audit transversal des grilles — 16 octobre 2026 : `list-sorting.spec.ts` compare le nombre et les limites des cellules de toutes les lignes ordinaires aux en-têtes et vérifie la même bordure verticale, y compris pour les cellules vides. L’audit couvre les listes principales et paramètres, puis les formulaires DA/BC, factures client/fournisseur, réceptions/livraisons/transferts sur leur ligne initiale vide, en clair/sombre/mobile sombre. Les messages pleine largeur intentionnels (conditions de vente sans données) sont comptés séparément ; ils ne sont pas des lignes métier d’espacement. Rapport local `/private/tmp/horizon-table-frame-audit.json` avec lignes vérifiées et lignes fusionnées. Cet audit ne prétend pas parcourir chaque popup ou chaque document enregistré.
+
+
+Priorité monétaire Devis/Commande — 16 octobre 2026 : `quoteColumns.test.ts` protège les minimums issus du contenu et vérifie le tassement des colonnes non monétaires avant les colonnes monétaires, le blocage au minimum et le cas d’un écran inférieur aux largeurs nécessaires. `quote-table-layout.spec.ts` vérifie Coût/PUV/PTV, sous-totaux Sigma et options entre parenthèses, prix à six décimales, devis/commande, redimensionnement souris/clavier dans les deux sens, rechargement et clair/sombre/mobile. Les contrôles d’ellipse des montants ont été remplacés par les contrôles d’intégrité d’affichage demandés. Aucun calcul financier serveur, arrondi métier ni PDF modifié.
+
+
+Couleur des pictogrammes de suivi et rangement UX — 16 octobre 2026 : tests unitaires des nouvelles clés/couleurs CSS et validation hexadécimale ; `check_ux.py` reconstruit une base neuve, vérifie droits/concurrence/audit, sauvegarde des deux couleurs et migration idempotente héritant du texte d’en-tête sans écraser les personnalisations. Parcours `ux.spec.ts` et `quote-table-layout.spec.ts` : ordre des quatre groupes Tableaux, aperçu commun, couleur du SVG en clair/sombre, sauvegarde/rechargement et application réelle sur la commande, couleur des cellules inchangée, thèmes, onglets, défauts, concurrence et mobile. Attendre la souscription realtime du second utilisateur avant d’émettre la modification ; vérifier la bordure sur la table qui porte le cadre, pas sur son viewport.
+
+
+Retour en devis / détails des pièces — 16 octobre 2026 : régressions PocketBase `check_purchasing.py` pour BL draft + DA, opérations historiques réalisées, références exactes/états, absence de transition et non-divulgation sans inventory.read/purchasing.read ; `check_billing.py` pour facture draft/validée, absence de transition et non-divulgation sans billing.read ; retour sans bloqueur via test de cycle Sales existant. `sales-order-revision.spec.ts` vérifie message, numéro provisoire, popup sans navigation ni nouvelle page, fermeture/effacement du diagnostic/focus, nouveau contrôle, clair/sombre/mobile et conservation du parcours de révision/BL historique. Les références d’opération réalisée sont simulées uniquement dans la base jetable du test de projection ; aucune modification de données réelles.

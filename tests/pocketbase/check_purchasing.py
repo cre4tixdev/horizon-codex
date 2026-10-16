@@ -4,6 +4,7 @@ import copy
 import uuid
 import subprocess
 import sqlite3
+import json
 from concurrent.futures import ThreadPoolExecutor
 import check_catalog
 
@@ -39,6 +40,100 @@ class PurchasingTests(unittest.TestCase):
         status, quote = self.pb.request('POST', 'horizon/sales/quotes/finalize', dict(id=quote['id'], updated=quote['updated']), self.token)
         self.assertEqual(status, 200, quote)
         return quote
+
+    def test_service_execution_policy_and_historical_purchases(self):
+        products = []
+        for sku, kind, brand, purchasable in [('INTERNAL', 'service', 'CVS', True), ('EXTERNAL', 'service', 'PARTNER', True), ('NEAR-CVS', 'service', 'CVS Partner', True), ('CVS-CABLE', 'consumable', 'CVS', True), ('NO-BUY', 'consumable', 'OTHER', False)]:
+            status, product = check_catalog.CatalogTests.create_product(self, key=str(uuid.uuid4()), sku=sku, kind=kind, manufacturer=brand, stock_policy='none' if kind == 'service' else 'stocked', purchase_enabled=purchasable, offers=[])
+            self.assertEqual(status, 200, product)
+            products.append(product)
+        status, quote = check_catalog.CatalogTests.quote_save(self, lines=[dict(product=p['id'], description=p['sku'], quantity=4, unit='m', unit_price=10, unit_cost=5) for p in products])
+        self.assertEqual(status, 200, quote)
+        self.assertEqual(quote['lines'][0]['catalog_snapshot']['kind'], 'service')
+        self.assertEqual(quote['lines'][0]['catalog_snapshot']['manufacturer'], 'CVS')
+        status, quote = self.pb.request('POST', 'horizon/sales/quotes/finalize', dict(id=quote['id'], updated=quote['updated']), self.token)
+        self.assertEqual(status, 200, quote)
+        status, preview = self.pb.request('GET', 'horizon/purchasing/needs/' + quote['id'] + '?preview=true', token=self.token)
+        self.assertEqual(status, 200, preview)
+        self.assertEqual([line['product'] for line in preview['lines']], [p['id'] for p in products[1:4]])
+        body = dict(id=quote['id'], updated=quote['updated'], awaiting_customer_order=True, reservations=[], purchase_preparation=[dict(source_line=quote['lines'][0]['id'], quantity=1, supplier=self.supplier['id'])])
+        self.assertEqual(self.pb.request('POST', 'horizon/sales/quotes/confirm', body, self.token)[0], 400)
+        body.pop('purchase_preparation')
+        status, quote = self.pb.request('POST', 'horizon/sales/quotes/confirm', body, self.token)
+        self.assertEqual(status, 200, quote)
+        # Renaming the catalogue cannot turn a captured internal service into subcontracting.
+        self.assertEqual(self.pb.request('PATCH', 'collections/inventory_products/records/' + products[0]['id'], dict(manufacturer='PARTNER'), self.pb.admin_token)[0], 200)
+        status, needs = self.pb.request('GET', 'horizon/purchasing/needs/' + quote['id'], token=self.token)
+        self.assertEqual(status, 200, needs)
+        self.assertEqual([line['product'] for line in needs['lines']], [p['id'] for p in products[1:4]])
+        status, tracking = self.pb.request('GET', 'horizon/purchasing/tracking/' + quote['id'], token=self.token)
+        self.assertEqual(status, 200, tracking)
+        for index, (purchase, stock) in enumerate([(False, False), (True, False), (True, False), (True, True), (False, True)]):
+            detail = tracking[quote['lines'][index]['id']]
+            self.assertEqual((detail['purchase_applicable'], detail['stock_applicable']), (purchase, stock))
+        status, reservations = self.pb.request('GET', 'horizon/inventory/stock/reservations/' + quote['id'], token=self.token)
+        self.assertEqual(status, 200, reservations)
+        self.assertEqual(len(reservations['lines']), 2)
+        internal = dict(self.input['lines'][0], product=products[0]['id'], quantity=1, source_line=tracking[quote['lines'][0]['id']]['source_line'])
+        draft_input = dict(self.input, source_order=needs['source_order'], lines=[internal])
+        self.assertEqual(self.save_request(draft_input)[0], 400)
+        # Legacy service with a purchase already prepared: retain its history and allow reductions only.
+        external = dict(internal, product=products[1]['id'], source_line=tracking[quote['lines'][1]['id']]['source_line'])
+        draft_input['lines'] = [external]
+        status, request = self.save_request(draft_input)
+        self.assertEqual(status, 200, request)
+        order_line = external['source_line']
+        # Simulate a pre-upgrade snapshot directly in this disposable fixture only.
+        with sqlite3.connect(self.pb.data / 'data.db') as connection:
+            connection.execute('UPDATE sales_order_lines SET snapshot = ? WHERE id = ?', (json.dumps(dict(catalog_snapshot=dict(manufacturer='CVS'))), order_line))
+        detail = self.pb.request('GET', 'horizon/purchasing/tracking/' + quote['id'], token=self.token)[1][quote['lines'][1]['id']]
+        self.assertTrue(detail['purchase_applicable'])
+        self.assertEqual(detail['prepared'], 1)
+        status, request = self.save_request(draft_input, id=request['id'], updated=request['updated'])
+        self.assertEqual(status, 200, request)
+        draft_input['lines'][0]['quantity'] = 2
+        self.assertEqual(self.save_request(draft_input, id=request['id'], updated=request['updated'])[0], 400)
+        self.assertEqual(self.save_request(draft_input)[0], 400)
+        self.assertEqual(self.pb.request('GET', 'horizon/purchasing/needs/' + quote['id'], token=self.token)[1]['lines'][0]['product'], products[2]['id'])
+
+    def test_return_to_quote_details_preserve_documents_and_respect_read_permissions(self):
+        quote = self.make_quote()
+        status, quote = self.pb.request('POST', 'horizon/sales/quotes/confirm', dict(id=quote['id'], updated=quote['updated'], awaiting_customer_order=True, reservations=[]), self.token)
+        self.assertEqual(status, 200, quote)
+        status, operation = self.pb.request('POST', 'horizon/inventory/operations/prepare-delivery', dict(sales_quote=quote['id']), self.token)
+        self.assertEqual(status, 200, operation)
+        needs = self.pb.request('GET', 'horizon/purchasing/needs/' + quote['id'], token=self.token)[1]
+        status, request = self.save_request(dict(self.input, source_order=quote['order']['id'], lines=[dict(self.input['lines'][0], source_line=needs['lines'][0]['source_line'])]))
+        self.assertEqual(status, 200, request)
+        body = dict(id=quote['id'], updated=quote['updated'], target='validated')
+        def blocked():
+            status, response = self.pb.request('POST', 'horizon/sales/quotes/reopen', body, self.token)
+            self.assertEqual(status, 400, response)
+            self.assertEqual(self.pb.request('GET', 'horizon/sales/quotes/' + quote['id'], token=self.token)[1]['status'], 'accepted')
+            return response
+        result = blocked()
+        documents = result['data']['documents']
+        self.assertIsInstance(documents, list, result)
+        self.assertEqual(len(documents), 2)
+        self.assertIn('Brouillon', documents[0]['message'])
+        self.assertEqual(documents[0]['label'], operation['display_number'])
+        self.assertEqual(documents[0]['href'], '/inventory/operations/' + operation['id'])
+        self.assertEqual(documents[1]['href'], '/purchasing/requests/' + request['id'])
+        role_path = 'collections/core_roles/records/' + self.user['role']
+        permissions = self.pb.request('GET', role_path, token=self.pb.admin_token)[1]['permissions']
+        self.pb.request('PATCH', role_path, dict(permissions=[p for p in permissions if p not in ['inventory.read', 'purchasing.read']]), self.pb.admin_token)
+        hidden = blocked()
+        self.assertTrue(all(not doc['href'] and not doc['label'] for doc in hidden['data']['documents']))
+        self.assertNotIn(operation['id'], json.dumps(hidden))
+        self.assertNotIn(request['id'], json.dumps(hidden))
+        self.pb.request('PATCH', role_path, dict(permissions=permissions), self.pb.admin_token)
+        # Simulate a completed historical operation only in the disposable fixture.
+        with sqlite3.connect(self.pb.data / 'data.db') as connection:
+            connection.execute('UPDATE inventory_operations SET status = ?, number = ? WHERE id = ?', ('done', 'MEU/OUT/00001', operation['id']))
+        documents = blocked()['data']['documents']
+        self.assertIn('Réalisée', documents[0]['message'])
+        self.assertEqual(documents[0]['label'], 'MEU/OUT/00001')
+        self.assertEqual(self.pb.request('GET', 'collections/inventory_operations/records/' + operation['id'], token=self.pb.admin_token)[1]['status'], 'done')
 
     def test_types_are_independent_and_states_are_multiple(self):
         status, request = self.save_request(); self.assertEqual(status, 200, request)
