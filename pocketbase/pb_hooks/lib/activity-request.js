@@ -46,6 +46,11 @@ module.exports = {
     const query = String(event.request.url.query().get('q') || '').trim().slice(0, 80)
     const bindings = { permission: `"${module}.read"`, query }
     let sourceFilter = ''
+    if (module === 'leave') {
+      const root = require(`${__hooks}/lib/leave.js`).activitySource(event.app, event.auth, String(event.requestInfo().query.id || ''), true)
+      bindings.owner = root.getString('user'); bindings.manager = root.getString('manager')
+      sourceFilter = ' && (id = {:owner} || leave_scope = "all"' + (root.getString('submitted_at') && root.getString('status') !== 'draft' ? ' || (id = {:manager} && leave_scope = "reports")' : '') + ')'
+    }
     if (module === 'expenses') {
       const root = require(`${__hooks}/lib/expenses.js`).activitySource(event.app, event.auth, String(event.requestInfo().query.id || ''), true)
       bindings.owner = root.getString('user'); bindings.validator = root.getString('validator')
@@ -61,7 +66,7 @@ module.exports = {
     if (!activity.allowed(event.app, event.auth, true, module)) throw new ForbiddenError('Accès refusé.')
     const root = activity.source(event.app, record.getString('source_entity'), record.getString('source_record_id'), true)
     activity.authorizeSource(event.app, event.auth, root, true)
-    if ((root.collection().name === 'expenses_reports' ? 'expenses' : root.collection().name.startsWith('billing_') ? 'billing' : root.collection().name.startsWith('purchasing_') ? 'purchasing' : root.collection().name.startsWith('inventory_') ? 'inventory' : root.collection().name.startsWith('sales_') ? 'sales' : root.collection().name.startsWith('crm_') ? 'crm' : 'contacts') !== module || !['note', 'message', 'document', 'task'].includes(record.getString('type'))) throw new BadRequestError('Type de publication invalide.')
+    if ((root.collection().name === 'leave_requests' ? 'leave' : root.collection().name === 'expenses_reports' ? 'expenses' : root.collection().name.startsWith('billing_') ? 'billing' : root.collection().name.startsWith('purchasing_') ? 'purchasing' : root.collection().name.startsWith('inventory_') ? 'inventory' : root.collection().name.startsWith('sales_') ? 'sales' : root.collection().name.startsWith('crm_') ? 'crm' : 'contacts') !== module || !['note', 'message', 'document', 'task'].includes(record.getString('type'))) throw new BadRequestError('Type de publication invalide.')
     const body = record.getString('body').trim()
     const attachments = record.getUploadedFiles('attachments')
     if (!body && !attachments.length) throw new BadRequestError('Ajoutez un message ou une pièce jointe.')

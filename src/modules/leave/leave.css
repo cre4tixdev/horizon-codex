@@ -1,0 +1,22 @@
+.leave-year { display: inline-flex; align-items: center; gap: 8px; color: var(--theme-text-muted); font-size: 12px; }
+.leave-year .h-input { width: 90px; }
+.leave-cell-detail { margin-left: 5px; color: var(--theme-text-muted); font-size: 11px; }
+.leave-editor-dialog { width: min(1000px, calc(100vw - var(--workspace-sidebar-width) - 24px)); max-width: none; top: 50%; transform: translate(-50%, -50%); max-height: calc(100dvh - 32px); }
+.leave-editor-form { min-height: 0; padding: 0; gap: 0; overflow: hidden; }
+.leave-editor-form > .contact-record-navigation { margin: 0; padding-inline: 18px; flex-shrink: 0; }
+.leave-editor-details { min-height: 0; overflow-y: auto; padding: 16px 18px; }
+.leave-editor-form > #leave-editor-files-panel { min-height: 0; overflow-y: auto; }
+.leave-editor-grid textarea.h-input { height: auto; min-height: 70px; }
+.leave-editor-form > .field-error { padding-inline: 18px; }
+.leave-editor-form > [hidden], .leave-page [role=tabpanel][hidden] { display: none; }
+.leave-editor-grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 16px; }
+.leave-editor-grid .contact-panel { min-width: 0; margin: 0; }
+.leave-span { grid-column: 1 / -1; }
+.leave-span-all { grid-column: 1 / -1; }
+.leave-duration { display: flex; align-items: center; gap: 12px; margin-top: 20px; padding: 14px 0; border-block: 1px solid var(--theme-border); color: var(--theme-text); }
+.leave-duration strong { display: block; font-size: 24px; font-variant-numeric: tabular-nums; }
+.leave-duration span { display: block; margin-top: 4px; font-size: 12px; color: var(--theme-text-muted); }
+.leave-editor-form[data-files=true] [aria-controls=leave-editor-files-panel] svg, .leave-page [data-has-attachments=true] svg { color: var(--theme-rose-text); }
+.leave-editor-form .h-attachment-workspace { min-height: 390px; max-height: 55vh; }
+.leave-weekdays { display: flex; flex-wrap: wrap; gap: 12px; margin: 12px 0 20px; }
+@media (max-width: 700px) { .leave-editor-grid { grid-template-columns: 1fr; } .leave-year { margin-left: auto; } .leave-cell-detail { display: block; margin-left: 0; } }

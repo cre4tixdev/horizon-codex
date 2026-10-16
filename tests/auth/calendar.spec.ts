@@ -4,7 +4,7 @@ test('Calendrier : couleurs partagées, périodes compactes et absence de débor
   await page.setViewportSize({ width: 1440, height: 1000 })
   await page.route('**/api/horizon/calendar/events?*', async (route) => {
     const start = new Date(Date.parse(new URL(route.request().url()).searchParams.get('from')!) + 86400000).toISOString()
-    await route.fulfill({ json: { periods: [], items: ['publication', 'submission', 'visit', 'hearing', 'result', 'inventory'].map((kind) => ({ id: `fixture-${kind}`, source_module: 'crm', source_entity: 'crm_opportunities', source_record_id: '123456789abcdef', kind, title: 'Un événement avec une description très longue pour vérifier la largeur des cellules', code: '00003', company: 'Client calendrier', start, end: '', all_day: true, timezone: 'Europe/Paris', location: '', href: '/crm/opportunities/123456789abcdef' })) } })
+    await route.fulfill({ json: { holidays: {}, periods: [], items: ['publication', 'submission', 'visit', 'hearing', 'result', 'inventory'].map((kind) => ({ id: `fixture-${kind}`, source_module: 'crm', source_entity: 'crm_opportunities', source_record_id: '123456789abcdef', kind, title: 'Un événement avec une description très longue pour vérifier la largeur des cellules', code: '00003', company: 'Client calendrier', start, end: '', all_day: true, timezone: 'Europe/Paris', location: '', href: '/crm/opportunities/123456789abcdef' })) } })
   })
   await page.route('**/api/collections/crm_appointment_kinds/records?*', (route) => route.fulfill({ json: { page: 1, perPage: 500, totalItems: 2, totalPages: 1, items: [{ id: 'visit', code: 'visit', label: 'Visite', color: '#0D9488', tone: 'blue', active: true, sort_order: 1 }, { id: 'hearing', code: 'hearing', label: 'Soutenance', color: '#9333EA', tone: 'violet', active: true, sort_order: 2 }] } }))
   await page.goto('/login')
@@ -114,4 +114,26 @@ test('Calendrier : bouton d’ajout visible sans droit d’écriture, création 
   await expect(add).toBeDisabled()
   await expect(add).toHaveAttribute('title', /droit.*pas actif/)
   await expect(page.locator('.calendar-day-add')).toHaveCount(0)
+})
+
+test('Calendrier : week-ends et jours fériés dans toutes les périodes', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await page.goto('/login'); await page.getByLabel('Adresse e-mail', { exact: true }).fill('erp-admin@local.invalid'); await page.getByLabel('Mot de passe', { exact: true }).fill('Local-Horizon-test-only-2026!'); await page.getByRole('button', { name: 'Se connecter', exact: true }).click(); await expect(page).toHaveURL('/')
+  await page.goto('/calendar'); const periods = page.getByRole('group', { name: 'Période du calendrier', exact: true })
+  await periods.getByRole('button', { name: 'Année', exact: true }).click(); await page.getByRole('button', { name: 'Ouvrir novembre 2026', exact: true }).click()
+  await periods.getByRole('button', { name: 'Semaine', exact: true }).click(); await page.getByRole('button', { name: 'Période suivante', exact: true }).click(); await page.getByRole('button', { name: 'Période suivante', exact: true }).click()
+  for (const label of ['Semaine', 'Mois', 'Trimestre', 'Année']) {
+    await periods.getByRole('button', { name: label, exact: true }).click()
+    const holiday = page.locator('.calendar-day[data-date="2026-11-11"]'), weekend = page.locator('.calendar-day[data-date="2026-11-14"]'), ordinary = page.locator('.calendar-day[data-date="2026-11-10"]')
+    await expect(holiday).toHaveAttribute('data-holiday', 'true'); await expect(holiday).toContainText('11 novembre'); await expect(weekend).toHaveAttribute('data-weekend', 'true'); await expect(ordinary).toHaveAttribute('data-holiday', 'false')
+    await expect(holiday.locator('.calendar-holiday-label')).toHaveCSS('text-align', 'right')
+    const number = await holiday.locator('.calendar-day-heading > time').boundingBox(), name = await holiday.locator('.calendar-holiday-label').boundingBox()
+    expect(number!.x + number!.width).toBeLessThanOrEqual(name!.x); expect(Math.abs(number!.y + number!.height / 2 - name!.y - name!.height / 2)).toBeLessThan(2)
+    const colors = await Promise.all([holiday, weekend, ordinary].map((cell) => cell.evaluate((e) => getComputedStyle(e).backgroundColor))); expect(new Set(colors).size).toBe(3)
+  }
+  await periods.getByRole('button', { name: 'Mois', exact: true }).click(); await page.screenshot({ path: '/private/tmp/horizon-calendar-days-light.png', fullPage: true })
+  // Holiday remains an ordinary selectable calendar date for manual events.
+  await page.getByRole('button', { name: 'Ajouter un événement le 11 novembre 2026', exact: true }).click(); await expect(page.getByRole('dialog', { name: 'Nouvel événement', exact: true })).toBeVisible(); await page.keyboard.press('Escape')
+  await page.getByRole('button', { name: 'Passer en mode sombre', exact: true }).click(); await expect(page.getByRole('button', { name: 'Aujourd’hui', exact: true })).toHaveCSS('background-color', 'rgb(22, 34, 54)'); await page.screenshot({ path: '/private/tmp/horizon-calendar-days-dark.png', fullPage: true })
+  await page.setViewportSize({ width: 390, height: 844 }); await expect(page.locator('.calendar-day[data-date="2026-11-11"]')).toContainText('11 novembre'); expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true); await page.screenshot({ path: '/private/tmp/horizon-calendar-days-mobile.png', fullPage: true })
 })

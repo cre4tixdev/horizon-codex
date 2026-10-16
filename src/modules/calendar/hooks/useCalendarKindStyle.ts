@@ -3,7 +3,7 @@ import type { TagTone } from '../../../shared/schemas/tagTone'
 import { useReferences } from '../../settings/hooks/useReferences'
 import type { CalendarEvent } from '../schemas/events'
 
-const tones = { publication: 'green', submission: 'pink', visit: 'blue', hearing: 'violet', result: 'amber', inventory: 'navy', event: 'violet' } as const satisfies Record<CalendarEvent['kind'], TagTone>
+const tones = { publication: 'green', submission: 'pink', visit: 'blue', hearing: 'violet', result: 'amber', inventory: 'navy', event: 'violet', leave: 'blue' } as const satisfies Record<CalendarEvent['kind'], TagTone>
 
 export function useCalendarKindStyle(enabled = true) {
   const query = useReferences('crm_appointment_kinds', enabled)

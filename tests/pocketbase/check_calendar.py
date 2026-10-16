@@ -15,6 +15,14 @@ class CalendarTests(unittest.TestCase):
         return self.pb.request('POST', 'horizon/calendar/manual/save', dict(input={**self.input, **changes}, creation_key='manual-key-1'), self.token)
     def events(self, token=None, extra=''):
         return self.pb.request('GET', 'horizon/calendar/events?from=2026-10-01T00:00:00.000Z&to=2026-11-01T00:00:00.000Z' + extra, token=token or self.token)
+    def test_holidays_without_leave_permissions_and_across_years(self):
+        path='horizon/calendar/events?from=2026-12-20T23:00:00.000Z&to=2027-01-10T23:00:00.000Z'
+        code,data=self.pb.request('GET',path,token=self.token);self.assertEqual(code,200,data)
+        self.assertEqual(data['holidays']['2026-12-25'],'Jour de Noël');self.assertEqual(data['holidays']['2027-01-01'],'1er janvier')
+        self.assertNotIn('2026-12-26',data['holidays']);self.assertEqual(data['items'],[])
+        # Public date markers are independent of private events, filters and leave entitlements.
+        code,other=self.pb.request('GET',path+'&q=aucun-resultat&state=archived',token=self.other_token);self.assertEqual(code,200,other);self.assertEqual(other['holidays'],data['holidays'])
+        self.assertEqual(self.pb.request('GET',path)[0],401)
     def test_create_retry_private_and_team(self):
         status, record = self.save(); self.assertEqual(status, 200, record)
         self.assertEqual(self.save()[1]['id'], record['id'])

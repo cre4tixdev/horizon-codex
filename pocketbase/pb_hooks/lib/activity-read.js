@@ -1,5 +1,5 @@
 // Read one authorized business source without expanding the polymorphic collection rule.
-const moduleFor = (entity) => entity === 'expenses_reports' ? 'expenses' : entity.startsWith('billing_') ? 'billing' : entity.startsWith('purchasing_') ? 'purchasing' : entity.startsWith('inventory_') ? 'inventory' : entity.startsWith('sales_') ? 'sales' : entity.startsWith('crm_') ? 'crm' : 'contacts'
+const moduleFor = (entity) => entity === 'leave_requests' ? 'leave' : entity === 'expenses_reports' ? 'expenses' : entity.startsWith('billing_') ? 'billing' : entity.startsWith('purchasing_') ? 'purchasing' : entity.startsWith('inventory_') ? 'inventory' : entity.startsWith('sales_') ? 'sales' : entity.startsWith('crm_') ? 'crm' : 'contacts'
 const readSource = (event, entity, id, expectedModule) => {
   const activity = require(`${__hooks}/lib/activity.js`), module = moduleFor(entity)
   if (expectedModule !== undefined && expectedModule !== module || !activity.allowed(event.app, event.auth, false, module)) throw new ForbiddenError('Accès au fil refusé.')

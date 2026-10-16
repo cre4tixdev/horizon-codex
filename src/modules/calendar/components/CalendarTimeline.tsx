@@ -5,7 +5,7 @@ import { calendarKinds, type CalendarSchedule } from '../schemas/events'
 import type { CalendarPeriod } from '../periods'
 import { timelinePosition, timelineTicks } from '../timeline'
 import { displayInstant } from '../../../shared/time/zonedDate'
-const icons = { publication: Map, visit: Eye, submission: Flag, hearing: Presentation, result: CircleCheck, inventory: CalendarDays, event: CalendarDays }
+const icons = { publication: Map, visit: Eye, submission: Flag, hearing: Presentation, result: CircleCheck, inventory: CalendarDays, event: CalendarDays, leave: CalendarDays }
 export function CalendarTimeline({ schedule, start, end, period }: { schedule: CalendarSchedule; start: Date; end: Date; period: CalendarPeriod }) {
   const kinds = useCalendarKindStyle()
   const ticks = timelineTicks(start, end, period)

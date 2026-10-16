@@ -4,8 +4,10 @@ module.exports = (event) => {
   const from = dates.date(query.get('from'), true), to = dates.date(query.get('to'), true)
   if (from >= to || Date.parse(to) - Date.parse(from) > 370 * 86400000) throw new BadRequestError('Période du calendrier invalide (maximum un an).')
   if (!['all', 'tenders'].includes(query.get('scope') || 'all')) throw new BadRequestError('Filtres du calendrier invalides.')
-  const stockEvents = [...require(`${__hooks}/lib/stock-calendar.js`)(event, from, to), ...require(`${__hooks}/lib/calendar-manual.js`).projection(event, from, to)]
-  if (!require(`${__hooks}/lib/activity.js`).allowed(event.app, event.auth, false, 'crm')) return event.json(200, { items: stockEvents, periods: [] })
+  const holidays = {}, national = require(`${__hooks}/lib/leave-holidays.js`)
+  for (let year = Math.max(2000, Number(from.slice(0, 4))); year <= Math.min(2200, Number(to.slice(0, 4))); year++) Object.assign(holidays, national.named(year))
+  const stockEvents = [...require(`${__hooks}/lib/stock-calendar.js`)(event, from, to), ...require(`${__hooks}/lib/calendar-manual.js`).projection(event, from, to), ...require(`${__hooks}/lib/leave.js`).calendarProjection(event, from, to)]
+  if (!require(`${__hooks}/lib/activity.js`).allowed(event.app, event.auth, false, 'crm')) return event.json(200, { items: stockEvents, periods: [], holidays })
   const cases = require(`${__hooks}/lib/tender-cases.js`), { filter, parameters } = cases.filters(query)
   const tenders = event.app.findRecordsByFilter('crm_tenders', filter, '', 2001, 0, parameters)
   if (tenders.length > 2000) throw new BadRequestError('Trop de dossiers. Affinez les filtres du calendrier.')
@@ -25,5 +27,5 @@ module.exports = (event) => {
     for (const item of appointments) append(`crm:${item.id}`, item.getString('kind'), item.getString('start'), item.getString('end'), false, item.getString('timezone'), item.getString('location'))
     if (start && end && Date.parse(start) < Date.parse(to) && Date.parse(end) >= Date.parse(from) || items.some((item) => item.source_record_id === tender.id)) periods.push({ ...identity, id: tender.id, start: start ? new Date(start).toISOString() : '', end: end ? new Date(end).toISOString() : '' })
   }
-  return event.json(200, { items: items.sort((a, b) => a.start.localeCompare(b.start) || a.id.localeCompare(b.id)), periods })
+  return event.json(200, { items: items.sort((a, b) => a.start.localeCompare(b.start) || a.id.localeCompare(b.id)), periods, holidays })
 }

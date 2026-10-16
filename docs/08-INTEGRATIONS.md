@@ -637,3 +637,7 @@ Analytique A01 : comptes affaire / commandes et reporting local via Accounting, 
 Parc interne / immobilisations : Accounting Service prépare le registre depuis la réalisation Inventory. La qualification ne déclenche pas d’appel Sage ; accounting_reference permet le rapprochement avec la source comptable Phase 1. La future synchronisation passe par AccountingProvider, avec idempotence et historique, jamais par Inventory ou Purchasing directement.
 
 Standby demandé — 13 octobre 2026 : le premier lot Billing est interne uniquement. Sage et SUPER PDP restent des raccordements prévus, sans adapter actif, credentials nouveaux, export, émission, webhook ou polling dans ce lot. Les pièces gardent données structurées, snapshots et IDs stables ; statut de paiement indépendant d’un état futur de transmission.
+
+## Congés : référence des jours fériés — 16 octobre 2026
+
+France métropolitaine : calcul civil déterministe côté serveur, sans appel réseau à la saisie/soumission. Référence de vérification : [jeu de données/service DINUM des jours fériés](https://www.data.gouv.fr/dataservices/jours-feries), fixtures officielles 2026–2028 sous Licence Ouverte 2.0 dans tests/fixtures. Huit dates fixes et lundi de Pâques/Ascension/lundi de Pentecôte ; politiques locales/territoriales à saisir en dates supplémentaires, jours travaillés en exceptions RH. Aucun nouveau fournisseur externe ni ordonnanceur.
