@@ -496,7 +496,7 @@ test('paramètres organisés par domaine, référentiels accessibles et combobox
   await page.setViewportSize({ width: 1440, height: 1000 })
   await page.screenshot({ path: '/private/tmp/horizon-settings-overview.png', fullPage: true })
   await page.getByLabel('Rechercher dans les paramètres').fill('étapes')
-  await page.locator('.settings-main').getByRole('link').filter({ has: page.getByRole('heading', { name: 'CRM', exact: true }) }).click()
+  await page.locator('.settings-main').getByRole('link', { name: /^CRM / }).click()
   await expect(page).toHaveURL('/settings/crm')
   await expect(page.locator('.settings-main').getByRole('heading', { name: 'CRM', exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Enregistrer', exact: true })).toBeDisabled()
@@ -507,7 +507,7 @@ test('paramètres organisés par domaine, référentiels accessibles et combobox
   await expect(page.getByRole('button', { name: 'Langues', exact: true })).toHaveAttribute('aria-pressed', 'true')
   await expect(page.getByRole('cell', { name: 'Français', exact: true })).toBeVisible()
   await page.setViewportSize({ width: 390, height: 844 })
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
   await page.screenshot({ path: '/private/tmp/horizon-settings-mobile.png', fullPage: true })
   await page.goto('/contacts/companies/new')
   const country = page.getByRole('combobox', { name: 'Pays', exact: true })
@@ -521,7 +521,7 @@ test('paramètres organisés par domaine, référentiels accessibles et combobox
   await page.getByRole('option', { name: 'France FR', exact: true }).click()
   await expect(country).toHaveText('France')
   await expect(country).toBeFocused()
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
 })
 
 test('recherche Contacts : bascule automatique et filtres conservés dans les listes', async ({ page }) => {

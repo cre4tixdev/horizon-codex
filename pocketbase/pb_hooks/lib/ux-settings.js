@@ -1,4 +1,5 @@
 const bounds = {
+  search_width: [400, 1200],
   filter_option_height: [24, 56],
   filter_button_height: [24, 56],
   filter_font: [8, 20],

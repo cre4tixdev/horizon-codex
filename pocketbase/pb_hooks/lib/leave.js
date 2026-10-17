@@ -77,7 +77,7 @@ const dto = (app, u, r, details = true) => ({ ...r.publicExport(), direct_declar
 const publish = (app, u, r, before, body, recipient = '', informHr = false) => {
   access.audit(app, 'leave_requests', r.id, u.id, before, r.publicExport(), before ? 'update' : 'create')
   const e = require(`${__hooks}/lib/activity.js`).publish(app, r, u.id, before ? 'status_change' : 'change', body, {})
-  for (const target of informHr ? hrRecipients(app).map((v) => v.id) : recipient && recipient !== u.id ? [recipient] : []) require(`${__hooks}/lib/notification-service.js`)(app, target, e, body, `${employeeName(app, r.getString('employee'))} · ${r.getString('start_date')} — ${r.getString('end_date')}`)
+  for (const target of informHr ? hrRecipients(app).map((v) => v.id) : recipient && recipient !== u.id ? [recipient] : []) require(`${__hooks}/lib/notification-service.js`)(app, target, e, body, `${employeeName(app, r.getString('employee'))} · ${r.getString('start_date')} — ${r.getString('end_date')}`, ['submitted', 'cancel_requested'].includes(r.getString('status')) ? 'leave_requests' : 'leave_updates')
 }
 const allocationDTO = (app, r) => ({ id: r.id, employee: r.getString('employee'), employee_name: employeeName(app, r.getString('employee')), type: r.getString('type'), type_label: get(app, 'leave_types', r.getString('type')).getString('label'), year: r.getInt('year'), days: r.getFloat('days'), reason: r.getString('reason'), author_name: get(app, 'core_users', r.getString('author')).getString('name'), created: r.getString('created') })
 module.exports = {

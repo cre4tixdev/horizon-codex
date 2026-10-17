@@ -12,6 +12,7 @@ import { WorkspaceSearch } from './WorkspaceSearch'
 import { ModuleLauncher } from './ModuleLauncher'
 import { HBreadcrumb } from '../../shared/ui/HBreadcrumb'
 import { BreadcrumbActionsContext } from '../../shared/ui/breadcrumbActionsContext'
+import { HTopbar } from '../../shared/ui/HTopbar'
 import { HButton } from '../../shared/ui/HButton'
 import { HDialog } from '../../shared/ui/HDialog'
 import { isLayoutPreview, sessionService } from '../../core/auth/services/session'
@@ -59,13 +60,7 @@ export function AppFrame() {
         </div>
       </aside>
       <div className="app-workspace">
-        <header className="topbar">
-          <HButton variant="ghost" size="icon" className="sidebar-toggle" aria-label={collapsed ? 'Développer la navigation' : 'Réduire la navigation'} aria-expanded={!collapsed} onClick={() => setCollapsed((current) => !current)}>
-            {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
-          </HButton>
-          <WorkspaceSearch key={pathname} />
-          <div className="topbar-context"><ThemeToggle /><NotificationBell /><UserMenu /></div>
-        </header>
+        <HTopbar navigation={<HButton variant="ghost" size="icon" className="sidebar-toggle" aria-label={collapsed ? 'Développer la navigation' : 'Réduire la navigation'} aria-expanded={!collapsed} onClick={() => setCollapsed((current) => !current)}>{collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}</HButton>} search={<WorkspaceSearch key={pathname} />} actions={<><ThemeToggle /><NotificationBell /><UserMenu /></>} />
         <main id="main-content" tabIndex={-1} className="main-content">
           {connectionError && <p role="alert" className="login-notice">{connectionError}</p>}
           <div className="page-breadcrumb-row"><div className="page-breadcrumb-leading"><div className="page-breadcrumb-trail"><HBreadcrumb items={[{ label: 'Accueil', href: '/' }, { label: currentTitle }]} /><div ref={setBreadcrumbTrail} className="page-breadcrumb-custom" /></div><div ref={setWorkflowActions} className="page-breadcrumb-workflow-actions page-breadcrumb-record-actions" /></div><div ref={setBreadcrumbRelated} className="page-breadcrumb-related" /><div className="page-breadcrumb-controls"><div ref={setRecordActions} className="page-breadcrumb-record-actions" /><div ref={setBreadcrumbActions} className="page-breadcrumb-actions" /></div></div>

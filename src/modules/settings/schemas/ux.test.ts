@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { uxDefaults, uxLimits, uxInputSchema, uxStyle } from './ux'
 describe('Shared UX configuration', () => {
+  it('borne la largeur de recherche et complète les anciens réglages sans les réinitialiser', () => {
+    const legacy = Object.fromEntries(Object.entries(uxDefaults).filter(([key]) => key !== 'search_width'))
+    expect(uxInputSchema.parse(legacy).search_width).toBe(840)
+    expect(uxStyle({ ...uxDefaults, search_width: 960 })['--hz-search-width']).toBe('960px')
+    for (const search_width of [399, 1201, 600.5]) expect(uxInputSchema.safeParse({ ...uxDefaults, search_width }).success).toBe(false)
+  })
   it('retains the current Horizon baseline', () => {
     expect(uxInputSchema.parse(uxDefaults)).toEqual(uxDefaults)
     expect(uxStyle(uxDefaults)).toMatchObject({ '--hz-table-row-height': '32px', '--hz-table-cell-height': '26px', '--hz-workspace-gutter': '40px', '--hz-table-header-text-light': '#4C678E', '--hz-table-header-text-dark': '#B8C5D7' })

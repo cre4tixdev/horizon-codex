@@ -416,6 +416,8 @@ source_module
 source_entity
 source_record_id
 read_at
+dismissed_at
+event_type
 created
 ```
 
@@ -3107,6 +3109,8 @@ user
 event_type
 in_app
 email
+created
+updated
 ```
 
 ## `core_search_synonyms`
@@ -4143,3 +4147,15 @@ La sélection des candidats se fait par requêtes SQL liées au contexte (source
 G03 / index et limites : migration additive `1791840022_ged_context_indexes.js`, 22 index de lecture sur documents_links (source_entity,source_record_id,document), sociétés/opportunités des racines CRM/Ventes/Achats/Stock/Facturation, comptes et ventilations analytiques des achats/dépenses. Aucune collection ni donnée métier modifiée ; migrations historiques conservées. `context_id` est un identifiant d’affaire (onglet Affaires) ou société (Clients/Fournisseurs), jamais un droit hérité vers les enfants. La sélection est effectuée avant les DTOs ; maximum 1 000 racines candidates par fournisseur et 1 000 dépôts dans le contexte (erreur explicite au-delà), puis limite fusionnée préexistante de 10 000 pièces. Le tri/groupement/compte autorisé porte sur les métadonnées du seul contexte avant pagination, pas seulement sur la page ; aucun fichier des autres contextes n’est hydraté pour les rechercher. L’ancien paramètre all sans choix ne provoque plus de lecture globale.
 
 GED / provenance documentaire — 17 octobre 2026 : `theme` devient le code de type de pièce dérivé de la source autorisée (compatibilité des anciens codes maintenue). Nouveaux codes requests, receipts, stock, supplier_invoices, credits, supplier_credits, companies, expenses, leave ; quotes/orders/purchases/deliveries/invoices/technical/other restent acceptés avec libellés métier explicites. Aucune catégorie personnalisée ne remplace ce classement. Propriétés DTO uniquement : `type_label`, `source_label` (type + libellé autorisé), `source_key` (type + entité + id), calculées sans collection ni mutation. `group=source` par défaut, groupe `theme` exposé comme Type de pièce ; tri `type_label` autorisé. Les événements e-mail de devis historiques restent quotes après acceptation ; les pièces des fiches commande utilisent orders. Relations sources, contrôle des droits et fichiers historiques inchangés ; aucune migration nouvelle pour cette correction.
+
+### Notifications personnelles et largeur de recherche — 17 octobre 2026
+
+Contrat avant migrations : `core_notifications` reçoit `dismissed_at` (date serveur de retrait de la boîte personnelle) et `event_type` (code de préférence, distinct de `type=activity` qui conserve sa policy source). Retirer archive l’alerte, ne supprime ni son historique ni l’événement métier ; la notification retirée est considérée lue. Toutes les métadonnées, read_at/dismissed_at sont contrôlés côté serveur ; DELETE natif reste fermé. API de retrait unitaire et des notifications lues, authentifiée et limitée au destinataire encore autorisé ; compteurs/listes excluent dismissed_at renseigné.
+
+`core_notification_preferences` (module Core, contrat prévu section 26) est concrétisée : user obligatoire, event_type obligatoire parmi mentions/tasks/email_replies/leave_requests/leave_updates/expense_requests/expense_updates/other_activity, in_app booléen, email booléen réservé false (aucun nouveau canal d’envoi), created/updated serveur ; unicité (user,event_type). Lecture privée du compte actif, écritures natives fermées, route personnelle transactionnelle en allowlist et version optimiste. Absence de ligne = alertes dans Horizon activées ; réglage appliqué par NotificationService aux nouvelles alertes uniquement, sans modifier tâches, mentions, demandes métier ni notifications existantes. Aucun élargissement des droits de consultation.
+
+`settings_ux.config.search_width` : entier 400–1 200 px, défaut 840, largeur maximale desktop de la recherche top bar, bornée par la place nécessaire aux actions et adaptée au mobile. Migration additive du JSON existant, aucune réinitialisation des réglages.
+
+Notifications Ventes/Achats — correctif du 17 octobre 2026 : migration corrective 1791840025 ; les notifications activity de sales_quotes, purchasing_requests et purchasing_orders sont lisibles uniquement par leur destinataire actif, avec rôle actif, droit de lecture du module et source existante. Même périmètre que les événements correspondants ; lecture et retrait des alertes déjà créées rétablis sans recréation ni remise à zéro des préférences. Métadonnées et horodatages de retrait immuables via l’API native, seul marquage lu permis.
+
+Lecture ciblée des notifications (17 octobre 2026) : pas de nouveau schéma. La cloche lit GET /api/horizon/notifications/inbox ; POST /api/horizon/notifications/{id}/read marque lu côté serveur. Lecture privée indexée user/dismissed_at, contrôle de la source réelle via Activity Read avant comptage/projection, cache des autorisations par source pendant la requête. Réponse limitée à 30 alertes autorisées, compteur de toutes les non lues autorisées. Garde explicite au-delà de 5 000 alertes actives ; pas de compteur silencieusement partiel. Aucun champ interne de notification exposé hors allowlist.

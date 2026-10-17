@@ -2,6 +2,7 @@ import { z } from 'zod'
 import type { CSSProperties } from 'react'
 const color = z.string().regex(/^#[a-f0-9]{6}$/i)
 export const uxLimits = {
+  search_width: { min: 400, max: 1200 },
   filter_font: { min: 8, max: 20 },
   filter_button_height: { min: 24, max: 56 },
   filter_option_height: { min: 24, max: 56 },
@@ -45,6 +46,7 @@ export const uxLimits = {
 export const uxStep = (key: keyof typeof uxLimits) => { const limit = uxLimits[key]; return 'step' in limit ? limit.step : 1 }
 const bounded = (key: keyof typeof uxLimits) => z.number().min(uxLimits[key].min).max(uxLimits[key].max).multipleOf(uxStep(key))
 export const uxInputSchema = z.object({
+  search_width: bounded('search_width').default(840),
   filter_selected_border_dark: color.default('#65517E'),
   filter_selected_border_light: color.default('#DAC5F2'),
   filter_selected_text_dark: color.default('#C1A0F2'),
@@ -138,6 +140,7 @@ export type UxInput = z.infer<typeof uxInputSchema>
 export const uxSettingsSchema = z.object({ id: z.string(), updated: z.string(), config: uxInputSchema })
 export type UxSettings = z.infer<typeof uxSettingsSchema>
 export const uxDefaults: UxInput = {
+  search_width: 840,
   filter_selected_border_dark: '#65517E',
   filter_selected_border_light: '#DAC5F2',
   filter_selected_text_dark: '#C1A0F2',
@@ -302,6 +305,7 @@ export function uxStyle(values: UxInput): CSSProperties & { [key: `--${string}`]
     '--hz-table-row-height': `${values.row_height}px`, '--hz-table-cell-height': `${values.row_height - 6}px`,
     '--hz-table-font-size': `${values.table_font}px`, '--hz-control-height': `${values.control_height}px`,
     '--hz-control-font-size': `${values.control_font}px`, '--hz-field-label-font-size': `${values.label_font}px`,
+    '--hz-search-width': `${values.search_width}px`,
     '--hz-record-title-font-size': `${values.title_font}px`, '--hz-workspace-gutter': `${values.page_margin}px`,
     '--hz-panel-padding-inline': `${values.panel_padding_x}px`, '--hz-panel-padding-block': `${values.panel_padding_y}px`,
     '--hz-panel-radius': `${values.panel_radius}px`, '--hz-record-section-gap': `${values.section_gap}px`,

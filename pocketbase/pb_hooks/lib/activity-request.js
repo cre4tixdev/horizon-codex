@@ -101,17 +101,18 @@ module.exports = {
     event.app.runInTransaction((txApp) => {
       event.app = txApp
       require(`${__hooks}/lib/audit.js`)(event, 'create')
+      const notified = new Set()
       for (const id of recipients) {
         const mention = new Record(txApp.findCollectionByNameOrId('core_activity_mentions'))
-        mention.set('event', record.id); mention.set('user', id); mention.set('notified_at', new Date().toISOString())
+        mention.set('event', record.id); mention.set('user', id)
         txApp.save(mention)
-        if (id !== event.auth.id) activity.notification(txApp, id, record, `${activity.author(txApp, event.auth.id).name} vous a mentionné`, body.slice(0, 500))
+        if (id !== event.auth.id) { const alert = activity.notification(txApp, id, record, `${activity.author(txApp, event.auth.id).name} vous a mentionné`, body.slice(0, 500), 'mentions'); if (alert) { mention.set('notified_at', alert.getString('created')); txApp.save(mention); notified.add(id) } }
       }
       if (taskInput) {
         const task = new Record(txApp.findCollectionByNameOrId('core_tasks'))
         for (const [key, value] of Object.entries({ source_module: module, source_entity: root.collection().name, source_record_id: root.id, title: taskInput.title.trim(), description: body, created_by: event.auth.id, assigned_to: taskInput.assigned_to, assigned_name: activity.author(txApp, taskInput.assigned_to).name, priority: taskInput.priority, status: 'todo', activity_event: record.id, due_date: taskInput.due_date ? `${taskInput.due_date} 00:00:00.000Z` : '' })) task.set(key, value)
         txApp.save(task)
-        if (taskInput.assigned_to !== event.auth.id && !recipients.includes(taskInput.assigned_to)) activity.notification(txApp, taskInput.assigned_to, record, 'Une tâche vous a été assignée', taskInput.title.trim())
+        if (taskInput.assigned_to !== event.auth.id && !notified.has(taskInput.assigned_to)) activity.notification(txApp, taskInput.assigned_to, record, 'Une tâche vous a été assignée', taskInput.title.trim(), 'tasks')
       }
     })
   },
@@ -134,7 +135,7 @@ module.exports = {
       event.app = txApp; record.set('__audit_actor', event.auth.id); require(`${__hooks}/lib/audit.js`)(event, 'update')
       if (!changes.length) return
       const item = activity.publish(txApp, root, event.auth.id, 'task', `Tâche mise à jour : ${record.getString('title')}`, { task_id: record.id, changes })
-      if (before.assigned_to !== record.getString('assigned_to') && record.getString('assigned_to') !== event.auth.id) activity.notification(txApp, record.getString('assigned_to'), item, 'Une tâche vous a été assignée', record.getString('title'))
+      if (before.assigned_to !== record.getString('assigned_to') && record.getString('assigned_to') !== event.auth.id) activity.notification(txApp, record.getString('assigned_to'), item, 'Une tâche vous a été assignée', record.getString('title'), 'tasks')
     })
   },
 }

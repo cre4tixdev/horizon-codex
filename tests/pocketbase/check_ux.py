@@ -20,6 +20,7 @@ class UxTests(unittest.TestCase):
 
     def test_shared_read_write_permissions_and_audit(self):
         self.assertEqual(self.record['config']['row_height'], 32)
+        self.assertEqual(self.record['config']['search_width'], 840)
         self.assertEqual(self.pb.request('GET', 'horizon/settings/ux')[0], 401)
         self.assertEqual(self.save(token=self.token)[0], 403)
         self.assertEqual(self.pb.request('PATCH', 'collections/settings_ux/records/' + self.record['id'], {'config': self.record['config']}, self.admin_token)[0], 403)
@@ -32,7 +33,7 @@ class UxTests(unittest.TestCase):
         self.assertIn(self.save(updated=saved['updated'])[0], [401, 403])
 
     def test_bounds_unknown_fields_and_css_injection(self):
-        for patch in [{'row_height': 20}, {'row_height': 33.2}, {'page_margin': 101}, {'title_font': 100}, {'control_height': 5}, {'header_light': 'url(https://evil.invalid)'}, {'header_dark': '#fff'}, {'table_border_light': 'red'}, {'table_header_text_light': 'red'}, {'table_header_text_dark': 'url(evil)'}, {'table_border_dark': 'url(evil)'}, {'activity_light': 'red'}, {'accent_background': 'url(evil)'}, {'launcher_tile_size': 10}, {'smart_height': 10}, {'sidebar_group_gap': -1}, {'sidebar_width': 179}, {'sidebar_width': 361}, {'sidebar_font': 12.25}, {'sidebar_icon_size': 29}, {'sidebar_text_color': 'red'}, {'sidebar_background_top': 'url(evil)'}, {'sidebar_submenu_indent': -1}, {'filter_option_height': 23}, {'filter_button_height': 57}, {'filter_font': 12.5}, {'filter_selected_background_dark': 'url(evil)'}, {'unknown': 1}]:
+        for patch in [{'search_width': 399}, {'search_width': 1201}, {'search_width': 700.5}, {'row_height': 20}, {'row_height': 33.2}, {'page_margin': 101}, {'title_font': 100}, {'control_height': 5}, {'header_light': 'url(https://evil.invalid)'}, {'header_dark': '#fff'}, {'table_border_light': 'red'}, {'table_header_text_light': 'red'}, {'table_header_text_dark': 'url(evil)'}, {'table_border_dark': 'url(evil)'}, {'activity_light': 'red'}, {'accent_background': 'url(evil)'}, {'launcher_tile_size': 10}, {'smart_height': 10}, {'sidebar_group_gap': -1}, {'sidebar_width': 179}, {'sidebar_width': 361}, {'sidebar_font': 12.25}, {'sidebar_icon_size': 29}, {'sidebar_text_color': 'red'}, {'sidebar_background_top': 'url(evil)'}, {'sidebar_submenu_indent': -1}, {'filter_option_height': 23}, {'filter_button_height': 57}, {'filter_font': 12.5}, {'filter_selected_background_dark': 'url(evil)'}, {'unknown': 1}]:
             self.assertEqual(self.save({**self.record['config'], **patch})[0], 400, patch)
         self.assertEqual(self.pb.request('POST', 'horizon/settings/ux', {'updated': self.record['updated'], 'config': self.record['config'], 'css': 'body{}'}, self.admin_token)[0], 400)
         self.assertEqual(self.pb.request('GET', 'horizon/settings/ux', token=self.token)[1], self.record)

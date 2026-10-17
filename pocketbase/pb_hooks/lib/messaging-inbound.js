@@ -74,7 +74,7 @@ const importReply = (app, thread, ctx, item) => {
     tx.save(r)
     const activity = require(`${__hooks}/lib/activity.js`), event = activity.publish(tx, source, '', 'message', `Réponse reçue de ${address(m)}`, { email_reply_id: r.id })
     const owner = c.get(tx, 'core_users', message.getString('owner')), module = event.getString('source_module')
-    if (activity.allowed(tx, owner, false, module)) activity.notification(tx, owner.id, event, `Réponse à ${message.getString('source_label') || 'votre e-mail'}`, `${address(m)} : ${String(m.subject || '').slice(0, 200)}`)
+    if (activity.allowed(tx, owner, false, module)) activity.notification(tx, owner.id, event, `Réponse à ${message.getString('source_label') || 'votre e-mail'}`, `${address(m)} : ${String(m.subject || '').slice(0, 200)}`, 'email_replies')
     c.audit(tx, owner, r, 'reply_received'); imported = true
   })
   return imported

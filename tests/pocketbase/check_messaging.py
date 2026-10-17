@@ -458,11 +458,43 @@ class MessagingTests(unittest.TestCase):
         self.assertEqual(self.pb.request('GET','collections/messaging_email_replies/records/'+reply['id'],token=token)[0],403)
         self.assertEqual(self.pb.request('PATCH','collections/messaging_email_replies/records/'+reply['id'],dict(subject='changed'),self.pb.admin_token)[0],403)
         notes=self.pb.request('GET','collections/core_notifications/records',token=self.pb.admin_token)[1]['items'];self.assertEqual(len([n for n in notes if n['activity_event']==event['id']]),1)
+        self.assert_reply_notification_visible(event['id'], 'sales')
         self.assertEqual(self.call('POST','replies/sync',dict(mailbox=self.box['id']),token=token)[0],403)
         self.pb.request('PATCH','collections/core_roles/records/'+role['id'],dict(permissions=[]),self.pb.admin_token)
         from urllib.error import HTTPError
         with self.assertRaises(HTTPError) as error:urlopen(Request(self.pb.url+'/api/'+path,headers={'Authorization':token}))
         self.assertEqual(error.exception.code,403)
+    def assert_reply_notification_visible(self, event_id, module):
+        query=urlencode(dict(filter='activity_event = "'+event_id+'" && dismissed_at = ""'))
+        code,inbox=self.pb.request('GET','collections/core_notifications/records?'+query,token=self.token)
+        self.assertEqual(code,200,inbox);self.assertEqual(inbox['totalItems'],1,inbox)
+        note=inbox['items'][0];self.assertEqual(note['user'],self.user['id']);self.assertEqual(note['event_type'],'email_replies')
+        code,targeted=self.pb.request('GET','horizon/notifications/inbox',token=self.token);self.assertEqual(code,200,targeted)
+        self.assertIn(note['id'],[n['id'] for n in targeted['items']]);self.assertGreaterEqual(targeted['unread'],1)
+        # A second permitted reader is not the recipient; losing source rights
+        # must also hide the alert from its original recipient.
+        other=self.pb.create_user('other-reader@local.invalid',self.role['id'],'viewer')
+        other_token=self.pb.login(other['email'])[1]['token']
+        self.assertEqual(self.pb.request('GET','collections/core_notifications/records?'+query,token=other_token)[1]['totalItems'],0)
+        for field,value in [('title','changed'),('dismissed_at','2026-10-17T12:00:00Z'),('event_type','mentions')]:
+            self.assertEqual(self.pb.request('PATCH','collections/core_notifications/records/'+note['id'],{field:value},self.token)[0],404)
+        code,result=self.pb.request('PATCH','collections/core_notifications/records/'+note['id'],dict(read_at='2026-10-17T12:00:00Z'),self.token)
+        self.assertEqual(code,200,result)
+        rights=self.pb.request('GET','collections/core_roles/records/'+self.role['id'],token=self.pb.admin_token)[1]['permissions']
+        self.pb.request('PATCH','collections/core_roles/records/'+self.role['id'],dict(permissions=[p for p in rights if p!=module+'.read']),self.pb.admin_token)
+        self.assertEqual(self.pb.request('GET','collections/core_notifications/records?'+query,token=self.token)[1]['totalItems'],0)
+        self.assertNotIn(note['id'],[n['id'] for n in self.pb.request('GET','horizon/notifications/inbox',token=self.token)[1]['items']])
+        self.assertEqual(self.pb.request('POST','horizon/notifications/'+note['id']+'/dismiss',{},self.token)[0],404)
+        self.pb.request('PATCH','collections/core_roles/records/'+self.role['id'],dict(permissions=rights),self.pb.admin_token)
+        self.assertEqual(self.pb.request('POST','horizon/notifications/'+note['id']+'/dismiss',{},self.token)[0],200)
+
+    def test_purchase_reply_notification_visible_to_sender(self):
+        self.reply_setup(purchasing=True);self.reply_sync();self.assertEqual(self.reply_sync()['received'],1)
+        reply=self.pb.request('GET','collections/messaging_email_replies/records',token=self.pb.admin_token)[1]['items'][0]
+        events=self.pb.request('GET','collections/core_activity_events/records',token=self.pb.admin_token)[1]['items']
+        event=next(e for e in events if e['metadata'].get('email_reply_id')==reply['id'])
+        self.assert_reply_notification_visible(event['id'],'purchasing')
+
     def test_reply_opt_in_mail_read_and_existing_send_connection(self):
         self.assertFalse(self.call('GET','settings')[1]['mailboxes'][0]['receive_enabled'])
         self.assertEqual(self.call('POST','replies/sync',dict(mailbox=self.box['id']))[0],400)

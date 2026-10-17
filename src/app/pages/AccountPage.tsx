@@ -1,8 +1,8 @@
 import { useId, useState, useSyncExternalStore } from 'react'
-import { Link } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useForm, useWatch } from 'react-hook-form'
-import { KeyRound, Mail, ShieldCheck, Undo2, UserRound } from 'lucide-react'
+import { Bell, KeyRound, Mail, ShieldCheck, Undo2, UserRound } from 'lucide-react'
 import { hasPermission } from '../../core/auth/types/session'
 import { sessionService } from '../../core/auth/services/session'
 import { accountService } from '../../core/auth/services/AccountService'
@@ -10,6 +10,8 @@ import { accountInputSchema, passwordInputSchema, type Account, type AccountInpu
 import { UserAvatar } from '../../core/auth/components/UserAvatar'
 import { HPageHeader } from '../../shared/ui/HPageHeader'
 import { HPageBreadcrumb } from '../../shared/ui/HPageBreadcrumb'
+import { NotificationPreferences } from '../../core/notifications/components/NotificationPreferences'
+import { HRecordTabs } from '../../shared/ui/HRecordTabs'
 import { HRecordPageActions } from '../../shared/ui/HRecordPageActions'
 import { HSectionHeading } from '../../shared/ui/HSectionHeading'
 import { HFieldLabel } from '../../shared/ui/HFieldLabel'
@@ -25,17 +27,20 @@ export function AccountPage() {
   const session = useSyncExternalStore(sessionService.subscribe, sessionService.getSnapshot)
   const profile = useQuery({ queryKey: ['account', 'profile', session.status === 'authenticated' ? session.user.id : ''], queryFn: accountService.read, enabled: session.status === 'authenticated', retry: false })
   const [notice, setNotice] = useState('')
+  const [params, setParams] = useSearchParams(), tab = params.get('tab') === 'notifications' ? 'notifications' : 'profile'
   return <div className="contact-directory account-page">
     <HPageBreadcrumb items={[{ label: 'Accueil', href: '/' }, { label: 'Mon compte' }]} />
-    <HPageHeader title="Mon compte" description="Votre identité, votre photo et la sécurité de votre connexion." />
+    <HPageHeader title="Mon compte" description="Votre profil, la sécurité de votre connexion et vos préférences de notifications." />
+    <HRecordTabs idPrefix="account-tab" label="Mon compte" value={tab} onChange={(value) => setParams({ tab: value }, { flushSync: true })} items={[{ value: 'profile', label: 'Profil et sécurité', icon: UserRound, panel: 'account-profile-panel' }, { value: 'notifications', label: 'Notifications', icon: Bell, panel: 'account-notifications-panel' }]} />
     {notice && <p role="status" className="account-saved">{notice}</p>}
     {profile.isPending && <HLoadingIndicator label="Chargement du compte" />}
     {profile.error && <p role="alert" className="field-error">{profile.error.message}<HButton onClick={() => void profile.refetch()}>Réessayer</HButton></p>}
-    {profile.data && <AccountEditor key={profile.data.updated} account={profile.data} onSaved={() => setNotice('Votre profil est enregistré.')} />}
+    {profile.data && <AccountEditor key={profile.data.updated} active={tab === 'profile'} account={profile.data} onSaved={() => setNotice('Votre profil est enregistré.')} />}
+    {profile.data && <div id="account-notifications-panel" role="tabpanel" aria-labelledby="account-tab-notifications" hidden={tab !== 'notifications'}><NotificationPreferences userId={profile.data.id} active={tab === 'notifications'} /></div>}
   </div>
 }
 
-function AccountEditor({ account, onSaved }: { account: Account; onSaved: () => void }) {
+function AccountEditor({ account, onSaved, active }: { account: Account; onSaved: () => void; active: boolean }) {
   const session = useSyncExternalStore(sessionService.subscribe, sessionService.getSnapshot)
   const canReadEmployee = session.status === 'authenticated' && hasPermission(session.user, 'hr.read')
   const client = useQueryClient(), formId = useId()
@@ -51,8 +56,8 @@ function AccountEditor({ account, onSaved }: { account: Account; onSaved: () => 
     if (!parsed.success) { for (const issue of parsed.error.issues) { const key = issue.path[0]; if (key === 'first_name' || key === 'last_name' || key === 'name' || key === 'public_email') form.setError(key, { message: issue.message }, { shouldFocus: true }) }; return }
     save.mutate(parsed.data)
   }
-  return <>
-    <HRecordPageActions><HButton variant="ghost" disabled={!dirty || save.isPending} onClick={reset}><Undo2 size={14} />Annuler</HButton><HSaveButton form={formId} type="submit" hasChanges={dirty} pending={save.isPending} /></HRecordPageActions>
+  return <div id="account-profile-panel" role="tabpanel" aria-labelledby="account-tab-profile" hidden={!active}>
+    {active && <HRecordPageActions><HButton variant="ghost" disabled={!dirty || save.isPending} onClick={reset}><Undo2 size={14} />Annuler</HButton><HSaveButton form={formId} type="submit" hasChanges={dirty} pending={save.isPending} /></HRecordPageActions>}
     <form id={formId} className="account-form" onSubmit={form.handleSubmit(submit)} noValidate>
       <section className="contact-panel account-profile"><HSectionHeading title="Identité et photo" icon={UserRound} />
         <div className="account-profile-grid">
@@ -73,7 +78,7 @@ function AccountEditor({ account, onSaved }: { account: Account; onSaved: () => 
       <section className="contact-panel"><HSectionHeading title="Mes accès" icon={ShieldCheck} /><dl className="account-info"><div><dt>Profil</dt><dd>{({ admin: 'Admin', superuser: 'Superuser', user: 'User', viewer: 'Viewer' } as Record<string, string>)[account.erp_profile] || account.erp_profile}</dd></div><div><dt>Rôle</dt><dd>{account.role_label}</dd></div></dl><p className="contact-muted">Pour modifier vos accès, contactez votre administrateur.</p></section>
     </div>
     {passwordOpen && <PasswordEditor onClose={() => setPasswordOpen(false)} />}
-  </>
+  </div>
 }
 
 function PasswordEditor({ onClose }: { onClose: () => void }) {
