@@ -1,5 +1,6 @@
 // One authorization policy for the workspace feed and its dashboard summary.
 const sources = {
+  documents_files: ['documents', '/documents/'],
   contacts_companies: ['contacts', '/contacts/companies/'], contacts_people: ['contacts', '/contacts/people/'],
   crm_opportunities: ['crm', '/crm/opportunities/'], crm_tenders: ['crm', '/crm/tenders/'],
   sales_quotes: ['sales', '/sales/quotes/'], purchasing_requests: ['purchasing', '/purchasing/requests/'], purchasing_orders: ['purchasing', '/purchasing/orders/'],
@@ -72,6 +73,11 @@ function read(event, overview = false) {
   return { items, totalItems: total, totalPages: Math.ceil(total / 20), page, groups }
 }
 module.exports = {
+  describeSource(event, entity, id) {
+    if (!sources[entity] || entity === 'documents_files') throw new BadRequestError('Source documentaire invalide.')
+    const source = require(`${__hooks}/lib/activity-read.js`).readSource(event, entity, id, sources[entity][0])
+    return { entity, id, module: sources[entity][0], label: label(source), href: sources[entity][1] + id, analytic_account: source.getString('analytic_account') }
+  },
   feed(event) { return event.json(200, read(event)) },
   overview(event) { return event.json(200, { items: read(event, true).items.map((item) => ({ id: item.id, type: item.type, body: item.body.slice(0, 240), author: item.metadata.author.name, created: item.created, source: item.sourceLabel, href: item.href })) }) },
 }

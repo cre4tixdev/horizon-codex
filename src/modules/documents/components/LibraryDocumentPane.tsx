@@ -1,0 +1,31 @@
+import { useState } from 'react'
+import { Link } from 'react-router'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Archive, ArrowUpRight, Download, FileClock, History, Info, LockKeyhole, Pencil, RotateCcw, Upload } from 'lucide-react'
+import { HAttachmentPreview } from '../../../shared/ui/HAttachmentPreview'
+import { HRecordTabs } from '../../../shared/ui/HRecordTabs'
+import { HButton } from '../../../shared/ui/HButton'
+import { HTag } from '../../../shared/ui/HTag'
+import { HRecordConfirmation } from '../../../shared/ui/HRecordConfirmation'
+import { ActivityPanel } from '../../../shared/activity/ActivityPanel'
+import { libraryService } from '../services/LibraryService'
+import { useLibraryAccess } from '../hooks/useLibrary'
+import { documentSpaces, fileSize, previewable, type LibraryFile } from '../schemas/library'
+export function LibraryDocumentPane({ record, onEdit, onVersion }: { record: LibraryFile; onEdit: () => void; onVersion: () => void }) {
+  const access = useLibraryAccess(), client = useQueryClient(), [tab, setTab] = useState('information'), [versionId, setVersionId] = useState(''), [archive, setArchive] = useState(false)
+  const version = record.versions?.find((v) => v.id === versionId) || record.current
+  const file = useQuery({ queryKey: ['ged', 'file', access.key, record.id, version.id], queryFn: async () => { const blob = await libraryService.file(record.id, version.id); return new File([blob], version.filename, { type: blob.type }) }, retry: false, staleTime: 60_000 })
+  const canEdit = !record.origin && access.canWrite && (record.created_by === access.user?.id || access.canManage), editable = canEdit && !record.archived_at && !record.locked
+  const download = () => { if (!file.data) return; const url = URL.createObjectURL(file.data), anchor = document.createElement('a'); anchor.href = url; anchor.download = version.filename; anchor.click(); setTimeout(() => URL.revokeObjectURL(url), 10_000) }
+  const restore = useMutation({ mutationFn: () => libraryService.archive(record.id, record.updated, false), onSuccess: () => client.invalidateQueries({ queryKey: ['ged'] }) })
+  return <aside className="ged-document-pane" aria-label="Document sélectionné"><header className="ged-document-heading"><strong title={record.name}>{record.name}</strong><div><HTag tone="blue">{record.origin ? 'Pièce liée' : `v${version.number}`}</HTag>{record.locked && <LockKeyhole size={14} aria-label="Document figé" />}{record.archived_at && <HTag>Archivé</HTag>}</div></header>
+    {record.origin && <p className="ged-origin-label">{record.origin.label} · conservée dans la fiche d’origine</p>}
+    {record.origin?.warning && <p className="ged-origin-label" role="status">{record.origin.warning}</p>}
+    <div className="ged-document-actions"><HButton size="small" disabled={!file.data} onClick={download}><Download size={14} />Télécharger</HButton>{editable && <><HButton size="small" onClick={onEdit}><Pencil size={14} />Modifier</HButton><HButton size="small" onClick={onVersion}><Upload size={14} />Nouvelle version</HButton></>}{canEdit && (record.archived_at ? <HButton size="small" disabled={restore.isPending} onClick={() => restore.mutate()}><RotateCcw size={14} />Réactiver</HButton> : <HButton variant="ghost" size="icon" aria-label="Archiver le document" title="Archiver le document" onClick={() => setArchive(true)}><Archive size={14} /></HButton>)}</div>
+    {restore.error && <p role="alert" className="field-error">{restore.error.message}</p>}
+    <div className="ged-inline-preview"><HAttachmentPreview file={{ id: version.id, name: version.filename, source: file.data, pdf: /\.pdf$/i.test(version.filename), previewable: previewable(version.filename) }} loading={file.isPending} error={file.error?.message} actions={file.error && <HButton size="small" onClick={() => void file.refetch()}>Réessayer</HButton>} /></div>
+    <div className="ged-document-details"><HRecordTabs label="Détails du document" idPrefix="ged-detail" value={tab} onChange={setTab} items={[{ value: 'information', label: 'Informations', icon: Info, panel: 'ged-detail-information-panel' }, ...(!record.origin ? [{ value: 'versions', label: 'Versions', icon: FileClock, count: record.versions?.length, panel: 'ged-detail-versions-panel' }] : []), { value: 'activity', label: 'Activité', icon: History, panel: 'ged-detail-activity-panel' }]} />
+    <div id={`ged-detail-${tab}-panel`} role="tabpanel" aria-labelledby={`ged-detail-${tab}`} className="ged-detail-content">{tab === 'information' ? <><dl className="ged-metadata"><div><dt>Espace</dt><dd>{documentSpaces[record.space]}</dd></div><div><dt>Dossier</dt><dd>{record.folder_name || 'Sans dossier'}</dd></div><div><dt>Catégorie</dt><dd>{record.category_name}</dd></div><div><dt>Auteur</dt><dd>{record.author}</dd></div><div><dt>Taille</dt><dd>{version.size ? fileSize(version.size) : '—'}</dd></div><div><dt>Accès</dt><dd>{record.origin ? 'Selon les droits de la fiche d’origine' : record.visibility === 'team' ? 'Équipe autorisée' : 'Restreint'}</dd></div></dl>{record.description && <p className="ged-description">{record.description}</p>}<div className="ged-reader-list">{record.tags.map((tag) => <HTag key={tag}>{tag}</HTag>)}</div>{record.links.map((link) => <Link className="ged-source-link" key={`${link.entity}:${link.id}`} to={link.href}><HTag tone={link.entity === 'crm_opportunities' ? 'green' : 'blue'}>{link.label}</HTag><ArrowUpRight size={13} /></Link>)}</> : tab === 'versions' ? <ul className="ged-versions">{record.versions?.map((v) => <li key={v.id}><HButton variant="ghost" size="small" aria-pressed={v.id === version.id} onClick={() => setVersionId(v.id)}>v{v.number} · {v.filename}</HButton><span>{v.note}</span><small>{v.author} · {new Date(v.created).toLocaleString('fr-FR')}</small></li>)}</ul> : <ActivityPanel source={record.origin?.source || { entity: 'documents_files', id: record.id }} editable={false} />}</div></div>
+    <HRecordConfirmation action="archive" requireText={false} itemName={record.name} description="Le document et toutes ses versions resteront consultables dans les archives." open={archive} onOpenChange={setArchive} onConfirm={async () => { await libraryService.archive(record.id, record.updated, true); await client.invalidateQueries({ queryKey: ['ged'] }) }} />
+  </aside>
+}

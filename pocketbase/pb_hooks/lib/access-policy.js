@@ -1,4 +1,5 @@
 const modules = [
+  { key: 'documents', label: 'Documents / GED', available: true, actions: ['read', 'write', 'manage', 'settings'], scopes: ['all'] },
   { key: 'messaging', label: 'Messagerie e-mail', available: true, actions: ['read', 'write', 'send', 'settings'], scopes: ['all'] },
   { key: 'leave', label: 'Congés', available: true, actions: ['read', 'write', 'submit', 'validate', 'allocate', 'settings'], scopes: ['self', 'reports', 'all'] },
   { key: 'expenses', label: 'Notes de frais', available: true, actions: ['read', 'write', 'submit', 'validate', 'reimburse'], scopes: ['self', 'reports', 'all'] },
@@ -12,7 +13,7 @@ const modules = [
   { key: 'purchasing', label: 'Achats', available: true, actions: ['read', 'write', 'request.validate', 'order.validate'], scopes: ['all'] },
   { key: 'sales', label: 'Ventes', available: true, actions: ['read', 'write', 'quote.validate', 'order.confirm'], scopes: ['all'] },
   { key: 'hr', label: 'Employés', available: true, actions: ['read', 'write', 'organisation.manage'], scopes: ['self', 'reports', 'team', 'all'] },
-  ...[['projects', 'Projets'], ['planning', 'Planning'], ['time', 'TimeReport'], ['service', 'SAV'], ['documents', 'Documents']].map(([key, label]) => ({ key, label, available: false, actions: [], scopes: [] })),
+  ...[['projects', 'Projets'], ['planning', 'Planning'], ['time', 'TimeReport'], ['service', 'SAV']].map(([key, label]) => ({ key, label, available: false, actions: [], scopes: [] })),
 ]
 const permissions = (app, user) => {
   if (!user || user.collection().name !== 'core_users' || !user.getBool('active')) return []
@@ -50,6 +51,7 @@ const validateGrants = (profile, grants) => {
     if (!module || !grant || Object.keys(grant).some((field) => !['actions', 'scope'].includes(field)) || !module.scopes.includes(grant.scope) || !Array.isArray(grant.actions) || new Set(grant.actions).size !== grant.actions.length || grant.actions.some((action) => !module.actions.includes(action))) throw new BadRequestError('Module, action ou périmètre invalide.')
     if (grant.actions.length && !grant.actions.includes('read')) throw new BadRequestError('La consultation est nécessaire avant les autres actions.')
     if (profile === 'viewer' && key !== 'analysis' && grant.actions.some((action) => action !== 'read')) throw new BadRequestError('Viewer dispose uniquement de la consultation.')
+    if (key === 'documents' && grant.actions.includes('manage') && !grant.actions.includes('write')) throw new BadRequestError('La gestion GED nécessite aussi la contribution.');
     if (key === 'analysis' && grant.actions.includes('labor_costs') && !grant.actions.includes('financial')) throw new BadRequestError('Les coûts individuels nécessitent l’analyse financière.')
     if (key === 'hr' && grant.actions.includes('organisation.manage') && grant.scope !== 'all') throw new BadRequestError('La gestion de hiérarchie nécessite le périmètre global Employés.')
     if (key === 'hr' && grant.actions.includes('organisation.manage') && !grant.actions.includes('write')) throw new BadRequestError('La gestion de hiérarchie nécessite la contribution Employés.')

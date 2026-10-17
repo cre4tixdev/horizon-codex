@@ -3,6 +3,7 @@ export const settingsRoutes: RouteObject[] = [{ path: '/settings', lazy: async (
   { index: true, lazy: async () => ({ Component: (await import('../pages/SettingsPage')).SettingsPage }) },
   { path: 'analytic-fixed', lazy: async () => ({ Component: (await import('../../accounting/pages/FixedAnalyticSettingsPage')).FixedAnalyticSettingsPage }) },
   { path: 'ux', lazy: async () => ({ Component: (await import('../pages/UxSettingsPage')).UxSettingsPage }) },
+  { path: 'ged', lazy: async () => ({ Component: (await import('../../documents/pages/LibrarySettingsPage')).LibrarySettingsPage }) },
   { path: 'documents', lazy: async () => ({ Component: (await import('../../documents/pages/TemplatesPage')).TemplatesPage }) },
   { path: 'modules/catalogue', loader: () => redirect('/settings/catalogue') },
   { path: 'catalogue', lazy: async () => ({ Component: (await import('../../inventory/pages/CatalogSettingsPage')).CatalogSettingsPage }) },

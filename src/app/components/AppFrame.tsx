@@ -2,7 +2,7 @@ import { UxPreferences } from '../../modules/settings/components/UxPreferences'
 import { RecordEditors } from './RecordEditors'
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { Outlet, useLocation } from 'react-router'
-import { SidebarItem } from './SidebarItem'
+import { SidebarNavigation } from './SidebarNavigation'
 import { PanelLeftClose, PanelLeftOpen, CircleHelp, Keyboard } from 'lucide-react'
 import { navigationGroups, navigationItems } from '../navigation'
 import { NotificationBell } from './NotificationBell'
@@ -49,15 +49,7 @@ export function AppFrame() {
     <RecordEditors><UxPreferences /><div className={`app-shell${collapsed ? ' app-shell--collapsed' : ''}`}>
       <a href="#main-content" className="skip-link">Aller au contenu</a>
       <aside className="sidebar" aria-label="Navigation Horizon">
-        <ModuleLauncher groups={visibleGroups} />
-        <nav className="sidebar-nav" aria-label="Navigation principale">
-          {visibleGroups.map((group) => (
-            <div className="sidebar-group" key={group.label}>
-              <p className="sidebar-group__title">{group.label}</p>
-              {group.items.map((item) => <SidebarItem key={item.href} item={item} />)}
-            </div>
-          ))}
-        </nav>
+        <SidebarNavigation key={user?.id || 'preview'} groups={visibleGroups} brand={<ModuleLauncher groups={visibleGroups} />} compact={collapsed} preferenceKey={`horizon.sidebar.sections:${user?.id || 'preview'}`} />
         <div className="sidebar-footer">
           <HDialog open={helpOpen} onOpenChange={setHelpOpen} title="Bienvenue dans Horizon" description="Vos repères pour naviguer dans votre espace de travail."
             trigger={<HButton variant="ghost" className="sidebar-help" aria-label="Aide et raccourcis"><CircleHelp size={17} /><span>Aide & raccourcis</span></HButton>}>

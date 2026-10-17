@@ -10,10 +10,10 @@ const allowed = (app, user, write = false, module = 'contacts') => {
   if (write && user.getString('erp_profile') === 'viewer') return false
   const role = app.findRecordById('core_roles', user.getString('role'))
   const permissions = JSON.parse(role.getString('permissions') || '[]')
-  return role.getBool('active') && ['contacts', 'crm', 'sales', 'inventory', 'purchasing', 'billing', 'expenses', 'leave'].includes(module) && permissions.includes(`${module}.read`) && (!write || permissions.includes(`${module}.write`) || module === 'leave' && (permissions.includes('leave.validate') || permissions.includes('leave.allocate')) || module === 'expenses' && permissions.includes('expenses.validate'))
+  return role.getBool('active') && ['documents', 'contacts', 'crm', 'sales', 'inventory', 'purchasing', 'billing', 'expenses', 'leave'].includes(module) && permissions.includes(`${module}.read`) && (!write || permissions.includes(`${module}.write`) || module === 'leave' && (permissions.includes('leave.validate') || permissions.includes('leave.allocate')) || module === 'expenses' && permissions.includes('expenses.validate'))
 }
 const source = (app, entity, id, writable = false) => {
-  if (!['leave_requests', 'expenses_reports', 'contacts_companies', 'contacts_people', 'crm_opportunities', 'crm_tenders', 'sales_quotes', 'inventory_products', 'inventory_operations', 'inventory_internal_assets', 'purchasing_requests', 'purchasing_orders', 'billing_invoices', 'billing_supplier_invoices', 'billing_credit_notes', 'billing_supplier_credit_notes'].includes(entity) || !/^[a-z0-9]{15}$/.test(id)) throw new BadRequestError('Fiche invalide.')
+  if (!['documents_files', 'leave_requests', 'expenses_reports', 'contacts_companies', 'contacts_people', 'crm_opportunities', 'crm_tenders', 'sales_quotes', 'inventory_products', 'inventory_operations', 'inventory_internal_assets', 'purchasing_requests', 'purchasing_orders', 'billing_invoices', 'billing_supplier_invoices', 'billing_credit_notes', 'billing_supplier_credit_notes'].includes(entity) || !/^[a-z0-9]{15}$/.test(id)) throw new BadRequestError('Fiche invalide.')
   let record
   try { record = app.findRecordById(entity, id) } catch { throw new ApiError(404, 'Fiche introuvable.') }
   if (writable && entity === 'crm_tenders') {
@@ -45,7 +45,7 @@ const publish = (app, root, actor, type, body, metadata, operation = '') => {
     return existing
   }
   const record = new Record(app.findCollectionByNameOrId('core_activity_events'))
-  for (const [key, value] of Object.entries({ source_module: entity === 'leave_requests' ? 'leave' : entity === 'expenses_reports' ? 'expenses' : entity.startsWith('billing_') ? 'billing' : entity.startsWith('purchasing_') ? 'purchasing' : entity.startsWith('inventory_') ? 'inventory' : entity.startsWith('sales_') ? 'sales' : entity.startsWith('crm_') ? 'crm' : 'contacts', source_entity: entity, source_record_id: root.id, author: actor, type, body, metadata: { ...metadata, author: author(app, actor) }, operation_id: operation })) record.set(key, value)
+  for (const [key, value] of Object.entries({ source_module: entity === 'documents_files' ? 'documents' : entity === 'leave_requests' ? 'leave' : entity === 'expenses_reports' ? 'expenses' : entity.startsWith('billing_') ? 'billing' : entity.startsWith('purchasing_') ? 'purchasing' : entity.startsWith('inventory_') ? 'inventory' : entity.startsWith('sales_') ? 'sales' : entity.startsWith('crm_') ? 'crm' : 'contacts', source_entity: entity, source_record_id: root.id, author: actor, type, body, metadata: { ...metadata, author: author(app, actor) }, operation_id: operation })) record.set(key, value)
   app.save(record)
   return record
 }
@@ -59,7 +59,7 @@ const display = (app, field, value) => {
 }
 module.exports = {
   allowed, source, author, recipient, publish, notification, statusLabels,
-  authorizeSource(app, user, root, write = false) { if (root.collection().name === 'leave_requests') require(`${__hooks}/lib/leave.js`).activitySource(app, user, root.id, write); if (root.collection().name === 'expenses_reports') require(`${__hooks}/lib/expenses.js`).activitySource(app, user, root.id, write) },
+  authorizeSource(app, user, root, write = false) { if (root.collection().name === 'documents_files') require(`${__hooks}/lib/ged-common.js`).read({ app, auth: user, requestInfo: () => ({ auth: user }) }, root.id); if (root.collection().name === 'leave_requests') require(`${__hooks}/lib/leave.js`).activitySource(app, user, root.id, write); if (root.collection().name === 'expenses_reports') require(`${__hooks}/lib/expenses.js`).activitySource(app, user, root.id, write) },
   track(app, record, before, action, actor, operation) {
     if (!app.findAllCollections().some((collection) => collection.name === 'core_activity_events')) return
     const name = record.collection().name

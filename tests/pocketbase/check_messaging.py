@@ -401,6 +401,40 @@ class MessagingTests(unittest.TestCase):
         return self.pb.request('GET','collections/messaging_email_threads/records',token=self.pb.admin_token)[1]['items'][0]
     def reply_due(self):
         t=self.reply_thread();self.alter('messaging_email_threads',t['id'],next_attempt_at='2020-01-01 00:00:00.000Z')
+    def test_ged_sent_quote_and_received_files_are_federated_without_copy(self):
+        _,message,_=self.reply_setup();self.reply_sync();self.assertEqual(self.reply_sync()['received'],1)
+        rights=self.pb.request('GET','collections/core_roles/records/'+self.role['id'],token=self.pb.admin_token)[1]['permissions']
+        self.pb.request('PATCH','collections/core_roles/records/'+self.role['id'],dict(permissions=rights+['documents.read']),self.pb.admin_token)
+        route='horizon/ged/files'
+        quote=self.pb.request('GET','collections/sales_quotes/records/'+message['source_id'],token=self.pb.admin_token)[1]
+        context='space=affairs&context_id='+quote['opportunity']
+        # The shared send fixture deliberately corrupts its event's email link to
+        # prove cross-source privacy. Such a link must remain absent from GED.
+        code,initial=self.pb.request('GET',route+'?'+context,token=self.token);self.assertEqual(code,200,initial);self.assertEqual(initial['totalItems'],1)
+        events=self.pb.request('GET','collections/core_activity_events/records?'+urlencode(dict(filter='source_record_id = "'+message['source_id']+'"',perPage=100)),token=self.pb.admin_token)[1]['items']
+        sent_event=next(e for e in events if e['metadata'].get('email_id') and not e['metadata'].get('email_reply_id'))
+        code,restored=self.pb.request('PATCH','collections/core_activity_events/records/'+sent_event['id'],dict(metadata={**sent_event['metadata'],'email_id':message['id']}),self.pb.admin_token);self.assertEqual(code,200,restored)
+        code,result=self.pb.request('GET',route+'?'+context+'&'+urlencode(dict(q='Studio',group='theme')),token=self.token);self.assertEqual(code,200,result)
+        self.assertEqual(result['totalItems'],2,result);self.assertEqual(result['groups'],{'quotes':2})
+        sent=next(row for row in result['items'] if 'envoyée' in row['origin']['label']);received=next(row for row in result['items'] if 'reçue' in row['origin']['label'])
+        self.assertTrue(any(link['entity']=='crm_opportunities' for link in sent['links']));self.assertTrue(any(link['entity']=='contacts_companies' for link in sent['links']))
+        for row,expected in [(sent,b'%PDF-1.7\nsource snapshot\n%%EOF'),(received,self.reply_bytes)]:
+            path=route+'/'+row['id']+'/versions/'+row['current']['id']+'/file'
+            with urlopen(Request(self.pb.url+'/api/'+path,headers={'Authorization':self.token})) as response:
+                self.assertEqual(response.read(),expected);self.assertEqual(response.headers['Cache-Control'],'no-store')
+            self.assertEqual(self.pb.request('GET',route+'/'+row['id'],token=self.token)[0],200)
+        self.assertNotIn('bcc',json.dumps(result));self.assertNotIn('confidentiel@example.invalid',json.dumps(result))
+        self.assertEqual(self.pb.request('GET','collections/documents_files/records',token=self.pb.admin_token)[1]['totalItems'],0)
+        role=self.pb.create('core_roles',dict(name='ged_sales_only',label='GED sales',active=True,permissions=['documents.read','sales.read','contacts.read']))
+        user=self.pb.create_user('ged-sales@local.invalid',role['id'],'viewer');token=self.pb.login(user['email'])[1]['token']
+        code,projected=self.pb.request('GET',route+'?space=customers&context_id='+quote['company'],token=token);self.assertEqual(code,200,projected);self.assertEqual(projected['totalItems'],2)
+        self.assertTrue(all(link['entity'] in ['sales_quotes','contacts_companies'] for row in projected['items'] for link in row['links']))
+        path=route+'/'+sent['id']+'/versions/'+sent['current']['id']+'/file'
+        self.pb.request('PATCH','collections/core_roles/records/'+role['id'],dict(permissions=['documents.read','contacts.read']),self.pb.admin_token)
+        self.assertEqual(self.pb.request('GET',route+'?space=customers&context_id='+quote['company'],token=token)[1]['totalItems'],0)
+        self.assertEqual(self.pb.request('GET',path,token=token)[0],403)
+        self.assertEqual(self.pb.request('GET',route+'/'+sent['id'],token=token)[0],403)
+
     def test_reply_import_idempotent_source_permissions_and_files(self):
         thread,message,_=self.reply_setup()
         self.assertEqual(self.reply_sync()['received'],0)

@@ -1,5 +1,6 @@
 import { Mail, ChartBar, SlidersHorizontal, Globe, Building2, ShieldCheck, UsersRound, Target, Package, ShoppingCart, Truck, Warehouse, Receipt, Landmark, FolderKanban, CalendarDays, Plug, ListOrdered, FileText } from 'lucide-react'
 export const settingsSections = [
+  { slug: 'ged', title: 'GED et classement', group: 'Socle commun', icon: FileText, description: 'Catégories et classement de la bibliothèque documentaire.', topics: ['Catégories', 'Documents', 'Bibliothèque'], available: true },
   { slug: 'ux', title: 'Apparence et densité', group: 'Socle commun', icon: SlidersHorizontal, description: 'Réglages UX partagés avec aperçu en direct.', topics: ['Tableaux', 'Champs et textes', 'Espacements', 'Couleurs des en-têtes'], available: true },
   { slug: 'documents', title: 'Modèles de pièces', group: 'Socle commun', icon: FileText, description: 'Studio de composition et génération PDF des pièces.', topics: ['Modèles de devis', 'En-têtes et pieds de page', 'Styles de titres', 'Tableaux dynamiques', 'Noms des PDF'], available: true },
   { slug: 'references', title: 'Référentiels', group: 'Socle commun', icon: Globe, description: 'Pays, langues et devises partagés par Horizon.', topics: ['Pays', 'Langues', 'Devises'], available: true },
@@ -23,4 +24,4 @@ export const settingsSections = [
   { slug: 'integrations', title: 'Intégrations', group: 'Connexions', icon: Plug, description: 'Services externes et connexions à Horizon.', topics: ['Recherche d’entreprises (État)', 'Sage et SUPER PDP', 'Messagerie et génération PDF'], available: false },
 ] as const
 export const settingsGroups = ['Socle commun', 'Modules métier', 'Connexions'] as const
-export const settingsSectionPath = (slug: string) => ['analytic-fixed', 'ux', 'references', 'crm', 'sequences', 'users', 'ventes', 'documents', 'catalogue', 'achats', 'stock', 'facturation', 'expenses', 'leave', 'emails'].includes(slug) ? `/settings/${slug}` : `/settings/modules/${slug}`
+export const settingsSectionPath = (slug: string) => ['ged', 'analytic-fixed', 'ux', 'references', 'crm', 'sequences', 'users', 'ventes', 'documents', 'catalogue', 'achats', 'stock', 'facturation', 'expenses', 'leave', 'emails'].includes(slug) ? `/settings/${slug}` : `/settings/modules/${slug}`

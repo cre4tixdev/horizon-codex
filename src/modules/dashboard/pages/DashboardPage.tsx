@@ -63,7 +63,7 @@ export function DashboardPage() {
           <p className="economic-note">Prévu : estimations CRM à la date prévue. Engagé : achats HT à leur validation. Réalisé, facturé et payé seront raccordés aux modules correspondants.</p>
         </section>
       </div>
-      <DashboardFeeds userId={user?.id || ''} canCalendar={can('crm.read') || can('calendar.read')} canActivity={['contacts.read', 'crm.read', 'sales.read', 'inventory.read', 'purchasing.read', 'billing.read', 'expenses.read', 'leave.read'].some(can)} />
+      <DashboardFeeds userId={user?.id || ''} canCalendar={can('crm.read') || can('calendar.read')} canActivity={['documents.read', 'contacts.read', 'crm.read', 'sales.read', 'inventory.read', 'purchasing.read', 'billing.read', 'expenses.read', 'leave.read'].some(can)} />
     </div>
   </div>
 }

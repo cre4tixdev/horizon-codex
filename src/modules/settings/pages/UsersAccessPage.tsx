@@ -28,7 +28,7 @@ import { groupResults, sortResults } from '../../../shared/search/listPresentati
 import { filterValue } from '../../../shared/search/filters'
 import { userProfileFilter, userGroupingFilter, userSortFilter } from '../searchFilters'
 import { SettingsEditButton } from '../components/SettingsEditButton'
-const actionLabels: Record<string, string> = { allocate: 'Attribuer / corriger les droits', settings: 'Paramétrer', send: 'Envoyer', submit: 'Soumettre', validate: 'Valider', reimburse: 'Rembourser', 'assets.manage': 'Qualifier / déclasser les immobilisations', financial: 'Analyse financière', labor_costs: 'Coûts individuels des collaborateurs', read: 'Consulter', write: 'Contribuer', 'quote.validate': 'Finaliser un devis', 'order.confirm': 'Confirmer une commande client', 'organisation.manage': 'Gérer la hiérarchie' }
+const actionLabels: Record<string, string> = { manage: 'Gérer les documents et dossiers', allocate: 'Attribuer / corriger les droits', settings: 'Paramétrer', send: 'Envoyer', submit: 'Soumettre', validate: 'Valider', reimburse: 'Rembourser', 'assets.manage': 'Qualifier / déclasser les immobilisations', financial: 'Analyse financière', labor_costs: 'Coûts individuels des collaborateurs', read: 'Consulter', write: 'Contribuer', 'quote.validate': 'Finaliser un devis', 'order.confirm': 'Confirmer une commande client', 'organisation.manage': 'Gérer la hiérarchie' }
 export function UsersAccessPage() {
   const session = useSyncExternalStore(sessionService.subscribe, sessionService.getSnapshot)
   const [params, setParams] = useSearchParams()
@@ -85,8 +85,8 @@ function UserEditor({ record, directory, onClose }: { record?: AccessUser; direc
     const current = input.grants[key] || { actions: [], scope: key === 'analysis' ? 'own' as const : 'all' as const }
     let actions = checked ? [...current.actions, value] : current.actions.filter((item) => item !== value)
     if (value === 'read' && !checked) actions = []
-    if (value === 'write' && !checked) actions = actions.filter((item) => item !== 'organisation.manage')
-    if (value === 'organisation.manage' && checked && !actions.includes('write')) actions.push('write')
+    if (value === 'write' && !checked) actions = actions.filter((item) => item !== 'organisation.manage' && (key !== 'documents' || item !== 'manage'))
+    if ((value === 'organisation.manage' || key === 'documents' && value === 'manage') && checked && !actions.includes('write')) actions.push('write')
     if (key === 'analysis' && value === 'financial' && !checked) actions = actions.filter((item) => item !== 'labor_costs')
     if (key === 'analysis' && value === 'labor_costs' && checked && !actions.includes('financial')) actions.push('financial')
     if (actions.length && !actions.includes('read')) actions.unshift('read')

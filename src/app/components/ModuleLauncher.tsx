@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router'
 import type { NavigationGroup } from '../navigation'
 import { HorizonMark } from '../../shared/branding/HorizonMark'
@@ -7,7 +7,14 @@ import { HDialog } from '../../shared/ui/HDialog'
 export function ModuleLauncher({ groups }: { groups: NavigationGroup[] }) {
   const [open, setOpen] = useState(false)
   const { pathname } = useLocation()
-  return <HDialog open={open} onOpenChange={setOpen} title="Modules Horizon" description="Accédez à votre espace de travail." className="module-launcher-dialog" overlayClassName="module-launcher-overlay" trigger={<button type="button" className="sidebar-brand" aria-label="Ouvrir les modules Horizon" title="Modules Horizon"><HorizonMark /><span>HORIZON</span></button>}>
+  const [keyboardFocus, setKeyboardFocus] = useState(false)
+  useEffect(() => {
+    const keyboard = () => setKeyboardFocus(true), pointer = () => setKeyboardFocus(false)
+    document.addEventListener('keydown', keyboard, true)
+    document.addEventListener('pointerdown', pointer, true)
+    return () => { document.removeEventListener('keydown', keyboard, true); document.removeEventListener('pointerdown', pointer, true) }
+  }, [])
+  return <HDialog open={open} onOpenChange={setOpen} title="Modules Horizon" description="Accédez à votre espace de travail." className="module-launcher-dialog" overlayClassName="module-launcher-overlay" trigger={<button type="button" className="sidebar-brand" data-keyboard-focus={keyboardFocus} aria-label="Ouvrir les modules Horizon" title="Modules Horizon"><HorizonMark /><span>HORIZON</span></button>}>
     <nav className="module-launcher" aria-label="Menu des modules">{groups.map((group) => <section key={group.label} className="module-launcher-group" aria-label={group.label}>
       <h2>{group.label}</h2><div className="module-launcher-grid">{group.items.map((item) => {
         const Icon = item.icon

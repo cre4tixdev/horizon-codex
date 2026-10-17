@@ -430,3 +430,10 @@ Messagerie — 16 octobre 2026 : lot local **Microsoft Graph + OAuth délégué*
 
 
 Activité — 16 octobre 2026 : page `/activity` accessible depuis Espace de travail et le résumé du dashboard, vues Équipe / Mon activité / Mes mentions, recherche/filtres multiples, groupes, pagination et rendu commun notes/e-mails/pièces. Contrôle serveur de chaque source avant résultats et compteurs. Hooks et frontend cohérents requis, sans nouvelle migration ; pack unique PocketBase et état de recette dans 06/09/10. Installation NAS non effectuée par l’agent.
+
+
+Documents / GED G01 — 16 octobre 2026 : bibliothèque `/documents`, espaces/dossiers, dépôt multiple, classement, rattachements, aperçu partagé, versions immuables et archives, droits explicites et catégories dans Paramètres → GED et classement. Migration additive 1791840021 et hooks/frontend cohérents requis ; premier lot limité aux nouveaux dépôts GED, sans déplacement des fichiers existants. Pack unique PocketBase et recette dans 06/09/10, installation NAS non effectuée.
+
+Documents / GED G02 (17 octobre 2026) : bibliothèque des dépôts et projection en lecture seule des pièces métier existantes, dont PDF de devis envoyés et réponses jointes ; vue tous espaces, recherche par nom et thèmes. Contrats dans 04/05/06/07 et état réel dans 10 ; nécessite les hooks GED G02, sans migration supplémentaire à 0021.
+
+GED G03 (17 octobre 2026) remplace le chargement global initial par une sélection Affaire/Client/Fournisseur puis lecture de ses seules pièces. Recherche et aperçu réutilisent le contexte chargé ; migration 1791840022 (index de lecture uniquement) à installer avec les hooks et le frontend. Les documents et fichiers historiques sont conservés. Voir 04/05/06/07 et recette/livraison dans 09/10.

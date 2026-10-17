@@ -2916,7 +2916,7 @@ created
 updated
 ```
 
-Les styles font partie du `content_json` versionné ; aucun champ CSS libre. D01 implémente ces deux collections. Les collections de documents finalisés ci-dessous restent prévues pour le raccordement à la validation / émission.
+Les styles font partie du `content_json` versionné ; aucun champ CSS libre. D01 implémente ces deux collections. documents_generated et documents_signatures restent prévus pour le raccordement à la validation / émission ; GED G01 implémente documents_links pour son catalogue logique, selon le contrat détaillé ci-dessous.
 
 ## `documents_generated`
 
@@ -2936,10 +2936,13 @@ created_at
 ## `documents_links`
 
 ```text
-document
+document → documents_files (GED G01)
 source_module
+source_entity
 source_record_id
 label
+created
+updated
 ```
 
 Un document finalisé reste figé.
@@ -4106,3 +4109,37 @@ Deux collections privées (aucune API Rule), mutations via hooks uniquement :
 - messaging_email_replies : message (envoi d’origine), mailbox, provider_id, internet_message_id, dedup_key unique (hash boîte+Message-ID), sender_address/name, subject, received_at, body_text (texte seulement), attachments protégées (10 fichiers PDF/images, 2 Mio cumulés), warnings JSON. Une importation crée transactionnellement un événement core_activity_events metadata.email_reply_id et une notification de l’expéditeur s’il a toujours accès à la source. Le fil projette auteur externe, texte, date et pièces via le contrat Messaging ; aucun Cc/Cci, HTML actif, jeton ou import de message sans lien prouvé. Les fichiers originaux de réponse restent privés et sont servis via l’endpoint Activity qui contrôle la source.
 
 Rattachement par In-Reply-To/References à un envoi Horizon retrouvé dans les Éléments envoyés via X-Horizon-Message, ou à une réponse déjà liée ; conversationId/objet seuls insuffisants. Réception sans changement métier du devis/BC, sans envoi automatique, sans modification de la boîte Outlook. Les réponses sont immuables. Pas de suppression distante synchronisée ; l’historique importé est conservé.
+
+
+### GED G01 — contrat des collections (16 octobre 2026)
+
+Migration additive `1791840021_documents_library.js`, module propriétaire documents. Collections privées (toutes API Rules null), fichiers servis uniquement par route métier après contrôle de l’accès effectif ; aucune migration physique des fichiers existants.
+
+- `documents_categories` : name (80), active, created/updated ; référentiel GED, huit catégories initiales, unicité du nom sans distinction de casse ASCII. Archive sans suppression.
+- `documents_folders` : name (120), space (affairs/customers/suppliers/internal), parent (relation même collection), visibility (team/restricted), readers (core_users multiples), created_by, active, created/updated. Profondeur maximale huit ; espace/parent immuables après création, aucun cycle, nom unique dans un même parent/espace ; archivage refusé si contenu/dossiers actifs.
+- `documents_files` : name (255), space, folder, category, tags JSON (10 textes de 40), description (4000), visibility/readers, created_by, current_version, locked, archived_at, created/updated. current_version est une relation documents_file_versions créée après les deux collections, versions explicitement rattachées au document. locked réservé à Horizon pour les futurs documents officiels, jamais paramètre client. Pas de numéro métier artificiel.
+- `documents_file_versions` : document, number entier >=1, file protégé (un fichier, 10 Mio), original_name, size, note (1000), created_by, created/updated ; index unique document+number. Ordinal attribué et current_version modifié dans la même transaction. Octets et métadonnées de version non modifiables/non supprimables, y compris superuser via hooks. Formats PDF/PNG/JPEG/WebP, TXT/CSV et bureautiques DOC/DOCX/XLS/XLSX/PPT/PPTX ; aperçu natif PDF/image, autres formats en téléchargement.
+- `documents_links` : document (relation documents_files), source_module, source_entity, source_record_id, label (projection courante), created/updated ; unique document+source_entity+source_record_id. Ce premier contrat concret précise la relation document du cadrage précédent. Les futurs documents_generated restent distincts ; ils devront référencer le catalogue logique, sans détruire leurs snapshots. Liens autorisés sur les sources métier du fil Activity hors documents_files ; dix liens maximum, toutes les sources autorisées côté serveur.
+
+Permissions GED explicites documents.read/write/manage/settings ; activation dans le catalogue des accréditations. Attribution initiale aux profils ERP admin actifs dont le rôle n’est pas partagé avec un autre profil, sans donner de droit GED aux autres comptes par leur seule capacité de gérer les modèles. Journal d’activité core_activity_events avec source documents_files ; audit sensible séparé. Les relations vers versions/fichiers sont vérifiées avant tout téléchargement ; ni identifiant forgé ni lien vers une source plus ouverte ne donne de droit sur le reste du document.
+
+
+API GED G01 : GET files (liste paginée), files/{id} (métadonnées/versions), files/{id}/versions/{version}/file (binaire autorisé), choices (dossiers/catégories), search (choix limités aux références autorisées). POST upload multipart input+files, files/{id}/save, files/{id}/version multipart updated+note+files, files/{id}/archive, folders et categories. Corps en allowlist stricte ; sources via leur module réel, dix liens maximum. La liste retourne items/page/totalItems/totalPages/groups, chaque ligne porte group_key (identifiant stable) et group_label calculés côté serveur, sans réimplémenter le regroupement métier en React ; les homonymes de société/dossier/auteur ne fusionnent pas leurs compteurs. DTO seul : reader_names pour les libellés d’ACL, dossier avec chemin complet, liens avec libellé/route/compte analytique existant. Aucun champ public d’URL de fichier. Fichiers limités à 10 Mio, dix fichiers et 24 Mio cumulés par dépôt, versions avec commentaire obligatoire. Limites explicites de lecture : 10 000 candidats par liste (réduire dossier/catégorie), 1 000 dossiers d’arborescence et 1 000 versions par historique ; aucune pagination ou comptage de documents interdits.
+
+### GED G02 — projection des pièces métier (17 octobre 2026)
+
+À la demande utilisateur, la bibliothèque fédère les dépôts GED et les fichiers déjà conservés sur les fiches : pièces du fil Core, PDF et pièces des e-mails métier envoyés/réponses corrélées via le contrat Messaging, pièces des factures, justificatifs de dépenses et congés selon leurs droits. Projection en lecture seule, sans copie de binaire ni insertion dans documents_files/versions/links. Les identifiants virtuels associent le fournisseur, le record propriétaire et l’empreinte du nom stocké ; le téléchargement revérifie source et appartenance exacte. Pas de collection ni migration supplémentaire. `origin` (libellé + source Activity) et `theme` sont des propriétés DTO. Les métadonnées de sources parentes (affaire, société, commandes) ne sont projetées que si consultables. Les sources multiples gardent leurs identités ; le catalogue n’élargit jamais leurs droits et ne régénère pas un ancien PDF.
+
+La liste par défaut couvre tous les espaces (`space=all`), avec restriction explicite facultative. Thèmes structurels de consultation : devis, commandes clients, achats, livraisons/réceptions, facturation, technique/affaires, autres. Recherche découpée en mots, insensible à casse/accents/séparateurs sur nom affiché et stocké, catégorie, dossier, tags et libellés autorisés des rattachements. Filtres et groupes/tri/pagination appliqués au catalogue autorisé fusionné, avant pagination. Limite explicite de 10 000 candidats par fournisseur et 10 000 documents fusionnés ; dépasser la limite produit une erreur, jamais un résultat silencieusement tronqué. Aucun index plein texte de contenu PDF ni fichier virtuel créé pour une pièce sans binaire enregistré.
+
+GED G02 — tolérance des rattachements historiques (17 octobre 2026) : une référence optionnelle de contexte (ancienne commande client ou compte analytique de ventilation) absente ne retire pas le binaire de sa fiche propriétaire autorisée et ne bloque pas les autres résultats. La projection omet uniquement ce contexte indisponible, conserve les liens consultables, retourne `origin.warning` et journalise une référence technique sûre côté serveur. Aucun identifiant absent n’est réparé, recréé ou supprimé en base ; une erreur technique de requête n’est pas absorbée. La policy de la fiche propriétaire et l’appartenance du fichier restent obligatoires.
+
+### GED G03 — lecture ciblée à la demande (17 octobre 2026)
+
+Décision utilisateur : remplacer le catalogue global chargé au démarrage par la sélection d’une affaire, d’un client ou fournisseur. `space=affairs|customers|suppliers` avec `context_id` sélectionné et autorisé avant toute lecture de pièces ; sans sélection ni dossier, liste vide sans parcourir les fichiers métier. `space=internal` consulte les dépôts et justificatifs internes autorisés ; `space=all` sans contexte ne lance plus de catalogue global. Les dossiers explicites restent des consultations limitées aux dépôts de ce dossier. GET context?entity&id fournit le libellé autorisé nécessaire à la restauration URL. Le dépôt depuis un contexte reprend le rattachement choisi par défaut.
+
+La sélection des candidats se fait par requêtes SQL liées au contexte (sources directes, commandes/devis, opérations, lignes et ventilations analytiques, références JSON des factures), avant chargement des records et projections/permissions. Aucun scan de l’ensemble des événements/documents métier pour trouver une affaire. Sources propriétaires inchangées, chaque binaire et racine reste autorisé indépendamment. Pagination 20, regroupements/tri/recherche appliqués au jeu du seul contexte, métadonnées bornées explicitement ; les images/binaires ne sont chargés qu’en page visible/consultation. Cache frontend séparé des critères d’aperçu/vue et recherche temporisée/annulable ; pas de relève périodique de tout le catalogue. Aucun index documentaire persistant ni copie de binaire ; les index nécessaires aux nouveaux chemins SQL passent par une migration additive.
+
+G03 / index et limites : migration additive `1791840022_ged_context_indexes.js`, 22 index de lecture sur documents_links (source_entity,source_record_id,document), sociétés/opportunités des racines CRM/Ventes/Achats/Stock/Facturation, comptes et ventilations analytiques des achats/dépenses. Aucune collection ni donnée métier modifiée ; migrations historiques conservées. `context_id` est un identifiant d’affaire (onglet Affaires) ou société (Clients/Fournisseurs), jamais un droit hérité vers les enfants. La sélection est effectuée avant les DTOs ; maximum 1 000 racines candidates par fournisseur et 1 000 dépôts dans le contexte (erreur explicite au-delà), puis limite fusionnée préexistante de 10 000 pièces. Le tri/groupement/compte autorisé porte sur les métadonnées du seul contexte avant pagination, pas seulement sur la page ; aucun fichier des autres contextes n’est hydraté pour les rechercher. L’ancien paramètre all sans choix ne provoque plus de lecture globale.
+
+GED / provenance documentaire — 17 octobre 2026 : `theme` devient le code de type de pièce dérivé de la source autorisée (compatibilité des anciens codes maintenue). Nouveaux codes requests, receipts, stock, supplier_invoices, credits, supplier_credits, companies, expenses, leave ; quotes/orders/purchases/deliveries/invoices/technical/other restent acceptés avec libellés métier explicites. Aucune catégorie personnalisée ne remplace ce classement. Propriétés DTO uniquement : `type_label`, `source_label` (type + libellé autorisé), `source_key` (type + entité + id), calculées sans collection ni mutation. `group=source` par défaut, groupe `theme` exposé comme Type de pièce ; tri `type_label` autorisé. Les événements e-mail de devis historiques restent quotes après acceptation ; les pièces des fiches commande utilisent orders. Relations sources, contrôle des droits et fichiers historiques inchangés ; aucune migration nouvelle pour cette correction.

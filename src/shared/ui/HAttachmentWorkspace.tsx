@@ -1,14 +1,13 @@
 import type { ReactNode } from 'react'
-import { FileText, Paperclip, Trash2 } from 'lucide-react'
+import { FileText, Trash2 } from 'lucide-react'
 import { HButton } from './HButton'
-import { HLoadingIndicator } from './HLoadingIndicator'
-import { useFileSource } from '../hooks/useFileSource'
-export type AttachmentPreview = { removable?: boolean; id: string; name: string; source?: File | string | undefined; pdf: boolean; status?: string | undefined }
+import { HAttachmentPreview, type AttachmentPreview } from './HAttachmentPreview'
+export type { AttachmentPreview } from './HAttachmentPreview'
 
 /** Selecting a file only changes the document preview on the right. */
 export function HAttachmentWorkspace({ uploadLabel = 'Charger des documents', documentsLabel = 'Documents', details, upload, files, selectedId, onSelect, onRemove, disabled, loading, error, children }: { uploadLabel?: string; documentsLabel?: string; details?: ReactNode; upload?: ReactNode; files: AttachmentPreview[]; selectedId: string; onSelect: (id: string) => void; onRemove?: ((id: string) => void) | undefined; disabled?: boolean; loading?: boolean; error?: string | undefined; children?: ReactNode }) {
-  const file = files.find((item) => item.id === selectedId), { image, frame } = useFileSource(file?.source, '#navpanes=0&view=Fit')
+  const file = files.find((item) => item.id === selectedId)
   return <div className={`h-attachment-workspace${details ? ' h-attachment-workspace--details' : ''}`} ><aside className="h-attachment-sidebar">{details}{upload && <section><h3>{uploadLabel}</h3>{upload}</section>}<section><h3>{documentsLabel} ({files.length})</h3>{files.map((item) => <div className="h-attachment-file" data-selected={item.id === selectedId} key={item.id}><button type="button" className="h-attachment-file-select" aria-label={`Afficher ${item.name}`} aria-pressed={item.id === selectedId} title={item.name} disabled={disabled} onClick={() => onSelect(item.id)}><FileText size={20} /><span><strong>{item.name}</strong>{item.status && <small>{item.status}</small>}</span></button>{onRemove && item.removable !== false && <HButton variant="ghost" size="icon" aria-label={`Supprimer ${item.name}`} disabled={disabled} onClick={() => onRemove(item.id)}><Trash2 size={14} /></HButton>}</div>)}{children}</section></aside>
-    <section className="h-attachment-preview" aria-label="Aperçu du document sélectionné"><div className="h-attachment-preview-toolbar"><span title={file?.name}>{file?.name || 'Aperçu du document'}</span></div><div className="h-attachment-preview-content">{file?.source ? file.pdf ? <iframe ref={frame} title={`Aperçu ${file.name}`} /> : <img ref={image} alt={`Aperçu ${file.name}`} /> : <div className="h-attachment-placeholder">{loading ? <HLoadingIndicator label="Chargement du document" /> : <><Paperclip size={28} /><p role={error ? 'alert' : undefined}>{error || 'Aucun document sélectionné'}</p>{!error && <small>Ajoutez un fichier pour afficher son aperçu.</small>}</>}</div>}</div></section>
+    <HAttachmentPreview file={file} loading={loading} error={error} />
   </div>
 }

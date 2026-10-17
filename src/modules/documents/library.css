@@ -1,0 +1,81 @@
+.ged-layout { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 16px; align-items: stretch; min-width: 0; }
+.ged-folders { min-width: 0; color: var(--theme-text-muted); font-size: 12px; }
+.ged-folder-row { display: flex; align-items: center; min-width: 0; }
+.ged-folder-row > .h-button:first-child { flex: 1; min-width: 0; justify-content: flex-start; }
+.ged-folder-row .h-button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ged-folders .h-button[aria-pressed=true] { color: var(--theme-rose-text); background: var(--theme-surface-rose); }
+.ged-results, .ged-document-pane { min-width: 0; }
+.ged-file-name { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.ged-file-name > svg { flex-shrink: 0; color: var(--theme-text-muted); }
+.ged-file-name > div { min-width: 0; }
+.ged-file-name strong, .ged-file-name small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ged-file-name small { color: var(--theme-text-muted); margin-top: 3px; font-size: 10px; }
+.ged-document-pane { display: grid; grid-template-columns: minmax(0, 1fr) 380px; align-items: start; }
+.ged-preview-dialog { width: min(1200px, calc(100vw - var(--workspace-sidebar-width) - 32px)); }
+.ged-document-heading, .ged-document-actions { grid-column: 1 / -1; }
+.ged-document-details { min-width: 0; padding: 0 12px; }
+.ged-document-details .contact-record-navigation { margin: 0; }
+
+.ged-document-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px; font-size: 13px; }
+.ged-document-heading > strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ged-document-heading > div, .ged-document-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.ged-document-actions { padding: 0 12px 10px; }
+.ged-inline-preview { height: min(65vh, 680px); display: flex; }
+.ged-inline-preview > .h-attachment-preview { flex: 1; }
+.ged-document-pane > .contact-record-navigation { margin-inline: 12px; }
+.ged-detail-content { padding: 12px; font-size: 12px; }
+.ged-metadata { display: grid; gap: 8px; margin: 0; }
+.ged-metadata > div { display: grid; grid-template-columns: 75px minmax(0, 1fr); gap: 8px; }
+.ged-metadata dt { color: var(--theme-text-muted); }
+.ged-metadata dd { margin: 0; overflow-wrap: anywhere; }
+.ged-description { white-space: pre-wrap; overflow-wrap: anywhere; color: var(--theme-text-muted); }
+.ged-source-link { display: flex; align-items: center; gap: 4px; margin-top: 8px; overflow-wrap: anywhere; }
+.ged-versions { list-style: none; padding: 0; margin: 0; }
+.ged-versions > li { display: grid; gap: 6px; padding: 8px 0; border-bottom: 1px solid var(--theme-border); }
+.ged-versions .h-button { justify-content: flex-start; white-space: normal; text-align: left; height: auto; min-height: 30px; }
+.ged-versions small { color: var(--theme-text-muted); }
+.ged-detail-content .activity-panel { margin: 0; padding: 0; background: transparent; }
+.ged-detail-content .activity-panel::before { display: none; }
+.ged-reader-list { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.ged-link-controls { display: grid; grid-template-columns: minmax(130px, .65fr) minmax(0, 1fr); gap: 10px; }
+.ged-editor-dialog { width: min(1120px, calc(100vw - var(--workspace-sidebar-width) - 32px)); }
+.ged-editor-form { min-height: 0; }
+.ged-editor-form .h-attachment-workspace { min-height: 360px; }
+@media (max-width: 1250px) { .ged-layout { grid-template-columns: 200px minmax(0, 1fr); }  }
+@media (max-width: 700px) { .ged-layout { grid-template-columns: minmax(0, 1fr); gap: 12px; } .ged-document-pane { grid-template-columns: minmax(0, 1fr); } .ged-preview-dialog { width: calc(100vw - var(--workspace-sidebar-width) - 24px); } .ged-inline-preview { height: 300px; } .ged-editor-dialog { width: calc(100vw - var(--workspace-sidebar-width) - 24px); } .ged-link-controls { grid-template-columns: minmax(0, 1fr); } }
+
+
+@media (max-width: 1000px) { .ged-document-pane { grid-template-columns: minmax(0, 1fr); } .ged-document-details { padding-top: 12px; } }
+
+.ged-preview-dialog > .ged-document-pane { overflow: auto; min-height: 0; }
+
+/* The two library regions keep visible boundaries even with no documents. */
+.ged-layout > .contact-panel { padding: 0; margin: 0; }
+.ged-results > .h-section-heading { margin: 0; min-height: 58px; }
+.ged-folder-content, .ged-results-content { padding: var(--hz-panel-padding-block) var(--hz-panel-padding-inline); }
+.ged-folder-content { display: grid; gap: 4px; }
+.ged-folder-content > .h-button { justify-content: flex-start; width: 100%; }
+
+.ged-results-content { min-height: 320px; }
+.ged-results-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 10px; }
+.ged-results-toolbar .contact-result-count { margin: 0; }
+@media (max-width: 700px) { .ged-results-content { min-height: 180px; } .ged-results > .h-section-heading { flex-wrap: wrap; gap: 12px; } .ged-results > .h-section-heading > .h-section-heading-actions { width: 100%; } .ged-results-toolbar { width: 100%; justify-content: space-between; gap: 4px; } }
+
+.ged-folders > .h-section-heading { margin: 0; min-height: 58px; }
+.ged-card .contact-directory-card { box-shadow: none; }
+.ged-card[data-selected=true] .contact-directory-card { border-color: var(--theme-rose-text); }
+.ged-card-visual { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; width: 64px; height: 64px; overflow: hidden; border-radius: 6px; background: var(--theme-surface-soft); color: var(--theme-text-muted); }
+.ged-card-visual img { width: 100%; height: 100%; object-fit: cover; }
+.ged-card-visual small { font-size: 10px; font-weight: 600; }
+.ged-card-select { border: 0; background: none; padding: 0; text-align: left; cursor: pointer; font-family: inherit; }
+.ged-card-context { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 11px; color: var(--theme-text-muted); margin: 5px 0 0; }
+.ged-card-version { margin-left: auto; color: var(--theme-text-muted); font-size: 10px; }
+.ged-card .contact-card-footer .h-tag { max-width: 75%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ged-origin-label { grid-column: 1 / -1; padding: 0 12px; color: var(--theme-text-muted); font-size: 11px; }
+
+.ged-layout > .contact-panel > .h-section-heading { padding: var(--hz-panel-padding-block) var(--hz-panel-padding-inline); border-bottom: 1px solid var(--theme-border); background: transparent; }
+
+.ged-context { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 1fr); align-items: start; gap: 14px; margin: 12px 0; }
+.ged-context .h-section-heading { margin: 0; }
+.ged-context small { display: block; margin-top: 4px; }
+@media (max-width: 700px) { .ged-context { grid-template-columns: minmax(0, 1fr); } }
