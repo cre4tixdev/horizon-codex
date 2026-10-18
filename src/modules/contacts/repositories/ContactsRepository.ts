@@ -1,3 +1,5 @@
+import { mergeChoicesSchema } from '../../../shared/merge/schema'
+import { contactMergePreviewSchema, type ContactMergeSelection, type ContactMergeApplication } from '../schemas/contactMerge'
 import { ClientResponseError } from 'pocketbase'
 import { z } from 'zod'
 import { createPocketBaseClient } from '../../../core/pocketbase/client'
@@ -45,6 +47,13 @@ export function createContactsRepository(url: string) {
       return z.object({ position: z.number().int().nonnegative(), total: z.number().int().nonnegative(), previous: z.string(), next: z.string() }).parse(await client.send('/api/horizon/contacts/navigation', { method: 'GET', requestKey: null, query: { kind, id, group: options.group ?? 'none', q: options.search, role: options.role ?? 'all', state: options.archived ? 'archived' : 'active', sort: options.sort ?? (kind === 'companies' ? 'name' : 'last_name'), direction: options.descending ? 'desc' : 'asc' } }))
     },
     ensureRevision,
+    async mergeChoices(kind: 'companies' | 'people', q: string) { return mergeChoicesSchema.parse(await client.send('/api/horizon/data-quality/candidates', { method: 'GET', query: { kind, q, mode: 'manual', page: 1 }, requestKey: null })).items.map((item) => item.left) },
+    async mergedSources(kind: 'companies' | 'people', id: string) {
+      const raw = await client.collection(`contacts_${kind}`).getFullList({ filter: client.filter('merged_into = {:id}', { id }), sort: 'merged_at,id', fields: 'id,name,first_name,last_name,merged_at', requestKey: null })
+      return z.array(z.object({ id: z.string(), name: z.string().optional(), first_name: z.string().optional(), last_name: z.string().optional(), merged_at: z.string() })).parse(raw).map((item) => ({ id: item.id, label: item.name || [item.first_name, item.last_name].filter(Boolean).join(' '), mergedAt: item.merged_at }))
+    },
+    async mergePreview(body: ContactMergeSelection) { return contactMergePreviewSchema.parse(await client.send('/api/horizon/contacts/merge/preview', { method: 'POST', body, requestKey: null })) },
+    async mergeApply(body: ContactMergeApplication) { return z.object({ id: z.string() }).parse(await client.send('/api/horizon/contacts/merge/apply', { method: 'POST', body, requestKey: null })) },
     async summary() {
       const count = async (collection: string, filter: string) => z.number().int().nonnegative().parse((await client.collection(collection).getList(1, 1, { filter, fields: 'id', requestKey: null })).totalItems)
       const [people, companies, customers, suppliers] = await Promise.all([

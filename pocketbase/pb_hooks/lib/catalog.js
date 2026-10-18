@@ -75,7 +75,7 @@ module.exports = {
     if (typeof query.sku !== 'string' || !query.sku.trim() || query.sku.length > 80) throw new BadRequestError('Référence requise pour le code-barres.')
     return event.json(200, { barcode: require(`${__hooks}/lib/catalog-barcode.js`).base(brand.getString('name'), query.sku) })
   },
-  allowed, productPrice, get, dto,
+  allowed, productPrice, get, dto, validateProduct, fields,
   documentContext(app, user, id) {
     guard(app, user)
     const product = get(app, 'inventory_products', id)
@@ -86,7 +86,7 @@ module.exports = {
     guard(event.app, event.auth)
     const query = event.requestInfo().query, page = Number(query.page || 1), params = { active: query.state !== 'archived' }, filters = ['active = {:active}']
     if (!Number.isInteger(page) || page < 1 || page > 100000) throw new BadRequestError('Page invalide.')
-    for (const [index, word] of String(query.q || '').slice(0, 200).split(/\s+/).filter(Boolean).entries()) { params['q' + index] = word; filters.push(`(name ~ {:q${index}} || sku ~ {:q${index}} || manufacturer ~ {:q${index}} || manufacturer_ref ~ {:q${index}} || barcode ~ {:q${index}} || description ~ {:q${index}})` ) }
+    for (const [index, word] of String(query.q || '').slice(0, 200).split(/\s+/).filter(Boolean).entries()) { params['q' + index] = word; filters.push(`(name ~ {:q${index}} || sku ~ {:q${index}} || manufacturer ~ {:q${index}} || manufacturer_ref ~ {:q${index}} || barcode ~ {:q${index}} || inventory_products_via_merged_into.sku ?~ {:q${index}} || inventory_products_via_merged_into.barcode ?~ {:q${index}} || description ~ {:q${index}})` ) }
     if (query.sale_enabled !== undefined) { if (!['true', 'false'].includes(query.sale_enabled)) throw new BadRequestError('Critère de vente invalide.'); params.sale = query.sale_enabled === 'true'; filters.push('sale_enabled = {:sale}') }
     if (query.purchase_enabled !== undefined) { if (!['true', 'false'].includes(query.purchase_enabled)) throw new BadRequestError('Critère d’achat invalide.'); params.purchase = query.purchase_enabled === 'true'; filters.push('purchase_enabled = {:purchase}') }
     if (query.kind) { params.kind = query.kind; filters.push('kind = {:kind}') }

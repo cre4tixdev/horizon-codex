@@ -1,3 +1,5 @@
+import { qualityRoutes } from '../modules/data-quality'
+import { importsRoutes } from '../modules/imports'
 import { activityRoutes } from '../modules/activity'
 import { messagingRoutes } from '../modules/messaging'
 import { leaveRoutes } from '../modules/leave'
@@ -39,6 +41,8 @@ export const router = createBrowserRouter([
       ...billingRoutes,
       ...analysisRoutes,
       ...dashboardRoutes,
+      ...importsRoutes,
+      ...qualityRoutes,
       ...contactsRoutes,
       ...crmRoutes,
       ...salesRoutes,

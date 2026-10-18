@@ -1,0 +1,50 @@
+.imports-page .contact-panel { margin: 16px 0; }
+.imports-page .record-progress { margin: 16px 0; }
+.import-destination { display: flex; align-items: center; gap: 16px; margin: 16px 0; }
+.import-destination > label { display: grid; gap: 6px; width: 230px; max-width: 100%; font-size: 12px; color: var(--theme-text-muted, #637c9f); }
+.import-controls { display: flex; align-items: end; flex-wrap: wrap; gap: 12px; margin: 16px 0; }
+.import-controls > label { display: grid; gap: 6px; min-width: 180px; max-width: 100%; flex: 0 1 260px; font-size: 12px; color: var(--theme-text-muted, #637c9f); }
+.import-controls > .h-combobox-with-actions { width: 240px; max-width: 100%; }
+.import-upload { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; min-height: 130px; padding: 16px; border: 1px dashed var(--theme-border, #c9d7e9); border-radius: 8px; background: var(--theme-surface-subtle, #f8faff); text-align: center; cursor: pointer; }
+.import-upload > svg { color: var(--theme-violet-text, #9360cc); }
+.import-upload strong { max-width: 100%; overflow-wrap: anywhere; font-size: 13px; }
+.import-upload > span { color: var(--theme-text-muted, #637c9f); font-size: 12px; }
+.import-upload input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
+.import-upload:focus-within { outline: 2px solid var(--theme-rose-text, #d60069); outline-offset: 2px; }
+.import-cell { display: block; min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.imports-page .reference-table { table-layout: fixed; }
+.imports-page .reference-table td, .imports-page .reference-table th { overflow-wrap: anywhere; }
+.imports-page .reference-table th:last-child { width: 40%; }
+.import-actions { display: flex; justify-content: flex-end; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+.import-job-heading, .import-source-more { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin: 16px 0; }
+.import-job-heading > strong { overflow-wrap: anywhere; }
+.import-detail-dialog { width: min(900px, calc(100vw - 24px)); }
+.import-detail-dialog .reference-table { table-layout: fixed; }
+@media (max-width: 760px) { .import-destination { align-items: stretch; flex-direction: column; gap: 8px; } .import-controls > label, .import-controls > .h-combobox-with-actions { flex: 1 1 100%; min-width: 0; width: 100%; } .import-actions > .h-button { flex: 1 1 auto; } }
+
+.import-row-actions { display: flex; align-items: center; justify-content: center; gap: 6px; flex-wrap: nowrap; }
+.import-row-actions .h-combobox-with-actions { flex: 1 1 0; min-width: 0; }
+.dialog-content.import-detail-dialog { width: min(1200px, calc(100vw - var(--workspace-sidebar-width) - 32px)); max-height: calc(100dvh - 32px); top: 50%; transform: translate(-50%, -50%); }
+.import-detail-dialog .dialog-heading > div:first-child { min-width: 0; }
+.import-detail-dialog .dialog-heading h2 { overflow-wrap: anywhere; }
+.import-detail-dialog .dialog-form.import-detail-form { padding: 0; gap: 0; overflow: hidden; }
+.import-detail-body { padding: 16px 18px; overflow: auto; min-height: 0; }
+.import-detail-body > p { margin-bottom: 12px; }
+.import-detail-dialog .reference-table th:first-child { width: 24%; }
+.import-detail-dialog .reference-table th:last-child { width: 42%; }
+.import-detail-value { white-space: pre-wrap; overflow-wrap: anywhere; }
+@media (max-width: 700px) { .import-detail-dialog .dialog-heading { flex-wrap: wrap; } .import-detail-dialog .dialog-heading-actions { margin-left: auto; } .import-detail-body { padding: 12px; } }
+
+.import-detail-dialog .dialog-form-footer > .contact-error { flex: 1 1 100%; margin: 0; }
+.import-detail-issue { border: 1px solid var(--theme-border); background: var(--theme-surface-soft); border-radius: 6px; padding: 12px; margin-bottom: 14px; }
+.import-detail-issue > strong { display: flex; gap: 8px; align-items: center; }
+.import-detail-issue > p { margin-top: 6px; overflow-wrap: anywhere; }
+.import-detail-decision { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
+.import-detail-decision > .h-combobox-with-actions { width: 300px; max-width: 100%; }
+.import-detail-image { display: flex; align-items: center; gap: 8px; }
+.import-detail-image .h-file-thumbnail { width: 100px; }
+
+.import-image-compact { display: inline-flex; vertical-align: middle; }
+.import-image-compact .h-file-thumbnail { width: 28px; height: 28px; padding: 1px; border-radius: 4px; }
+.import-image-compact .h-file-thumbnail img { width: 24px; height: 24px; object-fit: contain; }
+.import-image-compact .h-file-thumbnail > span { display: none; }

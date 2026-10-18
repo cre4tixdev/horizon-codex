@@ -1,3 +1,4 @@
+import type { ContactMergeSelection, ContactMergeApplication } from '../schemas/contactMerge'
 import { ClientResponseError } from 'pocketbase'
 import { environment } from '../../../core/config/environment'
 import { sessionService } from '../../../core/auth/services/session'
@@ -52,6 +53,21 @@ export class ContactsService {
     for (const file of [files.image, ...files.gallery ?? []]) if (file && (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 2097152)) throw new Error('Choisissez une image JPEG, PNG ou WebP de 2 Mio maximum.')
     if ((files.gallery?.length ?? 0) > 10) throw new Error('La galerie est limitée à dix images.')
   }
+  private async merge<T>(action: () => Promise<T>) {
+    if (!this.allowed('contacts.read') || !this.allowed('contacts.write') || !this.allowed('contacts.merge')) throw new Error('Le droit Fusionner les contacts est nécessaire.')
+    try { return await action() } catch (error) {
+      console.error('[contacts] Merge failed', { status: error instanceof ClientResponseError ? error.status : 0 })
+      if (error instanceof ClientResponseError) {
+        if (error.status === 404) throw new ContactsUpgradeError()
+        if ([400, 403, 409].includes(error.status) && typeof error.response.message === 'string') throw new Error(error.response.message, { cause: error })
+      }
+      throw new Error('La fusion est indisponible. Réessayez.', { cause: error })
+    }
+  }
+  mergeChoices(kind: ContactKind, q: string) { return this.merge(() => { if (!this.repository) throw new Error('Contacts non configuré.'); return this.repository.mergeChoices(kind, q) }) }
+  mergePreview(input: ContactMergeSelection) { return this.merge(() => { if (!this.repository) throw new Error('Contacts non configuré.'); return this.repository.mergePreview(input) }) }
+  mergeApply(input: ContactMergeApplication) { return this.merge(() => { if (!this.repository) throw new Error('Contacts non configuré.'); return this.repository.mergeApply(input) }) }
+  mergedSources(kind: ContactKind, id: string) { return this.run('contacts.read', (repo) => repo.mergedSources(kind, id)) }
   summary() { return this.run('contacts.read', (repo) => repo.summary()) }
   companyPeopleCount(company: string) { return this.run('contacts.read', (repo) => repo.companyPeopleCount(company)) }
   navigation(kind: ContactKind, id: string, options: ListOptions) { return this.run('contacts.read', (repo) => repo.navigation(kind, id, options)) }

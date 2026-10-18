@@ -1,3 +1,4 @@
+import type { MergeSelection, MergeApplication } from '../../../shared/merge/schema'
 import { productDuplicate } from './productDuplication'
 import { ZodError } from 'zod'
 import { ClientResponseError } from 'pocketbase'
@@ -14,6 +15,11 @@ async function run<T>(permission: string, action: (repo: NonNullable<typeof repo
   try { return await action(repository) } catch (error) { console.error('[catalogue] Operation failed', { status: error instanceof ClientResponseError ? error.status : 0, ...(error instanceof ZodError ? { fields: error.issues.map((issue) => ({ path: issue.path.join('.'), code: issue.code })) } : {}) }); throw new Error(error instanceof ClientResponseError && [400, 403, 404, 409].includes(error.status) ? error.response.message : 'Catalogue indisponible. Réessayez.', { cause: error }) }
 }
 export const catalogService = {
+  mergeChoices: (q: string) => run('inventory.merge', (repo) => repo.mergeChoices(q)),
+  mergePreview: (input: MergeSelection) => run('inventory.merge', (repo) => repo.mergePreview(input)),
+  mergeApply: (input: MergeApplication) => run('inventory.merge', (repo) => repo.mergeApply(input)),
+  mergedSources: (id: string) => run('inventory.read', (repo) => repo.mergedSources(id)),
+  imageURL: (collectionId: string, id: string, filename: string) => run('inventory.read', (repo) => repo.imageURL(collectionId, id, filename)),
   barcodePreview: (brand: string, sku: string) => run('inventory.write', (repo) => repo.barcodePreview(brand, sku)),
   productQuotes: async (id: string, page = 1) => {
     try { return await run('inventory.read', (repo) => repo.productQuotes(id, page)) } catch (error) {

@@ -1,0 +1,15 @@
+routerAdd('POST', '/api/horizon/imports/preview', (e) => require(`${__hooks}/lib/imports.js`).preview(e), $apis.requireAuth('core_users'))
+routerAdd('GET', '/api/horizon/imports/history', (e) => require(`${__hooks}/lib/imports.js`).history(e), $apis.requireAuth('core_users'))
+routerAdd('GET', '/api/horizon/imports/jobs/{id}', (e) => require(`${__hooks}/lib/imports.js`).get(e), $apis.requireAuth('core_users'))
+routerAdd('POST', '/api/horizon/imports/jobs/{id}/resolve', (e) => require(`${__hooks}/lib/imports.js`).resolve(e), $apis.requireAuth('core_users'))
+routerAdd('POST', '/api/horizon/imports/jobs/{id}/apply', (e) => require(`${__hooks}/lib/imports.js`).apply(e), $apis.requireAuth('core_users'))
+routerAdd('GET', '/api/horizon/imports/profiles', (e) => require(`${__hooks}/lib/imports.js`).profiles(e), $apis.requireAuth('core_users'))
+routerAdd('POST', '/api/horizon/imports/profiles', (e) => require(`${__hooks}/lib/imports.js`).profiles(e), $apis.requireAuth('core_users'))
+routerAdd('GET', '/api/horizon/imports/odoo', (e) => require(`${__hooks}/lib/import-odoo.js`).settings(e), $apis.requireAuth('core_users'))
+routerAdd('POST', '/api/horizon/imports/odoo', (e) => require(`${__hooks}/lib/import-odoo.js`).settings(e), $apis.requireAuth('core_users'))
+routerAdd('POST', '/api/horizon/imports/odoo/read', (e) => require(`${__hooks}/lib/import-odoo.js`).read(e), $apis.requireAuth('core_users'))
+
+routerAdd('POST', '/api/horizon/imports/jobs/{id}/resolve-bulk', (e) => require(`${__hooks}/lib/imports.js`).resolveBulk(e), $apis.requireAuth('core_users'))
+routerAdd('POST', '/api/horizon/imports/jobs/{id}/discard', (e) => require(`${__hooks}/lib/imports.js`).discard(e), $apis.requireAuth('core_users'))
+
+routerAdd('POST', '/api/horizon/imports/jobs/{id}/recheck', (e) => require(`${__hooks}/lib/imports.js`).recheck(e), $apis.requireAuth('core_users'))

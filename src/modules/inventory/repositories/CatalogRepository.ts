@@ -1,3 +1,4 @@
+import { mergePreviewSchema, mergeChoicesSchema, type MergeSelection, type MergeApplication } from '../../../shared/merge/schema'
 import { z } from 'zod'
 import { createPocketBaseClient } from '../../../core/pocketbase/client'
 import { productQuotesSchema, brandSchema, categorySchema, productSchema, productPageSchema, choicesSchema, quoteProductSchema, type ProductInput, type ProductFiles, type Category, type Product } from '../schemas/catalog'
@@ -6,6 +7,11 @@ export function createCatalogRepository(url: string) {
   async function photos(record: Product, existingToken?: string): Promise<Product> { if (!record.primary_image && !record.images.length) return record; const token = existingToken || await client.files.getToken(); return { ...record, image_url: record.primary_image ? client.files.getURL(record, record.primary_image, { token }) : '', image_urls: record.images.map((name) => client.files.getURL(record, name, { token })) } }
   async function read(value: unknown) { return photos(productSchema.parse(value)) }
   return {
+    async mergeChoices(q: string) { return mergeChoicesSchema.parse(await client.send('/api/horizon/data-quality/candidates', { method: 'GET', query: { kind: 'products', q, mode: 'manual', page: 1 }, requestKey: null })).items.map((item) => item.left) },
+    async mergePreview(body: MergeSelection) { return mergePreviewSchema.parse(await client.send('/api/horizon/inventory/merge/preview', { method: 'POST', body, requestKey: null })) },
+    async mergeApply(body: MergeApplication) { return z.object({ id: z.string() }).parse(await client.send('/api/horizon/inventory/merge/apply', { method: 'POST', body, requestKey: null })) },
+    async mergedSources(id: string) { return z.object({ items: z.array(z.object({ id: z.string(), name: z.string(), sku: z.string() })) }).parse(await client.send(`/api/horizon/inventory/products/${id}/merged-sources`, { method: 'GET', requestKey: null })).items },
+    async imageURL(collectionId: string, id: string, filename: string) { const token = await client.files.getToken({ requestKey: null }); return client.files.getURL({ collectionId, id }, filename, { token }) },
     async barcodePreview(brand: string, sku: string) { return z.object({ barcode: z.string() }).parse(await client.send('/api/horizon/inventory/barcode-preview', { method: 'GET', query: { brand, sku }, requestKey: null })).barcode },
     async duplicatePhoto(record: Product) {
       if (!record.image_url) return undefined

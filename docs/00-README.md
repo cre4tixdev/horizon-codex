@@ -56,6 +56,8 @@ Le volet **CRM / Appels d’offres** est accessible depuis `/crm` : opportunité
 
 Paramètres → Apparence et densité centralise les réglages UX communs avec aperçu en direct (Admin / Superuser). Le lot nécessite les migrations `1791710002_ux_settings.js` et `1791710003_ux_appearance.js` et les hooks UX décrits dans `06-SECURITY-OPS.md` ; les règles visuelles sont documentées dans `07-UX-DESIGN-SYSTEM.md`.
 
+**Assistant de fusion — 18 octobre 2026, local :** Paramètres → Qualité des données permet de rapprocher des sociétés, personnes et produits déjà enregistrés, avec sélection manuelle ou suggestions à la demande, comparaison et confirmation. Le même comparateur est accessible depuis les fiches. Nécessite les hooks et la migration additive `1791840029_product_merge.js`, puis reconnexion pour les droits ; installation NAS non confirmée. Les sources portant des usages métier/stock non pris en charge restent bloquées, aucun document finalisé ou stock n’est réécrit. Voir [le périmètre livré](04-FUNCTIONAL-SPECS.md#assistant-transversal-de-fusion--livraison-locale-du-18-octobre-2026).
+
 ## Démarrage local du frontend
 
 Préférer Node 24 LTS (`.node-version`) et pnpm 12.9.1 (`packageManager` dans `package.json`). Les contraintes exactes sont déclarées dans `engines`.
@@ -437,3 +439,5 @@ Documents / GED G01 — 16 octobre 2026 : bibliothèque `/documents`, espaces/do
 Documents / GED G02 (17 octobre 2026) : bibliothèque des dépôts et projection en lecture seule des pièces métier existantes, dont PDF de devis envoyés et réponses jointes ; vue tous espaces, recherche par nom et thèmes. Contrats dans 04/05/06/07 et état réel dans 10 ; nécessite les hooks GED G02, sans migration supplémentaire à 0021.
 
 GED G03 (17 octobre 2026) remplace le chargement global initial par une sélection Affaire/Client/Fournisseur puis lecture de ses seules pièces. Recherche et aperçu réutilisent le contexte chargé ; migration 1791840022 (index de lecture uniquement) à installer avec les hooks et le frontend. Les documents et fichiers historiques sont conservés. Voir 04/05/06/07 et recette/livraison dans 09/10.
+
+Imports Contacts R05 — 17 octobre 2026 : pilote sociétés/personnes dans Contacts → Importer et Paramètres → Imports, fichiers CSV/XLSX et source API Odoo 19+, mapping, simulation/corrections et application confirmée par lots, historique privé et rapport. Migration 1791840026 et hooks/frontend cohérents requis ; clé serveur supplémentaire uniquement pour la connexion Odoo. Les autres domaines sont différés jusqu’à validation UX. Contrats 03/04/05/06/07/08, tests 09 et état réel 10 ; aucune installation NAS ni connexion Odoo réelle effectuée par l’agent.

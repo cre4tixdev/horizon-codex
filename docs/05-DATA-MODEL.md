@@ -432,6 +432,9 @@ created
 type
 source
 filename
+namespace
+creation_key
+mapping
 status
 mode
 created_by
@@ -441,19 +444,22 @@ summary
 error
 ```
 
-Types initiaux :
+Types livrés dans le pilote Contacts R05 :
 
 ```text
-odoo_migration
-excel_product_catalog
+companies
+people
 ```
 
 Modes :
 
 ```text
-dry_run
-apply
+create
+update
+upsert
 ```
+
+Le dry run et apply sont les phases de traitement ; source distingue file/odoo. Catalogue produits et migration des autres domaines restent prévus pour des lots ultérieurs.
 
 ### `core_import_rows`
 
@@ -4159,3 +4165,47 @@ Contrat avant migrations : `core_notifications` reçoit `dismissed_at` (date ser
 Notifications Ventes/Achats — correctif du 17 octobre 2026 : migration corrective 1791840025 ; les notifications activity de sales_quotes, purchasing_requests et purchasing_orders sont lisibles uniquement par leur destinataire actif, avec rôle actif, droit de lecture du module et source existante. Même périmètre que les événements correspondants ; lecture et retrait des alertes déjà créées rétablis sans recréation ni remise à zéro des préférences. Métadonnées et horodatages de retrait immuables via l’API native, seul marquage lu permis.
 
 Lecture ciblée des notifications (17 octobre 2026) : pas de nouveau schéma. La cloche lit GET /api/horizon/notifications/inbox ; POST /api/horizon/notifications/{id}/read marque lu côté serveur. Lecture privée indexée user/dismissed_at, contrôle de la source réelle via Activity Read avant comptage/projection, cache des autorisations par source pendant la requête. Réponse limitée à 30 alertes autorisées, compteur de toutes les non lues autorisées. Garde explicite au-delà de 5 000 alertes actives ; pas de compteur silencieusement partiel. Aucun champ interne de notification exposé hors allowlist.
+
+### Imports R05 — pilote — contrat avant migration, 17 octobre 2026
+
+Pilotage limité aux sociétés/personnes Contacts, sources fichier CSV/XLSX et res.partner Odoo JSON-2 en lecture seule. Module Imports propriétaire des core_import_jobs, core_import_rows, core_import_profiles et core_external_references. Toutes les collections techniques ont API CRUD native fermée ; routes privées avec contacts.read/write/import, profil non Viewer ; chaque job/profil est privé à son créateur. Administrateur : configuration de la connexion Odoo seulement.
+
+core_import_jobs : type companies/people, source file/odoo, filename, namespace, creation_key unique (user+key), status preview/applying/completed/blocked/cancelled, archived_at date serveur optionnelle, mode create/update/upsert, created_by, mapping JSON, summary JSON, error, started_at/completed_at et dates serveur. core_import_rows : job, row_number, source_key, status create/update/skip/conflict/error/applied, match_type, matched_record_id, normalized_data JSON, before JSON, fingerprint, resolution, error ; unicité job+row_number. core_import_profiles : owner, name, type, headers JSON, mapping JSON, mode, created/updated ; nom unique par propriétaire/type. core_external_references : provider (namespace lié à l’instance/source), entity_type, external_id, horizon_record_id, external_updated_at, last_synced_at et dates ; unicité provider/entity_type/external_id. settings_import_odoo : singleton key, base_url SaaS *.odoo.com HTTPS, database, api_key_cipher caché, updated ; API native fermée. Chiffrement via HORIZON_IMPORT_ENCRYPTION_KEY serveur.
+
+Prévisualisation de fichiers bornée à 1 000 lignes / 60 colonnes ; Odoo charge toute la sélection, sans borne de 1 000 lignes et sans troncature des lignes de staging/DTO ; payload JSON borné à 8 Mo pour toute source. aucun changement métier pendant simulation/résolution. Société : identifiant externe puis SIRET/SIREN exact, sinon nom identique signalé comme conflit à résoudre (jamais fusion automatique par nom). Personne : identifiant externe puis e-mail exact dans la société résolue ; ambiguïtés bloquantes. Résolution explicite créer/ignorer/fiche proposée. Pas d’archivage ni de réactivation par import. Cellule vide conserve l’existant ; champs non mappés conservés. Adresses principales et rôles client/fournisseur passent par l’adaptateur Contacts, champs fiscaux/comptables avancés hors de ce pilote Contacts. Les images base64 passent par image_base64 (PNG/JPEG/WebP, 200 000 caractères maximum) et sont converties à confirmation vers le fichier protégé logo/avatar existant ; aucun nouveau champ Contacts. Empreinte de l’image dans le snapshot pour détection de changement/idempotence, base64 uniquement dans le staging privé. Relation société existante nécessaire pour les personnes lorsqu’elle est fournie ; pas de création implicite de parent.
+
+Application explicite et transactionnelle par lots de 25, progression persistante par ligne ; préconditions avant application et contrôle de l’état source avant chaque ligne. Ligne appliquée et référence externe enregistrées dans la même transaction ; rejouer apply ne duplique pas. Écart depuis simulation : bloquer la suite, ne jamais écraser une modification concurrente. Aucune suppression générique ou annulation destructive d’un import déjà appliqué.
+
+Précisions du pilote R05 : `normalized_data` contient l’entrée mappée et le plan normalisé ; les corrections avant application y sont persistées. Une résolution individuelle revérifie la ligne et les doublons affectés, sans relire les images ni recalculer les snapshots des lignes indépendantes ; les identités compactes du staging sont parcourues pour conserver la détection des doublons dans l’ordre du fichier. Les lignes modifiées seules sont sauvegardées et renvoyées avec `partial: true` lorsque le client demande `X-Horizon-Import-Response: changes` (réponse complète conservée pour les anciens clients), puis fusionnées par ID dans la préparation frontend. Les compteurs sont agrégés côté SQL ; la confirmation conserve le contrôle complet des préconditions avant toute application et les contrôles par lot/ligne. Les actions groupées restent une réévaluation complète unique. Identifiant externe de ligne non modifiable par correction ; source Odoo et sa colonne identifiant vérifiées contre la connexion configurée. Pour des fichiers distincts sociétés/personnes, un parent externe absent de l’espace du fichier peut être retrouvé parmi les références de fichiers si une seule fiche société correspond ; aucune recherche de ce type entre instances Odoo. Une ambiguïté reste une erreur. Job bloqué et message conservé en cas de modification concurrente détectée ; les lignes déjà appliquées ne sont pas annulées.
+
+R05 — index des références externes : unicité provider/entity_type/external_id et index de recherche entity_type/external_id pour résoudre les parents entre fichiers sans parcourir tout le journal de références.
+
+Identifiants fichiers R05 : espace de références séparé par opérateur et source/nom de fichier, pour éviter qu’un identifiant générique « 1 » d’un autre export/opérateur ne mette à jour une société sans rapport. La recherche de parent entre fichiers reste limitée aux références de fichiers du même opérateur. Les références Odoo sont partagées par instance/base réelle, pas par utilisateur.
+
+R05 — opérations de préparation : resolve-bulk applique skip ou la règle automatique à toute la catégorie serveur (all/create/update/conflict/error/skip), dans une transaction et une seule réévaluation, uniquement en preview et pour le propriétaire habilité. discard supprime les lignes et le job technique seulement avant tout début ; depuis le 18 octobre, après application partielle ou started_at, annule/archive le job et conserve les lignes (y compris applied), puis l’exclut de l’historique courant. completed reste protégé. Références externes, fiches Contacts et historiques d’application restent intacts, audit minimal de suppression sans valeurs importées. resolve-bulk ne change pas le schéma ; le retrait des imports commencés nécessite la migration additive 1791840027 décrite ci-dessous.
+
+R05 — métadonnées de diagnostic uniquement (sans migration) : DTO job mapped_fields dérivé du mapping existant ; DTO de lecture Odoo image_fields en allowlist ; compteurs reçues/reconnues calculés par le service de collecte frontend. Ces métadonnées ne font pas partie des champs de Contacts ni du payload de preview persisté.
+
+R05 — validation native des e-mails/URL (17 octobre) : la normalisation utilise les validateurs des champs Email/URL de la collection Contacts réelle, sans sauvegarde ni hooks de sauvegarde pendant la simulation. Une préparation ancienne est revérifiée avant application ; un refus métier indique le numéro de ligne et des noms de champs en allowlist. Après rollback du lot, une préparation encore preview conserve la ligne en error et ses compteurs recalculés pour correction/ignorance ; un import déjà applying devient blocked ; Revérifier la préparation crée la simulation des lignes restantes décrite ci-dessous, lots/références déjà appliqués conservés. Aucun nouveau schéma ni migration. Les erreurs techniques restent techniques, sans contenu de source dans les logs.
+
+R05 — revérification explicite et reprise (17 octobre) : route POST jobs/{id}/recheck privée au créateur habilité, body vide, source preview ou blocked seulement. Sans début d’application : réévaluation du même staging, corrections/résolutions conservées, retour preview et erreur effacée, aucune écriture Contacts. Si des lignes ont déjà été appliquées ou started_at est rempli : nouvelle préparation preview contenant uniquement les lignes non applied, avec row_number/source_key/input/résolution conservés et mêmes namespace/mode/mapping. Ancien job/lignes appliquées immuables. creation_key serveur recheck-<source_job_id> unique par utilisateur rend la création idempotente ; nouvel audit avec source_job et compteurs, sans contenu de cellule. Nouveau job à revoir/confirmer explicitement, aucune application automatique. Pas de nouveau champ ni migration. Le diagnostic 409 distingue action, cible et snapshot, indique le numéro de ligne et seulement des noms de champs autorisés, jamais leurs valeurs. Les empreintes restent obligatoires.
+
+R05 — correspondances créées par le lot lui-même (17 octobre) : la simulation conserve dans normalized_data.base la décision Contacts avant surcouche de doublon (status/match/candidates seulement, sans dupliquer images/snapshots). Les identités fortes restent prioritaires. Les créations de même nom de société, ou de mêmes prénom/nom dans la même société pour une personne, sont signalées même si leurs e-mails diffèrent ; les futurs noms issus des mises à jour précédentes participent au contrôle. Confirmation explicite create requise pour une création distincte, ou skip ; jamais fusion sur le nom. Une résolution individuelle restaure la décision de base des seules lignes affectées ; anciennes préparations sans base restent compatibles par réévaluation ciblée lorsqu’un doublon se libère. Pour les personnes mises à jour sans société fournie, l’identité e-mail utilise la société conservée dans before. Aucun nouveau champ de collection/migration.
+
+R05 — retrait des imports inachevés (18 octobre, contrat avant migration 1791840027) : archived_at ajouté à core_import_jobs, index propriétaire/archive/date ; historique courant exclut les archivés. discard reste privé au créateur habilité : suppression physique du seul staging/job avant tout début réel ; après started_at ou toute ligne applied, transition serveur cancelled et archived_at, job/lignes/fiches/références conservés intégralement. Applying peut être retiré entre deux transactions de lots, toute continuation est alors refusée sans réactiver le job. completed reste non retirable. Retrait répété d’un job archivé idempotent, audit minimal ; aucune purge métier ni annulation des écritures déjà appliquées. Archivage distinct du statut métier cancelled.
+
+### Contacts — fusion contrôlée, 18 octobre 2026
+
+Migration additive `1791840028_contact_merge.js` : `merged_into` (relation facultative vers la même collection, sans cascade) et `merged_at` (date) sur `contacts_companies` et `contacts_people`. Index sur chaque merged_into et sur core_external_references(entity_type,horizon_record_id). Champs gérés uniquement par le service serveur de fusion. Une source fusionnée reste archivée et consultable, non modifiable/non réactivable/non supprimable ; aucune nouvelle relation ne peut la cibler. La destination doit être active et non fusionnée. Pas de chaîne : une fiche ayant déjà absorbé des sources ne peut devenir source d’une autre fusion dans ce premier lot.
+
+Premier lot volontairement limité aux doublons de référentiel : transfère les personnes et adresses appartenant à une société, réunit ses rôles Client/Fournisseur, conserve les anciennes valeurs/fichiers sur la source. Les adresses principales de la cible sont prioritaires par usage. Les références externes sont redirigées par un adaptateur propriétaire Imports, sans modifier les rapports d’import historiques. La source portant une dépendance métier hors Contacts (y compris compte tiers, document/activité non conversationnelle ou dépendance d’une personne/adresse déplacée) bloque la fusion ; choisir l’autre sens permet de conserver la fiche déjà utilisée. Aucun document historique ni donnée privée d’un autre module n’est réécrit. L’historique de la source demeure accessible via un lien explicite, sans agrégation trompeuse des compteurs. Une extension à deux fiches toutes deux utilisées nécessite les adaptateurs de leurs modules propriétaires.
+
+Aperçu serveur sans écriture, empreinte des deux fiches/dépendances/références, confirmation explicite, recontrôle dans une transaction unique et audit. Rejeu vers la même destination sans nouvel effet. Permission `contacts.merge` dédiée, nécessitant aussi read/write et un profil non viewer ; attribuée aux rôles administrateurs existants par migration, délégable via les accréditations.
+
+### Assistant de fusion et identités Produits — 18 octobre 2026
+
+Migration additive `1791840029_product_merge.js` : inventory_products.merged_into (relation facultative vers inventory_products, sans cascade), merged_at (date) et index sur merged_into ; droit inventory.merge attribué aux administrateurs existants, avec isolation d’un rôle partagé plutôt qu’extension des droits des non-administrateurs. Aucun stockage d’une simulation de rapprochement ni nouvel index de stock. Les anciennes lignes produit restent consultables, archivées et verrouillées ; SKU/code-barres restent réservés sur leur ancienne identité et résolubles comme alias dans la recherche catalogue, sans remplacement d’un ID.
+
+L’assistant est une orchestration de lecture et d’UI, avec adaptateurs Contacts et Inventory. Suggestions calculées à la demande à partir des seuls champs d’identité, avec motifs explicites, groupes paginés et détail des dépendances seulement à la comparaison. Une suggestion ne déclenche aucune écriture. La sélection manuelle reste possible ; chaque application porte sur deux fiches du même domaine, confirmées, le traitement d’un groupe se fait paire par paire avec aperçu renouvelé.
+
+Inventory réunit les offres fournisseurs en conservant leurs IDs et l’historique tarifaire ; une offre préférée existante de la cible reste prioritaire. Source sans usage métier hors ces offres/historique uniquement ; un mouvement, réservation, série/lot, valorisation, composition, devis/commande ou autre lien bloque le transfert. Aucun stock ni historique comptable n’est réécrit ou additionné ; la cible peut déjà être utilisée. Les unités de base/vente, kind, marque, politiques, suivi, composition et devise doivent être compatibles, ainsi que référence fabricant/variante lorsqu’elles sont renseignées des deux côtés. SKU/code-barres et propriétés structurelles sont affichés en lecture seule pendant la comparaison ; noms, description, famille, photo et caractéristiques descriptives sont choisissables et revalidés par Catalog. Source archivée, références externes redirigées via Imports, audit et fil ; recontrôle transactionnel et rejeu idempotent. Les dépendances non prises en charge restent explicitement bloquantes.

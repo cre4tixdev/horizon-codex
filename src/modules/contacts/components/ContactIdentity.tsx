@@ -1,11 +1,10 @@
-import { useQuery } from '@tanstack/react-query'
+import { ProtectedRecordImage } from '../../../shared/images/ProtectedRecordImage'
 import { Building2, UserRound } from 'lucide-react'
 import { contactsService } from '../services/ContactsService'
 import type { Company } from '../types/contacts'
 
 function ProtectedImage({ collectionId, id, filename, className }: { collectionId: string; id: string; filename: string; className?: string | undefined }) {
-  const image = useQuery({ queryKey: ['contacts', 'image', collectionId, id, filename], queryFn: () => contactsService.imageURL(collectionId, id, filename), staleTime: 60_000, refetchInterval: 60_000, retry: false })
-  return image.data ? <img src={image.data} alt="" className={className} referrerPolicy="no-referrer" /> : <span title={image.error ? 'Image indisponible' : 'Chargement de l’image'} className={className} aria-label={image.error ? 'Image indisponible' : undefined} />
+  return <ProtectedRecordImage collectionId={collectionId} id={id} filename={filename} className={className} loadURL={contactsService.imageURL.bind(contactsService)} />
 }
 type IdentityProps = { kind: 'company' | 'person'; collectionId: string; id: string; filename: string; company?: Company | undefined }
 export function ContactAvatar({ kind, collectionId, id, filename, company }: IdentityProps) {

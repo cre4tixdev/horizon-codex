@@ -139,7 +139,7 @@
 .dashboard-date { height: 32px; display: flex; align-items: center; gap: 8px; padding: 0 10px; background: var(--theme-surface, white); border: 1px solid var(--theme-border, #e3e7ee); border-radius: 5px; font-size: 11.5px; }
 .h-button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; flex-shrink: 0; height: var(--hz-button-height, var(--hz-control-height)); padding: 0 var(--hz-button-padding-x, 12px); border: 1px solid transparent; border-radius: var(--hz-button-radius, 5px); font-size: var(--hz-button-font, 12px); font-weight: 500; white-space: nowrap; }
 .h-button--secondary { background: var(--ux-button-background, var(--theme-surface, white)); color: var(--ux-button-text, var(--theme-text, var(--color-horizon-navy))); border-color: var(--ux-button-border, var(--theme-border, #dfe4eb)); }
-.h-button--secondary:hover { background: color-mix(in srgb, var(--ux-button-text, #091c3a) 5%, var(--ux-button-background, white)); border-color: var(--ux-button-border, #cbd3df); }
+.h-button--secondary:hover { background: color-mix(in srgb, var(--ux-button-text, var(--theme-text, #091c3a)) 5%, var(--ux-button-background, var(--theme-surface, white))); border-color: var(--ux-button-border, var(--theme-border, #cbd3df)); }
 .h-button--primary { background: var(--hz-accent-background, var(--color-horizon-magenta)); color: var(--hz-accent-text, white); }
 .h-button--primary:hover { background: color-mix(in srgb, var(--hz-accent-background, #e90072) 90%, #091c3a); }
 .h-button--ghost { background: transparent; }
@@ -2655,3 +2655,17 @@ button.contact-card-title { padding: 0; border: 0; background: transparent; text
 .ux-topbar-preview { overflow: hidden; border: 1px solid var(--theme-border); border-radius: 6px; margin-bottom: 18px; }
 .ux-topbar-preview .topbar { position: static; padding: 0 8px; --hz-search-reserved: 120px; grid-template-columns: minmax(0, 1fr) minmax(0, min(var(--hz-search-width), calc(100% - 120px))) minmax(0, 1fr); }
 .ux-topbar-preview .workspace-search { min-width: 0; width: 100%; }
+
+.h-clearable-input { display: block; position: relative; min-width: 0; }
+.h-clearable-input > .h-input { padding-right: 32px; }
+.h-clearable-input > .h-input-clear { position: absolute; right: 2px; top: 50%; transform: translateY(-50%); }
+
+/* Contacts merge compares two identities using the shared dialog and table. */
+.dialog-content.record-merge-dialog { top: 50%; transform: translate(-50%, -50%); width: min(1000px, calc(100vw - var(--workspace-sidebar-width) - 32px)); max-height: calc(100dvh - 32px); }
+.record-merge-dialog .reference-table { table-layout: fixed; width: 100%; }
+.record-merge-dialog .reference-table th:first-child { width: 24%; }
+.record-merge-dialog .reference-table :is(th, td) { white-space: normal; overflow-wrap: anywhere; vertical-align: top; }
+.record-merge-dialog .h-choice { align-items: flex-start; }
+.record-merge-dialog .h-choice > span { min-width: 0; white-space: pre-wrap; }
+.record-merge-dialog [data-table-viewport] { flex-shrink: 0; max-width: 100%; overflow: auto; }
+.record-merge-dialog .reference-table { min-width: 560px; }

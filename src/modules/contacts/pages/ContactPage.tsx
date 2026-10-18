@@ -1,3 +1,4 @@
+import { ContactMergeDialog } from '../components/ContactMergeDialog'
 import { paymentTermsService } from '../../settings/services/PaymentTermsService'
 import { HRecordPageActions } from '../../../shared/ui/HRecordPageActions'
 import { useRecordSection } from '../../../shared/records/useRecordSection'
@@ -9,7 +10,7 @@ import { useState, useSyncExternalStore, useId, useEffect } from 'react'
 import { Controller, useForm, useWatch } from 'react-hook-form'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router'
-import { Building2, UserRound, Phone, MapPin, Fingerprint, SlidersHorizontal, StickyNote, ChevronDown, Mail, Globe, Calculator, Info, NotebookPen, UsersRound } from 'lucide-react'
+import { Building2, UserRound, Phone, MapPin, Fingerprint, SlidersHorizontal, StickyNote, ChevronDown, Mail, Globe, Calculator, Info, NotebookPen, UsersRound, Merge } from 'lucide-react'
 import { sessionService } from '../../../core/auth/services/session'
 import { hasPermission } from '../../../core/auth/types/session'
 import { ActivityPanel } from '../../../shared/activity/ActivityPanel'
@@ -64,6 +65,9 @@ function ContactEditor({ kind, record, addresses, accounts, canWrite, duplicateS
   const [companySearch, setCompanySearch] = useState('')
   const [chosenCompany, setChosenCompany] = useState<Company>()
   const [changingRecord, setChangingRecord] = useState(false)
+  const [merging, setMerging] = useState(false)
+  const mergeSession = useSyncExternalStore(sessionService.subscribe, sessionService.getSnapshot)
+  const canMerge = mergeSession.status === 'authenticated' && hasPermission(mergeSession.user, 'contacts.merge') && mergeSession.user.erpProfile !== 'viewer'
   const [duplicating, setDuplicating] = useState(false)
   const [files, setFiles] = useState<ContactFiles>({})
   const source = record ?? duplicateSource
@@ -73,6 +77,7 @@ function ContactEditor({ kind, record, addresses, accounts, canWrite, duplicateS
   const [stagedCompany, setStagedCompany] = useState<Company>()
   const paymentTerms = useQuery({ queryKey: ['settings', 'payment-terms'], queryFn: paymentTermsService.list, enabled: kind === 'companies', retry: false })
   const readiness = useQuery({ queryKey: ['contacts', 'revision'], queryFn: () => contactsService.ready(), retry: false })
+  const mergedSources = useQuery({ queryKey: ['contacts', 'merged-sources', kind, record?.id], queryFn: () => contactsService.mergedSources(kind, record!.id), enabled: Boolean(record && record.merged_into !== undefined && !record.merged_into), retry: false })
   const editable = readiness.isSuccess && canWrite && (!record || record.active)
   const company = record && 'name' in record ? record : undefined
   const person = record && 'first_name' in record ? record : undefined
@@ -158,8 +163,12 @@ function ContactEditor({ kind, record, addresses, accounts, canWrite, duplicateS
 
       {!embedded && !record && <HButton asChild><Link to={directoryHref(directory, kind)} state={directory ? { contactDirectory: directory } : undefined}>Annuler</Link></HButton>}
       {editable && <HSaveButton form={formId} hasChanges={hasChanges} pending={save.isPending} disabled={busy}>{save.isPending ? 'Enregistrement…' : 'Enregistrer'}</HSaveButton>}
-      {!embedded && canWrite && record && <HRecordActions itemName={title} active={record.active} disabled={busy || (hasChanges && record.active)} onArchive={() => archive.mutateAsync(false)} onRestore={() => { if (window.confirm('Réactiver cette fiche ?')) archive.mutate(true) }} onDuplicate={() => setDuplicating(true)} onDelete={() => deletion.mutateAsync()} />}
+      {!embedded && canWrite && record && !record.merged_into && <HRecordActions actions={canMerge && record.active ? [{ label: 'Fusionner avec…', icon: Merge, onSelect: () => setMerging(true) }] : []} itemName={title} active={record.active} disabled={busy || (hasChanges && record.active)} onArchive={() => archive.mutateAsync(false)} onRestore={() => { if (window.confirm('Réactiver cette fiche ?')) archive.mutate(true) }} onDuplicate={() => setDuplicating(true)} onDelete={() => deletion.mutateAsync()} />}
     </HRecordPageActions></div>
+    {record?.merged_into && <p role="status">Cette fiche a été fusionnée. <Link to={`/contacts/${kind}/${record.merged_into}`}>Ouvrir la fiche conservée</Link>. Son historique reste consultable ci-dessous.</p>}
+    {mergedSources.error && <p role="alert" className="field-error">{mergedSources.error.message}</p>}
+    {Boolean(mergedSources.data?.length) && <section className="contact-panel"><HSectionHeading title="Fiches fusionnées · historique conservé" /><ul>{mergedSources.data?.map((source) => <li key={source.id}><Link to={`/contacts/${kind}/${source.id}`}>{source.label}</Link></li>)}</ul></section>}
+    {merging && record && <ContactMergeDialog kind={kind} record={record} onClose={() => setMerging(false)} onMerged={async (id) => { await Promise.all([client.invalidateQueries({ queryKey: ['contacts'] }), client.invalidateQueries({ queryKey: ['activity'] }), client.invalidateQueries({ queryKey: ['crm'] })]); setMerging(false); navigate(`/contacts/${kind}/${id}`, { replace: true }) }} />}
     {duplicating && record && <HRecordDuplication title={kind === 'companies' ? 'Dupliquer la société' : 'Dupliquer le contact'} itemName={title} onClose={() => setDuplicating(false)} onDuplicate={() => { setDuplicating(false); navigate(`/contacts/${kind}/new?duplicate=${record.id}`, { state: directory ? { contactDirectory: directory } : undefined }) }} />}
     <div className="contact-record-sheet">
     {!embedded && relatedCompany && <CompanyBusinessLinks company={relatedCompany} person={Boolean(person)} busy={busy || changingRecord} />}

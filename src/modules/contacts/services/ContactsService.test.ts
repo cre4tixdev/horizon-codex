@@ -5,7 +5,7 @@ import { companyInputSchema, personInputSchema, companySchema, roleSchema, addre
 
 const company = { payment_term: '', name: ' Test ', legal_name: '', vat_number: '', lei: '', billing_email: '', einvoice_routing_address: '', einvoice_platform: '', einvoice_service_code: '', einvoice_status: 'unknown' as const, preferred_language: '', siren: '', siret: '', default_currency: '', website: '', phone: '', email: '', notes: '' }
 function setup(permissions = ['contacts.read', 'contacts.write']) {
-  const repository: ContactsRepository = { ensureRevision: vi.fn(), companyPeopleCount: vi.fn(), navigation: vi.fn(), summary: vi.fn(), companies: vi.fn(), people: vi.fn(), company: vi.fn(), person: vi.fn(), saveCompany: vi.fn(), savePerson: vi.fn(), setActive: vi.fn(), deleteRecord: vi.fn(), addresses: vi.fn(), saveAddress: vi.fn(), saveAddresses: vi.fn(), saveRole: vi.fn(), removeGallery: vi.fn(), imageURL: vi.fn() }
+  const repository: ContactsRepository = { mergeChoices: vi.fn(), mergedSources: vi.fn(), mergePreview: vi.fn(), mergeApply: vi.fn(), ensureRevision: vi.fn(), companyPeopleCount: vi.fn(), navigation: vi.fn(), summary: vi.fn(), companies: vi.fn(), people: vi.fn(), company: vi.fn(), person: vi.fn(), saveCompany: vi.fn(), savePerson: vi.fn(), setActive: vi.fn(), deleteRecord: vi.fn(), addresses: vi.fn(), saveAddress: vi.fn(), saveAddresses: vi.fn(), saveRole: vi.fn(), removeGallery: vi.fn(), imageURL: vi.fn() }
   return { service: new ContactsService(repository, (permission) => permissions.includes(permission)), repository }
 }
 describe('Contacts service', () => {
@@ -143,5 +143,23 @@ describe('Adresses postales et e-mails de société', () => {
     for (const call of vi.mocked(repository.saveAddresses).mock.calls) expect(call[1]).toEqual([{ creation_id: 'primaryaddr0001', input: { ...primary, email: 'factures@test.fr', company: saved.id } }, { creation_id: 'addressnew12345', input: { ...email, email: 'factures@test.fr', company: saved.id } }])
     expect(repository.saveAddress).not.toHaveBeenCalled()
     expect(vi.mocked(repository.saveAddresses).mock.calls[1]?.[2]).toBe(vi.mocked(repository.saveCompany).mock.calls[1]?.[3])
+  })
+})
+
+describe('Fusion Contacts', () => {
+  const selection = { kind: 'companies' as const, source: 'source', target: 'target' }
+  it('exige les trois droits avant la requête', async () => {
+    for (const permissions of [[], ['contacts.read', 'contacts.write'], ['contacts.read', 'contacts.merge']]) {
+      const { service, repository } = setup(permissions)
+      await expect(service.mergePreview(selection)).rejects.toThrow('Fusionner')
+      expect(repository.mergePreview).not.toHaveBeenCalled()
+    }
+  })
+  it('transmet la confirmation et les choix au repository', async () => {
+    const { service, repository } = setup(['contacts.read', 'contacts.write', 'contacts.merge'])
+    const body = { ...selection, fingerprint: 'revision', choices: { name: 'source' as const }, confirmed: true as const }
+    vi.mocked(repository.mergeApply).mockResolvedValue({ id: 'target' })
+    await expect(service.mergeApply(body)).resolves.toEqual({ id: 'target' })
+    expect(repository.mergeApply).toHaveBeenCalledWith(body)
   })
 })

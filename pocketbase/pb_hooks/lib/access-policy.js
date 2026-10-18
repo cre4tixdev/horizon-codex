@@ -7,9 +7,9 @@ const modules = [
   { key: 'accounting', label: 'Immobilisations', available: true, actions: ['read', 'assets.manage'], scopes: ['all'] },
   { key: 'analysis', label: 'Analyse des affaires', available: true, actions: ['read', 'financial', 'labor_costs'], scopes: ['own', 'all'] },
   { key: 'calendar', label: 'Calendrier', available: true, actions: ['read', 'write'], scopes: ['all'] },
-  { key: 'contacts', label: 'Contacts', available: true, actions: ['read', 'write'], scopes: ['all'] },
+  { key: 'contacts', label: 'Contacts', available: true, actions: ['read', 'write', 'import', 'merge'], scopes: ['all'] },
   { key: 'crm', label: 'CRM', available: true, actions: ['read', 'write'], scopes: ['all'] },
-  { key: 'inventory', label: 'Catalogue / Stock', available: true, actions: ['read', 'write', 'stock.reserve', 'stock.adjust', 'stock.validate'], scopes: ['all'] },
+  { key: 'inventory', label: 'Catalogue / Stock', available: true, actions: ['read', 'write', 'merge', 'stock.reserve', 'stock.adjust', 'stock.validate'], scopes: ['all'] },
   { key: 'purchasing', label: 'Achats', available: true, actions: ['read', 'write', 'request.validate', 'order.validate'], scopes: ['all'] },
   { key: 'sales', label: 'Ventes', available: true, actions: ['read', 'write', 'quote.validate', 'order.confirm'], scopes: ['all'] },
   { key: 'hr', label: 'Employés', available: true, actions: ['read', 'write', 'organisation.manage'], scopes: ['self', 'reports', 'team', 'all'] },
@@ -49,6 +49,8 @@ const validateGrants = (profile, grants) => {
   for (const [key, grant] of Object.entries(grants)) {
     const module = modules.find((item) => item.key === key && item.available)
     if (!module || !grant || Object.keys(grant).some((field) => !['actions', 'scope'].includes(field)) || !module.scopes.includes(grant.scope) || !Array.isArray(grant.actions) || new Set(grant.actions).size !== grant.actions.length || grant.actions.some((action) => !module.actions.includes(action))) throw new BadRequestError('Module, action ou périmètre invalide.')
+    if (key === 'inventory' && grant.actions.includes('merge') && !grant.actions.includes('write')) throw new BadRequestError('La fusion Produits nécessite la modification du catalogue.');
+    if (key === 'contacts' && grant.actions.some((action) => ['import', 'merge'].includes(action)) && !grant.actions.includes('write')) throw new BadRequestError('L’import et la fusion Contacts nécessitent la modification des fiches.');
     if (grant.actions.length && !grant.actions.includes('read')) throw new BadRequestError('La consultation est nécessaire avant les autres actions.')
     if (profile === 'viewer' && key !== 'analysis' && grant.actions.some((action) => action !== 'read')) throw new BadRequestError('Viewer dispose uniquement de la consultation.')
     if (key === 'documents' && grant.actions.includes('manage') && !grant.actions.includes('write')) throw new BadRequestError('La gestion GED nécessite aussi la contribution.');
@@ -67,7 +69,7 @@ const validateGrants = (profile, grants) => {
 }
 const audit = (app, entity, id, actor, before, after, action) => {
   const record = new Record(app.findCollectionByNameOrId('core_audit'))
-  for (const [key, value] of Object.entries({ user: actor, module: entity.startsWith('leave_') ? 'leave' : entity.startsWith('expenses_') ? 'expenses' : entity.startsWith('billing_') ? 'billing' : entity.startsWith('purchasing_') ? 'purchasing' : entity.startsWith('inventory_') ? 'inventory' : entity.startsWith('hr_') ? 'hr' : entity.startsWith('documents_') ? 'documents' : 'core', entity, entity_id: id, action, before, after, metadata: { source: 'server' } })) record.set(key, value)
+  for (const [key, value] of Object.entries({ user: actor, module: entity.startsWith('contacts_') ? 'contacts' : entity.startsWith('leave_') ? 'leave' : entity.startsWith('expenses_') ? 'expenses' : entity.startsWith('billing_') ? 'billing' : entity.startsWith('purchasing_') ? 'purchasing' : entity.startsWith('inventory_') ? 'inventory' : entity.startsWith('hr_') ? 'hr' : entity.startsWith('documents_') ? 'documents' : 'core', entity, entity_id: id, action, before, after, metadata: { source: 'server' } })) record.set(key, value)
   app.save(record)
 }
 module.exports = { modules, permissions, admin, settings, hrAllowed, grantsFor, validateGrants, audit }

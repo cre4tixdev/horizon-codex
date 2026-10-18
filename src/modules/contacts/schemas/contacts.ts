@@ -26,5 +26,5 @@ export const addressInputSchema = z.object({ company: z.string().min(1), type: z
 })
 export const roleSchema = base.extend({ company: z.string(), role: z.enum(roleValues), active: z.boolean() })
 export const addressSchema = base.extend(addressInputSchema.shape)
-export const companySchema = base.extend(companyInputSchema.shape).extend({ active: z.boolean(), logo: z.string(), images: z.array(z.string()), expand: z.object({ contacts_company_roles_via_company: z.array(roleSchema).optional(), contacts_addresses_via_company: z.array(addressSchema).optional() }).optional() })
-export const personSchema = base.extend(personInputSchema.shape).extend({ active: z.boolean(), avatar: z.string(), expand: z.object({ company: companySchema.optional() }).optional() })
+export const companySchema = base.extend(companyInputSchema.shape).extend({ active: z.boolean(), merged_into: z.string().optional(), merged_at: z.string().optional(), logo: z.string(), images: z.array(z.string()), expand: z.object({ contacts_company_roles_via_company: z.array(roleSchema).optional(), contacts_addresses_via_company: z.array(addressSchema).optional() }).optional() })
+export const personSchema = base.extend(personInputSchema.shape).extend({ active: z.boolean(), merged_into: z.string().optional(), merged_at: z.string().optional(), avatar: z.string(), expand: z.object({ company: companySchema.optional() }).optional() })
