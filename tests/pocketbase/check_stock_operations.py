@@ -40,6 +40,13 @@ class StockOperationsTests(unittest.TestCase):
         status, record = self.save(self.build_input(quantity=quantity)); self.assertEqual(status, 200, record)
         status, record = self.action(record); self.assertEqual(status, 200, record)
         return record
+    def test_product_nature_cannot_change_after_physical_stock_history(self):
+        self.stock(3)
+        current=self.pb.request('GET','horizon/inventory/products/'+self.item['id'],token=self.token)[1]
+        body=dict(id=current['id'],updated=current['updated'],input={**self.product,'category':next(r['id'] for r in self.categories if r['code']=='services'),'kind':'service','stock_policy':'none','tracking':'none'})
+        status,result=self.pb.request('POST','horizon/inventory/products/save',body,self.token);self.assertEqual(status,400,result);self.assertIn('nature',result['message'])
+        self.assertEqual(self.balance()['physical'],3)
+
     def test_dynamic_filters_types_states_archives_and_search(self):
         from urllib.parse import urlencode
         status, receipt = self.save(self.build_input('IN')); self.assertEqual(status, 200, receipt)

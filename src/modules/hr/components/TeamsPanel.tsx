@@ -8,6 +8,7 @@ import { Building2, Network, UsersRound } from 'lucide-react'
 import { HButton } from '../../../shared/ui/HButton'
 import { HDialogFooter } from '../../../shared/ui/HDialogFooter'
 import { HDialog } from '../../../shared/ui/HDialog'
+import { HCombobox } from '../../../shared/ui/HCombobox'
 import { HInput } from '../../../shared/ui/HInput'
 import { HSaveButton } from '../../../shared/ui/HSaveButton'
 import { HRecordActions } from '../../../shared/ui/HRecordActions'
@@ -19,7 +20,7 @@ import { groupResults, sortResults } from '../../../shared/search/listPresentati
 import { filterValue } from '../../../shared/search/filters'
 import { useIdentityTagStyle } from '../../settings'
 import { teamStateFilter, teamGroupingFilter, teamSortFilter } from '../searchFilters'
-import { employeeName, type Employee, type Team } from '../schemas/employees'
+import { employeeName, timeWorkTypeSchema, type Employee, type Team } from '../schemas/employees'
 import { hrService } from '../services/HrService'
 import { EmployeeAvatar } from './EmployeeAvatar'
 
@@ -44,23 +45,25 @@ export function TeamsPanel({ teams, employees, onEdit }: { teams: Team[]; employ
 export function TeamEditor({ record, employees, writable, onClose }: { record: Team | undefined; employees: Employee[]; writable: boolean; onClose: () => void }) {
   const formId = useId()
   const nameId = useId()
+  const [workType, setWorkType] = useState(record?.time_work_type || 'none')
   const [name, setName] = useState(record?.name || '')
   const [managers, setManagers] = useState(record?.managers || [])
   const [active, setActive] = useState(record?.active ?? true)
   const tagStyle = useIdentityTagStyle()
   const client = useQueryClient()
-  const dirty = name.trim() !== (record?.name || '') || active !== (record?.active ?? true) || JSON.stringify([...managers].sort()) !== JSON.stringify([...(record?.managers || [])].sort())
-  const save = useMutation({ mutationFn: () => hrService.team(name, managers, active, record), onSuccess: async () => { await client.invalidateQueries({ queryKey: ['hr'] }); onClose() } })
+  const dirty = workType !== (record?.time_work_type || 'none') || name.trim() !== (record?.name || '') || active !== (record?.active ?? true) || JSON.stringify([...managers].sort()) !== JSON.stringify([...(record?.managers || [])].sort())
+  const save = useMutation({ mutationFn: () => hrService.team(name, managers, active, record, workType), onSuccess: async () => { await client.invalidateQueries({ queryKey: ['hr'] }); await client.invalidateQueries({ queryKey: ['time'] }); onClose() } })
   const options = employees.filter((employee) => managers.includes(employee.id) || employee.status === 'active' && (employee.is_manager || employee.is_direction)).map((employee) => ({ value: employee.id, label: employeeName(employee), ...tagStyle(employee.is_direction ? 'direction' : 'manager'), disabled: employee.status !== 'active' || !employee.is_manager && !employee.is_direction }))
   for (const id of managers) if (!options.some((option) => option.value === id)) options.push({ value: id, label: 'Hors périmètre', ...tagStyle('manager'), disabled: true })
-  const archive = useMutation({ mutationFn: async () => { if (record) await hrService.team(record.name, record.managers, false, record) }, onSuccess: async () => { await client.invalidateQueries({ queryKey: ['hr'] }); onClose() } })
+  const archive = useMutation({ mutationFn: async () => { if (record) await hrService.team(record.name, record.managers, false, record) }, onSuccess: async () => { await client.invalidateQueries({ queryKey: ['hr'] }); await client.invalidateQueries({ queryKey: ['time'] }); onClose() } })
   const pending = save.isPending || archive.isPending
   return <HDialog open onOpenChange={(open) => { if (!open && !pending) onClose() }} title={record ? record.name : 'Nouvelle équipe'} titleBadge={record && <HBadge tone={active ? 'success' : 'neutral'}>{active ? 'Active' : 'Archivée'}</HBadge>} description="Nommez l’équipe et choisissez les personnes qui l’encadrent." actions={record && writable && <HRecordActions itemName={record.name} active={record.active} disabled={pending} onArchive={() => archive.mutateAsync()} onRestore={() => setActive(true)} {...(dirty ? { archiveDescription: "Ses données et relations seront conservées. Les modifications non enregistrées seront abandonnées." } : {})} />}>
-    <form id={formId} className="hr-team-editor" onSubmit={(event) => { event.preventDefault(); if (writable && dirty && name.trim() && !pending) save.mutate() }}>
+    <form id={formId} className="hr-team-editor dialog-form" onSubmit={(event) => { event.preventDefault(); if (writable && dirty && name.trim() && !pending) save.mutate() }}>
       <div className="hr-team-name-field">
         <HSectionHeading icon={UsersRound} title="Nom de l’équipe" titleFor={nameId} required />
         <HInput id={nameId} required maxLength={120} placeholder="Ex. Bureau d’études" disabled={pending || !writable} value={name} onChange={(event) => setName(event.target.value)} />
       </div>
+      <label>TimeReport<HCombobox label="Périmètre de temps de l’équipe" clearable={false} showCodes={false} disabled={pending || !writable} value={workType} options={[{ value: 'none', label: 'Non concernée' }, { value: 'be', label: 'BE · saisie Horizon' }, { value: 'production', label: 'Production · OnSite (à venir)' }]} onChange={(value) => setWorkType(timeWorkTypeSchema.parse(value))} /><small className="contact-muted">Activez ensuite « Saisit ses heures » sur les fiches des employés concernés.</small></label>
       <section aria-label="Encadrement de l’équipe"><HSectionHeading icon={Network} title="Managers" description="Choisissez un ou plusieurs managers ou personnes de Direction." /><HTagPicker label="Managers de l’équipe" addLabel="Choisir les managers…" value={managers} options={options} disabled={pending || !writable} onChange={setManagers} /></section>
       {save.error && <p role="alert" className="field-error">{save.error.message}</p>}
     </form>

@@ -15,8 +15,8 @@ test('Activité : filtres cumulés, pagination, vues, fiche en popup et présent
   }
   await page.goto('/login'); await page.getByLabel('Adresse e-mail', { exact: true }).fill('writer@local.invalid'); await page.getByLabel('Mot de passe', { exact: true }).fill('Local-Horizon-test-only-2026!'); await page.getByRole('button', { name: 'Se connecter', exact: true }).click(); await expect(page).not.toHaveURL(/\/login/)
   await page.setViewportSize({ width: 1600, height: 1000 })
-  await page.goto('/'); await page.getByRole('link', { name: 'Voir toute l’activité', exact: true }).click()
-  await expect(page.getByRole('heading', { name: 'Activité', exact: true })).toBeVisible()
+  await page.goto('/'); await page.getByRole('link', { name: 'Voir toute mon activité', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Activité', exact: true })).toBeVisible(); await expect(page).toHaveURL(/view=own/); await page.getByRole('tab', { name: 'Équipe', exact: true }).click()
   await page.getByRole('searchbox', { name: 'Rechercher dans l’activité', exact: true }).fill(marker)
   await page.getByRole('button', { name: /^Filtres de recherche/ }).click()
   const filters = page.getByRole('dialog', { name: 'Filtres de recherche', exact: true })

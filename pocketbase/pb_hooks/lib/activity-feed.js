@@ -6,7 +6,7 @@ const sources = {
   sales_quotes: ['sales', '/sales/quotes/'], purchasing_requests: ['purchasing', '/purchasing/requests/'], purchasing_orders: ['purchasing', '/purchasing/orders/'],
   inventory_products: ['inventory', '/inventory/products/'], inventory_operations: ['inventory', '/inventory/operations/'], inventory_internal_assets: ['inventory', '/inventory/assets/'],
   billing_invoices: ['billing', '/billing/customer/'], billing_supplier_invoices: ['billing', '/billing/supplier/'], billing_credit_notes: ['billing', '/billing/customer_credit/'], billing_supplier_credit_notes: ['billing', '/billing/supplier_credit/'],
-  expenses_reports: ['expenses', '/expenses/'], leave_requests: ['leave', '/leave/'],
+  time_sheets: ['time', '/time-reporting/sheets/'], expenses_reports: ['expenses', '/expenses/'], leave_requests: ['leave', '/leave/'],
 }
 const categories = ['changes', 'comments', 'emails', 'documents', 'tasks', 'system']
 const csv = (value, options) => {
@@ -16,6 +16,7 @@ const csv = (value, options) => {
 }
 const label = (record) => {
   const entity = record.collection().name
+  if (entity === 'time_sheets') return `Temps BE · semaine du ${record.getString('week_start')}`
   if (entity === 'leave_requests') return `Congés · ${record.getString('start_date').slice(0, 10)} → ${record.getString('end_date').slice(0, 10)}`
   if (entity === 'expenses_reports') return `Note de frais · ${record.getString('month')}`
   const title = record.collection().name === 'contacts_people' ? [record.getString('first_name'), record.getString('last_name')].filter(Boolean).join(' ') : record.getString('title') || record.getString('name') || record.getString('employee_name')
@@ -24,7 +25,7 @@ const label = (record) => {
 }
 const category = (item) => item.metadata.email ? 'emails' : ['change', 'status_change'].includes(item.type) ? 'changes' : ['note', 'message'].includes(item.type) ? 'comments' : item.type === 'task' ? 'tasks' : item.type === 'document' ? 'documents' : 'system'
 function read(event, overview = false) {
-  const activity = require(`${__hooks}/lib/activity.js`), reader = require(`${__hooks}/lib/activity-read.js`), q = overview ? {} : event.requestInfo().query
+  const activity = require(`${__hooks}/lib/activity.js`), reader = require(`${__hooks}/lib/activity-read.js`), q = overview ? { view: 'own' } : event.requestInfo().query
   const modules = [...new Set(Object.values(sources).map((v) => v[0]))], permitted = modules.filter((module) => activity.allowed(event.app, event.auth, false, module))
   if (!permitted.length) { if (overview) return { items: [] }; throw new ForbiddenError('Aucun module métier consultable.') }
   const selected = csv(q.module, modules), types = csv(q.type, categories), view = String(q.view || 'team'), period = String(q.period || (overview ? 'all' : '30')), sort = String(q.sort || '-created'), group = String(q.group || ''), page = Number(q.page || 1)
@@ -58,7 +59,7 @@ function read(event, overview = false) {
         const tasks = event.app.findRecordsByFilter('core_tasks', 'source_module = {:module} && source_entity = {:entity} && source_record_id = {:id} && (activity_event = {:event} || id = {:task})', '', 1, 0, { module: sources[entity][0], entity, id, event: item.id, task: item.metadata.task_id || '' })
         if (tasks.length) { const t = tasks[0].publicExport(); task = { id: t.id, title: t.title, assigned_to: t.assigned_to, assigned_name: t.assigned_name, due_date: t.due_date, status: t.status, priority: t.priority, activity_event: t.activity_event } }
       }
-      if (view === 'own' && item.author !== event.auth.id && task?.assigned_to !== event.auth.id) continue
+      if (view === 'own' && item.author !== event.auth.id && task?.assigned_to !== event.auth.id && !(Array.isArray(item.metadata.mentions) && item.metadata.mentions.some((mention) => mention?.id === event.auth.id))) continue
       const sourceLabel = label(source)
       if (search && ![sourceLabel, item.body, item.metadata.author.name, item.metadata.email?.subject, item.metadata.email?.from, ...(item.metadata.email?.to || []), ...item.attachments, task?.title].filter(Boolean).join(' ').toLocaleLowerCase('fr').includes(search)) continue
       const day = new DateTime(item.created).time().in(new Timezone('Europe/Paris')).format('2006-01-02')

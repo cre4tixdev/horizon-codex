@@ -8,6 +8,7 @@ export const settingsRoutes: RouteObject[] = [{ path: '/settings', lazy: async (
   { path: 'modules/catalogue', loader: () => redirect('/settings/catalogue') },
   { path: 'catalogue', lazy: async () => ({ Component: (await import('../../inventory/pages/CatalogSettingsPage')).CatalogSettingsPage }) },
   { path: 'emails', lazy: async () => ({ Component: (await import('../../messaging/pages/EmailSettingsPage')).EmailSettingsPage }) },
+  { path: 'planning', lazy: async () => ({ Component: (await import('../../time/pages/TimeSettingsPage')).TimeSettingsPage }) },
   { path: 'leave', lazy: async () => ({ Component: (await import('../../leave/pages/LeaveSettingsPage')).LeaveSettingsPage }) },
   { path: 'expenses', lazy: async () => ({ Component: (await import('../../expenses/pages/ExpensesSettingsPage')).ExpensesSettingsPage }) },
   { path: 'facturation', lazy: async () => ({ Component: (await import('../../billing/pages/BillingSettingsPage')).BillingSettingsPage }) },

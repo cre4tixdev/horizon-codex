@@ -1,4 +1,5 @@
 const modules = [
+  { key: 'time', label: 'TimeReport', available: true, actions: ['read', 'write', 'submit', 'validate', 'settings', 'costs'], scopes: ['self', 'reports', 'all'] },
   { key: 'documents', label: 'Documents / GED', available: true, actions: ['read', 'write', 'manage', 'settings'], scopes: ['all'] },
   { key: 'messaging', label: 'Messagerie e-mail', available: true, actions: ['read', 'write', 'send', 'settings'], scopes: ['all'] },
   { key: 'leave', label: 'Congés', available: true, actions: ['read', 'write', 'submit', 'validate', 'allocate', 'settings'], scopes: ['self', 'reports', 'all'] },
@@ -13,7 +14,7 @@ const modules = [
   { key: 'purchasing', label: 'Achats', available: true, actions: ['read', 'write', 'request.validate', 'order.validate'], scopes: ['all'] },
   { key: 'sales', label: 'Ventes', available: true, actions: ['read', 'write', 'quote.validate', 'order.confirm'], scopes: ['all'] },
   { key: 'hr', label: 'Employés', available: true, actions: ['read', 'write', 'organisation.manage'], scopes: ['self', 'reports', 'team', 'all'] },
-  ...[['projects', 'Projets'], ['planning', 'Planning'], ['time', 'TimeReport'], ['service', 'SAV']].map(([key, label]) => ({ key, label, available: false, actions: [], scopes: [] })),
+  ...[['projects', 'Projets'], ['planning', 'Planning'], ['service', 'SAV']].map(([key, label]) => ({ key, label, available: false, actions: [], scopes: [] })),
 ]
 const permissions = (app, user) => {
   if (!user || user.collection().name !== 'core_users' || !user.getBool('active')) return []
@@ -39,7 +40,7 @@ const grantsFor = (app, user) => {
   const rights = permissions(app, user); const result = {}
   for (const module of modules.filter((item) => item.available)) {
     const actions = module.actions.filter((action) => rights.includes(`${module.key}.${action}`))
-    if (actions.length) result[module.key] = { actions, scope: module.key === 'hr' ? user.getString('hr_scope') || 'all' : module.key === 'leave' ? user.getString('leave_scope') || 'self' : module.key === 'expenses' ? user.getString('expenses_scope') || 'self' : module.key === 'analysis' ? 'own' : 'all' }
+    if (actions.length) result[module.key] = { actions, scope: module.key === 'time' ? user.getString('time_scope') || 'self' : module.key === 'hr' ? user.getString('hr_scope') || 'all' : module.key === 'leave' ? user.getString('leave_scope') || 'self' : module.key === 'expenses' ? user.getString('expenses_scope') || 'self' : module.key === 'analysis' ? 'own' : 'all' }
   }
   return result
 }
@@ -57,6 +58,8 @@ const validateGrants = (profile, grants) => {
     if (key === 'analysis' && grant.actions.includes('labor_costs') && !grant.actions.includes('financial')) throw new BadRequestError('Les coûts individuels nécessitent l’analyse financière.')
     if (key === 'hr' && grant.actions.includes('organisation.manage') && grant.scope !== 'all') throw new BadRequestError('La gestion de hiérarchie nécessite le périmètre global Employés.')
     if (key === 'hr' && grant.actions.includes('organisation.manage') && !grant.actions.includes('write')) throw new BadRequestError('La gestion de hiérarchie nécessite la contribution Employés.')
+    if (key === 'time' && grant.actions.includes('validate') && grant.scope === 'self') throw new BadRequestError('La validation des temps nécessite un périmètre collaborateurs ou global.');
+    if (key === 'time' && grant.actions.some((a) => ['settings', 'costs'].includes(a)) && grant.scope !== 'all') throw new BadRequestError('Le paramétrage et les coûts nécessitent le périmètre global.');
     if (key === 'leave' && grant.actions.includes('validate') && grant.scope === 'self') throw new BadRequestError('La validation des congés nécessite un périmètre collaborateurs ou global.');
     if (key === 'leave' && grant.actions.some((a) => ['allocate', 'settings'].includes(a)) && grant.scope !== 'all') throw new BadRequestError('La gestion RH des congés nécessite le périmètre global.');
     if (key === 'expenses' && grant.actions.includes('validate') && grant.scope === 'self') throw new BadRequestError('La validation nécessite un périmètre collaborateurs ou global.');
@@ -69,7 +72,7 @@ const validateGrants = (profile, grants) => {
 }
 const audit = (app, entity, id, actor, before, after, action) => {
   const record = new Record(app.findCollectionByNameOrId('core_audit'))
-  for (const [key, value] of Object.entries({ user: actor, module: entity.startsWith('contacts_') ? 'contacts' : entity.startsWith('leave_') ? 'leave' : entity.startsWith('expenses_') ? 'expenses' : entity.startsWith('billing_') ? 'billing' : entity.startsWith('purchasing_') ? 'purchasing' : entity.startsWith('inventory_') ? 'inventory' : entity.startsWith('hr_') ? 'hr' : entity.startsWith('documents_') ? 'documents' : 'core', entity, entity_id: id, action, before, after, metadata: { source: 'server' } })) record.set(key, value)
+  for (const [key, value] of Object.entries({ user: actor, module: entity.startsWith('time_') ? 'time' : entity.startsWith('contacts_') ? 'contacts' : entity.startsWith('leave_') ? 'leave' : entity.startsWith('expenses_') ? 'expenses' : entity.startsWith('billing_') ? 'billing' : entity.startsWith('purchasing_') ? 'purchasing' : entity.startsWith('inventory_') ? 'inventory' : entity.startsWith('hr_') ? 'hr' : entity.startsWith('documents_') ? 'documents' : 'core', entity, entity_id: id, action, before, after, metadata: { source: 'server' } })) record.set(key, value)
   app.save(record)
 }
 module.exports = { modules, permissions, admin, settings, hrAllowed, grantsFor, validateGrants, audit }

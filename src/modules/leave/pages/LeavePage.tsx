@@ -1,3 +1,4 @@
+import { keepPreviousListData } from '../../../shared/search/keepPreviousListData'
 import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -27,7 +28,7 @@ import '../leave.css'
 export function LeavePage() {
   const access = useLeaveAccess(), choices = useLeaveChoices(access.canRead), [params, setParams] = useSearchParams(), client = useQueryClient(), navigate = useNavigate(), [creating, setCreating] = useState(false)
   const area = params.get('area') || 'own', year = params.get('year') || String(new Date().getFullYear()), isList = ['own', 'review'].includes(area)
-  const list = useQuery({ queryKey: ['leave', 'list', params.toString()], queryFn: () => leaveService.list(Object.fromEntries(params)), enabled: access.canRead && isList, retry: false, refetchInterval: 30_000 })
+  const list = useQuery({ queryKey: ['leave', 'list', area, year, params.toString()], queryFn: () => leaveService.list(Object.fromEntries(params)), enabled: access.canRead && isList, retry: false, placeholderData: keepPreviousListData(['leave', 'list', area, year]), refetchInterval: 30_000 })
   const sorting = useListTableSorting('-start_date', { Employé: 'employee', Type: 'type', Début: 'start_date', Fin: 'end_date', Durée: 'duration', Manager: 'manager', État: 'status' })
   if (!access.canRead) return <HEmptyState icon={CalendarDays} title="Congés" description="Vous ne disposez pas de l’accès aux congés." />
   const table = (items: LeaveRequest[]) => <HDataTable columnBorders listSorting={sorting} data={items} columns={[
@@ -39,7 +40,7 @@ export function LeavePage() {
     { header: 'Manager', cell: ({ row }) => row.original.manager_name || 'À définir' },
     { header: 'État', cell: ({ row }) => <HTag tone={stateTone(row.original.status)}>{leaveStates[row.original.status]}</HTag> },
   ]} columnAlignments={{ Durée: 'right' }} columnWidths={{ Début: 125, Fin: 125, Durée: 90 }} getRowLink={(r) => ({ href: `/leave/${r.id}`, label: `Ouvrir le congé de ${r.employee_name} du ${displayDate(r.start_date)}`, state: { leaveListQuery: params.toString() } })} />
-  return <div className="contact-directory leave-page"><HPageBreadcrumb items={[{ label: 'Accueil', href: '/' }, { label: 'Congés' }]} /><HPageHeader title="Congés" description="Vos absences, vos droits et la disponibilité de l’équipe." actions={<>{access.canWrite && choices.data?.employee && <HButton variant="primary" onClick={() => setCreating(true)}><Plus size={14} />Nouvelle demande</HButton>}</>} />
+  return <div className="contact-directory leave-page" aria-busy={isList && list.isFetching}><HPageBreadcrumb items={[{ label: 'Accueil', href: '/' }, { label: 'Congés' }]} /><HPageHeader title="Congés" description="Vos absences, vos droits et la disponibilité de l’équipe." actions={<>{access.canWrite && choices.data?.employee && <HButton variant="primary" onClick={() => setCreating(true)}><Plus size={14} />Nouvelle demande</HButton>}</>} />
   <HRecordTabs label="Vues des congés" idPrefix="leave-area" value={area} onChange={(value) => setParams((current) => { const next = new URLSearchParams(current); next.set('area', value); for (const key of ['page', 'status', 'employee', 'type', 'state', 'group', 'sort']) next.delete(key); if (value === 'review') next.set('status', 'submitted,cancel_requested'); return next })} items={[{ value: 'own', label: 'Mes congés', icon: UserRound, panel: 'leave-results' }, ...(choices.data?.can_review ? [{ value: 'review', label: 'À valider', icon: UsersRound, panel: 'leave-results' }] : []), { value: 'calendar', label: 'Calendrier d’équipe', icon: CalendarDays, panel: 'leave-results' }, ...(choices.data?.can_allocate ? [{ value: 'allocations', label: 'Allocations RH', icon: Coins, panel: 'leave-results' }] : [])]} actions={area !== 'calendar' && <label className="leave-year"><span>Année</span><HInput aria-label="Année des congés" type="number" min={2000} max={2200} value={year} onChange={(e) => setParams((current) => { const next = new URLSearchParams(current); next.set('year', e.target.value); next.delete('page'); return next })} /></label>} />
   <section id="leave-results" role="tabpanel" aria-labelledby={`leave-area-${area}`}>
     {choices.isPending && <HLoadingIndicator label="Chargement des congés" />}{choices.error && <p role="alert" className="field-error">{choices.error.message}<HButton onClick={() => void choices.refetch()}>Réessayer</HButton></p>}

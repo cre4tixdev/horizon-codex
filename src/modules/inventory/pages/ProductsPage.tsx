@@ -1,3 +1,4 @@
+import { keepPreviousListData } from '../../../shared/search/keepPreviousListData'
 import { useListTableSorting } from '../../../shared/search/useListTableSorting'
 import { useSearchParams, Link } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
@@ -30,7 +31,7 @@ export function ProductsPage() {
   const [params, setParams] = useSearchParams(), access = useCatalogAccess()
   const view = params.get('view') === 'cards' ? 'cards' : 'list'
   const page = Math.max(1, Number(params.get('page')) || 1)
-  const query = useQuery({ queryKey: ['inventory', 'products', params.toString()], queryFn: () => catalogService.list({ q: params.get('q') || '', state: params.get('state') || 'active', category: params.get('category') || '', sort: params.get('sort') || 'name', page }), enabled: access.canRead, retry: false })
+  const query = useQuery({ queryKey: ['inventory', 'products', params.toString()], queryFn: () => catalogService.list({ q: params.get('q') || '', state: params.get('state') || 'active', category: params.get('category') || '', sort: params.get('sort') || 'name', page }), enabled: access.canRead, retry: false, placeholderData: keepPreviousListData(['inventory', 'products']) })
   const columns: ColumnDef<Product>[] = [
     { header: 'Produit', cell: ({ row }) => <div className="catalog-list-identity">{row.original.image_url ? <img src={row.original.image_url} alt="" /> : <span><Package size={17} /></span>}<strong>{row.original.name}</strong></div> },
     { header: 'Référence', accessorKey: 'sku' }, { header: 'Marque', accessorKey: 'manufacturer' }, { header: 'Famille', accessorKey: 'category_label' },
@@ -43,7 +44,7 @@ export function ProductsPage() {
   const table = (items: Product[]) => <HDataTable listSorting={listSorting} columnAlignments={{ stock: 'right', available: 'right' }} data={items} columns={columns} getRowLink={(item) => ({ href: `/inventory/products/${item.id}`, label: `Ouvrir ${item.name}`, state: { productListQuery: params.toString() } })} />
   const results = (items: Product[]) => view === 'cards' ? <ProductCards items={items} listQuery={params.toString()} /> : table(items)
   const groups = query.data && ['category', 'manufacturer'].includes(params.get('group') || '') ? groupResults(query.data.items, (item) => params.get('group') === 'manufacturer' ? { key: item.manufacturer || 'none', label: item.manufacturer || 'Sans marque' } : { key: item.category, label: item.category_label }) : undefined
-  return <div className="contact-directory"><HPageBreadcrumb items={[{ label: 'Accueil', href: '/' }, { label: 'Catalogue' }]} /><HPageHeader title="Produits" description="Catalogue, prix de vente et fournisseurs." actions={access.canWrite && <HButton asChild variant="primary"><Link to="/inventory/products/new" state={{ productListQuery: params.toString() }}><Plus size={14} />Nouveau produit</Link></HButton>} />
+  return <div className="contact-directory" aria-busy={query.isFetching}><HPageBreadcrumb items={[{ label: 'Accueil', href: '/' }, { label: 'Catalogue' }]} /><HPageHeader title="Produits" description="Catalogue, prix de vente et fournisseurs." actions={access.canWrite && <HButton asChild variant="primary"><Link to="/inventory/products/new" state={{ productListQuery: params.toString() }}><Plus size={14} />Nouveau produit</Link></HButton>} />
     <HListPagination page={page} totalPages={query.data?.totalPages} label="Pagination des produits" busy={query.isFetching} onPageChange={(nextPage) => setParams((current) => { const next = new URLSearchParams(current); next.set('page', String(nextPage)); return next })} />
     {query.data && <HSummaryCards label="Catégories de produits" items={query.data.categories.map((category) => {
       const next = new URLSearchParams(params); next.set('category', category.id); next.set('view', view); next.delete('page')

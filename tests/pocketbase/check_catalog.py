@@ -271,12 +271,27 @@ class CatalogTests(unittest.TestCase):
         historical = self.pb.request('GET', 'horizon/sales/quotes/' + quote['id'], token=self.token)[1]
         self.assertEqual(historical['lines'][0]['catalog_snapshot']['coefficient'], 1.5)
 
+    def test_family_controls_new_classification_without_rewriting_existing_products(self):
+        role=self.pb.request('GET','collections/core_roles/records/'+self.user['role'],token=self.pb.admin_token)[1]
+        self.pb.request('PATCH','collections/core_roles/records/'+role['id'],dict(permissions=role['permissions']+['settings.references']),self.pb.admin_token)
+        self.pb.request('PATCH','collections/core_users/records/'+self.user['id'],dict(erp_profile='admin'),self.pb.admin_token)
+        body=dict(code='workshop',label='Interventions',coefficient=1.2,active=True,product_kind='service')
+        status,family=self.pb.request('POST','horizon/inventory/categories/save',body,self.token);self.assertEqual(status,200,family)
+        status,product=self.create_product(category=family['id'],kind='equipment',tracking='serial');self.assertEqual(status,200,product);self.assertEqual(product['kind'],'service');self.assertEqual(product['stock_policy'],'none');self.assertEqual(product['tracking'],'none')
+        body.update(id=family['id'],updated=family['updated'],product_kind='equipment')
+        status,family=self.pb.request('POST','horizon/inventory/categories/save',body,self.token);self.assertEqual(status,200,family)
+        self.assertEqual(self.pb.request('GET','horizon/inventory/products/'+product['id'],token=self.token)[1]['kind'],'service')
+        value={**self.product,'category':family['id'],'kind':'service','stock_policy':'none','tracking':'none','reference_cost':99}
+        status,saved=self.pb.request('POST','horizon/inventory/products/save',dict(id=product['id'],updated=product['updated'],input=value),self.token);self.assertEqual(status,200,saved);self.assertEqual(saved['kind'],'service')
+        value['kind']='consumable';self.assertEqual(self.pb.request('POST','horizon/inventory/products/save',dict(id=saved['id'],updated=saved['updated'],input=value),self.token)[0],400)
+        value['kind']='equipment';status,saved=self.pb.request('POST','horizon/inventory/products/save',dict(id=saved['id'],updated=saved['updated'],input=value),self.token);self.assertEqual(status,200,saved);self.assertEqual(saved['kind'],'equipment')
+
     def test_permissions_validation_and_archive(self):
         self.assertEqual(self.pb.request('GET', 'horizon/inventory/products', token=self.contacts_token)[0], 403)
         self.assertEqual(self.pb.request('GET', 'horizon/inventory/categories', token=self.reader_token)[0], 403)
         self.assertEqual(self.create_product(offers=[self.offer, self.offer])[0], 400)
         self.assertEqual(self.create_product(offers=[{**self.offer, 'purchase_quantity': 0}])[0], 400)
-        self.assertEqual(self.create_product(kind='service')[0], 400)
+        self.assertEqual(self.create_product(kind='unknown')[0], 400)
         self.assertEqual(self.create_product(offers=[{**self.offer, 'supplier': self.company['id']}])[0], 400)
         status, product = self.create_product()
         self.assertEqual(status, 200, product)
@@ -348,6 +363,23 @@ class CatalogTests(unittest.TestCase):
 
 
 class CatalogMigrationTests(unittest.TestCase):
+    def test_family_classification_upgrade_preserves_existing_product(self):
+        pb=LocalPocketBase();self.addCleanup(pb.close);current=list(pb.args)
+        directory=Path(pb.temp.name)/'before_family_kind';directory.mkdir()
+        for migration in (ROOT/'pocketbase/pb_migrations').glob('*.js'):
+            if migration.name < '1791840033':(directory/migration.name).symlink_to(migration)
+        pb.args=[arg if not arg.startswith('--migrationsDir=') else '--migrationsDir='+str(directory) for arg in pb.args];pb.start()
+        family=next(r for r in pb.request('GET','collections/inventory_product_categories/records',token=pb.admin_token)[1]['items'] if r['code']=='services')
+        units=pb.request('GET','collections/inventory_units/records',token=pb.admin_token)[1]['items'];unit=units[0]
+        role=pb.create('core_roles',dict(name='family_migration',label='Migration',active=True,permissions=['inventory.read']))
+        user=pb.create_user('family-migration@local.invalid',role['id'])
+        product=pb.create('inventory_products',dict(created_by=user['id'],creation_key='family-migration-legacy-product',composition_mode='none',replenishment_policy='manual',sale_unit=unit['id'],sku='LEGACY-SERVICE',name='Service ancien',category=family['id'],kind='equipment',stock_policy='stocked',tracking='none',base_unit=unit['id'],sale_currency='EUR',active=True))
+        pb.process.terminate();pb.process.wait(timeout=10);pb.args=current
+        for _ in range(2):subprocess.run(pb.args+['migrate','up'],check=True,stdout=subprocess.DEVNULL)
+        pb.launch_and_authenticate(pb.args)
+        self.assertEqual(pb.request('GET','collections/inventory_products/records/'+product['id'],token=pb.admin_token)[1],product)
+        mapped=pb.request('GET','collections/inventory_product_categories/records/'+family['id'],token=pb.admin_token)[1];self.assertEqual(mapped['product_kind'],'service')
+
     def test_upgrade_makes_legacy_barcodes_unique_without_overwriting_reserved_codes(self):
         pb = LocalPocketBase(); self.addCleanup(pb.close)
         previous = Path(pb.temp.name) / 'before_barcode'; previous.mkdir()

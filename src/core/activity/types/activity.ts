@@ -1,5 +1,5 @@
 import { z } from 'zod'
-export const activitySourceSchema = z.object({ entity: z.enum(['documents_files', 'leave_requests', 'expenses_reports', 'contacts_companies', 'contacts_people', 'crm_opportunities', 'crm_tenders', 'sales_quotes', 'inventory_products', 'inventory_operations', 'inventory_internal_assets', 'purchasing_requests', 'purchasing_orders', 'billing_invoices', 'billing_supplier_invoices', 'billing_credit_notes', 'billing_supplier_credit_notes']), id: z.string().regex(/^[a-z0-9]{15}$/) })
+export const activitySourceSchema = z.object({ entity: z.enum(['time_sheets', 'documents_files', 'leave_requests', 'expenses_reports', 'contacts_companies', 'contacts_people', 'crm_opportunities', 'crm_tenders', 'sales_quotes', 'inventory_products', 'inventory_operations', 'inventory_internal_assets', 'purchasing_requests', 'purchasing_orders', 'billing_invoices', 'billing_supplier_invoices', 'billing_credit_notes', 'billing_supplier_credit_notes']), id: z.string().regex(/^[a-z0-9]{15}$/) })
 export type ActivitySource = z.infer<typeof activitySourceSchema>
 export const userChoiceSchema = z.object({ id: z.string(), name: z.string(), initials: z.string() })
 export type ActivityUser = z.infer<typeof userChoiceSchema>
@@ -29,6 +29,6 @@ export const activitySourcePaths: Record<ActivitySource['entity'], string> = {
   inventory_products: '/inventory/products/', inventory_operations: '/inventory/operations/', inventory_internal_assets: '/inventory/assets/',
   purchasing_requests: '/purchasing/requests/', purchasing_orders: '/purchasing/orders/',
   billing_invoices: '/billing/customer/', billing_supplier_invoices: '/billing/supplier/', billing_credit_notes: '/billing/customer_credit/', billing_supplier_credit_notes: '/billing/supplier_credit/',
-  expenses_reports: '/expenses/', leave_requests: '/leave/',
+  time_sheets: '/time-reporting/sheets/', expenses_reports: '/expenses/', leave_requests: '/leave/',
 }
 export const activitySourceHrefSchema = z.string().refine((href) => Object.values(activitySourcePaths).some((prefix) => href.startsWith(prefix) && /^[a-z0-9]{15}$/.test(href.slice(prefix.length))), 'Lien de fiche invalide.')

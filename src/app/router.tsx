@@ -1,3 +1,4 @@
+import { timeRoutes } from '../modules/time'
 import { qualityRoutes } from '../modules/data-quality'
 import { importsRoutes } from '../modules/imports'
 import { activityRoutes } from '../modules/activity'
@@ -34,6 +35,7 @@ export const router = createBrowserRouter([
     errorElement: <RouteErrorPage />,
     children: [
       { path: '/account', lazy: async () => ({ Component: (await import('./pages/AccountPage')).AccountPage }) },
+      ...timeRoutes,
       ...expensesRoutes,
       ...leaveRoutes,
       ...messagingRoutes,
@@ -52,7 +54,7 @@ export const router = createBrowserRouter([
       ...calendarRoutes,
       ...hrRoutes,
       ...settingsRoutes,
-      ...navigationItems.filter((item) => !['/', '/contacts', '/settings', '/crm', '/hr', '/calendar', '/sales', '/inventory', '/purchasing', '/analysis', '/billing', '/expenses', '/leave', '/messaging', '/activity', '/documents'].includes(item.href)).map((item) => ({ path: item.href, element: <WorkspacePage item={item} /> })),
+      ...navigationItems.filter((item) => !['/time-reporting', '/', '/contacts', '/settings', '/crm', '/hr', '/calendar', '/sales', '/inventory', '/purchasing', '/analysis', '/billing', '/expenses', '/leave', '/messaging', '/activity', '/documents'].includes(item.href)).map((item) => ({ path: item.href, element: <WorkspacePage item={item} /> })),
       { path: '*', element: <NotFoundPage /> },
     ],
     }],

@@ -1,3 +1,8 @@
+import { HWorkspaceSearchField } from '../../../shared/ui/HWorkspaceSearchField'
+import { HSearchResult } from '../../../shared/ui/HSearchResult'
+import { HDirectoryCard } from '../../../shared/ui/HDirectoryCard'
+import { HSummaryCards } from '../../../shared/ui/HSummaryCards'
+import { ActivityPanelFrame } from '../../../shared/activity/ActivityPanelFrame'
 import { useState, useSyncExternalStore, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router'
@@ -5,7 +10,7 @@ import { SearchFilters } from '../../../shared/search/SearchFilters'
 import { changeFilter, filterValue, type SearchFilter } from '../../../shared/search/filters'
 import { HRecordTabs } from '../../../shared/ui/HRecordTabs'
 import { HRecordPageActions } from '../../../shared/ui/HRecordPageActions'
-import { ChevronsDown, ChevronsUp, ChevronDown, Minus, Plus, ShoppingCart, Users, LayoutGrid, MessageSquare, PanelLeft, Check, Eye, FileText, Palette, RotateCcw, SlidersHorizontal, Type, Square, Table2, Undo2, MousePointer2, TextCursorInput } from 'lucide-react'
+import { ChevronsDown, ChevronsUp, ChevronDown, Minus, Plus, ShoppingCart, Users, LayoutGrid, PanelLeft, Check, Eye, FileText, Palette, RotateCcw, SlidersHorizontal, Type, Square, Table2, Undo2, MousePointer2, TextCursorInput, Search, Building2 } from 'lucide-react'
 import type { ColumnDef } from '@tanstack/react-table'
 import { sessionService } from '../../../core/auth/services/session'
 import { hasPermission } from '../../../core/auth/types/session'
@@ -28,6 +33,8 @@ import { uxService } from '../services/UxService'
 import { uxDefaults, uxLimits, uxStep, uxInputSchema, uxStyle, uxQueryKey, type UxInput, type UxSettings } from '../schemas/ux'
 const tabs = [
   { value: 'general', label: 'Général', icon: SlidersHorizontal, panel: 'ux-general' },
+  { value: 'search', label: 'Recherche', icon: Search, panel: 'ux-search' },
+  { value: 'cards', label: 'Cartes', icon: LayoutGrid, panel: 'ux-cards' },
   { value: 'tables', label: 'Tableaux', icon: Table2, panel: 'ux-tables' },
   { value: 'fields', label: 'Champs et textes', icon: TextCursorInput, panel: 'ux-fields' },
   { value: 'buttons', label: 'Boutons', icon: MousePointer2, panel: 'ux-buttons' },
@@ -36,12 +43,16 @@ const tabs = [
   { value: 'launcher', label: 'Menu des modules', icon: LayoutGrid, panel: 'ux-launcher' },
 ] as const
 const dimensionGroups: { tab: string; title: string; icon: typeof Table2; fields: { key: keyof typeof uxLimits; label: string }[] }[] = [
+  { tab: 'cards', title: 'Cartes des annuaires', icon: LayoutGrid, fields: [{ key: 'directory_width', label: 'Largeur minimale des cartes' }, { key: 'directory_height', label: 'Hauteur minimale des cartes' }, { key: 'directory_gap', label: 'Entre les cartes' }, { key: 'directory_padding', label: 'Marge intérieure des cartes' }, { key: 'directory_radius', label: 'Arrondi des cartes' }, { key: 'directory_title_font', label: 'Titres des cartes' }] },
+  { tab: 'cards', title: 'Cartes de synthèse', icon: LayoutGrid, fields: [{ key: 'summary_gap', label: 'Entre les synthèses' }, { key: 'summary_padding_x', label: 'Marge horizontale des synthèses' }, { key: 'summary_padding_y', label: 'Marge verticale des synthèses' }, { key: 'summary_radius', label: 'Arrondi des synthèses' }, { key: 'summary_value_font', label: 'Valeurs des synthèses' }] },
   { tab: 'filters', title: 'Dimensions et texte des filtres', icon: SlidersHorizontal, fields: [{ key: 'filter_option_height', label: 'Hauteur des options de filtre' }, { key: 'filter_button_height', label: 'Hauteur des boutons de filtre' }, { key: 'filter_font', label: 'Texte des filtres' }] },
   { tab: 'tables', title: 'Densité des tableaux', icon: Table2, fields: [{ key: 'row_height', label: 'Hauteur des lignes' }, { key: 'table_font', label: 'Texte des tableaux' }] },
-  { tab: 'fields', title: 'Champs de saisie', icon: Type, fields: [{ key: 'control_height', label: 'Hauteur des champs' }, { key: 'control_font', label: 'Texte des champs' }] },
+  { tab: 'fields', title: 'Champs de saisie', icon: Type, fields: [{ key: 'control_height', label: 'Hauteur des champs' }, { key: 'control_font', label: 'Texte des champs' }, { key: 'control_radius', label: 'Arrondi des champs' }] },
   { tab: 'fields', title: 'Libellés et titres', icon: Type, fields: [{ key: 'label_font', label: 'Libellés des champs' }, { key: 'title_font', label: 'Titres des fiches' }] },
-  { tab: 'general', title: 'Recherche en barre supérieure', icon: TextCursorInput, fields: [{ key: 'search_width', label: 'Largeur maximale de la recherche' }] },
-  { tab: 'general', title: 'Espacements et cadres', icon: Square, fields: [{ key: 'page_margin', label: 'Marges desktop' }, { key: 'panel_padding_x', label: 'Marge intérieure horizontale' }, { key: 'panel_padding_y', label: 'Marge intérieure verticale' }, { key: 'panel_radius', label: 'Arrondi des cadres' }, { key: 'section_gap', label: 'Entre les sections' }, { key: 'progress_gap', label: 'Autour des frises' }] },
+  { tab: 'search', title: 'Recherche en barre supérieure', icon: TextCursorInput, fields: [{ key: 'search_width', label: 'Largeur maximale de la recherche' }, { key: 'search_height', label: 'Hauteur de la recherche' }, { key: 'search_font', label: 'Texte de la recherche' }, { key: 'search_radius', label: 'Arrondi de la recherche' }, { key: 'search_padding_x', label: 'Marge intérieure de la recherche' }] },
+  { tab: 'search', title: 'Contexte de recherche', icon: Search, fields: [] },
+  { tab: 'search', title: 'Résultats de recherche', icon: Search, fields: [{ key: 'search_result_font', label: 'Texte des résultats' }, { key: 'search_result_padding_y', label: 'Marge verticale des résultats' }] },
+  { tab: 'general', title: 'Espacements et cadres', icon: Square, fields: [{ key: 'page_margin', label: 'Marges desktop' }, { key: 'panel_padding_x', label: 'Marge intérieure horizontale' }, { key: 'panel_padding_y', label: 'Marge intérieure verticale' }, { key: 'panel_radius', label: 'Arrondi des cadres' }, { key: 'section_gap', label: 'Entre les sections' }, { key: 'activity_gap', label: 'Espace au-dessus du fil d’activité' }, { key: 'progress_gap', label: 'Autour des frises' }] },
   { tab: 'buttons', title: 'Boutons classiques', icon: Square, fields: [{ key: 'button_height', label: 'Hauteur des boutons' }, { key: 'button_small_height', label: 'Hauteur des boutons compacts' }, { key: 'button_font', label: 'Texte des boutons' }, { key: 'button_radius', label: 'Arrondi des boutons' }, { key: 'button_padding_x', label: 'Marge horizontale des boutons' }] },
   { tab: 'buttons', title: 'Smart boutons', icon: ShoppingCart, fields: [{ key: 'smart_height', label: 'Hauteur des smart boutons' }, { key: 'smart_font', label: 'Texte des smart boutons' }] },
   { tab: 'navigation', title: 'Dimensions et typographie', icon: PanelLeft, fields: [{ key: 'sidebar_width', label: 'Largeur de la sidebar' }, { key: 'sidebar_font', label: 'Texte des entrées' }, { key: 'sidebar_submenu_font', label: 'Texte des sous-menus' }, { key: 'sidebar_title_font', label: 'Texte des titres de groupe' }, { key: 'sidebar_icon_size', label: 'Taille des icônes de sidebar' }, { key: 'sidebar_radius', label: 'Arrondi des entrées' }, { key: 'sidebar_padding_x', label: 'Marge intérieure des entrées' }, { key: 'sidebar_submenu_indent', label: 'Retrait des sous-menus' }] },
@@ -62,6 +73,23 @@ const sidebarColors = [
   { key: 'sidebar_hover_color', label: 'Teinte du survol' },
 ] as const
 const themeColors = [
+  { tab: 'cards', group: 'Aspect des cartes', label: 'Fond des cartes', light: 'card_background_light', dark: 'card_background_dark' },
+  { tab: 'cards', group: 'Aspect des cartes', label: 'Bordures des cartes', light: 'card_border_light', dark: 'card_border_dark' },
+  { tab: 'cards', group: 'Aspect des cartes', label: 'Texte principal des cartes', light: 'card_text_light', dark: 'card_text_dark' },
+  { tab: 'cards', group: 'Aspect des cartes', label: 'Bordures au survol des cartes', light: 'card_hover_border_light', dark: 'card_hover_border_dark' },
+  { tab: 'search', group: 'Recherche en barre supérieure', label: 'Fond de la recherche', light: 'search_background_light', dark: 'search_background_dark' },
+  { tab: 'search', group: 'Recherche en barre supérieure', label: 'Couleur du texte recherché', light: 'search_text_light', dark: 'search_text_dark' },
+  { tab: 'search', group: 'Recherche en barre supérieure', label: 'Bordures de la recherche', light: 'search_border_light', dark: 'search_border_dark' },
+  { tab: 'search', group: 'Recherche en barre supérieure', label: 'Indication de recherche', light: 'search_placeholder_light', dark: 'search_placeholder_dark' },
+  { tab: 'search', group: 'Recherche en barre supérieure', label: 'Focus de la recherche', light: 'search_focus_light', dark: 'search_focus_dark' },
+  { tab: 'search', group: 'Contexte de recherche', label: 'Fond du contexte', light: 'search_scope_background_light', dark: 'search_scope_background_dark' },
+  { tab: 'search', group: 'Contexte de recherche', label: 'Texte du contexte', light: 'search_scope_text_light', dark: 'search_scope_text_dark' },
+  { tab: 'fields', group: 'Champs de saisie', label: 'Fond des champs', light: 'control_background_light', dark: 'control_background_dark' },
+  { tab: 'fields', group: 'Champs de saisie', label: 'Bordures des champs', light: 'control_border_light', dark: 'control_border_dark' },
+  { tab: 'fields', group: 'Champs de saisie', label: 'Couleur du texte des champs', light: 'control_text_light', dark: 'control_text_dark' },
+  { tab: 'general', group: 'Espacements et cadres', label: 'Fond des zones', light: 'panel_background_light', dark: 'panel_background_dark' },
+
+  { tab: 'general', group: 'Espacements et cadres', label: 'Bordures des zones', light: 'panel_border_light', dark: 'panel_border_dark' },
   { tab: 'filters', group: 'Aspect des filtres', label: 'Fond du panneau et des options', light: 'filter_background_light', dark: 'filter_background_dark' },
   { tab: 'filters', group: 'Aspect des filtres', label: 'Texte du panneau et des options', light: 'filter_text_light', dark: 'filter_text_dark' },
   { tab: 'filters', group: 'Aspect des filtres', label: 'Bordures des filtres', light: 'filter_border_light', dark: 'filter_border_dark' },
@@ -85,6 +113,7 @@ const themeColors = [
   { tab: 'buttons', group: 'Smart boutons', label: 'Texte des smart boutons', light: 'smart_text_light', dark: 'smart_text_dark' },
 ] as const
 const groups: typeof dimensionGroups = [...dimensionGroups,
+  { tab: 'cards', title: 'Aspect des cartes', icon: Palette, fields: [] },
   { tab: 'general', title: 'Fonds de page et du fil', icon: Palette, fields: [] },
   { tab: 'tables', title: 'En-têtes et bordures', icon: Table2, fields: [] },
   { tab: 'tables', title: 'Lignes du tableau', icon: Table2, fields: [] },
@@ -157,12 +186,14 @@ function UxGroup({ title, icon: Icon, children, expanded, onExpandedChange }: { 
 function Preview({ values, theme, tab }: { values: UxInput; theme: 'light' | 'dark'; tab: typeof tabs[number]['value'] }) {
   return <div className={`ux-preview${tab === 'navigation' || tab === 'launcher' ? ' ux-preview--navigation' : ''}`} data-theme={theme} data-tab={tab} style={uxStyle(values)}><div className="ux-preview-body contact-record">
     {tab === 'filters' && <FiltersPreview />}
+    {tab === 'cards' && <CardsPreview />}
+    {tab === 'search' && <SearchPreview values={values} />}
     {tab === 'navigation' && <SidebarPreview />}
     {tab === 'launcher' && <LauncherPreview />}
     {tab === 'tables' && <><HSectionHeading title="Tableau d’exemple" icon={Table2} /><HDataTable data={previewRows} columns={previewColumns} columnBorders columnAlignments={{ Coût: 'right', PUV: 'right', Qté: 'center' }} /><section className="h-record-lines"><HSectionHeading title="Suivi de commande" /><HDataTable data={previewRows.slice(0, 2)} columns={trackingPreviewColumns} columnBorders columnClasses={trackingPreviewClasses} columnAlignments={{ purchase: 'center', receipt: 'center', delivery: 'center', invoiced: 'center' }} /></section></>}
     {tab === 'fields' && <><div className="contact-page-heading"><h1>Titre d’une fiche</h1></div><div className="contact-panel"><HSectionHeading title="Champs et libellés" icon={Type} /><div className="ux-preview-fields"><label><HFieldLabel>Titre</HFieldLabel><HInput readOnly value="Installation audiovisuelle" /></label><label><HFieldLabel>Fournisseur</HFieldLabel><HCombobox label="Fournisseur d’exemple UX" value="cvs" clearable={false} showCodes={false} options={[{ value: 'cvs', label: 'CVS Engineering' }]} onChange={() => {}} /></label></div></div></>}
     {tab === 'buttons' && <><HSectionHeading title="Actions et boutons" icon={Square} /><div className="ux-preview-buttons"><HButton>Classique</HButton><HButton variant="primary"><Check size={14} />Valider</HButton><HButton size="small">Compact</HButton><HButton size="icon" aria-label="Exemple d’action"><Plus size={14} /></HButton></div><HSectionHeading title="Smart boutons" icon={ShoppingCart} /><div className="record-links ux-preview-smart"><HButton><ShoppingCart size={13} />Achats<span className="record-link-count">3</span></HButton><HButton><FileText size={13} />Devis<span className="record-link-count">2</span></HButton></div></>}
-    {tab === 'general' && <><HSectionHeading title="Recherche en barre supérieure" icon={TextCursorInput} description={`Largeur maximale : ${values.search_width} px, limitée par l’espace disponible.`} /><div className="ux-topbar-preview"><HTopbar navigation={<HButton size="icon" variant="ghost" aria-label="Navigation d’exemple"><PanelLeft size={16} /></HButton>} search={<div className="workspace-search"><HInput aria-label="Recherche d’exemple" readOnly placeholder="Rechercher…" /></div>} actions={<HButton variant="ghost" size="icon" aria-label="Compte d’exemple"><Users size={16} /></HButton>} /></div><div className="contact-page-heading"><h1>Fiche d’exemple</h1><HTag tone="violet">Aperçu</HTag></div><HProgressSteps label="Frise d’exemple UX" steps={[{ id: 'draft', label: 'Brouillon', icon: FileText, state: 'done' }, { id: 'validated', label: 'Validée', icon: Check, state: 'current' }, { id: 'done', label: 'Terminée', icon: Check, state: 'pending' }]} /><div className="contact-panel"><HSectionHeading title="Une première section" icon={Square} /><p className="contact-muted">Marges, arrondis et espaces entre les sections.</p></div><div className="contact-panel"><HSectionHeading title="Une seconde section" icon={Square} /><p className="contact-muted">Un cadre commun aux fiches Horizon.</p></div><section className="activity-panel ux-preview-activity"><HSectionHeading title="Fil d’actualité" icon={MessageSquare} /><div className="activity-composer"><p className="ux-preview-message">Une note ou un échange lié à la fiche.</p></div></section></>}
+    {tab === 'general' && <><HSectionHeading title="Recherche en barre supérieure" icon={TextCursorInput} description={`Largeur maximale : ${values.search_width} px, limitée par l’espace disponible.`} /><div className="ux-topbar-preview"><HTopbar navigation={<HButton size="icon" variant="ghost" aria-label="Navigation d’exemple"><PanelLeft size={16} /></HButton>} search={<HWorkspaceSearchField><Search size={16} aria-hidden="true" /><span className="workspace-search-scope">Contacts</span><HInput aria-label="Recherche d’exemple" readOnly placeholder="Rechercher…" /></HWorkspaceSearchField>} actions={<HButton variant="ghost" size="icon" aria-label="Compte d’exemple"><Users size={16} /></HButton>} /></div><div className="contact-page-heading"><h1>Fiche d’exemple</h1><HTag tone="violet">Aperçu</HTag></div><HProgressSteps label="Frise d’exemple UX" steps={[{ id: 'draft', label: 'Brouillon', icon: FileText, state: 'done' }, { id: 'validated', label: 'Validée', icon: Check, state: 'current' }, { id: 'done', label: 'Terminée', icon: Check, state: 'pending' }]} /><div className="contact-panel"><HSectionHeading title="Une première section" icon={Square} /><p className="contact-muted">Marges, arrondis et espaces entre les sections.</p></div><div className="contact-panel"><HSectionHeading title="Une seconde section" icon={Square} /><p className="contact-muted">Un cadre commun aux fiches Horizon.</p></div><ActivityPanelFrame className="ux-preview-activity"><div className="activity-composer"><p className="ux-preview-message">Une note ou un échange lié à la fiche.</p></div></ActivityPanelFrame></>}
   </div></div>
 }
 function SidebarPreview() {
@@ -183,4 +214,11 @@ const previewGroup: SearchFilter = { key: 'group', label: 'Regrouper par', defau
 function FiltersPreview() {
   const [params, setParams] = useState(() => new URLSearchParams('kind=quote'))
   return <SearchFilters inline selections={previewFilters.map((filter) => ({ filter, value: filterValue(params, filter) }))} grouping={{ filter: previewGroup, value: filterValue(params, previewGroup) }} onChange={(filter, value) => setParams((current) => changeFilter(current, filter, value))} onReset={() => setParams(new URLSearchParams())} />
+}
+
+function CardsPreview() {
+  return <><HSectionHeading title="Cartes des annuaires" icon={LayoutGrid} /><div className="contact-card-grid" aria-label="Aperçu des cartes"><HDirectoryCard portrait={<span className="contact-card-portrait"><span className="contact-avatar contact-avatar--company"><Building2 size={26} /></span></span>} title={<button type="button" className="contact-card-title"><span>CVS Engineering</span></button>} footer={<span>Client · Actif</span>}><p className="contact-card-function">Société et coordonnées</p><div className="contact-card-coordinates"><p>contact@exemple.fr</p></div></HDirectoryCard></div><HSectionHeading title="Cartes de synthèse" icon={LayoutGrid} /><HSummaryCards label="Aperçu des synthèses" error={undefined} onRetry={() => {}} items={[{ label: 'Clients', href: '#', icon: Building2, tone: 'violet', count: 24, detail: 'Fiches actives' }, { label: 'À valider', href: '#', icon: Check, tone: 'amber', count: 8, detail: 'Documents reçus' }]} /></>
+}
+function SearchPreview({ values }: { values: UxInput }) {
+  return <><HSectionHeading title="Recherche en barre supérieure" icon={Search} description={`Largeur maximale : ${values.search_width} px, limitée par l’espace disponible.`} /><div className="ux-topbar-preview"><HTopbar navigation={<HButton size="icon" variant="ghost" aria-label="Navigation d’exemple"><PanelLeft size={16} /></HButton>} search={<HWorkspaceSearchField><Search size={16} aria-hidden="true" /><span className="workspace-search-scope">Contacts</span><HInput aria-label="Recherche d’exemple" placeholder="Rechercher…" /></HWorkspaceSearchField>} actions={<HButton variant="ghost" size="icon" aria-label="Compte d’exemple"><Users size={16} /></HButton>} /></div><HSectionHeading title="Résultats de recherche" icon={Search} /><div className="search-results"><HSearchResult href="#" label="Contacts" description="Sociétés et personnes" icon={Building2} /><HSearchResult href="#" label="Ventes" description="Devis et commandes clients" icon={FileText} /></div></>
 }

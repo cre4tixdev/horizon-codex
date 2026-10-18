@@ -2,7 +2,7 @@
 const c = require(`${__hooks}/lib/purchasing-common.js`)
 const purposes = { stock: 'stock', internal_asset: 'asset', internal_consumable: 'consumption', internal_software: 'consumption', internal_service: 'consumption', internal_equipment: 'internal' }
 const rows = (app) => app.findRecordsByFilter('accounting_analytic_accounts', 'fixed_key != ""', 'code,id', 0, 0)
-const dto = (record) => ({ id: record.id, updated: record.getString('updated'), key: record.getString('fixed_key'), code: record.getString('code'), label: record.getString('label'), purpose: purposes[record.getString('fixed_key')] })
+const dto = (record) => ({ id: record.id, updated: record.getString('updated'), key: record.getString('fixed_key'), code: record.getString('code'), label: record.getString('label'), purpose: record.getString('fixed_key') === 'time_internal' ? 'time' : purposes[record.getString('fixed_key')] })
 const guard = (app, user) => { if (!c.policy.settings(app, user)) throw new ForbiddenError('Droits de paramétrage des référentiels nécessaires.') }
 module.exports = {
   choices(app) { return rows(app).filter((record) => record.getBool('active') && record.getString('status') === 'open' && purposes[record.getString('fixed_key')]).map(dto) },

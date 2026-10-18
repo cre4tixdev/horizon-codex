@@ -1,4 +1,4 @@
-import { fixedAnalyticSchema } from '../../accounting/schemas/fixedAnalytic'
+import { purchaseFixedAnalyticSchema as fixedAnalyticSchema } from '../../accounting/schemas/fixedAnalytic'
 import { z } from 'zod'
 export type PurchaseTransition = 'validate' | 'reopen' | 'cancel' | 'cancel_all' | 'archive' | 'restore'
 export type PurchaseKind = 'requests' | 'orders'

@@ -1,3 +1,4 @@
+import { ActivityPanelFrame } from './ActivityPanelFrame'
 import type { ReactNode } from 'react'
 import { HFileThumbnail } from '../ui/HFileThumbnail'
 import { ActivityAvatar } from './ActivityAvatar'
@@ -34,14 +35,13 @@ export function ActivityPanel({ source, editable }: { source: ActivitySource; ed
   const items = feed.data?.pages.flatMap((page) => page.items) ?? []
   const refresh = async () => { await Promise.all([client.invalidateQueries({ queryKey: ['activity', source.entity, source.id] }), client.invalidateQueries({ queryKey: ['activity-tasks', source.entity, source.id] }), client.invalidateQueries({ queryKey: ['notifications'] })]) }
   const taskUpdate = useMutation({ mutationFn: ({ id, status }: { id: string; status: TaskStatus }) => activityService.updateTask(id, { status }), onSuccess: refresh })
-  return <section className="activity-panel" id="activity" aria-label="Fil d’activité">
-    <div className="activity-panel-heading"><div className="activity-panel-title"><span className="activity-heading-icon"><History size={18} /></span><div><h2>Fil d’activité</h2><p>Les échanges et l’histoire de cette fiche.</p></div></div></div>
+  return <ActivityPanelFrame id="activity">
     {editable && <ActivityComposer key={origin?.id ?? 'new'} source={source} origin={origin} onPublished={async () => { setOrigin(undefined); await refresh() }} onCancelOrigin={() => setOrigin(undefined)} />}
     <div className="activity-filter-row"><nav aria-label="Filtrer le fil d’activité">{filters.map((item) => <button type="button" key={item.value} aria-pressed={filter === item.value} onClick={() => setFilter(item.value)}>{item.label}</button>)}</nav>{feed.data && <small>{feed.data.pages[0]?.totalItems} événement{feed.data.pages[0]?.totalItems === 1 ? '' : 's'}</small>}</div>
     {(feed.error || tasks.error || taskUpdate.error) && <div role="alert" className="activity-error">{(feed.error ?? tasks.error ?? taskUpdate.error)?.message}<HButton size="small" onClick={() => { taskUpdate.reset(); void refresh() }}>Réessayer</HButton></div>}
     {feed.isPending ? <div className="activity-skeleton" aria-label="Chargement du fil"><span /><span /><span /></div> : !items.length && !feed.error ? <div className="activity-empty"><MessageSquare size={25} /><strong>{filter === 'all' ? 'Le fil commence ici' : 'Aucun événement dans cette catégorie'}</strong><p>{filter === 'all' ? 'Les prochaines modifications et les échanges de votre équipe apparaîtront ici.' : 'Choisissez un autre filtre pour consulter le reste du fil.'}</p></div> : <ol className="activity-timeline">{items.map((item) => <ActivityItem key={item.id} source={source} item={item} task={tasks.data?.find((task) => task.activity_event === item.id)} editable={editable} taskBusy={taskUpdate.isPending} onTaskStatus={(id, status) => taskUpdate.mutate({ id, status })} onConvert={() => { setOrigin(item); document.getElementById('activity')?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }} />)}</ol>}
     {feed.hasNextPage && <div className="activity-more"><HButton size="small" disabled={feed.isFetchingNextPage} onClick={() => void feed.fetchNextPage()}><ChevronDown size={14} />Afficher les événements précédents</HButton></div>}
-  </section>
+  </ActivityPanelFrame>
 }
 export function ActivityItem({ source, item, task, editable, taskBusy, onTaskStatus, onConvert, context }: { source: ActivitySource; item: ActivityEvent; task: ActivityTask | undefined; editable: boolean; taskBusy: boolean; context?: ReactNode; onTaskStatus?: (id: string, status: TaskStatus) => void; onConvert?: () => void }) {
   const received = item.metadata.email?.direction === 'received'

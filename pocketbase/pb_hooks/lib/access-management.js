@@ -41,7 +41,7 @@ module.exports = {
       const roleName = `access_${user.id}`
       const role = app.findRecordsByFilter('core_roles', 'name = {:name}', '', 1, 0, { name: roleName })[0] || new Record(app.findCollectionByNameOrId('core_roles'))
       role.set('name', roleName); role.set('label', { admin: 'Admin', superuser: 'Superuser', user: 'User', viewer: 'Viewer' }[input.erp_profile]); role.set('active', true); role.set('permissions', rights); app.save(role)
-      user.set('role', role.id); user.set('erp_profile', input.erp_profile); user.set('access_grants', input.grants); user.set('leave_scope', input.erp_profile === 'admin' ? 'all' : input.grants.leave?.scope || 'none'); user.set('expenses_scope', input.erp_profile === 'admin' ? 'all' : input.grants.expenses?.scope || 'none'); user.set('hr_scope', input.erp_profile === 'admin' ? 'all' : input.grants.hr?.scope || 'none')
+      user.set('role', role.id); user.set('erp_profile', input.erp_profile); user.set('access_grants', input.grants); user.set('time_scope', input.erp_profile === 'admin' ? 'all' : input.grants.time?.scope || 'none'); user.set('leave_scope', input.erp_profile === 'admin' ? 'all' : input.grants.leave?.scope || 'none'); user.set('expenses_scope', input.erp_profile === 'admin' ? 'all' : input.grants.expenses?.scope || 'none'); user.set('hr_scope', input.erp_profile === 'admin' ? 'all' : input.grants.hr?.scope || 'none')
       if (input.employee && input.employee !== user.getString('employee')) require(`${__hooks}/lib/employees.js`).inheritPhoto(app, user, app.findRecordById('hr_employees', input.employee), event.auth.id)
       for (const key of ['email', 'name', 'active', 'employee']) user.set(key, input[key])
       if (input.password) user.setPassword(input.password)

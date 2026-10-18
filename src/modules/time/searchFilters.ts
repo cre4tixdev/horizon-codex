@@ -1,0 +1,5 @@
+import { withColumnSortOptions, type SearchFilter } from '../../shared/search/filters'
+import { overviewStates } from './schemas/time'
+export const timeFilters = (review = false): SearchFilter[] => [{ key: 'status', label: 'État', defaultValue: '', multiple: true, options: [{ value: '', label: 'Tous les états' }, ...Object.entries(overviewStates).filter(([value]) => value !== 'unknown' && (!review || value !== 'draft')).map(([value, label]) => ({ value, label: review && value === 'missing' ? 'Non reçue' : label }))] }]
+export const timeGrouping: SearchFilter = { key: 'group', label: 'Regrouper par', defaultValue: 'none', options: [{ value: 'none', label: 'Aucun' }, { value: 'employee', label: 'Employé' }, { value: 'team', label: 'Équipe' }] }
+export const timeSort = withColumnSortOptions({ key: 'sort', label: 'Trier par', defaultValue: 'employee_name', options: [{ value: 'employee_name', label: 'Employé A–Z' }] }, { employee_name: 'Employé', team_name: 'Équipe', total_minutes: 'Total' })

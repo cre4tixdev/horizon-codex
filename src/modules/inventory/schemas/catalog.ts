@@ -1,6 +1,6 @@
 import { z } from 'zod'
 export const productKinds = { equipment: 'Équipement', consumable: 'Fourniture', service: 'Service' } as const
-export const categorySchema = z.object({ id: z.string(), updated: z.string(), code: z.string().min(1).max(40), label: z.string().min(1).max(120), coefficient: z.number().positive().max(100), active: z.boolean() })
+export const categorySchema = z.object({ id: z.string(), updated: z.string(), code: z.string().min(1).max(40), label: z.string().min(1).max(120), coefficient: z.number().positive().max(100), product_kind: z.enum(['equipment', 'consumable', 'service']), active: z.boolean() })
 export type Category = z.infer<typeof categorySchema>
 export const brandSchema = z.object({ id: z.string(), name: z.string().min(1).max(160), active: z.boolean() })
 export const offerInputSchema = z.object({ id: z.string().optional(), supplier: z.string().min(1, 'Choisissez un fournisseur.'), supplier_sku: z.string().max(160), list_price: z.number().min(0).max(1e9), discount: z.number().min(0).max(100), purchase_quantity: z.number().positive().max(1e6), currency: z.string().length(3), lead_time_days: z.number().int().min(0).max(3650), valid_from: z.string(), valid_until: z.string(), is_preferred: z.boolean() })

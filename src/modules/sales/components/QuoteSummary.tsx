@@ -1,3 +1,4 @@
+import { keepPreviousListData } from '../../../shared/search/keepPreviousListData'
 import { normalizeSalesFilters } from '../searchFilters'
 import { useQuery } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router'
@@ -10,7 +11,7 @@ export function QuoteSummary() {
   const [params] = useSearchParams()
   const selected = normalizeSalesFilters(params)
   const context = { state: selected.get('state') || 'active', q: params.get('q') || '', opportunity: params.get('opportunity') || '', company: params.get('company') || '' }
-  const summary = useQuery({ queryKey: ['sales', 'quotes', 'summary', context], queryFn: () => salesService.summary(context), retry: false })
+  const summary = useQuery({ queryKey: ['sales', 'quotes', 'summary', context], queryFn: () => salesService.summary(context), retry: false, placeholderData: keepPreviousListData(['sales', 'quotes', 'summary']) })
   const metrics = [
     { key: 'draft', label: 'Brouillon', icon: FilePenLine },
     { key: 'validated', label: 'Devis', icon: FileText },

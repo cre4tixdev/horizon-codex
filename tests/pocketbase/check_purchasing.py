@@ -44,7 +44,7 @@ class PurchasingTests(unittest.TestCase):
     def test_service_execution_policy_and_historical_purchases(self):
         products = []
         for sku, kind, brand, purchasable in [('INTERNAL', 'service', 'CVS', True), ('EXTERNAL', 'service', 'PARTNER', True), ('NEAR-CVS', 'service', 'CVS Partner', True), ('CVS-CABLE', 'consumable', 'CVS', True), ('NO-BUY', 'consumable', 'OTHER', False)]:
-            status, product = check_catalog.CatalogTests.create_product(self, key=str(uuid.uuid4()), sku=sku, kind=kind, manufacturer=brand, stock_policy='none' if kind == 'service' else 'stocked', purchase_enabled=purchasable, offers=[])
+            status, product = check_catalog.CatalogTests.create_product(self, key=str(uuid.uuid4()), sku=sku, category=next(r['id'] for r in self.categories if r['code']==('services' if kind=='service' else 'supplies')), kind=kind, manufacturer=brand, stock_policy='none' if kind == 'service' else 'stocked', purchase_enabled=purchasable, offers=[])
             self.assertEqual(status, 200, product)
             products.append(product)
         status, quote = check_catalog.CatalogTests.quote_save(self, lines=[dict(product=p['id'], description=p['sku'], quantity=4, unit='m', unit_price=10, unit_cost=5) for p in products])
@@ -315,7 +315,7 @@ class PurchasingTests(unittest.TestCase):
         self.assertEqual(catalogue['items'][0]['id'], self.item['id'])
         self.assertAlmostEqual(catalogue['items'][0]['available_quantity'], 2.123456)
         self.assertAlmostEqual(catalogue['items'][0]['physical_quantity'], 4.123456)
-        status, service = check_catalog.CatalogTests.create_product(self, key='catalog-service-card', sku='SERVICE-CARD', stock_policy='none', kind='service')
+        status, service = check_catalog.CatalogTests.create_product(self, key='catalog-service-card', sku='SERVICE-CARD', category=next(r['id'] for r in self.categories if r['code']=='services'), stock_policy='none', kind='service')
         self.assertEqual(status, 200, service)
         status, catalogue = self.pb.request('GET', 'horizon/inventory/products?q=SERVICE-CARD', token=self.token)
         self.assertEqual(status, 200, catalogue)

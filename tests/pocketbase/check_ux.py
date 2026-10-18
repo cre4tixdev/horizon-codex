@@ -18,6 +18,69 @@ class UxTests(unittest.TestCase):
     def save(self, config=None, updated=None, token=None):
         return self.pb.request('POST', 'horizon/settings/ux', {'updated': updated or self.record['updated'], 'config': config or self.record['config']}, token or self.admin_token)
 
+    def test_activity_gap_bounds_persistence_and_additive_migration(self):
+        self.assertEqual(self.record['config']['activity_gap'], 32)
+        for value in [-1, 129, 1.5, '32px']:
+            self.assertEqual(self.save({**self.record['config'], 'activity_gap': value})[0], 400)
+        for value in [0, 128, 48]:
+            status, self.record = self.save({**self.record['config'], 'activity_gap': value})
+            self.assertEqual(status, 200, self.record)
+            self.assertEqual(self.pb.request('GET', 'horizon/settings/ux', token=self.token)[1]['config']['activity_gap'], value)
+        self.pb.process.terminate(); self.pb.process.wait(timeout=5)
+        with sqlite3.connect(self.pb.data / 'data.db') as connection:
+            config = json.loads(connection.execute('SELECT config FROM settings_ux').fetchone()[0])
+            config['row_height'] = 40
+            connection.execute('UPDATE settings_ux SET config = ?', (json.dumps(config),))
+            connection.execute('DELETE FROM _migrations WHERE file = ?', ('1791840034_ux_activity_gap.js',))
+        for _ in range(2): subprocess.run(self.pb.args + ['migrate', 'up'], check=True, stdout=subprocess.DEVNULL)
+        self.pb.launch_and_authenticate(self.pb.args)
+        config = self.pb.request('GET', 'horizon/settings/ux', token=self.token)[1]['config']
+        self.assertEqual(config['activity_gap'], 48)
+        self.assertEqual(config['row_height'], 40)
+
+    def test_panel_border_colors_migrate_preserve_and_validate(self):
+        self.assertEqual(self.record['config']['panel_border_light'], '#DCE5EF')
+        self.assertEqual(self.record['config']['panel_border_dark'], '#364860')
+        for patch in [{'panel_border_light': 'url(evil)'}, {'panel_border_dark': '#fff'}]:
+            self.assertEqual(self.save({**self.record['config'], **patch})[0], 400)
+        status, saved = self.save({**self.record['config'], 'panel_border_light': '#AABBCC', 'panel_border_dark': '#112233'})
+        self.assertEqual(status, 200, saved)
+        self.assertEqual(self.pb.request('GET', 'horizon/settings/ux', token=self.token)[1]['config']['panel_border_dark'], '#112233')
+        self.pb.process.terminate(); self.pb.process.wait(timeout=5)
+        with sqlite3.connect(self.pb.data / 'data.db') as connection:
+            config = json.loads(connection.execute('SELECT config FROM settings_ux').fetchone()[0])
+            config.pop('panel_border_dark')
+            connection.execute('UPDATE settings_ux SET config = ?', (json.dumps(config),))
+            connection.execute('DELETE FROM _migrations WHERE file = ?', ('1791840035_ux_panel_borders.js',))
+        for _ in range(2): subprocess.run(self.pb.args + ['migrate', 'up'], check=True, stdout=subprocess.DEVNULL)
+        self.pb.launch_and_authenticate(self.pb.args)
+        config = self.pb.request('GET', 'horizon/settings/ux', token=self.token)[1]['config']
+        self.assertEqual(config['panel_border_light'], '#AABBCC')
+        self.assertEqual(config['panel_border_dark'], '#364860')
+        self.assertEqual(config['table_border_light'], '#DCE5EF')
+        self.assertEqual(config['activity_gap'], 32)
+
+    def test_cards_search_fields_migration_validation_and_config_size(self):
+        self.assertLess(len(json.dumps(self.record['config']).encode()), 10000)
+        self.assertEqual(self.record['config']['directory_height'], 112)
+        self.assertEqual(self.record['config']['search_height'], 34)
+        for patch in [{'directory_height': 100}, {'directory_title_font': 13.5}, {'search_height': 99}, {'search_focus_light': 'url(evil)'}, {'card_background_dark': '#fff'}, {'control_radius': -1}]:
+            self.assertEqual(self.save({**self.record['config'], **patch})[0], 400)
+        status, saved = self.save({**self.record['config'], 'directory_width': 320, 'card_border_light': '#AABBCC', 'search_height': 38, 'search_focus_light': '#CC88AA', 'control_radius': 8})
+        self.assertEqual(status, 200, saved)
+        self.pb.process.terminate(); self.pb.process.wait(timeout=5)
+        with sqlite3.connect(self.pb.data / 'data.db') as connection:
+            config = json.loads(connection.execute('SELECT config FROM settings_ux').fetchone()[0])
+            config.pop('card_background_dark')
+            config.pop('search_result_padding_y')
+            connection.execute('UPDATE settings_ux SET config = ?', (json.dumps(config),))
+            connection.execute('DELETE FROM _migrations WHERE file = ?', ('1791840036_ux_cards_search_fields.js',))
+        for _ in range(2): subprocess.run(self.pb.args + ['migrate', 'up'], check=True, stdout=subprocess.DEVNULL)
+        self.pb.launch_and_authenticate(self.pb.args)
+        config = self.pb.request('GET', 'horizon/settings/ux', token=self.token)[1]['config']
+        for key, value in {'directory_width': 320, 'card_border_light': '#AABBCC', 'search_height': 38, 'search_focus_light': '#CC88AA', 'control_radius': 8, 'card_background_dark': '#162236', 'search_result_padding_y': 10, 'activity_gap': 32}.items():
+            self.assertEqual(config[key], value)
+
     def test_shared_read_write_permissions_and_audit(self):
         self.assertEqual(self.record['config']['row_height'], 32)
         self.assertEqual(self.record['config']['search_width'], 840)

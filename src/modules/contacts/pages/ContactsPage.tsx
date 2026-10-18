@@ -66,7 +66,7 @@ export function ContactsPage({ kind = 'companies' }: { kind?: ContactKind }) {
   const autoSearch = canRead && Boolean(search.trim()) && !['companies', 'people'].includes(searchParams.get('scope') ?? '')
   const otherRecords = useContactList(otherKind, { search, archived, role, page: 1 }, autoSearch)
   useEffect(() => {
-    if (!autoSearch || !records.isSuccess || !otherRecords.isSuccess || records.data.totalItems !== 0 || otherRecords.data.totalItems === 0) return
+    if (!autoSearch || !records.isSuccess || !otherRecords.isSuccess || records.isPlaceholderData || otherRecords.isPlaceholderData || records.data.totalItems !== 0 || otherRecords.data.totalItems === 0) return
     const params = new URLSearchParams(searchParams)
     params.delete('scope')
     if (params.get('group') === 'company' && otherKind === 'companies') params.delete('group')
@@ -75,7 +75,7 @@ export function ContactsPage({ kind = 'companies' }: { kind?: ContactKind }) {
     if (sort?.startsWith('last_name:') && otherKind === 'companies') params.set('sort', sort.replace('last_name:', 'name:'))
     if (sort?.startsWith('legal_name:') && otherKind === 'people') params.delete('sort')
     navigate(`${otherKind === 'companies' ? '/contacts' : '/contacts/people'}?${params}`, { replace: true, state: { contactSearchAutofocus: true } })
-  }, [autoSearch, records.isSuccess, records.data, otherRecords.isSuccess, otherRecords.data, otherKind, searchParams, navigate])
+  }, [autoSearch, records.isSuccess, records.data, records.isPlaceholderData, otherRecords.isSuccess, otherRecords.data, otherRecords.isPlaceholderData, otherKind, searchParams, navigate])
   const companyColumns: ColumnDef<Company>[] = [
     { id: 'name', accessorKey: 'name', header: 'Société', cell: ({ row }) => <Link to={`/contacts/companies/${row.original.id}`} state={linkState}><ContactIdentity kind="company" {...row.original} filename={row.original.logo} /></Link> },
     { id: 'roles', header: 'Relations', accessorFn: (item) => item.expand?.contacts_company_roles_via_company?.filter((role) => role.active).map((role) => role.role).join(' '), cell: ({ row }) => <span className="contact-role-list">{row.original.expand?.contacts_company_roles_via_company?.filter((role) => role.active).map((role) => <HBadge key={role.id} className={`contact-role-pill contact-role-pill--${role.role}`}>{roleLabels[role.role]}</HBadge>)}</span> },
@@ -93,7 +93,7 @@ export function ContactsPage({ kind = 'companies' }: { kind?: ContactKind }) {
   const renderRecords = (items: (Company | Person)[]) => view === 'cards' ? <ContactCards records={items} directory={directory} /> : kind === 'companies'
     ? <HDataTable columnBorders columnAlignments={{ status: 'center' }} getRowLink={(company) => ({ href: `/contacts/companies/${company.id}`, state: linkState, label: `Ouvrir la fiche de ${company.name}` })} data={items.filter((item): item is Company => 'name' in item)} columns={companyColumns} sorting={sorting} onSortingChange={setSorting} />
     : <HDataTable columnBorders columnAlignments={{ status: 'center' }} getRowLink={(person) => ({ href: `/contacts/people/${person.id}`, state: linkState, label: `Ouvrir la fiche de ${[person.first_name, person.last_name].filter(Boolean).join(' ')}` })} data={items.filter((item): item is Person => 'first_name' in item)} columns={personColumns} sorting={sorting} onSortingChange={setSorting} />
-  return <div className="contact-directory">
+  return <div className="contact-directory" aria-busy={records.isFetching}>
     {canRead && <HListPagination page={page} totalPages={records.data?.totalPages} label="Pagination des contacts" busy={records.isFetching} onPageChange={(nextPage) => setPage(nextPage)} />}
     <HPageHeader title="Contacts" description="Votre référentiel de sociétés et de personnes." actions={canWrite && <HButton asChild variant="primary"><Link to={`/contacts/${kind}/new`}><Plus size={15} />{kind === 'companies' ? 'Nouvelle société' : 'Nouveau contact'}</Link></HButton>} />
     {canRead && <ContactSummary />}
@@ -104,7 +104,7 @@ export function ContactsPage({ kind = 'companies' }: { kind?: ContactKind }) {
 
         <div className="contact-view-switch" role="group" aria-label="Présentation des contacts">{[{ value: 'cards', label: 'Vue cartes', icon: LayoutGrid }, { value: 'list', label: 'Vue liste', icon: List }].map(({ value, label, icon: Icon }) => <HButton key={value} aria-label={label} aria-pressed={view === value} size="small" variant="ghost" onClick={() => setSearchParams((current) => { const next = new URLSearchParams(current); next.set('view', value); return next }, { replace: true })}><Icon size={15} /><span>{value === 'cards' ? 'Cartes' : 'Liste'}</span></HButton>)}</div>
       </div>
-      {records.isFetching && <p role="status">Chargement des contacts…</p>}
+      {records.isPending && canRead && <p role="status">Chargement des contacts…</p>}
       {records.error && <div role="alert" className="contact-error">{records.error.message}<HButton onClick={() => { void records.refetch() }}>Réessayer</HButton></div>}
       {records.data && (records.data.items.length ? records.data.groups ? <GroupedResults groups={records.data.groups.map((item) => ({ key: item.key || 'unspecified', label: item.label, total: item.total, items: records.data.items.filter((record) => item.ids.includes(record.id)) }))} icon={group === 'company' ? Building2 : Globe} render={renderRecords} /> : renderRecords(records.data.items) : <div className="contact-empty"><h2>Aucun résultat</h2><p>{search ? 'Essayez une autre recherche.' : archived ? 'Aucune fiche archivée.' : 'Commencez par créer votre première fiche.'}</p></div>)}
     </>}

@@ -71,6 +71,8 @@ class DashboardTests(unittest.TestCase):
 
     def test_activity_filters_modules_and_ignores_deleted_sources(self):
         status, quote = self.quote_save(); self.assertEqual(status, 200, quote)
+        status, own = self.pb.request('POST', 'collections/core_activity_events/records', dict(source_module='crm', source_entity='crm_opportunities', source_record_id=self.opp['id'], type='note', body='Mention pour le lecteur', mentions=[self.reader['id']]), self.token)
+        self.assertEqual(status, 200, own)
         status, result = self.pb.request('GET', 'horizon/dashboard/activity', token=self.reader_token)
         self.assertEqual(status, 200, result)
         self.assertTrue(result['items'])

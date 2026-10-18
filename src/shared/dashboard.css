@@ -2,14 +2,14 @@
    accent sémantique partagé, sans teinter les graphiques. */
 .h-dashboard-card {
   min-width: 0;
-  background: var(--theme-surface, #fff);
-  border: 1px solid var(--theme-border, #e1e8f2);
+  background: var(--theme-card-background, #fff);
+  border: 1px solid var(--theme-card-border, #dce5ef);
   border-top: 3px solid var(--tag-color);
   border-radius: var(--hz-panel-radius, 6px);
 }
 .h-dashboard-card:is(a):hover {
-  background: var(--theme-surface, #fff);
-  border-color: color-mix(in srgb, var(--tag-color) 45%, var(--theme-border, #e1e8f2));
+  background: var(--theme-card-background, #fff);
+  border-color: var(--theme-card-hover-border, #cbb4e3);
   border-top-color: var(--tag-color);
 }
 .h-dashboard-icon,
@@ -224,7 +224,7 @@
 }
 
 .dashboard-feed .dashboard-agenda-meta .h-tag, .dashboard-feed .dashboard-agenda-meta .h-badge { display: inline-flex; font-size: 9px; line-height: 16px; padding: 0 5px; margin: 0; }
-.dashboard-activity-icon { position: relative; z-index: 1; background: var(--theme-surface, #fff); }
+.dashboard-activity-icon { position: relative; z-index: 1; background: var(--theme-card-background, #fff); }
 
 /* Courbes des indicateurs : arrière-plan doux, indépendant du texte et des devises. */
 .horizon-dashboard .h-dashboard-card.kpi { position: relative; overflow: hidden; isolation: isolate; }
@@ -234,3 +234,5 @@
 .dashboard-kpi-trend-area { fill: currentColor; fill-opacity: .12; }
 .dashboard-kpi-trend-zero { stroke: currentColor; stroke-width: .6; stroke-opacity: .35; vector-effect: non-scaling-stroke; }
 .horizon-dashboard .kpi > :is(.kpi__label, .kpi__value, .kpi__caption) { position: relative; z-index: 1; }
+
+.h-dashboard-card.contact-summary-card { border-radius: var(--hz-summary-radius, 8px); }

@@ -1,4 +1,4 @@
-const types = ['mentions', 'tasks', 'email_replies', 'leave_requests', 'leave_updates', 'expense_requests', 'expense_updates', 'other_activity']
+const types = ['mentions', 'tasks', 'email_replies', 'leave_requests', 'leave_updates', 'expense_requests', 'expense_updates', 'time_requests', 'time_updates', 'other_activity']
 const current = (e) => {
   if (!e.auth || e.auth.collection().name !== 'core_users') throw new ApiError(401, 'Connexion nécessaire.')
   const user = e.app.findRecordById('core_users', e.auth.id)

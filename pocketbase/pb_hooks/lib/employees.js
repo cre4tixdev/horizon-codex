@@ -1,5 +1,5 @@
 const policy = require(`${__hooks}/lib/access-policy.js`)
-const fields = ['first_name', 'last_name', 'professional_email', 'professional_phone', 'job_title', 'employment_type', 'team', 'manager', 'is_manager', 'is_direction', 'external_company', 'start_date', 'end_date', 'status']
+const fields = ['first_name', 'last_name', 'professional_email', 'professional_phone', 'job_title', 'employment_type', 'team', 'manager', 'is_manager', 'is_direction', 'external_company', 'start_date', 'end_date', 'status', 'time_reporting_enabled']
 const identity = (app, record, admin) => {
   const account = app.findRecordsByFilter('core_users', 'employee = {:id}', '', 1, 0, { id: record.id })[0]
   return { ...record.publicExport(), account_id: admin && account ? account.id : '', has_account: Boolean(account), account_active: Boolean(account?.getBool('active')) }
@@ -7,11 +7,17 @@ const identity = (app, record, admin) => {
 const write = (event) => { if (event.auth.getString('erp_profile') === 'viewer' || !policy.permissions(event.app, event.auth).includes('hr.write')) throw new ForbiddenError('Modification des employés non autorisée.') }
 const validate = (app, input, current, actor) => {
   if (!input || Object.keys(input).some((key) => !fields.includes(key))) throw new BadRequestError('Champs employé invalides.')
-  for (const key of fields.filter((field) => !['is_manager', 'is_direction'].includes(field))) if (typeof input[key] !== 'string') throw new BadRequestError('Fiche employé incomplète.')
+  for (const key of fields.filter((field) => !['is_manager', 'is_direction', 'time_reporting_enabled'].includes(field))) if (typeof input[key] !== 'string') throw new BadRequestError('Fiche employé incomplète.')
   if (!input.first_name.trim() || !input.last_name.trim() || input.first_name.length > 80 || input.last_name.length > 80 || typeof input.is_manager !== 'boolean' || typeof input.is_direction !== 'boolean') throw new BadRequestError('Identité invalide.')
+  if (input.time_reporting_enabled !== undefined && typeof input.time_reporting_enabled !== 'boolean') throw new BadRequestError('Activation de saisie invalide.')
   if (input.is_manager && input.is_direction) throw new BadRequestError('Choisissez une seule responsabilité : Manager ou Direction.')
   const org = policy.permissions(app, actor).includes('hr.organisation.manage')
   for (const key of ['team', 'manager', 'is_manager', 'is_direction', 'status']) if (!org && (!current || input[key] !== (['is_manager', 'is_direction'].includes(key) ? current.getBool(key) : current.getString(key)))) throw new ForbiddenError('Modification de l’organisation non autorisée.')
+  if (!org && Boolean(input.time_reporting_enabled ?? current?.getBool('time_reporting_enabled')) !== Boolean(current?.getBool('time_reporting_enabled'))) throw new ForbiddenError('L’activation des temps nécessite la gestion de l’organisation RH.')
+  if (input.time_reporting_enabled && (!current?.getBool('time_reporting_enabled') || input.team !== current?.getString('team'))) {
+    const team = input.team ? app.findRecordById('core_teams', input.team) : null
+    if (!team?.getBool('active') || !['be', 'production'].includes(team.getString('time_work_type'))) throw new BadRequestError('Choisissez une équipe BE ou Production active avant d’activer la saisie des heures.')
+  }
   if (input.team) { const team = app.findRecordById('core_teams', input.team); if (!team.getBool('active') && (!current || current.getString('team') !== team.id)) throw new BadRequestError('Équipe inactive.') }
   if (input.external_company && input.external_company !== current?.getString('external_company') && !policy.permissions(app, actor).includes('contacts.read')) throw new ForbiddenError('Lecture Contacts nécessaire pour rattacher une société externe.')
   if (input.manager) {
@@ -63,10 +69,11 @@ module.exports = {
       const actor = app.findRecordById('core_users', event.auth.id)
       const record = body.id ? app.findRecordById('hr_employees', body.id) : new Record(app.findCollectionByNameOrId('hr_employees'))
       if (body.id && record.getString('updated') !== body.updated) throw new ApiError(409, 'La fiche a changé. Actualisez-la.')
+      if (input?.time_reporting_enabled !== undefined && !record.collection().fields.getByName('time_reporting_enabled')) throw new ApiError(503, 'Installez la migration PocketBase 1791840032 puis redémarrez pour configurer la saisie des heures.')
       validate(app, input, body.id ? record : null, actor)
       const before = body.id ? record.publicExport() : null
       if (body.id && !policy.hrAllowed(app, actor, record, true)) throw new ForbiddenError('Employé hors de votre périmètre.')
-      for (const key of fields) record.set(key, input[key])
+      for (const key of fields) if (input[key] !== undefined) record.set(key, input[key])
       if (body.remove_avatar === true || body.remove_avatar === 'true') record.set('avatar', '')
       if (files.length) record.set('avatar', files)
       if (!policy.hrAllowed(app, actor, record, true)) throw new ForbiddenError('Destination hors de votre périmètre.')
@@ -84,11 +91,13 @@ module.exports = {
   team(event) {
     if (!policy.settings(event.app, event.auth)) throw new ForbiddenError('Gestion des équipes réservée à Admin et Superuser.')
     const body = event.requestInfo().body
-    if (!body || Object.keys(body).some((key) => !['id', 'updated', 'name', 'active', 'managers'].includes(key)) || typeof body.name !== 'string' || !body.name.trim() || body.name.length > 120 || typeof body.active !== 'boolean' || !Array.isArray(body.managers) || body.managers.length > 100 || body.managers.some((id) => typeof id !== 'string' || !id) || new Set(body.managers).size !== body.managers.length) throw new BadRequestError('Équipe invalide.')
+    if (!body || Object.keys(body).some((key) => !['id', 'updated', 'name', 'active', 'managers', 'time_work_type'].includes(key)) || typeof body.name !== 'string' || !body.name.trim() || body.name.length > 120 || typeof body.active !== 'boolean' || !Array.isArray(body.managers) || body.managers.length > 100 || body.managers.some((id) => typeof id !== 'string' || !id) || new Set(body.managers).size !== body.managers.length) throw new BadRequestError('Équipe invalide.')
+    if (body.time_work_type !== undefined && !['none', 'be', 'production'].includes(body.time_work_type)) throw new BadRequestError('Périmètre TimeReport invalide.')
     let result
     event.app.runInTransaction((app) => {
       const record = body.id ? app.findRecordById('core_teams', body.id) : new Record(app.findCollectionByNameOrId('core_teams'))
       if (body.id && record.getString('updated') !== body.updated) throw new ApiError(409, 'L’équipe a changé. Actualisez la liste.')
+      if (!record.collection().fields.getByName('time_work_type')) throw new ApiError(503, 'Installez la migration PocketBase 1791840032 puis redémarrez pour configurer le périmètre TimeReport des équipes.')
       const previousManagers = Array.from(record.getStringSlice('managers'))
       for (const id of body.managers) {
         const manager = app.findRecordById('hr_employees', id)
@@ -98,6 +107,7 @@ module.exports = {
       }
       const before = body.id ? record.publicExport() : null
       if (!body.id) { record.id = $security.randomString(15).toLowerCase(); record.set('code', record.id) }
+      if (body.time_work_type !== undefined) record.set('time_work_type', body.time_work_type); else if (!body.id) record.set('time_work_type', 'none')
       record.set('name', body.name.trim()); record.set('active', body.active); record.set('managers', body.managers)
       app.save(record); result = record.publicExport(); policy.audit(app, 'core_teams', record.id, event.auth.id, before, result, body.id ? 'update' : 'create')
     })

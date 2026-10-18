@@ -292,7 +292,9 @@ class LeaveUpgradeTests(unittest.TestCase):
         pb.args=original;pb.launch_and_authenticate(original)
         for table,record in [('hr_employees',employee),('contacts_companies',company)]:
             current=pb.request('GET','collections/'+table+'/records/'+record['id'],token=pb.admin_token)[1]
-            self.assertEqual(current,record)
+            # Later additive migrations may add fields; every historical value must remain identical.
+            self.assertEqual({key:current[key] for key in record},record)
+            if table=='contacts_companies':self.assertEqual(current['merged_into'],'');self.assertEqual(current['merged_at'],'')
         current=pb.request('GET','collections/core_users/records/'+admin['id'],token=pb.admin_token)[1];self.assertEqual(current['leave_scope'],'all')
         ordinary=pb.request('GET','collections/core_users/records/'+pb.user['id'],token=pb.admin_token)[1];self.assertEqual(ordinary['leave_scope'],'none')
         current_role=pb.request('GET','collections/core_roles/records/'+role['id'],token=pb.admin_token)[1]

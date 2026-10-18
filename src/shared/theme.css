@@ -1,6 +1,22 @@
 /* Semantic theme tokens. Light mode keeps the existing colors through CSS fallbacks. */
-:root { --theme-order-tracking-text: var(--hz-order-tracking-text-light, #4c678e); --theme-order-tracking-header: var(--hz-order-tracking-header-light, #fff0f7); --theme-table-header-text: var(--hz-table-header-text-light, #4c678e); --theme-table-header: var(--hz-table-header-light, #dce5ef); --theme-table-border: var(--hz-table-border-light, #dce5ef); color-scheme: light; --theme-activity-background: #e5ebf3; --theme-red-text: #dc2626; }
+:root { --theme-card-background: var(--hz-card-background-light, #FFFFFF); --theme-card-border: var(--hz-card-border-light, #DCE5EF); --theme-card-text: var(--hz-card-text-light, #091C3A); --theme-card-hover-border: var(--hz-card-hover-border-light, #CBB4E3); --theme-search-background: var(--hz-search-background-light, #F8FAFF); --theme-search-text: var(--hz-search-text-light, #091C3A); --theme-search-border: var(--hz-search-border-light, #DCE5EF); --theme-search-placeholder: var(--hz-search-placeholder-light, #7189AB); --theme-search-focus: var(--hz-search-focus-light, #A3B9DD); --theme-search-scope-background: var(--hz-search-scope-background-light, #EAF0F9); --theme-search-scope-text: var(--hz-search-scope-text-light, #49658B); --theme-control-background: var(--hz-control-background-light, #FFFFFF); --theme-control-border: var(--hz-control-border-light, #DCE5EF); --theme-control-text: var(--hz-control-text-light, #111111); --theme-panel-background: var(--hz-panel-background-light, #FFFFFF); --theme-panel-border: var(--hz-panel-border-light, #dce5ef); --theme-order-tracking-text: var(--hz-order-tracking-text-light, #4c678e); --theme-order-tracking-header: var(--hz-order-tracking-header-light, #fff0f7); --theme-table-header-text: var(--hz-table-header-text-light, #4c678e); --theme-table-header: var(--hz-table-header-light, #dce5ef); --theme-table-border: var(--hz-table-border-light, #dce5ef); color-scheme: light; --theme-activity-background: #e5ebf3; --theme-red-text: #dc2626; }
 :root[data-theme="dark"] {
+  --theme-card-background: var(--hz-card-background-dark, #162236);
+  --theme-card-border: var(--hz-card-border-dark, #364860);
+  --theme-card-text: var(--hz-card-text-dark, #E8EEF8);
+  --theme-card-hover-border: var(--hz-card-hover-border-dark, #65517E);
+  --theme-search-background: var(--hz-search-background-dark, #1C2A40);
+  --theme-search-text: var(--hz-search-text-dark, #E8EEF8);
+  --theme-search-border: var(--hz-search-border-dark, #364860);
+  --theme-search-placeholder: var(--hz-search-placeholder-dark, #B8C5D7);
+  --theme-search-focus: var(--hz-search-focus-dark, #8CAADA);
+  --theme-search-scope-background: var(--hz-search-scope-background-dark, #1C304B);
+  --theme-search-scope-text: var(--hz-search-scope-text-dark, #B8C5D7);
+  --theme-control-background: var(--hz-control-background-dark, #162236);
+  --theme-control-border: var(--hz-control-border-dark, #364860);
+  --theme-control-text: var(--hz-control-text-dark, #F3F6FC);
+  --theme-panel-background: var(--hz-panel-background-dark, #162236);
+  --theme-panel-border: var(--hz-panel-border-dark, #364860);
   --theme-order-tracking-text: var(--hz-order-tracking-text-dark, #b8c5d7);
   --theme-order-tracking-header: var(--hz-order-tracking-header-dark, #352638);
   --theme-focus-ring: #8caada;

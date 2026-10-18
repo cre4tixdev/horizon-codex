@@ -38,7 +38,7 @@ function report(app, user, opportunity, quoteId) {
   const accounts = [root, ...children], ids = new Set(accounts.map((item) => item.id))
   const buckets = new Map(accounts.map((account) => [account.id, empty(account, account.getString('source_quote') ? get(app, 'sales_quotes', account.getString('source_quote')) : null)]))
   const currency = opportunity.getString('currency')
-  const times = require(`${__hooks}/lib/time-analysis.js`)(app, accounts.map((account) => account.id))
+  const times = require(`${__hooks}/lib/time-analysis.js`)(app, accounts.map((account) => account.id), currency)
   for (const bucket of buckets.values()) bucket.hours = times.accounts.get(bucket.id)
   const orders = rows(app, 'sales_orders', 'opportunity = {:id}', { id: opportunity.id })
   for (const order of orders.filter((order) => order.getString('status') === 'confirmed')) {
@@ -85,14 +85,15 @@ function report(app, user, opportunity, quoteId) {
       bucket.stock_consumed = safeCents(bucket.stock_consumed - cents(entry.getFloat('movement_value')))
     }
   }
-  const project = (bucket) => ({ id: bucket.id, code: bucket.code, label: bucket.label, quote: bucket.quote, confirmed: bucket.confirmed, item_lines: bucket.item_lines, delivered_lines: bucket.delivered_lines, hours: bucket.hours, ...(access.financial ? { financial: { revenue: money(bucket.revenue), planned_cost: money(bucket.planned_cost), planned_margin: money(safeCents(bucket.revenue - bucket.planned_cost)), planned_margin_percent: bucket.revenue ? (bucket.revenue - bucket.planned_cost) / bucket.revenue * 100 : null, purchases_committed: money(bucket.purchases_committed), stock_consumed: stockCurrencyMismatch ? null : money(bucket.stock_consumed) } } : {}) })
+  const project = (bucket) => ({ id: bucket.id, code: bucket.code, label: bucket.label, quote: bucket.quote, confirmed: bucket.confirmed, item_lines: bucket.item_lines, delivered_lines: bucket.delivered_lines, hours: bucket.hours, ...(access.financial ? { financial: { revenue: money(bucket.revenue), planned_cost: money(bucket.planned_cost), planned_margin: money(safeCents(bucket.revenue - bucket.planned_cost)), planned_margin_percent: bucket.revenue ? (bucket.revenue - bucket.planned_cost) / bucket.revenue * 100 : null, purchases_committed: money(bucket.purchases_committed), stock_consumed: stockCurrencyMismatch ? null : money(bucket.stock_consumed), actual_labor_cost: Object.hasOwn(bucket, 'labor_cost') ? bucket.labor_cost : times.costs.get(bucket.id)?.supplied ? money(times.costs.get(bucket.id).cents) : null } } : {}) })
   const all = [...buckets.values()], selected = quoteId ? all.filter((bucket) => bucket.quote === quoteId) : all
   const totals = selected.reduce((sum, bucket) => ({ ...sum, item_lines: sum.item_lines + bucket.item_lines, delivered_lines: sum.delivered_lines + bucket.delivered_lines, revenue: safeCents(sum.revenue + bucket.revenue), planned_cost: safeCents(sum.planned_cost + bucket.planned_cost), purchases_committed: safeCents(sum.purchases_committed + bucket.purchases_committed), stock_consumed: safeCents(sum.stock_consumed + bucket.stock_consumed) }), empty(root, null))
   totals.hours = { be: { planned_minutes: 0, actual_minutes: 0, pending_minutes: 0 }, production: { planned_minutes: 0, actual_minutes: 0, pending_minutes: 0 } }
   for (const bucket of selected) for (const work of ['be', 'production']) for (const key of ['planned_minutes', 'actual_minutes', 'pending_minutes']) totals.hours[work][key] = safeCents(totals.hours[work][key] + bucket.hours[work][key])
+  totals.labor_cost = selected.every((bucket) => times.costs.get(bucket.id)?.supplied) ? money(selected.reduce((n, bucket) => safeCents(n + times.costs.get(bucket.id).cents), 0)) : null
   const projectedTotals = project(totals)
   if (access.financial) projectedTotals.financial.estimated_revenue = money(cents(opportunity.getFloat('estimated_value')))
-  return { root: { id: root.id, code: root.getString('code'), opportunity: opportunity.id, label: root.getString('label'), client: get(app, 'contacts_companies', opportunity.getString('company')).getString('name') }, currency, capabilities: access, accounts: selected.map(project), totals: projectedTotals, coverage: { time: times.time, planning: times.planning, expenses: false, billing: false, labor_costs: false, stock_currency_mismatch: stockCurrencyMismatch } }
+  return { root: { id: root.id, code: root.getString('code'), opportunity: opportunity.id, label: root.getString('label'), client: get(app, 'contacts_companies', opportunity.getString('company')).getString('name') }, currency, capabilities: access, accounts: selected.map(project), totals: projectedTotals, coverage: { time: times.time, time_be: times.time_be, time_production: times.time_production, planning: times.planning, expenses: false, billing: false, labor_costs: access.financial && selected.every((bucket) => times.costs.get(bucket.id)?.supplied), stock_currency_mismatch: stockCurrencyMismatch } }
 }
 module.exports = {
   list(event) {

@@ -3,6 +3,9 @@ module.exports = {
   source(app, user) { return user.getString('employee') ? app.findRecordById('hr_employees', user.getString('employee')) : user },
   serve(event, user) {
     const record = this.source(event.app, user)
+    return this.serveRecord(event, record)
+  },
+  serveRecord(event, record) {
     const filename = record.getString('avatar')
     event.response.header().set('Cache-Control', 'no-store')
     if (!filename) return event.noContent(204)

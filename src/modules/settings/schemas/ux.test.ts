@@ -7,6 +7,24 @@ describe('Shared UX configuration', () => {
     expect(uxStyle({ ...uxDefaults, search_width: 960 })['--hz-search-width']).toBe('960px')
     for (const search_width of [399, 1201, 600.5]) expect(uxInputSchema.safeParse({ ...uxDefaults, search_width }).success).toBe(false)
   })
+  it('complète les anciens réglages du fil et accepte un espacement nul', () => {
+    const legacy = Object.fromEntries(Object.entries(uxDefaults).filter(([key]) => key !== 'activity_gap'))
+    expect(uxInputSchema.parse(legacy).activity_gap).toBe(32)
+    expect(uxStyle({ ...uxDefaults, activity_gap: 0 })['--hz-activity-gap']).toBe('0px')
+  })
+  it('conserve les couleurs des cadres distinctes des tableaux', () => {
+    const legacy = Object.fromEntries(Object.entries(uxDefaults).filter(([key]) => !key.startsWith('panel_border_')))
+    expect(uxInputSchema.parse(legacy)).toEqual(uxDefaults)
+    expect(uxStyle({ ...uxDefaults, panel_border_light: '#AABBCC', panel_border_dark: '#112233' })).toMatchObject({ '--hz-panel-border-light': '#AABBCC', '--hz-panel-border-dark': '#112233', '--hz-table-border-light': '#DCE5EF' })
+    expect(uxInputSchema.safeParse({ ...uxDefaults, panel_border_light: 'url(evil)' }).success).toBe(false)
+  })
+  it('complète les anciens réglages de cartes/recherche/champs sans perdre les préférences', () => {
+    const prefixes = ['directory_', 'summary_', 'card_', 'search_', 'control_background', 'control_border', 'control_text', 'control_radius', 'panel_background']
+    const legacy = Object.fromEntries(Object.entries(uxDefaults).filter(([key]) => !prefixes.some((prefix) => key.startsWith(prefix))))
+    expect(uxInputSchema.parse({ ...legacy, row_height: 40 })).toEqual({ ...uxDefaults, row_height: 40 })
+    expect(uxStyle({ ...uxDefaults, directory_width: 320, summary_value_font: 26, search_height: 38, control_radius: 8 })).toMatchObject({ '--hz-directory-width': '320px', '--hz-summary-value-font': '26px', '--hz-search-height': '38px', '--hz-control-radius': '8px' })
+    for (const patch of [{ search_focus_light: 'url(evil)' }, { directory_height: 100 }, { directory_title_font: 13.5 }, { search_height: 80 }, { card_background_dark: '#fff' }]) expect(uxInputSchema.safeParse({ ...uxDefaults, ...patch }).success).toBe(false)
+  })
   it('retains the current Horizon baseline', () => {
     expect(uxInputSchema.parse(uxDefaults)).toEqual(uxDefaults)
     expect(uxStyle(uxDefaults)).toMatchObject({ '--hz-table-row-height': '32px', '--hz-table-cell-height': '26px', '--hz-workspace-gutter': '40px', '--hz-table-header-text-light': '#4C678E', '--hz-table-header-text-dark': '#B8C5D7' })

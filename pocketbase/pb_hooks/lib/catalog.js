@@ -29,11 +29,19 @@ const resolveBrand = (app, name, actor) => {
   if (existing) { if (!existing.getBool('active')) throw new BadRequestError('Cette marque est archivée.'); return existing }
   const record = new Record(app.findCollectionByNameOrId('inventory_brands')); record.set('name', normalized); record.set('name_key', key); record.set('active', true); app.save(record); audit(app, actor, record, null, 'create'); return record
 }
-const normalizeInput = (app, input, actor) => {
+const normalizeInput = (app, input, actor, previous) => {
   exact(input, [...fields, 'offers'])
   const value = { brand: '', cost_override: false, coefficient_override: false, manual_coefficient: 1, weight_kg: 0, volume_m3: 0, hs_code: '', origin_country: '', ...input }
   if (input.brand === undefined && typeof input.manufacturer === 'string' && input.manufacturer.trim()) value.brand = resolveBrand(app, input.manufacturer, actor).id
   if (value.brand) value.manufacturer = get(app, 'inventory_brands', value.brand).getString('name')
+  if (!['equipment', 'consumable', 'service'].includes(value.kind)) throw new BadRequestError('Classification produit invalide.')
+  const family = get(app, 'inventory_product_categories', value.category), kind = family.getString('product_kind')
+  if (!['equipment', 'consumable', 'service'].includes(kind)) throw new ApiError(503, 'Installez la migration PocketBase 1791840033 pour la classification des familles.')
+  if (!previous || previous.getString('category') !== value.category || previous.getString('kind') !== value.kind) {
+    if (previous && previous.getString('category') === value.category && value.kind !== kind) throw new BadRequestError('Réappliquez la famille de produit pour changer sa classification.')
+    value.kind = kind
+    if (kind === 'service') { value.stock_policy = 'none'; value.tracking = 'none' }
+  }
   return value
 }
 function validateProduct(app, input, previous) {
@@ -48,7 +56,7 @@ function validateProduct(app, input, previous) {
   if (typeof input.origin_country !== 'string' || input.origin_country && !app.findRecordsByFilter('settings_countries', 'code = {:code} && active = true', '', 1, 0, { code: input.origin_country }).length && previous?.getString('origin_country') !== input.origin_country) throw new BadRequestError('Choisissez un pays d’origine actif.')
   if (input.kind === 'service' && (input.stock_policy !== 'none' || input.tracking !== 'none')) throw new BadRequestError('Un service ne dispose pas de stock ni de suivi physique.')
   for (const [field, collection] of [['category', 'inventory_product_categories'], ['base_unit', 'inventory_units']]) if (!get(app, collection, input[field]).getBool('active') && (!previous || previous.getString(field) !== input[field])) throw new BadRequestError('Choisissez une famille et une unité actives.')
-  if (previous && (previous.getString('tracking') !== input.tracking || previous.getString('base_unit') !== input.base_unit || previous.getString('stock_policy') !== input.stock_policy) && (app.findRecordsByFilter('inventory_moves', 'product = {:id}', '', 1, 0, { id: previous.id }).length || app.findRecordsByFilter('inventory_reservations', 'product = {:id}', '', 1, 0, { id: previous.id }).length || app.findRecordsByFilter('inventory_serials', 'product = {:id}', '', 1, 0, { id: previous.id }).length)) throw new BadRequestError('Le suivi, le stock et l’unité sont figés après le premier mouvement ou la première réservation pour préserver la traçabilité.');
+  if (previous && (previous.getString('kind') !== input.kind || previous.getString('tracking') !== input.tracking || previous.getString('base_unit') !== input.base_unit || previous.getString('stock_policy') !== input.stock_policy) && (app.findRecordsByFilter('inventory_moves', 'product = {:id}', '', 1, 0, { id: previous.id }).length || app.findRecordsByFilter('inventory_reservations', 'product = {:id}', '', 1, 0, { id: previous.id }).length || app.findRecordsByFilter('inventory_serials', 'product = {:id}', '', 1, 0, { id: previous.id }).length)) throw new BadRequestError('La nature, le suivi, le stock et l’unité sont figés après le premier mouvement ou la première réservation pour préserver la traçabilité.');
   if (previous && previous.getString('base_unit') !== input.base_unit && offers(app, previous.id).length) throw new BadRequestError('L’unité de base est figée après la création de tarifs fournisseurs pour préserver leur historique.')
   if (!app.findRecordsByFilter('accounting_currencies', 'code = {:code} && active = true', '', 1, 0, { code: input.sale_currency }).length) throw new BadRequestError('Choisissez une devise active.')
   pricing.sale(0, input.manual_coefficient)
@@ -120,11 +128,12 @@ module.exports = {
   },
   saveCategory(event) {
     if (!policy.settings(event.app, event.auth)) throw new ForbiddenError('Le paramétrage des familles est réservé aux administrateurs et superusers.')
-    const body = event.requestInfo().body; exact(body, ['id', 'updated', 'code', 'label', 'coefficient', 'active'])
+    const body = event.requestInfo().body; exact(body, ['id', 'updated', 'code', 'label', 'coefficient', 'active', 'product_kind'])
     if (typeof body.code !== 'string' || !/^[a-zA-Z0-9_-]{1,40}$/.test(body.code) || typeof body.label !== 'string' || !body.label.trim() || body.label.length > 120 || typeof body.active !== 'boolean') throw new BadRequestError('Famille invalide.')
+    if (body.product_kind !== undefined && !['equipment', 'consumable', 'service'].includes(body.product_kind)) throw new BadRequestError('Classification de famille invalide.')
     pricing.sale(0, body.coefficient)
     let saved
-    event.app.runInTransaction((app) => { if (!policy.settings(app, event.auth)) throw new ForbiddenError('Accès refusé.'); const record = body.id ? get(app, 'inventory_product_categories', body.id) : new Record(app.findCollectionByNameOrId('inventory_product_categories')); if (body.id && record.getString('updated') !== body.updated) throw new ApiError(409, 'Cette famille a changé. Rechargez-la.'); if (body.id && body.code !== record.getString('code')) throw new BadRequestError('Le code de famille est immuable.'); if (body.id) for (const product of app.findRecordsByFilter('inventory_products', 'category = {:id}', '', 0, 0, { id: record.id })) pricing.sale(productPrice(app, product).unit_cost, product.getBool('coefficient_override') ? product.getFloat('manual_coefficient') : body.coefficient); const before = body.id ? record.publicExport() : null; for (const key of ['code', 'label', 'coefficient', 'active']) record.set(key, key === 'label' ? body[key].trim() : body[key]); app.save(record); audit(app, event.auth, record, before, body.id ? 'update' : 'create'); saved = record.publicExport() })
+    event.app.runInTransaction((app) => { if (!policy.settings(app, event.auth)) throw new ForbiddenError('Accès refusé.'); const record = body.id ? get(app, 'inventory_product_categories', body.id) : new Record(app.findCollectionByNameOrId('inventory_product_categories')); if (body.id && record.getString('updated') !== body.updated) throw new ApiError(409, 'Cette famille a changé. Rechargez-la.'); if (body.id && body.code !== record.getString('code')) throw new BadRequestError('Le code de famille est immuable.'); if (body.id) for (const product of app.findRecordsByFilter('inventory_products', 'category = {:id}', '', 0, 0, { id: record.id })) pricing.sale(productPrice(app, product).unit_cost, product.getBool('coefficient_override') ? product.getFloat('manual_coefficient') : body.coefficient); const before = body.id ? record.publicExport() : null; if (body.product_kind !== undefined) record.set('product_kind', body.product_kind); else if (!body.id) record.set('product_kind', 'equipment'); for (const key of ['code', 'label', 'coefficient', 'active']) record.set(key, key === 'label' ? body[key].trim() : body[key]); app.save(record); audit(app, event.auth, record, before, body.id ? 'update' : 'create'); saved = record.publicExport() })
     return event.json(200, saved)
   },
   save(event) {
@@ -138,10 +147,11 @@ module.exports = {
     let result
     event.app.runInTransaction((app) => {
       guard(app, event.auth, true)
-      input = normalizeInput(app, input, event.auth)
+      const currentProduct = body.id ? get(app, 'inventory_products', body.id) : null
+      input = normalizeInput(app, input, event.auth, currentProduct)
       if (!body.id && !/^[a-zA-Z0-9-]{16,100}$/.test(body.creation_key || '')) throw new BadRequestError('Clé de création invalide.')
       if (!body.id) { const existing = app.findRecordsByFilter('inventory_products', 'creation_key = {:key} && created_by = {:actor}', '', 1, 0, { key: body.creation_key, actor: event.auth.id })[0]; if (existing) { exact(input, [...fields, 'offers']); if (fields.some((key) => (key === 'barcode' ? ![existing.getString('barcode'), existing.getString('barcode_requested')].includes(input.barcode.trim()) : existing.get(key) !== (typeof input[key] === 'string' ? input[key].trim() : input[key])))) throw new ApiError(409, 'Cette création existe déjà avec d’autres valeurs.'); result = dto(app, existing); return } }
-      const record = body.id ? get(app, 'inventory_products', body.id) : new Record(app.findCollectionByNameOrId('inventory_products'))
+      const record = currentProduct || new Record(app.findCollectionByNameOrId('inventory_products'))
       if (body.id && record.getString('updated') !== body.updated) throw new ApiError(409, 'Le produit a changé. Rechargez sa fiche.')
       if (body.id && !record.getBool('active')) throw new BadRequestError('Réactivez le produit avant de le modifier.')
       validateProduct(app, input, body.id ? record : null)

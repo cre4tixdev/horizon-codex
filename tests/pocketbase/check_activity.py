@@ -39,6 +39,32 @@ class ActivityTests(unittest.TestCase):
     def scoped(self, route='events', **query):
         return 'horizon/activity/' + route + '?' + urlencode({'entity': 'contacts_companies', 'id': self.company['id'], **query})
 
+    def test_dashboard_is_personal_including_mentions_tasks_and_keeps_collective_separate(self):
+        colleague = self.pb.create_user('colleague-feed@local.invalid', self.writer['role'])
+        other_token = self.pb.login('colleague-feed@local.invalid')[1]['token']
+        code, own = self.post(body='Mon action personnelle')
+        self.assertEqual(code, 200, own)
+        personal_ids = {own['id']}
+        for data in [dict(type='note', body='Mention personnelle', mentions=[self.writer['id']]), dict(type='task', body='Tâche personnelle', metadata={'task': {'title': 'À traiter', 'assigned_to': self.writer['id'], 'due_date': '', 'priority': 'normal'}})]:
+            code, item = self.pb.request('POST', 'collections/core_activity_events/records', {**self.source, **data}, other_token)
+            self.assertEqual(code, 200, item)
+            personal_ids.add(item['id'])
+        for i in range(8):
+            code, item = self.pb.request('POST', 'collections/core_activity_events/records', {**self.source, 'type': 'note', 'body': f'Autre collègue {i}'}, other_token)
+            self.assertEqual(code, 200, item)
+        for suffix in ['', '?view=team']:
+            code, result = self.pb.request('GET', 'horizon/dashboard/activity' + suffix, token=self.token)
+            self.assertEqual(code, 200, result)
+            self.assertEqual({item['id'] for item in result['items']}, personal_ids)
+        code, result = self.pb.request('GET', 'horizon/activity/feed?view=own', token=self.token)
+        self.assertEqual(code, 200, result)
+        self.assertEqual({item['id'] for item in result['items']}, personal_ids)
+        code, result = self.pb.request('GET', 'horizon/activity/feed?view=team', token=self.token)
+        self.assertEqual(code, 200, result)
+        self.assertGreater(result['totalItems'], len(personal_ids))
+        self.pb.request('PATCH', 'collections/core_roles/records/' + self.writer['role'], {'permissions': []}, self.pb.admin_token)
+        self.assertEqual(self.pb.request('GET', 'horizon/dashboard/activity', token=self.token)[1]['items'], [])
+
     def test_workspace_feed_pagination_combined_filters_personal_views_and_tasks(self):
         for index in range(23):
             code, event = self.post(body=f'Global unique {index}')
@@ -61,8 +87,8 @@ class ActivityTests(unittest.TestCase):
         self.assertFalse({i['id'] for i in first['items']} & {i['id'] for i in second['items']})
         self.assertEqual(feed(view='mentions', token=self.reader)['items'][0]['id'], mention['id'])
         self.assertEqual(feed(view='mentions')['totalItems'], 0)
-        self.assertEqual(feed(view='own', token=self.reader, q='Global')['totalItems'], 1)
-        personal = feed(view='own', token=self.reader, q='Global')['items'][0]
+        self.assertEqual(feed(view='own', token=self.reader, q='Global')['totalItems'], 2)
+        personal = next(item for item in feed(view='own', token=self.reader, q='Global')['items'] if item['type'] == 'task')
         self.assertEqual(personal['task']['title'], 'Action globale')
         self.assertEqual(personal['source'], {'entity': 'contacts_companies', 'id': self.company['id']})
         self.assertEqual(feed(view='own', q='Global')['totalItems'], 25)

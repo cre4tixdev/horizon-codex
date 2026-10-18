@@ -159,17 +159,20 @@ class AnalysisTests(unittest.TestCase):
     def test_be_production_hours_root_children_and_validation(self):
         first, second = self.command(), self.command(2)
         initial = self.report()
-        self.assertFalse(initial['coverage']['time'])
+        self.assertTrue(initial['coverage']['time'])
         self.assertFalse(initial['coverage']['planning'])
         accounts = {row['code']: row['id'] for row in initial['accounts']}
         root = self.opp['analytic_account']
         child = accounts[first['quote_number']]
         account_collection = self.pb.request('GET', 'collections/accounting_analytic_accounts', token=self.pb.admin_token)[1]['id']
-        for name, amount in [('time_entries', 'duration_minutes'), ('planning_assignments', 'planned_minutes')]:
+        for name, amount in [('planning_assignments', 'planned_minutes')]:
             status, collection = self.pb.request('POST', 'collections', dict(name=name, type='base', listRule=None, viewRule=None, createRule=None, updateRule=None, deleteRule=None, fields=[dict(name='analytic_account', type='relation', collectionId=account_collection, maxSelect=1), dict(name='work_type', type='text'), dict(name=amount, type='number'), dict(name='status', type='text')]), self.pb.admin_token)
             self.assertEqual(status, 200, collection)
         for account, work, minutes, status in [(root, 'be', 120, 'validated'), (child, 'be', 60, 'validated'), (child, 'production', 90, 'validated'), (root, 'production', 45, 'draft'), (root, 'be', 600, 'cancelled')]:
-            self.pb.create('time_entries', dict(analytic_account=account, work_type=work, duration_minutes=minutes, status=status))
+            # Trusted disposable DB fixture for the read-only projection, including legacy statuses.
+            # Public/native mutations of TimeReport remain forbidden and tested separately.
+            with sqlite3.connect(self.pb.data / 'data.db') as db:
+                db.execute('INSERT INTO time_entries(id,sheet_line,date,analytic_account,work_type,duration_minutes,status) VALUES (?,?,?,?,?,?,?)', (uuid.uuid4().hex[:15], uuid.uuid4().hex[:15], '2026-10-19', account, work, minutes, status))
         self.pb.create('planning_assignments', dict(analytic_account=root, work_type='be', planned_minutes=240))
         self.pb.create('planning_assignments', dict(analytic_account=child, work_type='production', planned_minutes=180))
         data = self.report()
@@ -179,6 +182,14 @@ class AnalysisTests(unittest.TestCase):
         self.assertEqual(data['accounts'][0]['hours']['be']['actual_minutes'], 120)
         self.assertEqual(self.report(first)['totals']['hours']['be']['actual_minutes'], 60)
         self.assertEqual(self.report(second)['totals']['hours']['be']['actual_minutes'], 0)
+        self.assertIsNone(data['totals']['financial']['actual_labor_cost']);self.assertFalse(data['coverage']['labor_costs'])
+        with sqlite3.connect(self.pb.data / 'data.db') as db:
+            for id,minutes in db.execute('SELECT id,duration_minutes FROM time_entries WHERE status="validated"').fetchall():
+                db.execute('UPDATE time_entries SET cost_snapshot=? WHERE id=?',(json.dumps(dict(status='supplied',currency='EUR',amount=minutes/60*20)),id))
+        costs=self.report();self.assertEqual(costs['totals']['financial']['actual_labor_cost'],90);self.assertTrue(costs['coverage']['labor_costs']);self.assertEqual(self.report(first)['totals']['financial']['actual_labor_cost'],50)
+        with sqlite3.connect(self.pb.data / 'data.db') as db:
+            db.execute('UPDATE time_entries SET cost_snapshot=? WHERE analytic_account=? AND status="validated"',(json.dumps(dict(status='supplied',currency='USD',amount=20)),root))
+        self.assertIsNone(self.report()['totals']['financial']['actual_labor_cost'])
         self.grant(['read'])
         operational = self.report()
         self.assertEqual(operational['totals']['hours']['be']['actual_minutes'], 180)

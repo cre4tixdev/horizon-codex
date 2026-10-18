@@ -67,7 +67,7 @@ class NotificationTests(unittest.TestCase):
 
     def test_personal_preferences_validation_privacy_and_concurrency(self):
         token=self.first['token']; baseline=self.preferences()
-        self.assertEqual(len(baseline['items']),8);self.assertTrue(all(i['in_app'] for i in baseline['items']))
+        self.assertEqual(len(baseline['items']),10);self.assertTrue(all(i['in_app'] for i in baseline['items']))
         for bad in [{**baseline,'user':self.second['record']['id']},{**baseline,'items':baseline['items'][:-1]},{**baseline,'items':[{**i,'email':True} for i in baseline['items']]}]:
             self.assertEqual(self.pb.request('POST','horizon/notifications/preferences',bad,token)[0],400)
         changed={**baseline,'items':[{**i,'in_app':False} if i['event_type']=='mentions' else i for i in baseline['items']]}
@@ -75,7 +75,7 @@ class NotificationTests(unittest.TestCase):
         self.assertNotEqual(saved['version'],baseline['version'])
         self.assertEqual(self.pb.request('POST','horizon/notifications/preferences',baseline,token)[0],409)
         self.assertTrue(all(i['in_app'] for i in self.preferences(self.second['token'])['items']))
-        rows=self.pb.request('GET','collections/core_notification_preferences/records',token=token)[1]['items'];self.assertEqual(len(rows),8)
+        rows=self.pb.request('GET','collections/core_notification_preferences/records',token=token)[1]['items'];self.assertEqual(len(rows),10)
         self.assertFalse(any(r['email'] for r in rows))
         self.assertEqual(self.pb.request('GET','collections/core_notification_preferences/records',token=self.second['token'])[1]['totalItems'],0)
         self.assertNotEqual(self.pb.request('PATCH','collections/core_notification_preferences/records/'+rows[0]['id'],{'in_app':True},token)[0],200)

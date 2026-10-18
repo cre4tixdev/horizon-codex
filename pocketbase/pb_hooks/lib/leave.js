@@ -81,6 +81,22 @@ const publish = (app, u, r, before, body, recipient = '', informHr = false) => {
 }
 const allocationDTO = (app, r) => ({ id: r.id, employee: r.getString('employee'), employee_name: employeeName(app, r.getString('employee')), type: r.getString('type'), type_label: get(app, 'leave_types', r.getString('type')).getString('label'), year: r.getInt('year'), days: r.getFloat('days'), reason: r.getString('reason'), author_name: get(app, 'core_users', r.getString('author')).getString('name'), created: r.getString('created') })
 module.exports = {
+  timeCalendar(app, employee, start, end) {
+    const p = policy(app), named = {}, excluded = new Set(p.holidays)
+    if (p.holiday_calendar === 'metropole') for (let year = Number(start.slice(0, 4)); year <= Number(end.slice(0, 4)); year++) for (const [date, label] of Object.entries(require(`${__hooks}/lib/leave-holidays.js`).named(year))) if (!(p.working_holidays || []).includes(date)) { excluded.add(date); named[date] = label }
+    const requests = all(app, 'leave_requests', 'employee = {:employee} && (status = "approved" || status = "cancel_requested") && start_date <= {:end} && end_date >= {:start}', { employee, start, end })
+    const days = []
+    for (let t = Date.parse(start); t <= Date.parse(end); t += 86400000) {
+      const date = new Date(t).toISOString().slice(0, 10)
+      let absent = 0
+      for (const r of requests) if (date >= r.getString('start_date') && date <= r.getString('end_date')) {
+        if (date !== r.getString('start_date') || r.getString('start_half') === 'am') absent += 0.5
+        if (date !== r.getString('end_date') || r.getString('end_half') === 'pm') absent += 0.5
+      }
+      days.push({ date, holiday: excluded.has(date) ? named[date] || 'Jour non travaillé' : '', weekend: [0, 6].includes(new Date(t).getUTCDay()), absent: Math.min(1, absent) })
+    }
+    return days
+  },
   activitySource(app, u, id, write = false) { const r = read(app, u, id); if (write && (r.getString('archived_at') || !(r.getString('user') === u.id && can(app, u, 'write') || r.getString('manager') === u.id && can(app, u, 'validate') || can(app, u, 'allocate')))) throw new ForbiddenError('Contribution au fil refusée.'); return r },
   choices(e) {
     guard(e.app, e.auth); const app = e.app, u = e.auth, employee = u.getString('employee'), active = employee && get(app, 'hr_employees', employee).getString('status') === 'active'

@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 
 /** Own local blob URLs and synchronize the native image/PDF viewer. */
-export function useFileSource(input: File | string | undefined, pdfFragment = '') {
+export function useFileSource(input: Blob | string | undefined, pdfFragment = '') {
   const image = useRef<HTMLImageElement>(null), frame = useRef<HTMLIFrameElement>(null), source = useRef('')
   useEffect(() => {
     if (!input) return

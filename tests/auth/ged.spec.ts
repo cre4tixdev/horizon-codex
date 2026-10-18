@@ -145,7 +145,7 @@ test('GED : recherche des pièces métier existantes et consultation sans mutati
 
   // Exercise the dashboard response against recent GED events, not only old CRM sources.
   await page.setViewportSize({ width: 1600, height: 1000 }); await page.goto('/')
-  const activity = page.getByRole('region', { name: 'Activité récente', exact: true })
+  const activity = page.getByRole('region', { name: 'Mon activité récente', exact: true })
   await expect(activity.getByText('Activité indisponible', { exact: true })).toHaveCount(0)
   const deposit = activity.getByRole('link').filter({ hasText: 'Notice-G03.txt' }).first()
   await expect(deposit).toBeVisible()
