@@ -58,8 +58,11 @@ export function EmployeesPage() {
     { header: 'Type', accessorFn: (item) => typeLabels[item.employment_type] },
     { header: 'État', accessorFn: (item) => statusLabels[item.status] },
     { header: 'Compte', accessorFn: (item) => item.has_account ? item.account_active ? 'Actif' : 'Désactivé' : 'Sans compte' },
+    { accessorKey: 'professional_email', header: 'E-mail professionnel', cell: ({ row }) => row.original.professional_email || '—' },
+    { accessorKey: 'professional_phone', header: 'Téléphone professionnel', cell: ({ row }) => row.original.professional_phone || '—' },
+    { id: 'time_reporting_enabled', header: 'Saisit ses heures', cell: ({ row }) => row.original.time_reporting_enabled ? 'Oui' : 'Non' },
   ]
-  const renderTable = (items: Employee[]) => <><HDataTable listSorting={listSorting} data={items} columns={columns} getRowAction={(item) => ({ label: `Ouvrir la fiche de ${employeeName(item)}`, onClick: () => setEditor(item) })} />{items.length === 0 && <p className="contact-muted">Aucune ressource correspondant aux filtres.</p>}</>
+  const renderTable = (items: Employee[]) => <><HDataTable columnSettings={{ id: 'hr.employees', defaultHidden: ['professional_email', 'professional_phone', 'time_reporting_enabled'] }} listSorting={listSorting} data={items} columns={columns} getRowAction={(item) => ({ label: `Ouvrir la fiche de ${employeeName(item)}`, onClick: () => setEditor(item) })} />{items.length === 0 && <p className="contact-muted">Aucune ressource correspondant aux filtres.</p>}</>
   const renderResults = (items: Employee[]) => view === 'cards' ? items.length > 0 ? <EmployeeCards employees={items} teams={teams} onOpen={setEditor} /> : <p className="contact-muted">Aucune ressource correspondant aux filtres.</p> : renderTable(items)
 
   if (!allowed) return <HEmptyState icon={UsersRound} title="Employés" description="Vous ne disposez pas de la permission de consulter les ressources." />

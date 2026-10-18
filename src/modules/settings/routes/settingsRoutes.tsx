@@ -2,6 +2,7 @@ import { redirect, type RouteObject } from 'react-router'
 export const settingsRoutes: RouteObject[] = [{ path: '/settings', lazy: async () => ({ Component: (await import('../components/SettingsLayout')).SettingsLayout }), children: [
   { index: true, lazy: async () => ({ Component: (await import('../pages/SettingsPage')).SettingsPage }) },
   { path: 'analytic-fixed', lazy: async () => ({ Component: (await import('../../accounting/pages/FixedAnalyticSettingsPage')).FixedAnalyticSettingsPage }) },
+  { path: 'table-columns', lazy: async () => ({ Component: (await import('../pages/TableColumnsSettingsPage')).TableColumnsSettingsPage }) },
   { path: 'ux', lazy: async () => ({ Component: (await import('../pages/UxSettingsPage')).UxSettingsPage }) },
   { path: 'ged', lazy: async () => ({ Component: (await import('../../documents/pages/LibrarySettingsPage')).LibrarySettingsPage }) },
   { path: 'documents', lazy: async () => ({ Component: (await import('../../documents/pages/TemplatesPage')).TemplatesPage }) },

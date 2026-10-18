@@ -82,6 +82,13 @@ export function ContactsPage({ kind = 'companies' }: { kind?: ContactKind }) {
     { accessorKey: 'email', header: 'E-mail' }, { accessorKey: 'phone', header: 'Téléphone' },
     { accessorKey: 'legal_name', header: 'Raison sociale' },
     { id: 'status', header: 'Statut', accessorFn: (item) => item.active, cell: ({ row }) => <HBadge tone={row.original.active ? 'success' : 'neutral'}>{row.original.active ? 'Actif' : 'Archivé'}</HBadge> },
+    { id: 'city', header: 'Ville', cell: ({ row }) => { const addresses = row.original.expand?.contacts_addresses_via_company || []; return (addresses.find((address) => address.is_primary) || addresses.find((address) => address.type === 'registered') || addresses[0])?.city || '—' } },
+    { id: 'country', header: 'Pays', cell: ({ row }) => { const addresses = row.original.expand?.contacts_addresses_via_company || []; return (addresses.find((address) => address.is_primary) || addresses.find((address) => address.type === 'registered') || addresses[0])?.country || '—' } },
+    { accessorKey: 'vat_number', header: 'N° TVA', cell: ({ row }) => row.original.vat_number || '—' },
+    { accessorKey: 'siren', header: 'SIREN', cell: ({ row }) => row.original.siren || '—' },
+    { accessorKey: 'siret', header: 'SIRET', cell: ({ row }) => row.original.siret || '—' },
+    { accessorKey: 'website', header: 'Site web', cell: ({ row }) => row.original.website || '—' },
+    { accessorKey: 'billing_email', header: 'E-mail facturation', cell: ({ row }) => row.original.billing_email || '—' },
   ]
   const personColumns: ColumnDef<Person>[] = [
     { id: 'last_name', accessorKey: 'last_name', header: 'Contact', cell: ({ row }) => <Link to={`/contacts/people/${row.original.id}`} state={linkState}><ContactIdentity kind="person" {...row.original} filename={row.original.avatar} name={[row.original.first_name, row.original.last_name].filter(Boolean).join(' ')} company={row.original.expand?.company} /></Link> },
@@ -89,10 +96,11 @@ export function ContactsPage({ kind = 'companies' }: { kind?: ContactKind }) {
     { id: 'roles', header: 'Relation', accessorFn: (item) => item.expand?.company?.expand?.contacts_company_roles_via_company?.filter((role) => role.active).map((role) => role.role).join(' '), cell: ({ row }) => <span className="contact-role-list">{row.original.expand?.company?.expand?.contacts_company_roles_via_company?.filter((role) => role.active).map((role) => <HBadge key={role.id} className={`contact-role-pill contact-role-pill--${role.role}`}>{roleLabels[role.role]}</HBadge>)}</span> },
     { id: 'status', header: 'Statut', accessorFn: (item) => item.active, cell: ({ row }) => <HBadge tone={row.original.active ? 'success' : 'neutral'}>{row.original.active ? 'Actif' : 'Archivé'}</HBadge> },
     { accessorKey: 'job_title', header: 'Fonction' }, { accessorKey: 'email', header: 'E-mail' }, { accessorKey: 'phone', header: 'Téléphone' },
+    { accessorKey: 'mobile', header: 'Mobile', cell: ({ row }) => row.original.mobile || '—' },
   ]
   const renderRecords = (items: (Company | Person)[]) => view === 'cards' ? <ContactCards records={items} directory={directory} /> : kind === 'companies'
-    ? <HDataTable columnBorders columnAlignments={{ status: 'center' }} getRowLink={(company) => ({ href: `/contacts/companies/${company.id}`, state: linkState, label: `Ouvrir la fiche de ${company.name}` })} data={items.filter((item): item is Company => 'name' in item)} columns={companyColumns} sorting={sorting} onSortingChange={setSorting} />
-    : <HDataTable columnBorders columnAlignments={{ status: 'center' }} getRowLink={(person) => ({ href: `/contacts/people/${person.id}`, state: linkState, label: `Ouvrir la fiche de ${[person.first_name, person.last_name].filter(Boolean).join(' ')}` })} data={items.filter((item): item is Person => 'first_name' in item)} columns={personColumns} sorting={sorting} onSortingChange={setSorting} />
+    ? <HDataTable columnSettings={{ id: `contacts.${kind}`, defaultHidden: ['city', 'country', 'vat_number', 'siren', 'siret', 'website', 'billing_email'] }} columnBorders columnAlignments={{ status: 'center' }} getRowLink={(company) => ({ href: `/contacts/companies/${company.id}`, state: linkState, label: `Ouvrir la fiche de ${company.name}` })} data={items.filter((item): item is Company => 'name' in item)} columns={companyColumns} sorting={sorting} onSortingChange={setSorting} />
+    : <HDataTable columnSettings={{ id: `contacts.${kind}`, defaultHidden: ['mobile'] }} columnBorders columnAlignments={{ status: 'center' }} getRowLink={(person) => ({ href: `/contacts/people/${person.id}`, state: linkState, label: `Ouvrir la fiche de ${[person.first_name, person.last_name].filter(Boolean).join(' ')}` })} data={items.filter((item): item is Person => 'first_name' in item)} columns={personColumns} sorting={sorting} onSortingChange={setSorting} />
   return <div className="contact-directory" aria-busy={records.isFetching}>
     {canRead && <HListPagination page={page} totalPages={records.data?.totalPages} label="Pagination des contacts" busy={records.isFetching} onPageChange={(nextPage) => setPage(nextPage)} />}
     <HPageHeader title="Contacts" description="Votre référentiel de sociétés et de personnes." actions={canWrite && <HButton asChild variant="primary"><Link to={`/contacts/${kind}/new`}><Plus size={15} />{kind === 'companies' ? 'Nouvelle société' : 'Nouveau contact'}</Link></HButton>} />

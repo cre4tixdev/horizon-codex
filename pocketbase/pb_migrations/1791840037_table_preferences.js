@@ -1,0 +1,12 @@
+migrate((app) => {
+  const collection = new Collection({ name: 'core_table_preferences', type: 'base', listRule: null, viewRule: null, createRule: null, updateRule: null, deleteRule: null })
+  for (const field of [
+    new RelationField({ name: 'user', collectionId: app.findCollectionByNameOrId('core_users').id, maxSelect: 1, required: true, cascadeDelete: false }),
+    new TextField({ name: 'table_key', required: true, max: 100 }),
+    new JSONField({ name: 'preference', required: true, maxSize: 32768 }),
+    new NumberField({ name: 'revision', required: true, onlyInt: true, min: 1 }),
+    new AutodateField({ name: 'created', onCreate: true }), new AutodateField({ name: 'updated', onCreate: true, onUpdate: true }),
+  ]) collection.fields.add(field)
+  collection.indexes = ['CREATE UNIQUE INDEX idx_table_preference_user_key ON core_table_preferences(user, table_key)']
+  app.save(collection)
+}, () => { throw new Error('Conserver les préférences de tableaux. Utiliser une migration corrective.') })

@@ -573,7 +573,7 @@
 .contact-card-kind--company { color: var(--theme-blue-text, #2b6aff); }
 .contact-card-kind--person { color: var(--theme-rose-text, #aa2167); }
 .contact-card-kind:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
-.contact-directory .h-data-table td:first-child { color: var(--theme-text, #091c3a); font-weight: 500; }
+.contact-directory .h-data-table:not([data-configurable]) td:first-child, .contact-directory .h-data-table td[data-identity=true] { color: var(--theme-text, #091c3a); font-weight: 500; }
 
 /* Compact identity and commercial relations above the record fields. */
 .contact-record-overview { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); border: 1px solid var(--theme-border, #e3e7ee); border-radius: 8px; background: var(--theme-surface, white); }
@@ -2700,3 +2700,37 @@ button.contact-card-title { padding: 0; border: 0; background: transparent; text
 .search-field .h-input:focus-visible { border-color: var(--theme-search-focus); box-shadow: 0 0 0 3px color-mix(in srgb, var(--theme-search-focus) 20%, transparent); }
 
 .ux-preview[data-tab=cards] .contact-card-grid + .h-section-heading { margin-top: var(--hz-record-section-gap, 12px); }
+
+/* Consultation tables: a compact column control inside the final header. */
+.h-table-header-with-columns { display: flex; align-items: center; gap: 6px; }
+.h-table-header-with-columns > :first-child:not(.h-table-columns-trigger) { flex: 1; min-width: 0; }
+.h-data-table th .h-table-columns-trigger { flex: 0 0 24px; width: 24px; height: var(--hz-table-cell-height); min-height: 24px; justify-content: center; padding: 2px; margin-left: auto; color: inherit; }
+.h-table-columns-panel { width: 310px; }
+.h-table-columns-panel > p { font-size: 11px; margin: 0 0 8px; }
+.h-table-columns-panel header { margin-bottom: 4px; }
+.h-table-columns-panel footer { border-top: 1px solid var(--theme-border); margin-top: 8px; padding-top: 8px; }
+.h-table-column-choices { width: 100%; border-collapse: collapse; font-size: 12px; }
+.h-table-column-choices td { height: 34px; padding: 0; }
+.h-table-column-choices td:first-child { width: 28px; }
+.h-table-column-choices tr[data-dragging=true] { opacity: .35; }
+.h-table-column-choices label { display: flex; align-items: center; gap: 8px; min-height: 34px; cursor: pointer; }
+.h-table-column-choices input { accent-color: var(--theme-accent, #f52f96); }
+.h-table-column-choices small { margin-left: auto; color: var(--theme-text-muted); font-size: 10px; }
+.h-data-table th[data-align=center] .h-table-header-with-columns .h-table-sort-button { justify-content: center; }
+.h-data-table th[data-align=right] .h-table-header-with-columns .h-table-sort-button { justify-content: flex-end; }
+
+/* Consultation columns share the available width; text wraps before the table scrolls. */
+.h-data-table[data-configurable] { table-layout: auto; min-width: 0; white-space: normal; overflow-wrap: anywhere; }
+.h-data-table[data-configurable] :is(th, td) { padding-inline: 8px; }
+.h-data-table[data-configurable] td[data-align=right] { white-space: nowrap; overflow-wrap: normal; }
+.h-data-table[data-configurable] :is(.contact-identity, .access-person, .catalog-list-identity) { min-width: 0; max-width: 100%; }
+.h-data-table[data-configurable] :is(.contact-identity, .access-person, .catalog-list-identity) > :last-child { min-width: 0; }
+.h-data-table[data-configurable] .catalog-list-identity > :first-child { flex-shrink: 0; }
+.h-data-table[data-configurable] :is(.contact-role-list, .crm-responsible-cell) { flex-wrap: wrap; }
+.h-data-table[data-configurable] :is(.h-tag, .h-badge) { max-width: 100%; white-space: normal; }
+.h-data-table[data-configurable] th { min-width: 64px; overflow-wrap: normal; }
+.h-data-table[data-configurable] td[data-identity=true] { min-width: 140px; }
+.h-data-table[data-configurable] td.h-table-cell-nowrap { white-space: nowrap; overflow-wrap: normal; }
+
+.h-data-table[data-configurable][data-manual-sizing=true] { table-layout: fixed; }
+.h-data-table th .h-table-column-resizer:is(:disabled, [aria-disabled=true]) { cursor: wait; }

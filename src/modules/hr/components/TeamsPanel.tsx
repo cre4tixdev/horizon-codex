@@ -36,8 +36,9 @@ export function TeamsPanel({ teams, employees, onEdit }: { teams: Team[]; employ
     { header: 'Managers', cell: ({ row: { original: team } }) => <div className="hr-team-managers">{team.managers.map((id) => { const employee = employees.find((item) => item.id === id); return employee ? <span className="access-person" key={id}><EmployeeAvatar employee={employee} />{employeeName(employee)}</span> : <span className="contact-muted" key={id}>Hors périmètre</span> })}{team.managers.length === 0 && <span className="contact-muted">À désigner</span>}</div> },
     { header: 'Membres visibles', accessorFn: (team) => employees.filter((employee) => employee.team === team.id).length },
     { header: 'État', cell: ({ row: { original: team } }) => <HBadge tone={team.active ? 'success' : 'neutral'}>{team.active ? 'Active' : 'Archivée'}</HBadge> },
+    { id: 'time_work_type', header: 'TimeReport', cell: ({ row }) => ({ none: 'Non concernée', be: 'BE · Horizon', production: 'Production · OnSite' })[row.original.time_work_type] },
   ]
-  const render = (items: Team[]) => <HDataTable listSorting={listSorting} data={items} columns={columns} getRowAction={(team) => ({ label: `Ouvrir l’équipe ${team.name}`, onClick: () => onEdit(team) })} />
+  const render = (items: Team[]) => <HDataTable columnSettings={{ id: 'hr.teams', defaultHidden: ['time_work_type'] }} listSorting={listSorting} data={items} columns={columns} getRowAction={(team) => ({ label: `Ouvrir l’équipe ${team.name}`, onClick: () => onEdit(team) })} />
 
   return <><div className="hr-view-toolbar"><span className="contact-muted">{rows.length} équipe{rows.length === 1 ? '' : 's'}</span></div>{grouping === 'none' ? render(rows) : <GroupedResults groups={groupResults(rows, (team) => ({ key: team.active ? 'active' : 'archived', label: team.active ? 'Actives' : 'Archivées' }))} icon={Building2} noun="équipe(s)" render={render} />}{rows.length === 0 && <p className="contact-muted">Aucune équipe correspondant aux filtres.</p>}</>
 }

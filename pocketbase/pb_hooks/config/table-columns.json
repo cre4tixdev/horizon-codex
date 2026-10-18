@@ -1,0 +1,348 @@
+[
+  {
+    "key": "contacts.companies", "label": "Sociétés", "group": "Contacts",
+    "columns": [
+      {"id": "name", "label": "Société", "required": true},
+      {"id": "roles", "label": "Relations", "required": false},
+      {"id": "email", "label": "E-mail", "required": false},
+      {"id": "phone", "label": "Téléphone", "required": false},
+      {"id": "legal_name", "label": "Raison sociale", "required": false},
+      {"id": "status", "label": "Statut", "required": false},
+      {"id": "city", "label": "Ville", "required": false},
+      {"id": "country", "label": "Pays", "required": false},
+      {"id": "vat_number", "label": "N° TVA", "required": false},
+      {"id": "siren", "label": "SIREN", "required": false},
+      {"id": "siret", "label": "SIRET", "required": false},
+      {"id": "website", "label": "Site web", "required": false},
+      {"id": "billing_email", "label": "E-mail facturation", "required": false}
+    ]
+  },
+  {
+    "key": "contacts.people", "label": "Personnes", "group": "Contacts",
+    "columns": [
+      {"id": "last_name", "label": "Contact", "required": true},
+      {"id": "company", "label": "Société", "required": false},
+      {"id": "roles", "label": "Relation", "required": false},
+      {"id": "status", "label": "Statut", "required": false},
+      {"id": "job_title", "label": "Fonction", "required": false},
+      {"id": "email", "label": "E-mail", "required": false},
+      {"id": "phone", "label": "Téléphone", "required": false},
+      {"id": "mobile", "label": "Mobile", "required": false}
+    ]
+  },
+  {
+    "key": "crm.opportunities", "label": "Opportunités", "group": "CRM",
+    "columns": [
+      {"id": "opportunity_number", "label": "Code", "required": true},
+      {"id": "type", "label": "Type", "required": false},
+      {"id": "title", "label": "Opportunité", "required": true},
+      {"id": "company", "label": "Société", "required": false},
+      {"id": "stage", "label": "Étape", "required": false},
+      {"id": "market_types", "label": "Types de marché", "required": false},
+      {"id": "estimated_value", "label": "Montant estimé", "required": false},
+      {"id": "probability", "label": "Probabilité", "required": false},
+      {"id": "expected_date", "label": "Échéance", "required": false},
+      {"id": "owner", "label": "Responsable", "required": false},
+      {"id": "contact", "label": "Contact", "required": false},
+      {"id": "currency", "label": "Devise", "required": false}
+    ]
+  },
+  {
+    "key": "crm.tenders", "label": "Appels d’offres", "group": "CRM",
+    "columns": [
+      {"id": "reference", "label": "Référence AO", "required": true},
+      {"id": "company", "label": "Société", "required": false},
+      {"id": "title", "label": "Appel d’offres", "required": true},
+      {"id": "tags", "label": "Tags", "required": false},
+      {"id": "publication_date", "label": "Publication", "required": false},
+      {"id": "visits", "label": "Visites", "required": false},
+      {"id": "preparation", "label": "Préparation", "required": false},
+      {"id": "submission_deadline", "label": "Remise", "required": false},
+      {"id": "estimated_value", "label": "Montant estimé", "required": false},
+      {"id": "documents", "label": "Documents", "required": false},
+      {"id": "owner", "label": "Responsable", "required": false},
+      {"id": "contact", "label": "Contact", "required": false},
+      {"id": "currency", "label": "Devise", "required": false}
+    ]
+  },
+  {
+    "key": "sales.all", "label": "Toutes les ventes", "group": "Ventes",
+    "columns": [
+      {"id": "kind", "label": "Type", "required": true},
+      {"id": "quote_number", "label": "Numéro", "required": true},
+      {"id": "title", "label": "Pièce", "required": false},
+      {"id": "Opportunité", "label": "Opportunité", "required": false},
+      {"id": "company_name", "label": "Société", "required": false},
+      {"id": "date", "label": "Date", "required": false},
+      {"id": "amount", "label": "Montant HT", "required": false},
+      {"id": "status", "label": "État", "required": false},
+      {"id": "owner_name", "label": "Responsable", "required": false},
+      {"id": "currency", "label": "Devise", "required": false},
+      {"id": "valid_until", "label": "Validité", "required": false}
+    ]
+  },
+  {
+    "key": "sales.quote", "label": "Devis", "group": "Ventes",
+    "columns": [
+      {"id": "quote_number", "label": "Numéro", "required": true},
+      {"id": "title", "label": "Devis", "required": false},
+      {"id": "Opportunité", "label": "Opportunité", "required": false},
+      {"id": "company_name", "label": "Société", "required": false},
+      {"id": "date", "label": "Date", "required": false},
+      {"id": "amount", "label": "Montant HT", "required": false},
+      {"id": "status", "label": "État", "required": false},
+      {"id": "owner_name", "label": "Responsable", "required": false},
+      {"id": "currency", "label": "Devise", "required": false},
+      {"id": "valid_until", "label": "Validité", "required": false}
+    ]
+  },
+  {
+    "key": "sales.order", "label": "Commandes clients", "group": "Ventes",
+    "columns": [
+      {"id": "quote_number", "label": "Numéro", "required": true},
+      {"id": "title", "label": "Commande", "required": false},
+      {"id": "Opportunité", "label": "Opportunité", "required": false},
+      {"id": "company_name", "label": "Société", "required": false},
+      {"id": "date", "label": "Date", "required": false},
+      {"id": "amount", "label": "Montant HT", "required": false},
+      {"id": "status", "label": "État", "required": false},
+      {"id": "owner_name", "label": "Responsable", "required": false},
+      {"id": "currency", "label": "Devise", "required": false},
+      {"id": "valid_until", "label": "Validité", "required": false}
+    ]
+  },
+  {
+    "key": "purchasing.all", "label": "Tous les achats", "group": "Achats",
+    "columns": [
+      {"id": "kind", "label": "Pièce", "required": true},
+      {"id": "number", "label": "Numéro", "required": true},
+      {"id": "title", "label": "Pièce d’achat", "required": false},
+      {"id": "supplier_name", "label": "Fournisseur", "required": false},
+      {"id": "Affaires", "label": "Affaires", "required": false},
+      {"id": "Date", "label": "Date", "required": false},
+      {"id": "Date souhaitée", "label": "Date souhaitée", "required": false},
+      {"id": "Montant HT", "label": "Montant HT", "required": false},
+      {"id": "État", "label": "État", "required": false},
+      {"id": "owner_name", "label": "Responsable", "required": false},
+      {"id": "delivery_warehouse_name", "label": "Entrepôt de réception", "required": false},
+      {"id": "currency", "label": "Devise", "required": false}
+    ]
+  },
+  {
+    "key": "purchasing.requests", "label": "Demandes d’achat", "group": "Achats",
+    "columns": [
+      {"id": "number", "label": "Numéro", "required": true},
+      {"id": "title", "label": "Demande d’achat", "required": false},
+      {"id": "supplier_name", "label": "Fournisseur", "required": false},
+      {"id": "Affaires", "label": "Affaires", "required": false},
+      {"id": "Date", "label": "Date", "required": false},
+      {"id": "Date souhaitée", "label": "Date souhaitée", "required": false},
+      {"id": "Montant HT", "label": "Montant HT", "required": false},
+      {"id": "État", "label": "État", "required": false},
+      {"id": "owner_name", "label": "Responsable", "required": false},
+      {"id": "delivery_warehouse_name", "label": "Entrepôt de réception", "required": false},
+      {"id": "currency", "label": "Devise", "required": false}
+    ]
+  },
+  {
+    "key": "purchasing.orders", "label": "Commandes fournisseurs", "group": "Achats",
+    "columns": [
+      {"id": "number", "label": "Numéro", "required": true},
+      {"id": "title", "label": "Commande fournisseur", "required": false},
+      {"id": "supplier_name", "label": "Fournisseur", "required": false},
+      {"id": "Affaires", "label": "Affaires", "required": false},
+      {"id": "Émission", "label": "Émission", "required": false},
+      {"id": "Réception souhaitée", "label": "Réception souhaitée", "required": false},
+      {"id": "Montant HT", "label": "Montant HT", "required": false},
+      {"id": "État", "label": "État", "required": false},
+      {"id": "owner_name", "label": "Responsable", "required": false},
+      {"id": "delivery_warehouse_name", "label": "Entrepôt de réception", "required": false},
+      {"id": "currency", "label": "Devise", "required": false}
+    ]
+  },
+  {
+    "key": "billing.customer", "label": "Factures clients", "group": "Facturation",
+    "columns": [
+      {"id": "Numéro", "label": "Numéro", "required": true},
+      {"id": "company_name", "label": "Tiers", "required": false},
+      {"id": "Référence / objet", "label": "Référence / objet", "required": false},
+      {"id": "Date", "label": "Date", "required": false},
+      {"id": "Échéance", "label": "Échéance", "required": false},
+      {"id": "TTC", "label": "TTC", "required": false},
+      {"id": "Solde", "label": "Solde", "required": false},
+      {"id": "État", "label": "État", "required": false},
+      {"id": "subtotal", "label": "Montant HT", "required": false},
+      {"id": "tax", "label": "TVA", "required": false},
+      {"id": "paid", "label": "Réglé", "required": false},
+      {"id": "currency", "label": "Devise", "required": false}
+    ]
+  },
+  {
+    "key": "billing.supplier", "label": "Factures fournisseurs", "group": "Facturation",
+    "columns": [
+      {"id": "Numéro", "label": "Numéro", "required": true},
+      {"id": "company_name", "label": "Tiers", "required": false},
+      {"id": "Référence / objet", "label": "Référence / objet", "required": false},
+      {"id": "Date", "label": "Date", "required": false},
+      {"id": "Échéance", "label": "Échéance", "required": false},
+      {"id": "TTC", "label": "TTC", "required": false},
+      {"id": "Solde", "label": "Solde", "required": false},
+      {"id": "État", "label": "État", "required": false},
+      {"id": "subtotal", "label": "Montant HT", "required": false},
+      {"id": "tax", "label": "TVA", "required": false},
+      {"id": "paid", "label": "Réglé", "required": false},
+      {"id": "currency", "label": "Devise", "required": false}
+    ]
+  },
+  {
+    "key": "billing.customer_credit", "label": "Avoirs clients", "group": "Facturation",
+    "columns": [
+      {"id": "Numéro", "label": "Numéro", "required": true},
+      {"id": "company_name", "label": "Tiers", "required": false},
+      {"id": "Référence / objet", "label": "Référence / objet", "required": false},
+      {"id": "Date", "label": "Date", "required": false},
+      {"id": "Échéance", "label": "Échéance", "required": false},
+      {"id": "TTC", "label": "TTC", "required": false},
+      {"id": "Solde", "label": "Solde", "required": false},
+      {"id": "État", "label": "État", "required": false},
+      {"id": "subtotal", "label": "Montant HT", "required": false},
+      {"id": "tax", "label": "TVA", "required": false},
+      {"id": "paid", "label": "Réglé", "required": false},
+      {"id": "currency", "label": "Devise", "required": false}
+    ]
+  },
+  {
+    "key": "billing.supplier_credit", "label": "Avoirs fournisseurs", "group": "Facturation",
+    "columns": [
+      {"id": "Numéro", "label": "Numéro", "required": true},
+      {"id": "company_name", "label": "Tiers", "required": false},
+      {"id": "Référence / objet", "label": "Référence / objet", "required": false},
+      {"id": "Date", "label": "Date", "required": false},
+      {"id": "Échéance", "label": "Échéance", "required": false},
+      {"id": "TTC", "label": "TTC", "required": false},
+      {"id": "Solde", "label": "Solde", "required": false},
+      {"id": "État", "label": "État", "required": false},
+      {"id": "subtotal", "label": "Montant HT", "required": false},
+      {"id": "tax", "label": "TVA", "required": false},
+      {"id": "paid", "label": "Réglé", "required": false},
+      {"id": "currency", "label": "Devise", "required": false}
+    ]
+  },
+  {
+    "key": "inventory.products", "label": "Produits", "group": "Stock",
+    "columns": [
+      {"id": "Produit", "label": "Produit", "required": true},
+      {"id": "sku", "label": "Référence", "required": false},
+      {"id": "manufacturer", "label": "Marque", "required": false},
+      {"id": "category_label", "label": "Famille", "required": false},
+      {"id": "Coût / u.", "label": "Coût / u.", "required": false},
+      {"id": "PUV HT", "label": "PUV HT", "required": false},
+      {"id": "stock", "label": "Qté en stock", "required": false},
+      {"id": "available", "label": "Qté disponible", "required": false},
+      {"id": "manufacturer_ref", "label": "Référence fabricant", "required": false},
+      {"id": "barcode", "label": "Code-barres", "required": false},
+      {"id": "unit_code", "label": "Unité", "required": false},
+      {"id": "sale_enabled", "label": "Vendable", "required": false}
+    ]
+  },
+  {
+    "key": "inventory.stock", "label": "Disponibilités", "group": "Stock",
+    "columns": [
+      {"id": "Produit", "label": "Produit", "required": true},
+      {"id": "brand", "label": "Marque", "required": false},
+      {"id": "reference", "label": "Référence", "required": false},
+      {"id": "location_name", "label": "Emplacement", "required": false},
+      {"id": "physical", "label": "Physique", "required": false},
+      {"id": "reserved", "label": "Réservé", "required": false},
+      {"id": "available", "label": "Disponible", "required": false},
+      {"id": "Entrant (produit)", "label": "Entrant (produit)", "required": false},
+      {"id": "unit", "label": "u.", "required": false},
+      {"id": "Valeur HT", "label": "Valeur HT", "required": false},
+      {"id": "valuation_currency", "label": "Devise", "required": false},
+      {"id": "Actions", "label": "Actions", "required": true}
+    ]
+  },
+  {
+    "key": "inventory.operations", "label": "Opérations de stock", "group": "Stock",
+    "columns": [
+      {"id": "number", "label": "Numéro", "required": true},
+      {"id": "Date", "label": "Date", "required": false},
+      {"id": "source_document", "label": "Document d’origine", "required": false},
+      {"id": "from_name", "label": "De", "required": false},
+      {"id": "to_name", "label": "Vers", "required": false},
+      {"id": "Opération", "label": "Opération", "required": false},
+      {"id": "title", "label": "Titre", "required": false},
+      {"id": "affairs", "label": "Affaires", "required": false},
+      {"id": "readiness", "label": "Prêt à livrer", "required": false},
+      {"id": "state", "label": "État", "required": false},
+      {"id": "reason", "label": "Motif", "required": false},
+      {"id": "updated", "label": "Modifiée le", "required": false}
+    ]
+  },
+  {
+    "key": "inventory.inventories", "label": "Inventaires", "group": "Stock",
+    "columns": [
+      {"id": "number", "label": "Numéro", "required": true},
+      {"id": "Opération", "label": "Opération", "required": false},
+      {"id": "Titre / Destination", "label": "Titre / Destination", "required": false},
+      {"id": "warehouse_name", "label": "Entrepôt", "required": false},
+      {"id": "affairs", "label": "Affaires", "required": false},
+      {"id": "Planifié le", "label": "Planifié le", "required": false},
+      {"id": "state", "label": "État", "required": false},
+      {"id": "reason", "label": "Motif", "required": false},
+      {"id": "updated", "label": "Modifiée le", "required": false}
+    ]
+  },
+  {
+    "key": "hr.employees", "label": "Employés", "group": "Ressources humaines",
+    "columns": [
+      {"id": "Collaborateur", "label": "Collaborateur", "required": true},
+      {"id": "Poste", "label": "Poste", "required": false},
+      {"id": "Équipe", "label": "Équipe", "required": false},
+      {"id": "Responsable", "label": "Responsable", "required": false},
+      {"id": "Type", "label": "Type", "required": false},
+      {"id": "État", "label": "État", "required": false},
+      {"id": "Compte", "label": "Compte", "required": false},
+      {"id": "professional_email", "label": "E-mail professionnel", "required": false},
+      {"id": "professional_phone", "label": "Téléphone professionnel", "required": false},
+      {"id": "time_reporting_enabled", "label": "Saisit ses heures", "required": false}
+    ]
+  },
+  {
+    "key": "hr.teams", "label": "Équipes", "group": "Ressources humaines",
+    "columns": [
+      {"id": "Équipe", "label": "Équipe", "required": true},
+      {"id": "Managers", "label": "Managers", "required": false},
+      {"id": "Membres visibles", "label": "Membres visibles", "required": false},
+      {"id": "État", "label": "État", "required": false},
+      {"id": "time_work_type", "label": "TimeReport", "required": false}
+    ]
+  },
+  {
+    "key": "expenses.reports", "label": "Notes de frais", "group": "Ressources humaines",
+    "columns": [
+      {"id": "Mois", "label": "Mois", "required": true},
+      {"id": "employee_name", "label": "Employé", "required": false},
+      {"id": "Dépenses TTC", "label": "Dépenses TTC", "required": false},
+      {"id": "À rembourser", "label": "À rembourser", "required": false},
+      {"id": "Manager", "label": "Manager", "required": false},
+      {"id": "État", "label": "État", "required": false},
+      {"id": "title", "label": "Objet", "required": false},
+      {"id": "tax", "label": "TVA", "required": false},
+      {"id": "reimbursement_date", "label": "Remboursée le", "required": false}
+    ]
+  },
+  {
+    "key": "leave.requests", "label": "Congés", "group": "Ressources humaines",
+    "columns": [
+      {"id": "Employé", "label": "Employé", "required": true},
+      {"id": "Type", "label": "Type", "required": false},
+      {"id": "Début", "label": "Début", "required": false},
+      {"id": "Fin", "label": "Fin", "required": false},
+      {"id": "Durée", "label": "Durée", "required": false},
+      {"id": "Manager", "label": "Manager", "required": false},
+      {"id": "État", "label": "État", "required": false},
+      {"id": "direct_declaration", "label": "Circuit", "required": false}
+    ]
+  }
+]

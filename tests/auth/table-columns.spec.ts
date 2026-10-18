@@ -1,0 +1,433 @@
+import { test, expect, type Page } from '@playwright/test'
+const password = 'Local-Horizon-test-only-2026!'
+async function login(page: Page, email = 'erp-admin@local.invalid') {
+  await page.goto('/login')
+  await page.getByLabel('Adresse e-mail', { exact: true }).fill(email)
+  await page.getByLabel('Mot de passe', { exact: true }).fill(password)
+  await page.getByRole('button', { name: 'Se connecter', exact: true }).click()
+  await expect(page).not.toHaveURL(/\/login/)
+}
+test('Colonnes : visibilité, ordre clavier, persistance, groupes et comptes distincts', async ({ page, request, browser }) => {
+  test.setTimeout(90_000)
+  await page.setViewportSize({ width: 1600, height: 1000 })
+  await login(page)
+  const token = await page.evaluate(() => sessionStorage.getItem('horizon.auth.token') || '')
+  for (const name of ['Colonnes Alpha', 'Colonnes Beta']) {
+    const r = await request.post('http://127.0.0.1:18090/api/collections/contacts_companies/records', { headers: { Authorization: token }, data: { name, email: 'colonnes@example.test', phone: '0102030405', active: true } })
+    expect(r.ok()).toBe(true)
+    const company = await r.json() as { id: string }
+    const address = await request.post('http://127.0.0.1:18090/api/collections/contacts_addresses/records', { headers: { Authorization: token }, data: { company: company.id, type: 'registered', line1: 'Rue Test', city: 'Ville', country: name.endsWith('Alpha') ? 'FR' : 'DE', is_primary: true } })
+    expect(address.ok()).toBe(true)
+  }
+  await page.goto('/contacts?view=list&q=Colonnes')
+  const table = page.locator('.h-data-table').first()
+  const headers = () => table.locator('thead th').allTextContents()
+  await expect(table.locator('tbody tr')).toHaveCount(2)
+  const initial = await headers()
+  await table.getByRole('button', { name: 'Configurer les colonnes', exact: true }).click()
+  const panel = page.getByRole('dialog', { name: 'Colonnes du tableau', exact: true })
+  await expect(panel.getByRole('checkbox', { name: /Société/ })).toBeDisabled()
+  const identity = panel.getByRole('button', { name: 'Déplacer la colonne Société', exact: true })
+  await expect(identity).toBeEnabled()
+  await identity.focus(); await page.keyboard.press('Space'); await page.keyboard.press('ArrowDown'); await page.keyboard.press('Space')
+  await expect.poll(headers).toEqual(['Relations', 'Société', 'E-mail', 'Téléphone', 'Raison sociale', 'Statut'])
+  await expect(table.getByRole('link', { name: 'Ouvrir la fiche de Colonnes Alpha', exact: true })).toHaveCount(1)
+  await expect(identity).toBeEnabled()
+  await panel.getByRole('button', { name: 'Restaurer par défaut', exact: true }).click()
+  await expect.poll(headers).toEqual(initial)
+  await expect(panel.getByRole('checkbox', { name: 'N° TVA', exact: true })).not.toBeChecked()
+  await panel.getByRole('checkbox', { name: 'N° TVA', exact: true }).check()
+  await expect(table.getByRole('columnheader', { name: 'N° TVA', exact: true })).toBeVisible()
+  await panel.getByRole('checkbox', { name: 'N° TVA', exact: true }).uncheck()
+  await panel.getByRole('checkbox', { name: 'E-mail', exact: true }).uncheck()
+  await expect(table.getByRole('columnheader', { name: 'E-mail', exact: true })).toHaveCount(0)
+  // Hiding the last header must leave the same popover open and operable.
+  await panel.getByRole('checkbox', { name: 'Statut', exact: true }).uncheck()
+  await expect(panel).toBeVisible()
+  await panel.getByRole('checkbox', { name: 'Statut', exact: true }).check()
+  await panel.getByRole('checkbox', { name: 'E-mail', exact: true }).check()
+  const handle = panel.getByRole('button', { name: 'Déplacer la colonne Téléphone', exact: true })
+  await expect(handle).toBeEnabled()
+  await handle.focus(); await page.keyboard.press('Space'); await page.keyboard.press('ArrowUp'); await page.keyboard.press('Space')
+  await expect.poll(headers).toEqual(['Société', 'Relations', 'Téléphone', 'E-mail', 'Raison sociale', 'Statut'])
+  await expect(handle).toBeEnabled()
+  await handle.hover()
+  const start = (await handle.boundingBox())!, target = (await panel.getByRole('button', { name: 'Déplacer la colonne Raison sociale', exact: true }).boundingBox())!
+  await page.mouse.move(start.x + start.width / 2, start.y + start.height / 2); await page.mouse.down()
+  await page.mouse.move(start.x + start.width / 2 + 7, start.y + start.height / 2, { steps: 3 })
+  await expect(panel.locator('tr[data-dragging=true]')).toHaveCount(1)
+  await page.mouse.move(start.x + start.width / 2, target.y + target.height - 2, { steps: 15 }); await page.mouse.up()
+  await expect.poll(headers).toEqual(['Société', 'Relations', 'E-mail', 'Raison sociale', 'Téléphone', 'Statut'])
+  await panel.getByRole('checkbox', { name: 'E-mail', exact: true }).uncheck()
+  await expect(panel.getByText('Synchronisation des colonnes…', { exact: true })).toHaveCount(0)
+  await page.keyboard.press('Escape')
+  await page.reload()
+  await expect(table.locator('tbody tr')).toHaveCount(2)
+  await expect.poll(headers).toEqual(['Société', 'Relations', 'Raison sociale', 'Téléphone', 'Statut'])
+  const otherBrowser = await browser.newContext({ baseURL: 'http://127.0.0.1:4174' })
+  try {
+    const otherPage = await otherBrowser.newPage()
+    await login(otherPage)
+    await otherPage.goto('/contacts?view=list&q=Colonnes')
+    await expect.poll(() => otherPage.locator('.h-data-table thead th').allTextContents()).toEqual(['Société', 'Relations', 'Raison sociale', 'Téléphone', 'Statut'])
+    expect(await otherPage.evaluate(() => Object.keys(localStorage).filter((key) => key.startsWith('horizon.table-columns.v1:')))).toEqual([])
+  } finally { await otherBrowser.close() }
+  await table.getByRole('columnheader', { name: 'Téléphone', exact: true }).getByRole('button', { name: 'Téléphone', exact: true }).click()
+  await expect(page).toHaveURL(/sort=phone/)
+  await expect.poll(headers).toEqual(['Société', 'Relations', 'Raison sociale', 'Téléphone', 'Statut'])
+  await page.goto('/contacts?view=list&q=Colonnes&group=country')
+  await expect(page.locator('.h-data-table')).toHaveCount(2)
+  await expect(table.locator('tbody tr')).toHaveCount(1)
+  await expect(table.getByRole('columnheader', { name: 'E-mail', exact: true })).toHaveCount(0)
+  await table.getByRole('button', { name: 'Configurer les colonnes', exact: true }).click()
+  await panel.getByRole('button', { name: 'Restaurer par défaut', exact: true }).click()
+  await expect.poll(headers).toEqual(initial)
+  await expect(page.getByRole('columnheader', { name: 'E-mail', exact: true })).toHaveCount(2)
+  await page.keyboard.press('Escape')
+  await page.screenshot({ path: '/private/tmp/horizon-table-columns-light.png', fullPage: true, animations: 'disabled' })
+  await table.getByRole('button', { name: 'Configurer les colonnes', exact: true }).click()
+  await panel.getByRole('checkbox', { name: 'E-mail', exact: true }).uncheck()
+  await expect(page.getByRole('columnheader', { name: 'E-mail', exact: true })).toHaveCount(0)
+  await page.screenshot({ path: '/private/tmp/horizon-table-columns-panel-light.png', fullPage: true, animations: 'disabled' })
+  await page.keyboard.press('Escape')
+  await page.getByRole('button', { name: 'Passer en mode sombre', exact: true }).click()
+  await table.getByRole('button', { name: 'Configurer les colonnes', exact: true }).click()
+  await page.screenshot({ path: '/private/tmp/horizon-table-columns-panel-dark.png', fullPage: true, animations: 'disabled' })
+  await page.setViewportSize({ width: 390, height: 844 })
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await expect(panel).toBeVisible()
+  await expect.poll(() => panel.evaluate((element) => { const box = element.getBoundingClientRect(); return box.left >= 0 && box.right <= innerWidth })).toBe(true)
+  await page.screenshot({ path: '/private/tmp/horizon-table-columns-panel-mobile.png', fullPage: true, animations: 'disabled' })
+  await page.keyboard.press('Escape')
+  await page.setViewportSize({ width: 1600, height: 1000 })
+  await page.getByRole('button', { name: 'Menu utilisateur' }).click()
+  await page.getByRole('menuitem', { name: 'Se déconnecter' }).click()
+  await login(page, 'reader@local.invalid')
+  await page.goto('/contacts?view=list&q=Colonnes')
+  await expect(table.getByRole('columnheader', { name: 'E-mail', exact: true })).toBeVisible()
+  await table.getByRole('button', { name: 'Configurer les colonnes', exact: true }).click()
+  await expect(panel.getByRole('checkbox', { name: 'E-mail', exact: true })).toBeChecked()
+})
+
+
+test('Colonnes : ancien stockage invalide, sauvegarde distante et panne réseau récupérable', async ({ page, request }) => {
+  await login(page, 'reader@local.invalid')
+  const token = await page.evaluate(() => sessionStorage.getItem('horizon.auth.token') || '')
+  const auth = await request.post('http://127.0.0.1:18090/api/collections/core_users/auth-refresh', { headers: { Authorization: token } })
+  const { record } = await auth.json() as { record: { id: string } }
+  const key = `horizon.table-columns.v1:${record.id}:contacts.companies`
+  await page.evaluate((key) => localStorage.setItem(key, '{broken'), key)
+  await page.goto('/contacts?view=list&q=Colonnes')
+  const table = page.locator('.h-data-table').first()
+  await expect(table.getByRole('columnheader', { name: 'E-mail', exact: true })).toBeVisible()
+  await table.getByRole('button', { name: 'Configurer les colonnes', exact: true }).click()
+  const panel = page.getByRole('dialog', { name: 'Colonnes du tableau', exact: true })
+  await expect(panel.getByRole('status')).toContainText('Ancien affichage local invalide')
+  await page.evaluate(() => {
+    const original = Storage.prototype.setItem
+    Storage.prototype.setItem = function (key, value) {
+      if (key.startsWith('horizon.table-columns.v1:')) throw new Error('Storage unavailable for test')
+      return original.call(this, key, value)
+    }
+  })
+  await panel.getByRole('checkbox', { name: 'E-mail', exact: true }).uncheck()
+  await expect(table.getByRole('columnheader', { name: 'E-mail', exact: true })).toHaveCount(0)
+  await expect(panel.getByText('Synchronisation des colonnes…', { exact: true })).toHaveCount(0)
+  await expect(panel.getByText('Ancien affichage local invalide', { exact: false })).toHaveCount(0)
+  await page.route('**/api/horizon/table-preferences/contacts.companies', async (route) => {
+    if (route.request().method() === 'POST') await route.fulfill({ status: 503, json: { message: 'Test unavailable' } })
+    else await route.continue()
+  })
+  await panel.getByRole('checkbox', { name: 'Téléphone', exact: true }).click()
+  await expect(panel.getByRole('status')).toContainText('Préférences non synchronisées')
+  await expect(panel.getByRole('checkbox', { name: 'Téléphone', exact: true })).toBeChecked()
+  await page.unroute('**/api/horizon/table-preferences/contacts.companies')
+  await panel.getByRole('button', { name: 'Recharger les colonnes', exact: true }).click()
+  await panel.getByRole('checkbox', { name: 'Téléphone', exact: true }).uncheck()
+  await expect(table.getByRole('columnheader', { name: 'Téléphone', exact: true })).toHaveCount(0)
+  await expect(panel.getByText('Synchronisation des colonnes…', { exact: true })).toHaveCount(0)
+})
+
+
+test('Colonnes : reprise locale unique et conflit entre navigateurs sans écrasement', async ({ page, request }) => {
+  await login(page)
+  const token = await page.evaluate(() => sessionStorage.getItem('horizon.auth.token') || '')
+  const headers = { Authorization: token }
+  const created = await request.post('http://127.0.0.1:18090/api/horizon/access/users/save', { headers, data: { input: { email: 'tables-legacy@local.invalid', name: 'Lecteur colonnes', employee: '', active: true, erp_profile: 'viewer', password, grants: { contacts: { actions: ['read'], scope: 'all' } } } } })
+  expect(created.ok(), await created.text()).toBe(true)
+  await page.getByRole('button', { name: 'Menu utilisateur', exact: true }).click()
+  await page.getByRole('menuitem', { name: 'Se déconnecter', exact: true }).click()
+  await login(page, 'tables-legacy@local.invalid')
+  const legacyToken = await page.evaluate(() => sessionStorage.getItem('horizon.auth.token') || '')
+  const auth = await request.post('http://127.0.0.1:18090/api/collections/core_users/auth-refresh', { headers: { Authorization: legacyToken } })
+  const { record } = await auth.json() as { record: { id: string } }
+  const key = `horizon.table-columns.v1:${record.id}:contacts.companies`
+  await page.evaluate((key) => localStorage.setItem(key, JSON.stringify({ order: ['name', 'phone', 'email'], hidden: ['email'] })), key)
+  await page.goto('/contacts?view=list&q=Colonnes')
+  const table = page.locator('.h-data-table').first(), endpoint = 'http://127.0.0.1:18090/api/horizon/table-preferences/contacts.companies'
+  const get = async () => (await request.get(endpoint, { headers: { Authorization: legacyToken } })).json() as Promise<{ revision: number; preference: { order: string[]; hidden: string[] } }>
+  await expect.poll(async () => (await get()).revision).toBe(1)
+  await expect(table.getByRole('columnheader', { name: 'E-mail', exact: true })).toHaveCount(0)
+  await expect.poll(() => page.evaluate((key) => localStorage.getItem(key), key)).toBeNull()
+  // A different browser saves while this page still has revision 1.
+  const remote = await request.post(endpoint, { headers: { Authorization: legacyToken }, data: { revision: 1, preference: { order: ['name', 'email'], hidden: ['phone'] } } })
+  expect(remote.ok()).toBe(true)
+  await table.getByRole('button', { name: 'Configurer les colonnes', exact: true }).click()
+  const panel = page.getByRole('dialog', { name: 'Colonnes du tableau', exact: true })
+  await panel.getByRole('checkbox', { name: 'Relations', exact: true }).click()
+  await expect(panel.getByRole('status')).toContainText('autre navigateur')
+  expect((await get()).revision).toBe(2)
+  expect((await get()).preference.hidden).toEqual(['phone'])
+  await panel.getByRole('button', { name: 'Recharger les colonnes', exact: true }).click()
+  await expect(panel.getByRole('checkbox', { name: 'Téléphone', exact: true })).not.toBeChecked()
+  await expect(panel.getByRole('checkbox', { name: 'E-mail', exact: true })).toBeChecked()
+  await panel.getByRole('button', { name: 'Restaurer par défaut', exact: true }).click()
+  await expect.poll(async () => (await get()).revision).toBe(3)
+  await page.evaluate((key) => localStorage.setItem(key, JSON.stringify({ order: [], hidden: ['phone', 'email'] })), key)
+  await page.reload()
+  await expect(table.getByRole('columnheader', { name: 'E-mail', exact: true })).toBeVisible()
+  await expect(table.getByRole('columnheader', { name: 'Téléphone', exact: true })).toBeVisible()
+  expect((await get()).revision).toBe(3)
+})
+
+
+test('Colonnes métier optionnelles : choix par liste et restauration des valeurs par défaut', async ({ page, request }) => {
+  test.setTimeout(90_000)
+  await login(page)
+  const token = await page.evaluate(() => sessionStorage.getItem('horizon.auth.token') || '')
+  const company = await request.post('http://127.0.0.1:18090/api/collections/contacts_companies/records', { headers: { Authorization: token }, data: { name: 'Colonnes métier', active: true } })
+  expect(company.ok()).toBe(true)
+  const { id } = await company.json() as { id: string }
+  const person = await request.post('http://127.0.0.1:18090/api/collections/contacts_people/records', { headers: { Authorization: token }, data: { company: id, first_name: 'Test', last_name: 'Colonnes', mobile: '0601020304', active: true } })
+  expect(person.ok()).toBe(true)
+  for (const [path, label] of [
+    ['/contacts?view=list', 'SIREN'],
+    ['/contacts/people?view=list', 'Mobile'],
+    ['/crm?view=list', 'Devise'],
+    ['/crm?area=ao&view=list', 'Contact'],
+    ['/sales/quotes', 'Responsable'],
+    ['/sales?kind=order', 'Devise'],
+    ['/purchasing/orders', 'Responsable'],
+    ['/purchasing/requests', 'Entrepôt de réception'],
+    ['/billing/customer', 'Montant HT'],
+    ['/inventory', 'Référence fabricant'],
+    ['/inventory/stock', 'Devise'],
+    ['/inventory/operations?view=list&kind=IN', 'Motif'],
+    ['/inventory/inventories', 'Motif'],
+    ['/hr?view=list', 'Saisit ses heures'],
+    ['/hr?tab=teams&view=list', 'TimeReport'],
+  ]) {
+    await test.step(path!, async () => {
+    await page.goto(path!)
+    const table = page.locator('.h-data-table').first()
+    await expect(table).toBeVisible()
+    await table.getByRole('button', { name: 'Configurer les colonnes', exact: true }).click()
+    const panel = page.getByRole('dialog', { name: 'Colonnes du tableau', exact: true })
+    const checkbox = panel.getByRole('checkbox', { name: label!, exact: true })
+    await expect(checkbox).not.toBeChecked()
+    await checkbox.check()
+    await expect(table.getByRole('columnheader', { name: label!, exact: true })).toBeVisible()
+    await expect(panel.getByRole('button', { name: 'Restaurer par défaut', exact: true })).toBeEnabled()
+    await panel.getByRole('button', { name: 'Restaurer par défaut', exact: true }).click()
+    await expect(table.getByRole('columnheader', { name: label!, exact: true })).toHaveCount(0)
+    await expect(panel.getByRole('status')).toHaveCount(0)
+    })
+  }
+})
+
+test('Colonnes proposées : réglage administrateur, effet global et préférences personnelles préservées', async ({ page, request, browser }) => {
+  test.setTimeout(90_000)
+  await page.setViewportSize({ width: 1600, height: 1000 })
+  await login(page)
+  const token = await page.evaluate(() => sessionStorage.getItem('horizon.auth.token') || '')
+  const company = await request.post('http://127.0.0.1:18090/api/collections/contacts_companies/records', { headers: { Authorization: token }, data: { name: 'Colonnes paramètres', phone: '0102030405', active: true } })
+  expect(company.ok()).toBe(true)
+  const endpoint = 'http://127.0.0.1:18090/api/horizon/table-preferences/contacts.companies'
+  const before = await (await request.get(endpoint, { headers: { Authorization: token } })).json() as { revision: number }
+  const personal = { order: ['name', 'phone', 'email'], hidden: [] }
+  expect((await request.post(endpoint, { headers: { Authorization: token }, data: { revision: before.revision, preference: personal } })).ok()).toBe(true)
+  await page.goto('/settings/table-columns?table=contacts.companies')
+  const main = page.getByRole('main')
+  await expect(main.getByRole('checkbox', { name: 'Proposer Société', exact: true })).toBeDisabled()
+  await main.getByRole('checkbox', { name: 'Proposer Téléphone', exact: true }).uncheck()
+  await main.getByRole('button', { name: 'Enregistrer', exact: true }).click()
+  await expect(main.getByRole('button', { name: 'Enregistrer', exact: true })).toBeDisabled()
+  await expect(main.getByRole('button', { name: 'Enregistrer', exact: true })).toHaveAttribute('aria-busy', 'false')
+  await page.reload()
+  await expect(main.getByRole('checkbox', { name: 'Proposer Téléphone', exact: true })).not.toBeChecked()
+  await page.screenshot({ path: '/private/tmp/horizon-column-settings-light.png', fullPage: true, animations: 'disabled' })
+  await page.getByRole('button', { name: 'Passer en mode sombre', exact: true }).click()
+  await page.screenshot({ path: '/private/tmp/horizon-column-settings-dark.png', fullPage: true, animations: 'disabled' })
+  await page.setViewportSize({ width: 390, height: 844 })
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await page.screenshot({ path: '/private/tmp/horizon-column-settings-mobile.png', fullPage: true, animations: 'disabled' })
+  await page.setViewportSize({ width: 1600, height: 1000 })
+  await page.goto('/contacts?view=list&q=Colonnes')
+  const table = page.locator('.h-data-table').first()
+  await expect(table.getByRole('columnheader', { name: 'Téléphone', exact: true })).toHaveCount(0)
+  await table.getByRole('button', { name: 'Configurer les colonnes', exact: true }).click()
+  const panel = page.getByRole('dialog', { name: 'Colonnes du tableau', exact: true })
+  await expect(panel.getByRole('checkbox', { name: 'Téléphone', exact: true })).toHaveCount(0)
+  expect((await (await request.get(endpoint, { headers: { Authorization: token } })).json()).preference).toEqual(personal)
+  const other = await browser.newContext({ baseURL: 'http://127.0.0.1:4174' })
+  try {
+    const reader = await other.newPage()
+    await login(reader, 'reader@local.invalid')
+    await reader.goto('/contacts?view=list&q=Colonnes')
+    await reader.locator('.h-data-table').first().getByRole('button', { name: 'Configurer les colonnes', exact: true }).click()
+    await expect(reader.getByRole('dialog', { name: 'Colonnes du tableau', exact: true }).getByRole('checkbox', { name: 'Téléphone', exact: true })).toHaveCount(0)
+    await reader.goto('/settings/table-columns')
+    await expect(reader.getByText('Le paramétrage est réservé à Admin et Superuser.', { exact: true })).toBeVisible()
+  } finally { await other.close() }
+  await page.goto('/settings/table-columns?table=contacts.companies')
+  await main.getByRole('checkbox', { name: 'Proposer Téléphone', exact: true }).check()
+  // Changing the selected table preserves the unsaved draft.
+  await main.getByRole('combobox', { name: 'Tableau à configurer', exact: true }).click()
+  await page.getByRole('option', { name: 'Contacts · Personnes', exact: true }).click()
+  await main.getByRole('combobox', { name: 'Tableau à configurer', exact: true }).click()
+  await page.getByRole('option', { name: 'Contacts · Sociétés', exact: true }).click()
+  await expect(main.getByRole('checkbox', { name: 'Proposer Téléphone', exact: true })).toBeChecked()
+  await main.getByRole('button', { name: 'Enregistrer', exact: true }).click()
+  await expect(main.getByRole('button', { name: 'Enregistrer', exact: true })).toBeDisabled()
+  await expect(main.getByRole('button', { name: 'Enregistrer', exact: true })).toHaveAttribute('aria-busy', 'false')
+  await page.goto('/contacts?view=list&q=Colonnes')
+  await expect(table.getByRole('columnheader', { name: 'Téléphone', exact: true })).toBeVisible()
+  await expect.poll(() => table.locator('thead th').allTextContents()).toEqual(['Société', 'Téléphone', 'E-mail', 'Relations', 'Raison sociale', 'Statut'])
+  await page.goto('/settings/sequences')
+  await expect(page.locator('.settings-reference-table .reference-table')).toBeVisible()
+  await page.screenshot({ path: '/private/tmp/horizon-column-settings-reference.png', fullPage: true, animations: 'disabled' })
+})
+
+test('Colonnes ajoutées : redistribution sans troncature, montants intacts et espacement des paramètres', async ({ page, request }) => {
+  test.setTimeout(60_000)
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await login(page)
+  const token = await page.evaluate(() => sessionStorage.getItem('horizon.auth.token') || '')
+  const result = await request.post('http://127.0.0.1:18090/api/collections/contacts_companies/records', { headers: { Authorization: token }, data: { name: 'Largeur Société avec une désignation commerciale très longue', legal_name: 'Une raison sociale complète qui doit rester lisible dans le tableau', email: 'une.adresse.professionnelle.tres.longue@example.test', phone: '+33 1 23 45 67 89', website: 'https://example.test/une-adresse-longue', vat_number: 'FR12345678901', siren: '123456789', siret: '12345678900001', billing_email: 'facturation.entreprise@example.test', active: true } })
+  expect(result.ok()).toBe(true)
+  await page.goto('/contacts?view=list&q=Largeur')
+  const table = page.locator('.h-data-table').first()
+  await table.getByRole('button', { name: 'Configurer les colonnes', exact: true }).click()
+  const panel = page.getByRole('dialog', { name: 'Colonnes du tableau', exact: true })
+  for (const name of ['Ville', 'Pays', 'N° TVA', 'SIREN', 'SIRET', 'Site web', 'E-mail facturation']) await panel.getByRole('checkbox', { name, exact: true }).check()
+  await page.keyboard.press('Escape')
+  const fits = () => table.evaluate((element) => element.scrollWidth <= element.parentElement!.clientWidth + 1)
+  await expect.poll(fits).toBe(true)
+  await expect(table.locator('thead th')).toHaveCount(13)
+  await expect.poll(() => table.locator('td').evaluateAll((cells) => cells.every((cell) => {
+    const bounds = cell.getBoundingClientRect(), walker = document.createTreeWalker(cell, NodeFilter.SHOW_TEXT)
+    while (walker.nextNode()) {
+      if (!walker.currentNode.textContent?.trim()) continue
+      const range = document.createRange(); range.selectNodeContents(walker.currentNode)
+      for (const rect of range.getClientRects()) if (rect.left < bounds.left - 1 || rect.right > bounds.right + 1) return false
+    }
+    return true
+  }))).toBe(true)
+  await page.screenshot({ path: '/private/tmp/horizon-columns-fit-light.png', fullPage: true, animations: 'disabled' })
+  await page.getByRole('button', { name: 'Passer en mode sombre', exact: true }).click()
+  await page.screenshot({ path: '/private/tmp/horizon-columns-fit-dark.png', fullPage: true, animations: 'disabled' })
+  await page.setViewportSize({ width: 390, height: 844 })
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await expect.poll(() => table.locator('tbody tr').first().evaluate((row) => row.getBoundingClientRect().height)).toBeLessThan(220)
+  await page.screenshot({ path: '/private/tmp/horizon-columns-fit-mobile.png', fullPage: true, animations: 'disabled' })
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await page.route('**/api/horizon/inventory/stock?*', (route) => route.fulfill({ json: { items: [{ id: 'balance', product: 'product', name: 'Équipement avec une très longue désignation à afficher intégralement', reference: 'REFERENCE-FABRICANT-TRES-LONGUE', brand: 'Une marque descriptive', location: 'location', location_name: 'Entrepôt principal · Zone de stockage des équipements', physical: 100, reserved: 2, available: 98, incoming: 25, unit: 'u', valuation: 1234567890.12, valuation_currency: 'EUR' }], page: 1, totalPages: 1, totalItems: 1, summary: { all: 1, physical: 1, reserved: 1, available: 1 } } }))
+  await page.goto('/inventory/stock')
+  await expect(table.getByText('1 234 567 890,12 €', { exact: true })).toBeVisible()
+  const amount = table.locator('td').filter({ hasText: '1 234 567 890,12' })
+  await expect(amount).toHaveCSS('white-space', 'nowrap')
+  await expect.poll(() => amount.evaluate((cell) => { const range = document.createRange(); range.selectNodeContents(cell); return range.getBoundingClientRect().width <= cell.clientWidth })).toBe(true)
+  await expect.poll(fits).toBe(true)
+  const stockResize = table.getByRole('button', { name: 'Redimensionner Produit', exact: true })
+  await expect(stockResize).toBeEnabled()
+  const stockHandle = (await stockResize.boundingBox())!
+  await page.mouse.move(stockHandle.x + stockHandle.width / 2, stockHandle.y + stockHandle.height / 2)
+  await page.mouse.down(); await page.mouse.move(stockHandle.x + stockHandle.width / 2 + 700, stockHandle.y + stockHandle.height / 2, { steps: 8 }); await page.mouse.up()
+  await expect(stockResize).toBeEnabled()
+  await expect(table).toHaveAttribute('data-manual-sizing', 'true')
+  await expect.poll(() => amount.evaluate((cell) => { const range = document.createRange(); range.selectNodeContents(cell); return range.getBoundingClientRect().width <= cell.clientWidth })).toBe(true)
+  await expect.poll(fits).toBe(true)
+  await page.screenshot({ path: '/private/tmp/horizon-columns-fit-stock.png', fullPage: true, animations: 'disabled' })
+  await page.goto('/settings/table-columns?table=crm.tenders')
+  const selector = page.getByRole('combobox', { name: 'Tableau à configurer', exact: true })
+  const heading = page.getByRole('heading', { name: 'Appels d’offres', exact: true })
+  await expect.poll(async () => (await heading.boundingBox())!.y - ((await selector.boundingBox())!.y + (await selector.boundingBox())!.height)).toBeGreaterThanOrEqual(12)
+  await page.screenshot({ path: '/private/tmp/horizon-column-settings-spacing.png', fullPage: true, animations: 'disabled' })
+  await page.route('**/api/horizon/inventory/operations?*', (route) => route.fulfill({ json: {
+    items: [{ kind: 'IN', warehouse: 'warehouse', title: 'Une réception dont le titre complet doit tenir dans la colonne après ajout', destination_warehouse: '', opportunity: '', purchase_order: '', sales_quote: '', origin: '', destination: '', reason: 'Livraison et contrôle des équipements de la commande fournisseur', notes: '', document_date: '2026-10-18', planned_date: '', inventory_mode: 'cycle', dropship: false, scrap: false, scope: [], lines: [], id: 'operation', updated: '2026-10-18 12:00:00', number: 'MEU/IN/00001', status: 'draft', from_name: 'Fournisseur avec un nom particulièrement long à conserver intégralement', to_name: 'CVS Engineering', warehouse_name: 'Stock', destination_warehouse_name: '', opportunity_name: '', archived_at: '', lock_movements: false }],
+    summary: { IN: 1, OUT: 0, PREP: 0, RET: 0, INT: 0, INV: 0 }, page: 1, totalPages: 1, totalItems: 1,
+  } }))
+  await page.goto('/inventory/operations?view=list&kind=IN')
+  await expect(table).toHaveAttribute('data-resizable', 'true')
+  await table.getByRole('button', { name: 'Configurer les colonnes', exact: true }).click()
+  await panel.getByRole('checkbox', { name: 'Motif', exact: true }).check()
+  await panel.getByRole('checkbox', { name: 'Modifiée le', exact: true }).check()
+  await page.keyboard.press('Escape')
+  await expect.poll(fits).toBe(true)
+  await expect(table.getByText('Une réception dont le titre complet doit tenir dans la colonne après ajout', { exact: true })).toBeVisible()
+  await page.screenshot({ path: '/private/tmp/horizon-columns-fit-operations.png', fullPage: true, animations: 'disabled' })
+})
+
+test('Redimensionnement partagé : souris, clavier, largeur fixe et sauvegarde sur le compte', async ({ page, request, browser }) => {
+  test.setTimeout(90_000)
+  await page.setViewportSize({ width: 1600, height: 1000 })
+  await login(page)
+  const token = await page.evaluate(() => sessionStorage.getItem('horizon.auth.token') || '')
+  const created = await request.post('http://127.0.0.1:18090/api/collections/contacts_companies/records', { headers: { Authorization: token }, data: { name: 'Redimensionnement Société', email: 'resize@example.test', phone: '0102030405', active: true } })
+  expect(created.ok()).toBe(true)
+  await page.goto('/contacts?view=list&q=Redimensionnement')
+  const table = page.locator('.h-data-table').first()
+  const header = table.getByRole('columnheader', { name: 'Société', exact: true })
+  const handle = table.getByRole('button', { name: 'Redimensionner Société', exact: true })
+  await expect(handle).toBeEnabled()
+  const original = (await header.boundingBox())!.width, edge = (await table.boundingBox())!
+  await handle.focus(); await page.keyboard.press('ArrowRight')
+  await expect.poll(async () => (await header.boundingBox())!.width).toBeGreaterThan(original + 5)
+  await expect(handle).toBeEnabled()
+  await expect(handle).toBeFocused()
+  await page.keyboard.press('ArrowLeft')
+  await expect.poll(async () => Math.abs((await header.boundingBox())!.width - original)).toBeLessThan(2)
+  await expect(handle).toBeEnabled()
+  const box = (await handle.boundingBox())!
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+  await page.mouse.down(); await page.mouse.move(box.x + box.width / 2 + 65, box.y + box.height / 2, { steps: 8 }); await page.mouse.up()
+  await expect(handle).toBeEnabled()
+  const changed = (await header.boundingBox())!.width
+  expect(changed).toBeGreaterThan(original + 50)
+  const after = (await table.boundingBox())!
+  expect(Math.abs(after.width - edge.width)).toBeLessThan(2)
+  expect(Math.abs(after.x + after.width - edge.x - edge.width)).toBeLessThan(2)
+  await page.reload()
+  await expect(handle).toBeEnabled()
+  await expect.poll(async () => Math.abs((await header.boundingBox())!.width - changed)).toBeLessThan(2)
+  const other = await browser.newContext({ baseURL: 'http://127.0.0.1:4174', viewport: { width: 1600, height: 1000 } })
+  try {
+    const fresh = await other.newPage(); await login(fresh)
+    await fresh.goto('/contacts?view=list&q=Redimensionnement')
+    await expect(fresh.getByRole('button', { name: 'Redimensionner Société', exact: true })).toBeEnabled()
+    await expect.poll(async () => Math.abs((await fresh.getByRole('columnheader', { name: 'Société', exact: true }).boundingBox())!.width - changed)).toBeLessThan(2)
+  } finally { await other.close() }
+  await page.route('**/api/horizon/table-preferences/contacts.companies', async (route) => {
+    if (route.request().method() === 'POST') await route.fulfill({ status: 503, json: { message: 'Test unavailable' } })
+    else await route.continue()
+  })
+  await handle.focus(); await page.keyboard.press('ArrowRight')
+  await expect(page.getByRole('alert')).toContainText('Préférences non synchronisées')
+  await expect.poll(async () => Math.abs((await header.boundingBox())!.width - changed)).toBeLessThan(2)
+  await page.unroute('**/api/horizon/table-preferences/contacts.companies')
+  await page.getByRole('alert').getByRole('button', { name: 'Recharger les colonnes', exact: true }).click()
+  await expect(handle).toBeEnabled()
+  await page.screenshot({ path: '/private/tmp/horizon-columns-resize-light.png', fullPage: true, animations: 'disabled' })
+  await page.getByRole('button', { name: 'Passer en mode sombre', exact: true }).click()
+  await page.screenshot({ path: '/private/tmp/horizon-columns-resize-dark.png', fullPage: true, animations: 'disabled' })
+  await page.setViewportSize({ width: 390, height: 844 })
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await page.screenshot({ path: '/private/tmp/horizon-columns-resize-mobile.png', fullPage: true, animations: 'disabled' })
+  await page.setViewportSize({ width: 1600, height: 1000 })
+  await handle.dblclick()
+  await expect(table).not.toHaveAttribute('data-manual-sizing', 'true')
+  for (const path of ['/crm?view=list', '/sales/quotes', '/purchasing/orders', '/inventory', '/inventory/stock', '/hr?view=list']) {
+    await page.goto(path)
+    await expect(page.locator('.h-data-table').first().getByRole('button', { name: /^Redimensionner / }).first()).toBeEnabled()
+  }
+})
