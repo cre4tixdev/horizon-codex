@@ -183,8 +183,52 @@ class LeaveTests(unittest.TestCase):
         code,c=self.call('GET','calendar?from=2026-10-01&to=2026-10-31',who='other');self.assertEqual(code,200,c);self.assertEqual(len(c['items']),1)
         item=c['items'][0];self.assertEqual(item['href'],'');self.assertEqual(item['id'],'');self.assertNotIn('PRIVATE',json.dumps(item));self.assertNotIn(self.sick,json.dumps(item))
         self.assertEqual(self.call('GET','requests/'+r['id'],who='other')[0],403)
-        code,a=self.call('GET','calendar?from=2026-10-01&to=2026-10-31',who='manager');self.assertEqual(code,200,a);self.assertEqual(a['items'][0]['id'],r['id'])
+        code,a=self.call('GET','calendar?from=2026-10-01&to=2026-10-31',who='manager');self.assertEqual(code,200,a);self.assertEqual(a['items'][0]['id'],r['id']);self.assertEqual(a['items'][0]['type_label'],next(t['label'] for t in self.choices['types'] if t['id']==self.sick))
         self.assertEqual(self.pb.request('PATCH','collections/leave_requests/records/'+r['id'],{'status':'approved'},self.token)[0],403)
+    def test_resource_calendar_scope_roster_halves_and_totals(self):
+        team=self.pb.create('core_teams',dict(code='leave-timeline',name='Bureau études',active=True))
+        for key in ['owner','other']: self.pb.request('PATCH','collections/hr_employees/records/'+self.people[key]['employee']['id'],dict(team=team['id']),self.pb.admin_token)
+        self.assertEqual(self.allocate()[0],200)
+        r=self.draft('timeline-halves',start_date='2026-11-09',end_date='2026-11-13',start_half='pm',end_half='am',reason='PRIVATE MEDICAL DETAIL')
+        _,r=self.transition(r,'submit'); self.assertEqual(r['duration'],3)
+        code,draft=self.call('POST','requests',dict(creation_key='other-private-draft',input=dict(type=self.sick,start_date='2026-11-16',end_date='2026-11-17',start_half='am',end_half='pm',reason='PRIVATE DRAFT',manager=''),removed=[]),who='other'); self.assertEqual(code,200,draft)
+        path='calendar?from=2026-11-01&to=2026-11-30'
+        code,c=self.call('GET',path,who='other'); self.assertEqual(code,200,c)
+        self.assertEqual(c['scope'],'team'); self.assertFalse(c['can_company']); self.assertEqual(len(c['employees']),1)
+        self.assertEqual(c['items'][0]['id'],''); self.assertEqual(c['items'][0]['href'],''); self.assertNotIn('PRIVATE',json.dumps(c)); self.assertNotIn('type_label',json.dumps(c))
+        days={d['date']:d for d in c['days']}; self.assertEqual(days['2026-11-09']['pending'],.5); self.assertEqual(days['2026-11-10']['pending'],1); self.assertEqual(days['2026-11-11']['pending'],0); self.assertEqual(days['2026-11-13']['pending'],.5); self.assertTrue(days['2026-11-11']['holiday']); self.assertTrue(days['2026-11-14']['weekend'])
+        self.assertEqual(self.call('GET',path+'&scope=company',who='other')[0],403)
+        code,c=self.call('GET',path+'&scope=company',who='hr'); self.assertEqual(code,200,c); self.assertEqual(c['totalItems'],1); self.assertEqual(c['scope'],'company'); self.assertTrue(c['can_company'])
+        self.assertEqual(self.call('GET',path+'&scope=wrong')[0],400); self.assertEqual(self.call('GET',path+'&page=0')[0],400)
+        _,r=self.transition(r,'approve','manager'); code,c=self.call('GET',path,who='other'); self.assertEqual(code,200,c); days={d['date']:d for d in c['days']}; self.assertEqual(days['2026-11-09']['absent'],.5); self.assertEqual(days['2026-11-09']['pending'],0)
+        code,c=self.call('GET',path+'&q=OWNER',who='other'); self.assertEqual(code,200,c); self.assertEqual(len(c['employees']),1)
+        code,empty=self.call('GET','calendar?from=2027-01-01&to=2027-01-31&scope=company',who='hr'); self.assertEqual(code,200,empty); self.assertEqual(empty['totalItems'],0); self.assertEqual(empty['employees'],[]); self.assertEqual(empty['items'],[])
+        # Revoke the global scope; the same authenticated token cannot retain company access.
+        self.pb.request('PATCH','collections/core_users/records/'+self.people['hr']['user']['id'],dict(leave_scope='self'),self.pb.admin_token)
+        self.assertEqual(self.call('GET',path+'&scope=company',who='hr')[0],403)
+
+    def test_calendar_photos_follow_calendar_scope_and_pagination(self):
+        from check_employee_photos import upload,PNG
+        from urllib.request import Request,urlopen
+        owner=self.people['owner']['employee']; manager=self.people['manager']; photo='horizon/leave/employees/'+owner['id']+'/photo'
+        code,record=upload(self.pb,'collections/hr_employees/records/'+owner['id'],self.pb.admin_token,{},method='PATCH'); self.assertEqual(code,200,record)
+        with urlopen(Request(self.pb.url+'/api/'+photo,headers={'Authorization':manager['token']})) as response:
+            self.assertEqual(response.status,200); self.assertEqual(response.read(),PNG); self.assertEqual(response.headers['Cache-Control'],'no-store')
+        self.assertEqual(self.pb.request('GET',photo,token=self.people['other']['token'])[0],403)
+        self.assertEqual(self.pb.request('GET',photo)[0],401)
+        with urlopen(Request(self.pb.url+'/api/horizon/leave/employees/'+manager['employee']['id']+'/photo',headers={'Authorization':manager['token']})) as response: self.assertEqual(response.status,204)
+        r=self.draft('calendar-photo-request',type=self.sick); code,r=self.transition(r,'submit'); self.assertEqual(code,200,r)
+        code,c=self.call('GET','calendar?from=2026-10-01&to=2026-10-31',who='manager'); self.assertEqual(code,200,c); self.assertTrue(next(e for e in c['employees'] if e['id']==owner['id'])['has_photo'])
+        import sqlite3
+        with sqlite3.connect(self.pb.data/'data.db') as db:
+            for i in range(52):
+                db.execute('INSERT INTO hr_employees (id,first_name,last_name,status,employment_type) VALUES (?,?,?,?,?)',(f'leavepage{i:06d}','Extra',f'ZZ {i:02d}','active','employee'))
+                db.execute('INSERT INTO leave_requests (id,employee,user,type,start_date,end_date,start_half,end_half,duration,status,policy_snapshot,creation_key) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',(f'pageleave{i:06d}',f'leavepage{i:06d}',self.people['owner']['user']['id'],self.sick,'2026-10-19','2026-10-20','am','pm',2,'approved',json.dumps(self.choices['policy']),f'calendar-page-{i}'))
+        code,c=self.call('GET','calendar?from=2026-10-01&to=2026-10-31&scope=company',who='hr'); self.assertEqual(code,200,c); self.assertEqual(c['totalItems'],53); self.assertEqual(c['totalPages'],2); self.assertEqual(len(c['employees']),50)
+        code,c=self.call('GET','calendar?from=2026-10-01&to=2026-10-31&scope=company&page=2',who='hr'); self.assertEqual(code,200,c); self.assertEqual(len(c['employees']),3); self.assertEqual(next(d for d in c['days'] if d['date']=='2026-10-19')['absent'],52)
+        self.pb.request('PATCH','collections/hr_employees/records/'+owner['id'],dict(manager=''),self.pb.admin_token)
+        self.assertEqual(self.pb.request('GET',photo,token=manager['token'])[0],403)
+
     def test_protected_files_and_rejected_request_recovery(self):
         from check_employee_photos import PNG
         from urllib.request import Request,urlopen

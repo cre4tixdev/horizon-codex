@@ -138,7 +138,7 @@ test('Dashboard : carrousel automatique, pause mémorisée, navigation et param�
   await page.goto('/')
   await expect(page.getByRole('region', { name: 'Commandé', exact: true }).locator('.kpi__value')).toHaveText(/100,00/)
   await expect(page.getByRole('region', { name: 'Marge prévisionnelle', exact: true }).locator('.kpi__value')).toHaveText(/40,00.*40/ )
-  expect((await page.locator('.dashboard-columns').boundingBox())?.height).toBe(620)
+  await expect(page.locator('.dashboard-widget-grid')).toHaveCSS('grid-template-columns', /(?:[\d.]+px ){11}[\d.]+px/)
   await expect(page.locator('.economic-flow')).toContainText('Prévu')
   await expect(page.locator('.economic-flow')).toContainText('Engagé')
   await expect(page.locator('.economic-flow')).toContainText('Réalisé')

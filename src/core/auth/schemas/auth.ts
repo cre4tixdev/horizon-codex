@@ -11,6 +11,7 @@ export const userSchema = z.object({
   email: z.email(), name: z.string().min(1), active: z.literal(true),
   role: z.string().min(1),
   erp_profile: z.enum(['admin', 'superuser', 'user', 'viewer']).default('user'),
+  leave_scope: z.enum(['', 'none', 'self', 'reports', 'all']).default('none'), expenses_scope: z.enum(['', 'none', 'self', 'reports', 'all']).default('none'),
   updated: z.string().default(''), avatar: z.string().default(''), presence: z.enum(['', 'available', 'away', 'busy', 'offline']).default('available'),
   expand: z.object({ role: z.object({
     id: z.string().min(1), name: z.string().min(1), label: z.string().min(1),

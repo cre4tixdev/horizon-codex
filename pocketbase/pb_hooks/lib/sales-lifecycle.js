@@ -3,6 +3,15 @@ const guard = (app, user, permission) => {
   if (user?.getString('erp_profile') === 'viewer' || !rights.includes('sales.read') || !rights.includes(permission)) throw new ForbiddenError('Vous ne disposez pas des droits de validation.')
 }
 const exact = (body, fields) => { if (!/^[a-z0-9]{15}$/.test(body.id || '') || typeof body.updated !== 'string') throw new BadRequestError('Devis ou version invalide.'); if (Object.keys(body).some((key) => !fields.includes(key))) throw new BadRequestError('Champs non autorisés.') }
+// Multipart RequestInfo decodes JSON-looking text (numbers, booleans, null).
+// Read the original form text to preserve references and their leading zeros.
+const customerReference = (event, optional = false) => {
+  let value = event.requestInfo().body.customer_order_number
+  if (value !== undefined && event.request.header.get('Content-Type').startsWith('multipart/form-data')) value = event.request.postFormValue('customer_order_number')
+  if (value === undefined && optional) return ''
+  if (typeof value !== 'string' || value.trim().length > 120) throw new BadRequestError('Numéro de commande client invalide (120 caractères maximum).')
+  return value.trim()
+}
 const lines = (app, quote) => {
   if (quote.getString('archived_at')) throw new BadRequestError('Réactivez le devis avant de poursuivre.');
   const result = app.findRecordsByFilter('sales_quote_lines', 'quote = {:id}', 'position', 0, 0, { id: quote.id })
@@ -66,7 +75,7 @@ module.exports = {
         const entry = new Record(app.findCollectionByNameOrId('core_audit')); for (const [key, value] of Object.entries({ user: event.auth.id, module: 'sales', entity: 'sales_orders', entity_id: order.id, action: 'update', before: previous, after: order.publicExport(), metadata: { source: 'server', action: 'reopen_quote' } })) entry.set(key, value); app.save(entry)
       }
       quote.set('status', body.target); quote.set('accepted_at', '')
-      if (body.target === 'draft') { quote.set('validated_at', ''); quote.set('validated_by', '') }
+      if (body.target === 'draft') { quote.set('company', require(`${__hooks}/lib/company-identity.js`).resolve(app, quote.getString('company'))); quote.set('validated_at', ''); quote.set('validated_by', '') }
       app.save(quote); audit(app, event.auth, quote, before, 'reopen')
       require(`${__hooks}/lib/activity.js`).publish(app, quote, event.auth.id, 'status_change', body.target === 'draft' ? 'Devis remis en brouillon' : 'Commande client remise en devis · commande précédente conservée dans l’historique', { action: 'update', changes: [{ field: 'status', label: 'État', before: body.target === 'draft' ? 'Devis' : 'Commande client', after: body.target === 'draft' ? 'Brouillon' : 'Devis' }] })
       result = require(`${__hooks}/lib/sales.js`).dto(app, quote)
@@ -98,8 +107,7 @@ module.exports = {
     if (typeof preparation === 'string') { try { preparation = JSON.parse(preparation) } catch { throw new BadRequestError('Préparation des achats invalide.') } }
     if (preparation !== undefined && (!Array.isArray(preparation) || !preparation.length || preparation.length > 200)) throw new BadRequestError('Préparation des achats invalide.')
     let reservations = body.reservations || []; if (typeof reservations === 'string') { try { reservations = JSON.parse(reservations) } catch { throw new BadRequestError('Réservations invalides.') } }; if (!Array.isArray(reservations)) throw new BadRequestError('Réservations invalides.');
-    const reference = typeof body.customer_order_number === 'string' ? body.customer_order_number.trim() : ''
-    if (reference.length > 120 || body.customer_order_number !== undefined && typeof body.customer_order_number !== 'string') throw new BadRequestError('Numéro de commande client invalide (120 caractères maximum).')
+    const reference = customerReference(event, true)
     const waiting = body.awaiting_customer_order === true || body.awaiting_customer_order === 'true'
     if (body.awaiting_customer_order !== undefined && ![true, false, 'true', 'false'].includes(body.awaiting_customer_order)) throw new BadRequestError('Choix Attente Commande invalide.')
     if (!reference && !waiting) throw new BadRequestError('Renseignez le numéro de commande client ou cochez Attente Commande.')
@@ -120,6 +128,7 @@ module.exports = {
       const order = new Record(app.findCollectionByNameOrId('sales_orders'))
       if (files.length > 1 && !order.collection().fields.getByName('customer_order_documents')) throw new BadRequestError('Appliquez la migration des pièces multiples avant de poursuivre.')
       for (const key of ['opportunity', 'analytic_account', 'company', 'contact', 'owner', 'currency', 'exchange_rate', 'subtotal', 'tax', 'total']) order.set(key, quote.get(key))
+      order.set('company', require(`${__hooks}/lib/company-identity.js`).resolve(app, quote.getString('company')))
       const proof = require(`${__hooks}/lib/activity.js`).publish(app, quote, event.auth.id, files.length ? 'document' : 'status_change', reference ? `Commande client confirmée · ${reference}` : 'Commande client confirmée · Attente Commande', { action: 'customer_order', changes: [{ field: 'status', label: 'État', before: ({ draft: 'Brouillon', validated: 'Devis', sent: 'Envoyé' })[quote.getString('status')], after: 'Commande client' }] })
       const documents = require(`${__hooks}/lib/sales-order-documents.js`)
       if (files.length) { proof.set('attachments', [files[0]]); const field = new FileField({ name: 'attachments', maxSelect: 1, maxSize: 10485760, mimeTypes: ['application/pdf', 'image/png', 'image/jpeg', 'image/webp'], protected: true }); try { field.validateValue(event.request.context(), app, proof) } catch { throw new BadRequestError('Choisissez des PDF ou images de 10 Mo maximum par fichier.') }; app.save(proof) }
@@ -153,8 +162,7 @@ module.exports.customerOrderReference = (event) => {
   if (typeof removals === 'string') { try { removals = JSON.parse(removals) } catch { throw new BadRequestError('Retrait de pièces invalide.') } }
   if (!Array.isArray(removals) || removals.length > 20 || removals.some((id) => !/^[a-z0-9]{15}$/.test(id)) || new Set(removals).size !== removals.length || removals.length && fileAction !== 'append') throw new BadRequestError('Retrait de pièces invalide.')
   if (body.command_file_event !== undefined && (typeof body.command_file_event !== 'string' || !/^[a-z0-9]{15}$/.test(body.command_file_event))) throw new BadRequestError('Pièce de commande invalide.')
-  if (typeof body.customer_order_number !== 'string' || body.customer_order_number.trim().length > 120) throw new BadRequestError('Numéro de commande client invalide (120 caractères maximum).')
-  const value = body.customer_order_number.trim(), reference = value.toLowerCase() === 'attente commande' ? '' : value
+  const value = customerReference(event), reference = value.toLowerCase() === 'attente commande' ? '' : value
   let files = []
   if (event.request.header.get('Content-Type').startsWith('multipart/form-data')) { try { files = event.findUploadedFiles('command_file') } catch (error) { if (!String(error).endsWith('http: no such file')) throw error } }
   if (files.length > 20) throw new BadRequestError('20 pièces de commande maximum.')

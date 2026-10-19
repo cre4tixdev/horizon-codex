@@ -1,3 +1,4 @@
+import { ClientResponseError } from 'pocketbase'
 import { createPocketBaseClient } from '../../../core/pocketbase/client'
 import { balanceSchema, choicesSchema, listSchema, requestSchema, allocationsSchema, allocationSchema, calendarSchema, previewSchema, type LeaveRequest, type LeaveInput, type AllocationInput, type PolicyInput } from '../schemas/leave'
 export function createLeaveRepository(url: string) {
@@ -5,6 +6,11 @@ export function createLeaveRepository(url: string) {
   const get = (path: string, query: Record<string, string> = {}) => client.send(base + path, { query, requestKey: null })
   const post = (path: string, body: object) => client.send(base + path, { method: 'POST', body, requestKey: null })
   return {
+    async photo(id: string) {
+      const response = await fetch(client.buildURL(`${base}/employees/${id}/photo`), { headers: { Authorization: client.authStore.token }, cache: 'no-store' })
+      if (!response.ok) throw new ClientResponseError({ status: response.status })
+      return response.status === 204 ? null : response.blob()
+    },
     async balances(year: string) { return balanceSchema.array().parse(await get('/balances', { year })) },
     async choices() { return choicesSchema.parse(await get('/choices')) },
     async list(query: Record<string, string>) { return listSchema.parse(await get('/requests', query)) },

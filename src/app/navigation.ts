@@ -1,4 +1,4 @@
-import { Activity, Boxes, ChartBar, LayoutDashboard, Mail, CalendarDays, ContactRound, Target, FileText, ShoppingCart, ShoppingCartPlus, Package, FolderKanban, Headset, UsersRound, Clock3, CalendarOff, Receipt, Wallet, Landmark, Files, Settings2, Columns3, ClipboardList, Building2, Truck, ShoppingBag, type LucideIcon } from 'lucide-react'
+import { Activity, Boxes, ChartBar, LayoutDashboard, Mail, CalendarDays, ContactRound, Target, FileText, ShoppingCart, ShoppingCartPlus, Package, FolderKanban, Headset, UsersRound, Clock3, CalendarOff, UserRound, Coins, Receipt, Wallet, Landmark, Files, Settings2, Columns3, ClipboardList, Building2, Truck, ShoppingBag, type LucideIcon } from 'lucide-react'
 
 export type NavigationItem = { label: string; href: string; icon: LucideIcon; description: string; children?: NavigationItem[] }
 export type NavigationGroup = { label: string; items: NavigationItem[] }
@@ -29,8 +29,8 @@ export const navigationGroups: NavigationGroup[] = [
   { label: 'Ressources humaines', items: [
     { label: 'Employés', href: '/hr', icon: UsersRound, description: 'Collaborateurs et ressources externes' },
     { label: 'TimeReport', href: '/time-reporting', icon: Clock3, description: 'Planning et temps réalisés' },
-    { label: 'Congés', href: '/leave', icon: CalendarOff, description: 'Demandes et absences' },
-    { label: 'Notes de frais', href: '/expenses', icon: Receipt, description: 'Notes de frais et justificatifs' },
+    { label: 'Congés', href: '/leave', icon: CalendarOff, description: 'Demandes et absences', children: [{ label: 'Mes congés', href: '/leave', icon: UserRound, description: 'Mes demandes et soldes' }, { label: 'À valider', href: '/leave?area=review', icon: UsersRound, description: 'Demandes des collaborateurs' }, { label: 'Calendrier', href: '/leave?area=calendar', icon: CalendarDays, description: 'Disponibilités des collaborateurs' }, { label: 'Allocations RH', href: '/leave?area=allocations', icon: Coins, description: 'Attribution des droits par employé' }] },
+    { label: 'Notes de frais', href: '/expenses', icon: Receipt, description: 'Notes de frais et justificatifs', children: [{ label: 'Mes notes', href: '/expenses', icon: UserRound, description: 'Mes dépenses et justificatifs' }, { label: 'Équipe', href: '/expenses?area=team', icon: UsersRound, description: 'Suivi des notes des collaborateurs' }] },
   ] },
   { label: 'Finance', items: [
     { label: 'Analyse des affaires', href: '/analysis', icon: ChartBar, description: 'Rentabilité et suivi des affaires et commandes' },

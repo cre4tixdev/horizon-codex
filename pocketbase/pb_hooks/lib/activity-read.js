@@ -17,6 +17,10 @@ const scope = (event) => {
   const source = readSource(event, entity, id), module = moduleFor(entity)
   const params = { entity, id, module }
   let filter = '(source_entity = {:entity} && source_record_id = {:id} && source_module = {:module})'
+  if (entity === 'contacts_companies') {
+    const identity = require(`${__hooks}/lib/company-identity.js`), authorized = identity.ids(event.app, id).filter((alias) => { try { readSource(event, entity, alias); return true } catch (error) { if (error.status !== 403 && error.status !== 404) throw error; return false } })
+    filter = `(source_entity = {:entity} && ${identity.predicate('source_record_id', authorized, params)} && source_module = {:module})`
+  }
   if (entity === 'crm_tenders' && source.getString('opportunity')) {
     const opportunity = require(`${__hooks}/lib/activity.js`).source(event.app, 'crm_opportunities', source.getString('opportunity'))
     if (event.app.canAccessRecord(opportunity, event.requestInfo(), opportunity.collection().viewRule)) {

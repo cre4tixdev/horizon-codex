@@ -68,6 +68,7 @@ export class ContactsService {
   mergePreview(input: ContactMergeSelection) { return this.merge(() => { if (!this.repository) throw new Error('Contacts non configuré.'); return this.repository.mergePreview(input) }) }
   mergeApply(input: ContactMergeApplication) { return this.merge(() => { if (!this.repository) throw new Error('Contacts non configuré.'); return this.repository.mergeApply(input) }) }
   mergedSources(kind: ContactKind, id: string) { return this.run('contacts.read', (repo) => repo.mergedSources(kind, id)) }
+  businessLinks(id: string) { return this.run('contacts.read', (repo) => repo.businessLinks(id)) }
   summary() { return this.run('contacts.read', (repo) => repo.summary()) }
   companyPeopleCount(company: string) { return this.run('contacts.read', (repo) => repo.companyPeopleCount(company)) }
   navigation(kind: ContactKind, id: string, options: ListOptions) { return this.run('contacts.read', (repo) => repo.navigation(kind, id, options)) }

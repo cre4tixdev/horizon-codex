@@ -20,3 +20,9 @@
 .leave-editor-form .h-attachment-workspace { min-height: 390px; max-height: 55vh; }
 .leave-weekdays { display: flex; flex-wrap: wrap; gap: 12px; margin: 12px 0 20px; }
 @media (max-width: 700px) { .leave-editor-grid { grid-template-columns: 1fr; } .leave-year { margin-left: auto; } .leave-cell-detail { display: block; margin-left: 0; } }
+
+.leave-calendar .calendar-toolbar > div:first-child > .h-input, .leave-calendar .calendar-toolbar > div:first-child > .h-date-input { width:160px; }
+
+.leave-calendar .leave-state-key { display:inline-flex; align-items:center; gap:5px; color:var(--theme-text-muted,#7b8794); }
+.leave-state-sample { width:16px; height:10px; border:1px solid currentColor; border-left-width:3px; border-radius:2px; }
+.leave-state-sample[data-tentative=true] { border-top-style:dashed; border-bottom-style:dashed; border-right-style:dashed; }

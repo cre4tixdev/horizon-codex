@@ -5,7 +5,7 @@ import { companyInputSchema, personInputSchema, companySchema, roleSchema, addre
 
 const company = { payment_term: '', name: ' Test ', legal_name: '', vat_number: '', lei: '', billing_email: '', einvoice_routing_address: '', einvoice_platform: '', einvoice_service_code: '', einvoice_status: 'unknown' as const, preferred_language: '', siren: '', siret: '', default_currency: '', website: '', phone: '', email: '', notes: '' }
 function setup(permissions = ['contacts.read', 'contacts.write']) {
-  const repository: ContactsRepository = { mergeChoices: vi.fn(), mergedSources: vi.fn(), mergePreview: vi.fn(), mergeApply: vi.fn(), ensureRevision: vi.fn(), companyPeopleCount: vi.fn(), navigation: vi.fn(), summary: vi.fn(), companies: vi.fn(), people: vi.fn(), company: vi.fn(), person: vi.fn(), saveCompany: vi.fn(), savePerson: vi.fn(), setActive: vi.fn(), deleteRecord: vi.fn(), addresses: vi.fn(), saveAddress: vi.fn(), saveAddresses: vi.fn(), saveRole: vi.fn(), removeGallery: vi.fn(), imageURL: vi.fn() }
+  const repository: ContactsRepository = { businessLinks: vi.fn(), mergeChoices: vi.fn(), mergedSources: vi.fn(), mergePreview: vi.fn(), mergeApply: vi.fn(), ensureRevision: vi.fn(), companyPeopleCount: vi.fn(), navigation: vi.fn(), summary: vi.fn(), companies: vi.fn(), people: vi.fn(), company: vi.fn(), person: vi.fn(), saveCompany: vi.fn(), savePerson: vi.fn(), setActive: vi.fn(), deleteRecord: vi.fn(), addresses: vi.fn(), saveAddress: vi.fn(), saveAddresses: vi.fn(), saveRole: vi.fn(), removeGallery: vi.fn(), imageURL: vi.fn() }
   return { service: new ContactsService(repository, (permission) => permissions.includes(permission)), repository }
 }
 describe('Contacts service', () => {
@@ -161,5 +161,18 @@ describe('Fusion Contacts', () => {
     vi.mocked(repository.mergeApply).mockResolvedValue({ id: 'target' })
     await expect(service.mergeApply(body)).resolves.toEqual({ id: 'target' })
     expect(repository.mergeApply).toHaveBeenCalledWith(body)
+  })
+})
+
+
+describe('Pièces des sociétés fusionnées', () => {
+  it('conserve le contrôle Contacts avant de lire les liens autorisés par les propriétaires', async () => {
+    const denied = setup([])
+    await expect(denied.service.businessLinks('company')).rejects.toThrow('permissions')
+    expect(denied.repository.businessLinks).not.toHaveBeenCalled()
+    const allowed = setup(['contacts.read'])
+    vi.mocked(allowed.repository.businessLinks).mockResolvedValue({ quotes: [{ label: 'Devis', href: '/sales/quotes/quote', reference: 'Finalisé' }] })
+    await expect(allowed.service.businessLinks('company')).resolves.toHaveProperty('quotes')
+    expect(allowed.repository.businessLinks).toHaveBeenCalledWith('company')
   })
 })

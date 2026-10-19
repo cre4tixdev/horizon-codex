@@ -39,18 +39,25 @@ module.exports = {
   sold(e) { c.guard(e.app, e.auth); const q = e.request.url.query(); return e.json(200, sales.choices(e.app, q.get('account'), q.get('product'))) },
   record(e) { return e.json(200, dto(e.app, e.auth, c.read(e.app, e.auth, e.request.pathValue('id')))) },
   week(e) { c.guard(e.app, e.auth); const emp = c.employee(e.app, e.auth), start = week(e.request.url.query().get('date')); return e.json(200, dto(e.app, e.auth, findWeek(e.app, emp.id, start), start, emp.id)) },
-  save(e) {
-    const b = e.requestInfo().body; c.fields(b, ['week_start', 'revision', 'lines']); const start = week(b.week_start)
+  save(e, correction = false) {
+    const b = e.requestInfo().body; c.fields(b, ['week_start', 'revision', 'lines', ...(correction ? ['reason'] : [])]); const start = week(b.week_start)
     if (start !== b.week_start || !Array.isArray(b.lines) || b.lines.length > 100 || (!Number.isInteger(b.revision) || b.revision < 0)) throw new BadRequestError('Feuille invalide (100 lignes maximum).')
     c.safe(() => c.math.checkDays(b.lines)); let id
     e.app.runInTransaction((app) => {
-      const u = c.get(app, 'core_users', e.auth.id); c.guard(app, u, 'write'); const emp = c.employee(app, u)
-      require(`${__hooks}/lib/hr-time-policy.js`).assertBe(app, emp)
+      const u = c.get(app, 'core_users', e.auth.id); c.guard(app, u, correction ? 'validate' : 'write')
+      let r = correction ? c.read(app, u, e.request.pathValue('id')) : null
+      if (correction && (!c.actions(app, u, r).includes('correct') || r.getString('week_start') !== start)) throw new ForbiddenError('Seule une feuille BE soumise de votre périmètre peut être corrigée.')
+      const emp = correction ? c.get(app, 'hr_employees', r.getString('employee')) : c.employee(app, u)
+      if (!correction) require(`${__hooks}/lib/hr-time-policy.js`).assertBe(app, emp)
+      const reason = correction ? c.text(b.reason || '') : ''
+      if (correction && !reason) throw new BadRequestError('Précisez le motif de la correction.')
+      if (correction && !b.lines.some((line) => line.days?.some((day) => day.minutes > 0))) throw new BadRequestError('Conservez au moins une durée positive dans la feuille soumise.')
       if (start > c.today()) throw new BadRequestError('La saisie des heures n’est pas ouverte pour une semaine future.')
-      let r = findWeek(app, emp.id, start), before = auditSnapshot(app, r)
+      r = r || findWeek(app, emp.id, start)
+      const before = auditSnapshot(app, r)
       if ((r?.getInt('revision') || 0) !== b.revision) throw new ApiError(409, 'Cette semaine a changé. Rechargez-la avant d’enregistrer.')
-      if (r && !c.actions(app, u, r).includes('edit')) throw new ForbiddenError('Seul votre brouillon est modifiable.')
-      if (r && r.getString('user') !== u.id) throw new ForbiddenError('La feuille appartient à un autre compte de cet employé.')
+      if (r && !correction && !c.actions(app, u, r).includes('edit')) throw new ForbiddenError('Seul votre brouillon est modifiable.')
+      if (r && !correction && r.getString('user') !== u.id) throw new ForbiddenError('La feuille appartient à un autre compte de cet employé.')
       if (!r) { r = new Record(app.findCollectionByNameOrId('time_sheets')); for (const [k, v] of Object.entries({ employee: emp.id, user: u.id, week_start: start, work_type: 'be', source_provider: 'horizon', status: 'draft' })) r.set(k, v) }
       const current = r.id ? lines(app, r.id) : [], used = new Set(), tuples = new Set()
       for (const line of b.lines) {
@@ -73,11 +80,13 @@ module.exports = {
           const date = c.math.addDays(start, i), old = previousEntries.find((t) => t.getString('sheet_line') === line.id && t.getString('date') === date)
           if (!day.minutes && !c.text(day.description || '')) { if (old) c.remove(app, old); continue }
           const t = old || new Record(app.findCollectionByNameOrId('time_entries'))
-          for (const [key, value] of Object.entries({ sheet: r.id, sheet_line: line.id, employee: emp.id, analytic_account: input.analytic_account, date, duration_minutes: day.minutes, work_type: 'be', description: c.text(day.description || ''), status: 'draft', source_provider: 'horizon', cost_snapshot: {} })) t.set(key, value)
+          for (const [key, value] of Object.entries({ sheet: r.id, sheet_line: line.id, employee: emp.id, analytic_account: input.analytic_account, date, duration_minutes: day.minutes, work_type: 'be', description: c.text(day.description || ''), status: correction ? 'submitted' : 'draft', source_provider: 'horizon', cost_snapshot: {} })) t.set(key, value)
           c.save(app, t)
         }
       }
-      auditSheet(app, u, r, before, before ? 'Feuille de temps mise à jour' : 'Feuille de temps créée'); id = r.id
+      const event = auditSheet(app, u, r, before, correction ? `Temps corrigés par le manager · ${reason}` : before ? 'Feuille de temps mise à jour' : 'Feuille de temps créée')
+      if (correction) require(`${__hooks}/lib/notification-service.js`)(app, r.getString('user'), event, 'Votre feuille de temps a été corrigée', `Semaine du ${start} · ${reason}`, 'time_updates')
+      id = r.id
     })
     return e.json(200, dto(e.app, e.auth, c.read(e.app, e.auth, id)))
   },

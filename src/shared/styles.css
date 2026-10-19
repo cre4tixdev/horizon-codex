@@ -1945,6 +1945,7 @@
 
 /* Dialog fields use the same caption/control alignment as record forms. */
 .dialog-form > .h-form-field { display: flex; flex-direction: column; gap: 5px; min-width: 0; font: 400 12px/18px var(--font-sans); color: var(--theme-text, #091c3a); }
+.dialog-form > .h-form-field > textarea.h-input { display: block; height: auto; padding: 8px 10px; resize: vertical; }
 .dialog-content.sales-terms-dialog { width: min(720px, calc(100vw - var(--workspace-sidebar-width) - 32px)); top: 50%; transform: translate(-50%, -50%); max-height: calc(100dvh - 32px); }
 .sales-terms-content-label { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .sales-terms-content-label small { font-size: 11px; font-variant-numeric: tabular-nums; color: var(--theme-text-muted, #7b8794); }
@@ -2744,3 +2745,7 @@ button.contact-card-title { padding: 0; border: 0; background: transparent; text
 @media (max-width: 700px) {
   .page-breadcrumb-row:has(.list-page-size) .page-breadcrumb-controls { flex-wrap: wrap; justify-content: flex-end; }
 }
+
+/* Shared, paginated links to business records (Contacts and Billing). */
+.dialog-content.related-records-dialog { top: 50%; transform: translate(-50%, -50%); width: min(800px, calc(100vw - var(--workspace-sidebar-width) - 32px)); max-height: calc(100dvh - 32px); }
+.related-records-dialog td:first-child { white-space: normal; overflow-wrap: anywhere; }

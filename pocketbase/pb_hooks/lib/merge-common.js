@@ -1,17 +1,19 @@
 // Shared inspection only. Mutations remain in the owning business adapter.
 const canonical = (value) => Array.isArray(value) ? value.map(canonical) : value && typeof value === 'object' ? Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonical(value[key])])) : value
-const incoming = (app, candidates, owned) => {
+const incoming = (app, candidates, owned, complete = false) => {
   const dependencies = [], collections = app.findAllCollections().filter((collection) => collection.type !== 'view')
   const relations = collections.flatMap((collection) => JSON.parse(JSON.stringify(collection)).fields.filter((field) => field.type === 'relation').map((field) => ({ collection, field })))
   const polymorphic = collections.filter((collection) => !['core_activity_events', 'core_audit', 'core_notifications'].includes(collection.name) && collection.fields.getByName('source_entity') && collection.fields.getByName('source_record_id'))
   for (const record of candidates) {
     for (const { collection, field } of relations) {
       if (field.collectionId !== record.collection().id || owned(record, collection.name, field.name)) continue
-      const found = app.findRecordsByFilter(collection.name, `${field.name}.id ?= {:id}`, 'id', 1, 0, { id: record.id })
+      const found = app.findRecordsByFilter(collection.name, `${field.name}.id ?= {:id}`, 'id', complete ? 10001 : 1, 0, { id: record.id })
+      if (complete && found.length > 10000) throw new BadRequestError('Trop de dépendances pour une fusion.')
       if (found.length) dependencies.push([collection.name, field.name, found.map((row) => row.publicExport())])
     }
     for (const collection of polymorphic) {
-      const found = app.findRecordsByFilter(collection.name, 'source_entity = {:entity} && source_record_id = {:id}', 'id', 1, 0, { entity: record.collection().name, id: record.id })
+      const found = app.findRecordsByFilter(collection.name, 'source_entity = {:entity} && source_record_id = {:id}', 'id', complete ? 10001 : 1, 0, { entity: record.collection().name, id: record.id })
+      if (complete && found.length > 10000) throw new BadRequestError('Trop de dépendances pour une fusion.')
       if (found.length) dependencies.push([collection.name, found.map((row) => row.publicExport())])
     }
   }
@@ -25,7 +27,11 @@ const authorize = (app, user, domain) => {
 const validate = (e) => {
   const record = e.record, original = record.original(), collection = record.collection()
   if (['contacts_companies', 'contacts_people', 'inventory_products'].includes(collection.name)) {
-    if (original.getString('merged_into')) throw new BadRequestError('Une fiche fusionnée ne peut être modifiée ou réactivée.')
+    if (original.getString('merged_into')) {
+      const preserved = (item) => canonical(Object.fromEntries(Object.entries(item.publicExport()).filter(([key]) => !['merged_into', 'updated'].includes(key))))
+      const flattenAlias = collection.name === 'contacts_companies' && record.getBool('__merge_operation') && JSON.stringify(preserved(record)) === JSON.stringify(preserved(original))
+      if (!flattenAlias) throw new BadRequestError('Une fiche fusionnée ne peut être modifiée ou réactivée.')
+    }
     if ((record.getString('merged_into') !== original.getString('merged_into') || record.getString('merged_at') !== original.getString('merged_at')) && !record.getBool('__merge_operation')) throw new BadRequestError('Utilisez l’action de fusion.')
   }
   const sourceEntity = record.getString('source_entity'), sourceId = record.getString('source_record_id')

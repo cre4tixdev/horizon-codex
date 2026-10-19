@@ -15,3 +15,5 @@ onRecordValidate((e) => { if (!e.record.getBool('__time_operation')) throw new F
 onRecordDelete((e) => { if (!e.record.getBool('__time_operation') || !['time_sheet_lines', 'time_entries', 'time_favorites'].includes(e.record.collection().name)) throw new BadRequestError('Préservez l’historique des temps.'); e.next() }, 'time_sheets', 'time_sheet_lines', 'time_entries', 'time_activities', 'time_favorites')
 onRecordValidate((e) => { if (!e.record.getBool('__resource_operation')) throw new ForbiddenError('Utilisez le service des profils de ressources.'); e.next() }, 'core_cost_profiles', 'core_resource_profiles')
 onRecordDelete(() => { throw new BadRequestError('Les profils historiques doivent être conservés.') }, 'core_cost_profiles', 'core_resource_profiles')
+
+routerAdd('POST', '/api/horizon/time/sheets/{id}/correct', (e) => require(`${__hooks}/lib/time-report.js`).save(e, true), $apis.requireAuth('core_users'))

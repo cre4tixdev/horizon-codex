@@ -13,6 +13,7 @@ const visible = (u, r) => u.id === r.getString('user') || u.getString('leave_sco
 const read = (app, u, id) => { guard(app, u); const r = get(app, 'leave_requests', id); if (!visible(u, r)) throw new ForbiddenError('Demande hors de votre périmètre.'); return r }
 const version = (r, value) => { if (r.getString('updated') !== value) throw new ApiError(409, 'Cette fiche a changé. Rechargez-la.') }
 const employeeName = (app, id) => { const r = get(app, 'hr_employees', id); return `${r.getString('first_name')} ${r.getString('last_name')}`.trim() }
+const calendarMember = (own, r) => Boolean(own && (r.id === own.id || r.getString('manager') === own.id || own.getString('manager') === r.id || own.getString('team') && own.getString('team') === r.getString('team')))
 const policy = (app) => { const r = all(app, 'leave_settings')[0]; return { ...r.publicExport(), weekdays: json(r, 'weekdays', []), holidays: json(r, 'holidays', []), working_holidays: json(r, 'working_holidays', []) } }
 const calculate = (b, p) => { try { return dates.calculate(b, p) } catch (err) { throw new BadRequestError(err.message) } }
 const principal = (app, u) => {
@@ -246,13 +247,44 @@ module.exports = {
     }
     return items
   },
+  employeePhoto(e) {
+    guard(e.app, e.auth)
+    const employee = get(e.app, 'hr_employees', e.request.pathValue('id')), own = e.auth.getString('employee') ? get(e.app, 'hr_employees', e.auth.getString('employee')) : null
+    if (e.auth.getString('leave_scope') !== 'all' && !calendarMember(own, employee)) throw new ForbiddenError('Photo hors du périmètre des congés.')
+    return require(`${__hooks}/lib/identity-photo.js`).serveRecord(e, employee)
+  },
   calendar(e) {
     guard(e.app, e.auth); const q = e.request.url.query(), from = q.get('from'), to = q.get('to'), u = e.auth
     if (!dates.valid(from) || !dates.valid(to) || to < from || Date.parse(to) - Date.parse(from) > 94 * 86400000) throw new BadRequestError('Période invalide (trois mois maximum).')
-    const own = u.getString('employee') ? get(e.app, 'hr_employees', u.getString('employee')) : null
-    const employees = all(e.app, 'hr_employees').filter((r) => u.getString('leave_scope') === 'all' || own && (r.id === own.id || r.getString('manager') === own.id || own.getString('manager') === r.id || own.getString('team') && own.getString('team') === r.getString('team'))).map((r) => r.id)
-    const search = (q.get('q') || '').trim().toLocaleLowerCase('fr')
-    const items = all(e.app, 'leave_requests', '(status = "submitted" || status = "approved" || status = "cancel_requested") && start_date <= {:to} && end_date >= {:from}', { from, to }, 'start_date,id').filter((r) => employees.includes(r.getString('employee'))).map((r) => ({ id: visible(u, r) ? r.id : '', employee_name: employeeName(e.app, r.getString('employee')), start_date: r.getString('start_date'), end_date: r.getString('end_date'), start_half: r.getString('start_half'), end_half: r.getString('end_half'), pending: r.getString('status') === 'submitted', href: visible(u, r) ? `/leave/${r.id}` : '' })).filter((r) => !search || r.employee_name.toLocaleLowerCase('fr').includes(search))
-    return e.json(200, { items })
+    const own = u.getString('employee') ? get(e.app, 'hr_employees', u.getString('employee')) : null, company = u.getString('leave_scope') === 'all'
+    const scope = q.get('scope') || (company && !own ? 'company' : 'team')
+    if (!['team', 'company'].includes(scope)) throw new BadRequestError('Périmètre du calendrier invalide.')
+    if (scope === 'company' && !company) throw new ForbiddenError('Le calendrier Entreprise exige un accès global aux congés.')
+    const pageValue = q.get('page') || '1'
+    if (!/^[1-9]\d{0,5}$/.test(pageValue)) throw new BadRequestError('Page invalide.')
+    const search = text(q.get('q') || '', 200).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('fr')
+    const roster = all(e.app, 'hr_employees', '', {}, 'last_name,first_name,id').filter((r) => (scope === 'company' || calendarMember(own, r)) && (!search || `${r.getString('first_name')} ${r.getString('last_name')}`.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('fr').includes(search)))
+    const allowed = new Set(roster.map((r) => r.id))
+    const requests = all(e.app, 'leave_requests', '(status = "submitted" || status = "approved" || status = "cancel_requested") && start_date <= {:to} && end_date >= {:from}', { from, to }, 'start_date,id').filter((r) => allowed.has(r.getString('employee')))
+    const historical = new Set(requests.map((r) => r.getString('employee')))
+    const employees = roster.filter((r) => historical.has(r.id))
+    const totalPages = Math.max(1, Math.ceil(employees.length / 50)), page = Math.min(Number(pageValue), totalPages), shown = employees.slice((page - 1) * 50, page * 50), shownIds = new Set(shown.map((r) => r.id)), names = new Map(roster.map((r) => [r.id, `${r.getString('first_name')} ${r.getString('last_name')}`.trim()]))
+    const p = policy(e.app), named = {}, worked = new Set(p.working_holidays), holidays = new Set(p.holidays)
+    if (p.holiday_calendar === 'metropole') for (let year = Number(from.slice(0, 4)); year <= Number(to.slice(0, 4)); year++) Object.assign(named, require(`${__hooks}/lib/leave-holidays.js`).named(year))
+    for (const day of Object.keys(named)) if (!worked.has(day)) holidays.add(day)
+    const days = []
+    for (let stamp = Date.parse(from); stamp <= Date.parse(to); stamp += 86400000) {
+      const date = new Date(stamp), key = date.toISOString().slice(0, 10)
+      days.push({ date: key, weekend: [0, 6].includes(date.getUTCDay()), holiday: holidays.has(key) ? named[key] || 'Jour non travaillé' : '', working: p.weekdays.includes(date.getUTCDay() || 7) && !holidays.has(key), absent: 0, pending: 0 })
+    }
+    const totals = new Map(days.map((day) => [day.date, { approved: new Set(), pending: new Set() }]))
+    for (const r of requests) {
+      const start = r.getString('start_date'), end = r.getString('end_date'), snapshot = json(r, 'policy_snapshot'), calculation = Array.isArray(snapshot.weekdays) ? snapshot : p
+      const slots = dates.slots({ start_date: start < from ? from : start, end_date: end > to ? to : end, start_half: start < from ? 'am' : r.getString('start_half'), end_half: end > to ? 'pm' : r.getString('end_half') }, calculation)
+      for (const slot of slots) totals.get(slot.slice(0, 10))[r.getString('status') === 'submitted' ? 'pending' : 'approved'].add(`${r.getString('employee')}:${slot.slice(11)}`)
+    }
+    for (const day of days) { const t = totals.get(day.date); day.absent = t.approved.size / 2; day.pending = t.pending.size / 2 }
+    const items = requests.filter((r) => shownIds.has(r.getString('employee'))).map((r) => ({ id: visible(u, r) ? r.id : '', employee: r.getString('employee'), employee_name: names.get(r.getString('employee')), start_date: r.getString('start_date'), end_date: r.getString('end_date'), start_half: r.getString('start_half'), end_half: r.getString('end_half'), duration: r.getFloat('duration'), ...(visible(u, r) ? { type_label: json(r, 'policy_snapshot').type_label || get(e.app, 'leave_types', r.getString('type')).getString('label') } : {}), pending: r.getString('status') === 'submitted', status: r.getString('status'), href: visible(u, r) ? `/leave/${r.id}` : '' }))
+    return e.json(200, { items, employees: shown.map((r) => ({ id: r.id, name: names.get(r.id), has_photo: Boolean(r.getString('avatar')), photo_revision: r.getString('updated') })), days, scope, can_company: company, has_team: Boolean(own), page, totalPages, totalItems: employees.length })
   },
 }

@@ -3,8 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { ShoppingBag, Truck } from 'lucide-react'
 import { HRecordLinks, type RecordLink } from '../../../shared/ui/HRecordLinks'
 import { HBreadcrumbActions } from '../../../shared/ui/HBreadcrumbActions'
-import { HDialog } from '../../../shared/ui/HDialog'
-import { HDataTable } from '../../../shared/ui/HDataTable'
+import { HRelatedRecordsDialog } from '../../../shared/ui/HRelatedRecordsDialog'
 import { useSalesAccess } from '../../sales/hooks/useSalesAccess'
 import { useStockAccess } from '../../inventory/hooks/useStockAccess'
 import { billingService } from '../services/BillingService'
@@ -16,5 +15,5 @@ export function BillSourceLinks({ record, inline = false }: { record: Bill; inli
     return { id: key, label, icon, count: rows?.length, description: `Consulter les ${label.toLowerCase()} associés`, ...(rows?.length === 1 ? { href: rows[0]!.href } : rows?.length ? { onSelect: () => setSection(key) } : {}) }
   })
   const links = <HRecordLinks label="Pièces associées à la facture" items={items} busy={query.isFetching} />
-  return <>{query.error && <p role="alert" className="field-error">{query.error.message}</p>}{inline ? <div className="h-record-inline-links">{links}</div> : <HBreadcrumbActions placement="related">{links}</HBreadcrumbActions>}{section && <HDialog open description="Sélectionnez une pièce pour ouvrir sa fiche." title={section === 'orders' ? 'Commandes clients associées' : 'Bons de livraison associés'} onOpenChange={(open) => { if (!open) setSection('') }}><HDataTable columnBorders data={query.data?.[section] || []} columns={[{ header: 'Numéro', accessorKey: 'label' }, { header: 'Référence / état', accessorKey: 'reference' }]} getRowLink={(row) => ({ href: row.href, label: `Ouvrir ${row.label}` })} /></HDialog>}</>
+  return <>{query.error && <p role="alert" className="field-error">{query.error.message}</p>}{inline ? <div className="h-record-inline-links">{links}</div> : <HBreadcrumbActions placement="related">{links}</HBreadcrumbActions>}{section && <HRelatedRecordsDialog title={section === 'orders' ? 'Commandes clients associées' : 'Bons de livraison associés'} records={query.data?.[section] || []} onClose={() => setSection('')} />}</>
 }

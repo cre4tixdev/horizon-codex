@@ -31,15 +31,17 @@ const decide = (app, tender, actor) => {
   crm.audit(app, opportunity, null, actor, 'create')
   require(`${__hooks}/lib/tenders.js`).log(app, tender, tender, null, actor, 'update', `Décision de répondre · opportunité #${opportunity.getString('opportunity_number')} créée`)
 }
-const filters = (query) => {
+const filters = (app, query) => {
   const parameters = { active: query.get('state') !== 'archived' }
   const clauses = ['archived_at = ""', '(opportunity = "" || opportunity.type = "tender")', parameters.active ? '(active = true && (opportunity = "" || opportunity.active = true))' : '(active = false || opportunity != "" && opportunity.active = false)']
   for (const key of ['company', 'owner']) if (query.get(key)) {
     if (!/^[a-z0-9]{15}$/.test(query.get(key))) throw new BadRequestError('Filtre AO invalide.')
+    if (key === 'company') { const identity = require(`${__hooks}/lib/company-identity.js`); clauses.push(`(opportunity = "" && ${identity.condition(app, 'company', query.get(key), parameters)} || opportunity != "" && ${identity.condition(app, 'opportunity.company', query.get(key), parameters)})`); continue }
     parameters[key] = query.get(key); clauses.push(`(opportunity = "" && ${key} = {:${key}} || opportunity != "" && opportunity.${key} = {:${key}})`)
   }
   for (const [key, field] of [['preparation_status', 'status'], ['tag', 'tags.id']]) if (query.get(key)) {
     if (!/^[a-z0-9]{15}$/.test(query.get(key))) throw new BadRequestError('Filtre AO invalide.')
+    if (key === 'company') { const identity = require(`${__hooks}/lib/company-identity.js`); clauses.push(`(opportunity = "" && ${identity.condition(app, 'company', query.get(key), parameters)} || opportunity != "" && ${identity.condition(app, 'opportunity.company', query.get(key), parameters)})`); continue }
     parameters[key] = query.get(key); clauses.push(`${field} ${key === 'tag' ? '?=' : '='} {:${key}}`)
   }
   const search = String(query.get('q') || '').trim()
@@ -54,7 +56,7 @@ module.exports = {
   list(event) {
     const perPage = require(`${__hooks}/lib/list-page-size.js`)(event.requestInfo().query.perPage, 100)
     authorize(event)
-    const query = event.request.url.query(), { filter, parameters } = filters(query)
+    const query = event.request.url.query(), { filter, parameters } = filters(event.app, query)
     const requestedPage = Number(query.get('page') || 1)
     if (!Number.isSafeInteger(requestedPage) || requestedPage < 1) throw new BadRequestError('Page AO invalide.')
     const page = requestedPage
@@ -76,7 +78,7 @@ module.exports = {
     return event.json(200, { items, totalItems, totalPages: Math.ceil(totalItems / perPage), page })
   },
   summary(event) {
-    authorize(event); const { filter, parameters } = filters(event.request.url.query())
+    authorize(event); const { filter, parameters } = filters(event.app, event.request.url.query())
     const records = event.app.findRecordsByFilter('crm_tenders', filter, '', 10001, 0, parameters)
     if (records.length > 10000) throw new BadRequestError('Affinez les filtres pour calculer les totaux AO.')
     const totals = {}

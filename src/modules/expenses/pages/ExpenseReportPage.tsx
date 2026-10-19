@@ -50,7 +50,7 @@ function ReportEditor({ record, choices, onSaved }: { record: ExpenseReport; cho
   const supplement = useMutation({ mutationFn: () => expensesService.save({ month: record.month, notes: '', validator: choices.default_validator, supplement_of: record.id, creation_key: crypto.randomUUID() }), onSuccess: (r) => navigate(`/expenses/${r.id}`) })
   const busy = save.isPending || transition.isPending || removeLine.isPending || order.isPending || supplement.isPending
   const blocker = useBlocker(editable && dirty && !busy)
-  const listQuery = location.state?.expensesListQuery || (owner ? '' : 'area=review&status=submitted'), back = '/expenses' + (listQuery ? '?' + listQuery : '')
+  const listQuery = location.state?.expensesListQuery || (owner ? '' : `area=team&status=submitted&month=${record.month}`), back = '/expenses' + (listQuery ? '?' + listQuery : '')
   const step = record.status === 'validated' ? 2 : record.status === 'reimbursed' ? 3 : record.status === 'submitted' ? 1 : 0
   const progress = [{ id: 'draft', label: record.status === 'returned' ? 'À corriger' : 'Brouillon', icon: FilePenLine }, { id: 'submitted', label: 'À valider', icon: Clock3 }, { id: 'validated', label: 'Validée', icon: Check }, { id: 'reimbursed', label: record.reimbursable_total > 0 ? 'Remboursée' : 'Clôturée', icon: Wallet }]
   const actionTitles: Record<string, string> = { submit: 'Soumettre au manager', validate: 'Valider la note', return: 'Retourner pour correction', reimburse: record.reimbursable_total > 0 ? 'Enregistrer le remboursement' : 'Clore sans remboursement', cancel: 'Annuler la note', reopen: 'Reprendre en brouillon', archive: 'Archiver la note', restore: 'Réactiver la note', reassign: 'Changer le manager' }

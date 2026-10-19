@@ -26,7 +26,7 @@ const actions = (app, u, r) => {
   const own = r.getString('user') === u.id && r.getString('employee') === u.getString('employee'), status = r.getString('status'), result = []
   if (own && can(app, u, 'write')) { if (status === 'draft' && eligible && r.getString('week_start') <= today()) result.push('edit'); if (status === 'submitted') result.push('withdraw'); if (status === 'rejected') result.push('reopen') }
   if (own && eligible && r.getString('week_start') <= today() && status === 'draft' && can(app, u, 'submit')) result.push('submit')
-  if (!own && can(app, u, 'validate') && (u.getString('time_scope') === 'all' || r.getString('manager') === u.id && u.getString('time_scope') === 'reports')) { if (status === 'submitted') result.push('validate', 'reject'); if (status === 'validated') result.push('reopen_validated') }
+  if (r.getString('user') !== u.id && r.getString('employee') !== u.getString('employee') && can(app, u, 'validate') && (u.getString('time_scope') === 'all' || r.getString('manager') === u.id && u.getString('time_scope') === 'reports')) { if (status === 'submitted') { if (r.getString('source_provider') === 'horizon' && r.getString('work_type') === 'be') result.push('correct'); result.push('validate', 'reject') } if (status === 'validated') result.push('reopen_validated') }
   return result
 }
 const audit = (app, u, r, before, label) => {

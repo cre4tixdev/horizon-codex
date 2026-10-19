@@ -1,0 +1,42 @@
+.h-resource-timeline { --timeline-line:var(--theme-table-border,var(--theme-border,#dce5ef)); }
+.h-resource-timeline .h-data-table { table-layout:fixed; }
+.h-resource-timeline .h-data-table thead tr:first-child th { text-align:left; text-transform:capitalize; }
+.h-resource-timeline .h-data-table thead th { padding:5px 2px; text-align:center; }
+.h-resource-timeline thead small { display:block; font-size:10px; font-weight:400; color:var(--theme-text-muted,#7b8794); }
+.h-resource-timeline thead time { font-variant-numeric:tabular-nums; }
+.h-resource-timeline .h-data-table tr > :first-child:is([scope=row],[rowspan]) { position:sticky; left:0; width:200px; min-width:200px; padding-inline:10px; text-align:left; z-index:3; }
+.h-resource-timeline .h-data-table thead tr > th[rowspan]:first-child { z-index:6; }
+.h-resource-timeline tbody th { background:var(--ux-row-odd,var(--theme-surface,#fff)); font-weight:500; }
+.h-resource-timeline tbody tr:nth-child(even) th { background:var(--ux-row-even,var(--theme-surface-soft,#f4f5f7)); }
+.h-resource-timeline .h-data-table tbody .h-resource-timeline-track { padding:0; }
+.h-resource-timeline-slots { display:grid; grid-template-columns:repeat(var(--timeline-slots),minmax(0,1fr)); min-height:38px; }
+.h-resource-timeline-background { grid-row:1; border-right:1px solid var(--timeline-line); min-height:38px; }
+.h-resource-timeline-background:last-of-type { border-right:0; }
+.h-resource-timeline [data-off=true] { background:color-mix(in srgb,var(--theme-text-muted,#7b8794) 10%,var(--theme-surface,#fff)); }
+.h-resource-timeline thead [data-today=true] { box-shadow:inset 0 -2px var(--theme-rose-text,#e90072); }
+.h-resource-timeline-background[data-today=true] { box-shadow:inset 1px 0 var(--theme-rose-text,#e90072); }
+.h-resource-timeline .h-resource-timeline-bar { grid-row:1; align-self:center; z-index:1; display:block; min-width:0; padding:4px 7px; margin:4px 2px; border-radius:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-decoration:none; font-size:12px; font-weight:400; line-height:18px; background:color-mix(in srgb,var(--tag-color) 35%,var(--theme-surface,#fff)); color:var(--theme-text,#091c3a); border:1px solid color-mix(in srgb,var(--tag-color) 65%,transparent); border-left:3px solid var(--tag-color); }
+.h-resource-timeline .h-resource-timeline-bar:focus-visible { outline:2px solid var(--theme-focus-ring,#8caada); outline-offset:1px; }
+.h-resource-timeline tfoot td { padding:4px 1px; text-align:center; vertical-align:middle; font-size:10px; font-variant-numeric:tabular-nums; height:38px; }
+.h-resource-timeline .h-data-table tfoot :is(th,td) { background:var(--theme-surface-soft,#f4f5f7); border-top:1px solid var(--theme-table-border,var(--theme-border,#dce5ef)); }
+.h-resource-timeline-count { display:flex; align-items:center; justify-content:center; min-height:28px; }
+
+.h-resource-timeline-identity { display:flex; align-items:center; gap:8px; min-width:0; }
+.h-resource-timeline-identity .hr-initials { width:24px; height:24px; min-width:24px; font-size:10px; border-radius:5px; }
+.h-resource-timeline-identity > .h-data-table-record-name { min-width:0; overflow:hidden; text-overflow:ellipsis; }
+.h-resource-timeline .h-data-table thead tr > th[rowspan]:first-child { background:var(--theme-table-header,#dce5ef); }
+
+.h-resource-timeline :is(a,button).h-resource-timeline-bar:hover { background:color-mix(in srgb,var(--tag-color) 45%,var(--theme-surface,#fff)); }
+
+.h-resource-timeline button.h-resource-timeline-bar { cursor:pointer; font-family:inherit; text-align:left; }
+
+.h-resource-timeline .h-resource-timeline-bar[data-tentative=true] { border-top-style:dashed; border-bottom-style:dashed; border-right-style:dashed; }
+.h-resource-timeline tfoot th { top:auto; height:38px; vertical-align:middle; }
+
+/* Draw each shared edge once, including the sticky identity cell. */
+.h-resource-timeline .h-data-table tbody tr:last-child > :is(th,td),
+.h-resource-timeline .h-data-table tfoot :is(th,td) { border-bottom:0; }
+
+/* Match the inner corners to the table’s 6 px outer frame without clipping sticky cells. */
+.h-resource-timeline .h-data-table tfoot tr:last-child > :first-child { border-bottom-left-radius:5px; }
+.h-resource-timeline .h-data-table tfoot tr:last-child > :last-child { border-bottom-right-radius:5px; }

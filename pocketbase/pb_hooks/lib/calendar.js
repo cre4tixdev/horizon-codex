@@ -8,7 +8,7 @@ module.exports = (event) => {
   for (let year = Math.max(2000, Number(from.slice(0, 4))); year <= Math.min(2200, Number(to.slice(0, 4))); year++) Object.assign(holidays, national.named(year))
   const stockEvents = [...require(`${__hooks}/lib/stock-calendar.js`)(event, from, to), ...require(`${__hooks}/lib/calendar-manual.js`).projection(event, from, to), ...require(`${__hooks}/lib/leave.js`).calendarProjection(event, from, to)]
   if (!require(`${__hooks}/lib/activity.js`).allowed(event.app, event.auth, false, 'crm')) return event.json(200, { items: stockEvents, periods: [], holidays })
-  const cases = require(`${__hooks}/lib/tender-cases.js`), { filter, parameters } = cases.filters(query)
+  const cases = require(`${__hooks}/lib/tender-cases.js`), { filter, parameters } = cases.filters(event.app, query)
   const tenders = event.app.findRecordsByFilter('crm_tenders', filter, '', 2001, 0, parameters)
   if (tenders.length > 2000) throw new BadRequestError('Trop de dossiers. Affinez les filtres du calendrier.')
   const items = [...stockEvents], periods = []

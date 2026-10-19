@@ -1,6 +1,10 @@
 import { withColumnSortOptions } from '../../shared/search/filters'
 import type { SearchFilter } from '../../shared/search/filters'
-import { states } from './schemas/expenses'
+import { states, overviewStates } from './schemas/expenses'
 export const expenseFilters: SearchFilter[] = [{ key: 'status', label: 'État', defaultValue: '', multiple: true, options: [{ value: '', label: 'Tous les états' }, ...Object.entries(states).map(([value, label]) => ({ value, label }))] }, { key: 'state', label: 'Archives', appearance: 'compact', defaultValue: 'active', options: [{ value: 'active', label: 'Non archivées' }, { value: 'archived', label: 'Archivées' }] }]
 export const expenseGrouping: SearchFilter = { key: 'group', label: 'Regrouper par', defaultValue: 'none', options: [{ value: 'none', label: 'Aucun regroupement' }, { value: 'employee', label: 'Employé' }, { value: 'month', label: 'Mois' }, { value: 'status', label: 'État' }] }
 export const expenseSort: SearchFilter = withColumnSortOptions({ key: 'sort', label: 'Trier par', defaultValue: '-month', options: [{ value: '-month', label: 'Mois récent' }, { value: 'month', label: 'Mois ancien' }, { value: 'employee', label: 'Nom de famille' }, { value: 'amount', label: 'Montant à rembourser décroissant' }] }, {"month": "Mois", "employee": "Employé", "total": "Dépenses TTC", "reimbursable_total": "À rembourser", "validator": "Manager", "status": "État"})
+
+export const expenseTeamFilters: SearchFilter[] = [{ key: 'status', label: 'État du mois', defaultValue: '', multiple: true, options: [{ value: '', label: 'Tous les états' }, ...Object.entries(overviewStates).filter(([value]) => value !== 'off').map(([value, label]) => ({ value, label }))] }, expenseFilters[1]!]
+export const expenseTeamGrouping: SearchFilter = { key: 'group', label: 'Regrouper par', defaultValue: 'team', options: [{ value: 'team', label: 'Équipe' }, { value: 'none', label: 'Aucun regroupement' }, { value: 'employee', label: 'Employé' }] }
+export const expenseTeamSort = withColumnSortOptions({ key: 'sort', label: 'Trier par', defaultValue: 'employee', options: [{ value: 'employee', label: 'Employé A–Z' }] }, { employee: 'Employé', team: 'Équipe', total: 'Total TTC' })

@@ -43,7 +43,7 @@ export function AppFrame() {
   const [helpOpen, setHelpOpen] = useState(false)
   const { pathname } = useLocation()
   const currentItem = navigationItems.find((item) => item.href === pathname || (item.href !== '/' && pathname.startsWith(item.href + '/')) || item.children?.some((child) => pathname === child.href.split('?')[0] || pathname.startsWith(child.href.split('?')[0] + '/')))
-  const visibleGroups = navigationGroups.map((group) => ({ ...group, items: group.items.filter((item) => canAccessNavigation(item.href, user)) })).filter((group) => group.items.length > 0)
+  const visibleGroups = navigationGroups.map((group) => ({ ...group, items: group.items.filter((item) => canAccessNavigation(item.href, user)).map((item) => item.children ? { ...item, children: item.children.filter((child) => canAccessNavigation(child.href, user)) } : item) })).filter((group) => group.items.length > 0)
   const currentTitle = pathname === '/account' ? 'Mon compte' : currentItem?.label ?? 'Page introuvable'
 
   return (

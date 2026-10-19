@@ -15,7 +15,8 @@ module.exports = (event) => {
     const id = query.get(field)
     if (!id) continue
     if (!/^[a-z0-9]{15}$/.test(id)) throw new BadRequestError('Référence CRM invalide.')
-    params[field] = id; conditions.push(`o.${field} = {:${field}}`)
+    if (field === 'company') conditions.push(require(`${__hooks}/lib/company-identity.js`).condition(event.app, 'o.company', id, params, 'company', true))
+    else { params[field] = id; conditions.push(`o.${field} = {:${field}}`) }
   }
   search.split(/\s+/).filter(Boolean).forEach((term, index) => { params[`q${index}`] = `%${term}%`; conditions.push(`(o.title LIKE {:q${index}} OR o.opportunity_number LIKE {:q${index}} OR c.name LIKE {:q${index}}${type === 'tender' ? ` OR t.reference LIKE {:q${index}}` : ''})`) })
   if (query.get('preparation_status') || query.get('tag')) conditions.push('o.type = "tender" AND t.archived_at = ""')

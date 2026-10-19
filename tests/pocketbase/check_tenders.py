@@ -143,7 +143,8 @@ class TenderTests(unittest.TestCase):
         calendar = self.pb.request('GET', 'horizon/calendar/events?' + query, token=self.token)[1]
         self.assertEqual(calendar['periods'][0]['id'], record['id'])
         self.assertEqual(calendar['items'][0]['kind'], 'visit')
-        self.assertEqual(self.pb.request('GET', 'horizon/calendar/events?' + query, token=self.contacts_token)[1], {'items': [], 'periods': []})
+        public=self.pb.request('GET', 'horizon/calendar/events?' + query, token=self.contacts_token)[1]
+        self.assertEqual(public['items'],[]); self.assertEqual(public['periods'],[]); self.assertIn('2026-05-01',public['holidays']) # Public holidays are independent of CRM permissions.
         payload = {'id': record['id'], 'updated': record['updated'], 'input': {**self.input, 'type': 'tender', 'title': 'AO révisé'}, 'tender': self.tender_input}
         status, saved = self.pb.request('POST', 'horizon/crm/tenders/save', payload, self.token)
         self.assertEqual(status, 200, saved)

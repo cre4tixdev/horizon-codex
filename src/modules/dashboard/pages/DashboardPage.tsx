@@ -13,6 +13,7 @@ import { metricCaption } from '../services/metricCaption'
 import { MetricTrend } from '../components/MetricTrend'
 import { MetricValue } from '../components/MetricValue'
 import { BusinessCarousel } from '../components/BusinessCarousel'
+import { DashboardWorkspace } from '../components/DashboardWorkspace'
 import '../../../shared/dashboard.css'
 
 const indicators = [
@@ -30,6 +31,7 @@ export function DashboardPage() {
   const user = session.status === 'authenticated' ? session.user : undefined
   const can = (permission: string) => Boolean(user && hasPermission(user, permission))
   const metrics = useQuery({ queryKey: ['dashboard', 'metrics', user?.id, range.start, range.end], queryFn: () => dashboardService.metrics(range.start, range.end), enabled: Boolean(user) && ['crm.read', 'sales.read', 'purchasing.read'].some(can), staleTime: 30_000, refetchOnMount: 'always', refetchInterval: 60_000, retry: false })
+  const { data: metricData, isPending: metricsPending } = metrics
   const date = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'long', timeZone: 'Europe/Paris' }).format(new Date())
 
   return <div className="horizon-dashboard">
@@ -45,25 +47,24 @@ export function DashboardPage() {
     </div>} />
     <p className="dashboard-period-caption">Indicateurs et pilotage · {range.description}</p>
     {metrics.isError && <div className="dashboard-data-error" role="alert"><span>{metrics.error.message}</span><HButton size="small" onClick={() => void metrics.refetch()}>Réessayer</HButton></div>}
-    <div className="kpi-grid">{indicators.map(({ key, permission, label, icon: Icon, caption, tone }) => (
-
-      <section className="panel kpi h-dashboard-card h-tone" data-tone={tone} key={label} aria-label={label}>
-        <MetricTrend metric={key === 'invoiced' ? null : metrics.data?.[key]} />
+    <DashboardWorkspace key={user?.id || 'anonymous'} userId={user?.id || ''} renderWidget={(widget) => {
+      const indicator = indicators.find((item) => item.key === widget.type)
+      if (indicator) {
+        const { key, permission, label, icon: Icon, caption, tone } = indicator
+        return (<section className="panel kpi h-dashboard-card h-tone" data-tone={tone} aria-label={label}>
+        <MetricTrend metric={key === 'invoiced' ? null : metricData?.[key]} />
         <div className="kpi__label"><Icon className="h-dashboard-icon" size={20} aria-hidden="true" /><span>{label}</span></div>
-        <strong className="kpi__value"><MetricValue metric={key === 'invoiced' ? null : metrics.data?.[key]} /></strong>
-        <div className="kpi__caption">{caption}<span>{key === 'invoiced' ? 'À venir' : metrics.isPending && can(permission) ? 'Chargement…' : metricCaption(metrics.data?.[key], can(permission))}</span></div>
-      </section>
-    ))}</div>
-    <div className="dashboard-columns">
-      <div className="dashboard-primary">
-        <BusinessCarousel />
-        <section className="panel economic-panel h-dashboard-card h-tone" data-tone="navy" aria-labelledby="economic-title">
+        <strong className="kpi__value"><MetricValue metric={key === 'invoiced' ? null : metricData?.[key]} /></strong>
+        <div className="kpi__caption">{caption}<span>{key === 'invoiced' ? 'À venir' : metricsPending && can(permission) ? 'Chargement…' : metricCaption(metricData?.[key], can(permission))}</span></div>
+      </section>)
+      }
+      if (widget.type === 'business') return <BusinessCarousel />
+      if (widget.type === 'economic') return (<section className="panel economic-panel h-dashboard-card h-tone" data-tone="navy" aria-labelledby="economic-title">
           <div className="panel-heading"><h2 id="economic-title"><ChartNoAxesCombined size={17} aria-hidden="true" />Pilotage économique</h2><HBadge>{range.label}</HBadge></div>
-          <div className="economic-flow">{[{ label: 'Prévu', metric: metrics.data?.forecast }, { label: 'Engagé', metric: metrics.data?.committed }, { label: 'Réalisé', metric: null }, { label: 'Facturé', metric: null }, { label: 'Payé', metric: null }].map(({ label, metric }, index) => <div key={label} title={metric?.description || 'Données non raccordées'}><span className="economic-flow__number">0{index + 1}</span><strong>{label}</strong><span className="economic-flow__value"><MetricValue metric={metric} /></span></div>)}</div>
+          <div className="economic-flow">{[{ label: 'Prévu', metric: metricData?.forecast }, { label: 'Engagé', metric: metricData?.committed }, { label: 'Réalisé', metric: null }, { label: 'Facturé', metric: null }, { label: 'Payé', metric: null }].map(({ label, metric }, index) => <div key={label} title={metric?.description || 'Données non raccordées'}><span className="economic-flow__number">0{index + 1}</span><strong>{label}</strong><span className="economic-flow__value"><MetricValue metric={metric} /></span></div>)}</div>
           <p className="economic-note">Prévu : estimations CRM à la date prévue. Engagé : achats HT à leur validation. Réalisé, facturé et payé seront raccordés aux modules correspondants.</p>
-        </section>
-      </div>
-      <DashboardFeeds userId={user?.id || ''} canCalendar={can('crm.read') || can('calendar.read')} canActivity={['documents.read', 'contacts.read', 'crm.read', 'sales.read', 'inventory.read', 'purchasing.read', 'billing.read', 'expenses.read', 'leave.read'].some(can)} />
-    </div>
+        </section>)
+      return <DashboardFeeds kind={widget.type === 'planning' ? 'planning' : 'activity'} userId={user?.id || ''} canCalendar={can('crm.read') || can('calendar.read')} canActivity={['documents.read', 'contacts.read', 'crm.read', 'sales.read', 'inventory.read', 'purchasing.read', 'billing.read', 'expenses.read', 'leave.read'].some(can)} />
+    }} />
   </div>
 }

@@ -38,6 +38,62 @@ class ExpensesTests(unittest.TestCase):
             with urlopen(req) as res:return res.status,json.loads(res.read())
         except HTTPError as err:return err.code,json.loads(err.read())
     def transition(self,r,action,who='owner',**extra):return self.call('POST','reports/'+r['id']+'/transition',dict(updated=r['updated'],action=action,**extra),self.people[who]['token'])
+    def test_team_overview_roster_private_drafts_and_scopes(self):
+        note = self.report()
+        self.pb.request('PATCH', 'collections/expenses_reports/records/' + note['id'], {'total': 999.99}, self.pb.admin_token)
+        manager = self.people['manager']['token']
+        self.assertEqual(self.call('GET', 'overview?month=2026-10', token=self.token)[0], 403)
+        status, data = self.call('GET', 'overview?month=2026-10', token=manager)
+        self.assertEqual(status, 200, data)
+        self.assertEqual([row['employee'] for row in data['items']], [self.people['owner']['employee']['id']])
+        self.assertEqual(data['items'][0]['cells'][0], {'month': '2026-10', 'status': 'missing', 'total': 0, 'reports': []})
+        self.assertNotIn(note['id'], json.dumps(data))
+        self.assertEqual(self.call('GET', 'reports/' + note['id'], token=manager)[0], 403)
+        self.pb.request('PATCH', 'collections/expenses_reports/records/' + note['id'], {'status': 'submitted', 'submitted_at': '2026-10-06 12:00:00Z', 'validator': self.people['manager']['user']['id'], 'total': 12.34}, self.pb.admin_token)
+        data = self.call('GET', 'overview?view=year&month=2026-10', token=manager)[1]
+        self.assertEqual(len(data['periods']), 12)
+        self.assertEqual(data['items'][0]['cells'][9]['reports'][0]['id'], note['id'])
+        self.assertEqual(data['summary']['submitted'], 1)
+        self.assertEqual(data['items'][0]['total'], 12.34)
+        # Reassignment removes metadata and money; the current roster still has a non-received cell.
+        self.pb.request('PATCH', 'collections/expenses_reports/records/' + note['id'], {'validator': self.people['finance']['user']['id']}, self.pb.admin_token)
+        data = self.call('GET', 'overview?month=2026-10', token=manager)[1]
+        self.assertNotIn(note['id'], json.dumps(data)); self.assertEqual(data['items'][0]['total'], 0)
+        global_data = self.call('GET', 'overview?month=2026-10', token=self.people['finance']['token'])[1]
+        self.assertEqual(global_data['summary']['submitted'], 1)
+        self.assertEqual(global_data['summary']['total'], 12.34)
+        self.assertEqual(self.call('GET', 'choices', token=manager)[1]['can_team'], True)
+        self.assertEqual(self.call('GET', 'choices')[1]['can_team'], False)
+
+    def test_team_overview_complements_archives_and_pagination(self):
+        owner = self.people['owner']; manager = self.people['manager']['token']
+        team = self.pb.create('core_teams', {'code': 'FRAIS', 'name': 'Équipe Frais', 'active': True})
+        self.pb.request('PATCH', 'collections/hr_employees/records/' + owner['employee']['id'], {'team': team['id']}, self.pb.admin_token)
+        primary = self.report()
+        self.pb.request('PATCH', 'collections/expenses_reports/records/' + primary['id'], {'status': 'validated', 'validator': self.people['manager']['user']['id'], 'submitted_at': '2026-10-01 12:00:00Z', 'total': 0.1}, self.pb.admin_token)
+        complement = self.pb.create('expenses_reports', {'user': owner['user']['id'], 'employee': owner['employee']['id'], 'month': '2026-10', 'title': 'Complément', 'status': 'submitted', 'supplement_of': primary['id'], 'validator': self.people['manager']['user']['id'], 'submitted_at': '2026-10-01 12:00:00Z', 'total': 0.2, 'currency': 'EUR'})
+        self.pb.create('hr_employees', {'first_name': 'Autre', 'last_name': 'Collaborateur', 'manager': self.people['manager']['employee']['id'], 'team': team['id'], 'status': 'active', 'employment_type': 'employee', 'start_date': '2026-11-01'})
+        status, data = self.call('GET', 'overview?view=quarter&month=2026-11&q=equipe&perPage=1', token=manager)
+        self.assertEqual(status, 200, data); self.assertEqual(data['periods'], ['2026-10', '2026-11', '2026-12']); self.assertEqual(data['totalItems'], 2); self.assertEqual(data['totalPages'], 2)
+        page2 = self.call('GET', 'overview?view=quarter&month=2026-11&q=equipe&perPage=1&page=2', token=manager)[1]
+        self.assertNotEqual(data['items'][0]['employee'], page2['items'][0]['employee'])
+        rows = data['items'] + page2['items']; row = next(row for row in rows if row['employee'] == owner['employee']['id'])
+        self.assertEqual(row['cells'][0]['status'], 'mixed'); self.assertEqual(row['total'], 0.3)
+        self.assertEqual(len(row['cells'][0]['reports']), 2)
+        self.assertEqual(sum(report['supplement'] for report in row['cells'][0]['reports']), 1)
+        filtered = self.call('GET', 'overview?month=2026-10&status=submitted', token=manager)[1]
+        self.assertEqual(filtered['totalItems'], 1)
+        self.assertEqual(filtered['summary']['validated'], 1)
+        for record in [primary, complement]: self.pb.request('PATCH', 'collections/expenses_reports/records/' + record['id'], {'status': 'cancelled', 'archived_at': '2026-10-07 12:00:00Z'}, self.pb.admin_token)
+        data = self.call('GET', 'overview?month=2026-10&state=archived', token=manager)[1]
+        self.assertEqual(data['totalItems'], 1); self.assertEqual(data['items'][0]['total'], 0)
+        self.assertEqual(data['items'][0]['cells'][0]['status'], 'cancelled')
+        # Previously assigned historical notes survive employee deactivation.
+        self.pb.request('PATCH', 'collections/hr_employees/records/' + owner['employee']['id'], {'status': 'inactive'}, self.pb.admin_token)
+        self.assertEqual(self.call('GET', 'overview?month=2026-10&state=archived', token=manager)[1]['totalItems'], 1)
+        for query in ['view=week', 'month=2026-13', 'month=1999-01', 'status=secret', 'perPage=101', 'owner=foreign', 'sort=validator']:
+            self.assertEqual(self.call('GET', 'overview?' + query, token=manager)[0], 400, query)
+
     def test_month_workflow_notifications_and_receipt_permissions(self):
         r=self.report();self.assertEqual(self.report()['id'],r['id'])
         self.assertEqual(self.call('GET','reports/'+r['id'],token=self.people['manager']['token'])[0],403)

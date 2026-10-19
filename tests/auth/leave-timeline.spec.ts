@@ -1,0 +1,77 @@
+import { test, expect, type Page, type Locator } from '@playwright/test'
+const password = 'Local-Horizon-test-only-2026!'
+async function login(page: Page, email: string) { await page.goto('/login'); await page.getByLabel('Adresse e-mail', { exact: true }).fill(email); await page.getByLabel('Mot de passe', { exact: true }).fill(password); await page.getByRole('button', { name: 'Se connecter', exact: true }).click(); await expect(page).not.toHaveURL(/\/login/) }
+async function checkBars(timeline: Locator) {
+  const styles = await timeline.locator('.h-resource-timeline-bar').evaluateAll((bars) => bars.map((bar) => {
+    const style = getComputedStyle(bar), canvas = document.createElement('canvas'), context = canvas.getContext('2d')!
+    canvas.width = 1; canvas.height = 1
+    const rgba = (color: string) => { context.clearRect(0, 0, 1, 1); context.fillStyle = color; context.fillRect(0, 0, 1, 1); return [...context.getImageData(0, 0, 1, 1).data] }
+    const background = rgba(style.backgroundColor), foreground = rgba(style.color)
+    const luminance = (rgb: number[]) => rgb.slice(0, 3).map((value) => { const n = value / 255; return n <= .04045 ? n / 12.92 : ((n + .055) / 1.055) ** 2.4 }).reduce((total, value, index) => total + value * [.2126, .7152, .0722][index]!, 0)
+    const first = luminance(background), second = luminance(foreground)
+    return { alpha: background[3], contrast: (Math.max(first, second) + .05) / (Math.min(first, second) + .05), fontWeight: Number(style.fontWeight), leftBorder: style.borderLeftWidth }
+  }))
+  for (const style of styles) { expect(style.alpha).toBe(255); expect(style.contrast).toBeGreaterThanOrEqual(4.5); expect(style.fontWeight).toBe(400); expect(style.leftBorder).toBe('3px') }
+}
+async function checkTotals(timeline: Locator) {
+  await expect(timeline.locator('tfoot th')).toHaveCSS('border-bottom-left-radius', '5px')
+  await expect(timeline.locator('tfoot td:last-child')).toHaveCSS('border-bottom-right-radius', '5px')
+  const cells = timeline.locator('tfoot td')
+  const values = await cells.allTextContents()
+  expect(values).toContain('')
+  expect(values).toContain('1')
+  expect(values).toContain('1,5')
+  expect(values).not.toContain('—')
+  expect(values).not.toContain('0')
+  const backgrounds = await timeline.locator('tfoot th, tfoot td').evaluateAll((elements) => elements.map((element) => getComputedStyle(element).backgroundColor))
+  expect(new Set(backgrounds).size).toBe(1)
+  expect(backgrounds[0]).not.toBe('rgba(0, 0, 0, 0)')
+  const borders = await timeline.evaluate((element) => {
+    const grid = getComputedStyle(element.querySelector('.h-resource-timeline-background')!), footer = getComputedStyle(element.querySelector('tfoot td')!)
+    return {
+      gridWidth: grid.borderRightWidth, gridColor: grid.borderRightColor,
+      footerWidth: footer.borderRightWidth, footerColor: footer.borderRightColor,
+      lastRowBottom: [...element.querySelectorAll('tbody tr:last-child > th, tbody tr:last-child > td, tfoot th, tfoot td')].map((cell) => getComputedStyle(cell).borderBottomWidth),
+      footerTop: [...element.querySelectorAll('tfoot th, tfoot td')].map((cell) => getComputedStyle(cell).borderTopWidth),
+    }
+  })
+  expect(borders.gridWidth).toBe('1px'); expect(borders.footerWidth).toBe('1px'); expect(borders.gridColor).toBe(borders.footerColor)
+  expect(new Set(borders.lastRowBottom)).toEqual(new Set(['0px']))
+  expect(new Set(borders.footerTop)).toEqual(new Set(['1px']))
+  for (const content of await timeline.locator('.h-resource-timeline-count').evaluateAll((elements) => elements.map((element) => getComputedStyle(element, '::before').content))) expect(content).toBe('none')
+}
+test('Calendrier Congés : frise, photos, équipe/entreprise et sous-menus', async ({ page, request }) => {
+  test.setTimeout(90_000); await page.setViewportSize({ width: 1600, height: 1000 }); const errors: string[] = []; page.on('pageerror', (error) => errors.push(error.message))
+  await login(page, 'erp-admin@local.invalid'); const admin = await page.evaluate(() => sessionStorage.getItem('horizon.auth.token') || '')
+  const api = async (path: string, data?: object, token = admin) => { const response = await request.fetch('http://127.0.0.1:18090/api/' + path, { method: data ? 'POST' : 'GET', headers: { Authorization: token }, ...(data ? { data } : {}) }); expect(response.status(), await response.text()).toBe(200); return response.json() }
+  const teams = await Promise.all(['Études Frise', 'Production Frise'].map((name) => api('horizon/hr/teams/save', { name, active: true, managers: [], time_work_type: 'none' })))
+  const employee = (first_name: string, team: string, manager = '', is_manager = false) => api('horizon/hr/employees/save', { input: { first_name, last_name: 'Frise Congés', professional_email: '', professional_phone: '', job_title: '', employment_type: 'employee', team, manager, is_manager, is_direction: false, external_company: '', start_date: '', end_date: '', status: 'active' } })
+  const boss = await employee('Marie', teams[0].id, '', true), alice = await employee('Alice', teams[0].id, boss.id), benoit = await employee('Benoît', teams[0].id, boss.id), celine = await employee('Céline', teams[1].id)
+  await employee('David', teams[1].id); await employee('Élodie', teams[1].id)
+  const keys = ['first_name', 'last_name', 'professional_email', 'professional_phone', 'job_title', 'employment_type', 'team', 'manager', 'is_manager', 'is_direction', 'external_company', 'start_date', 'end_date', 'status']
+  const photo = await request.post('http://127.0.0.1:18090/api/horizon/hr/employees/save', { headers: { Authorization: admin }, multipart: { id: alice.id, updated: alice.updated, input: JSON.stringify(Object.fromEntries(keys.map((key) => [key, alice[key]]))), avatar: { name: 'alice.png', mimeType: 'image/png', buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=', 'base64') } } }); expect(photo.ok(), await photo.text()).toBe(true)
+  const reviewer = await api('horizon/access/users/save', { input: { email: 'frise-manager@local.invalid', name: 'Manager Frise', employee: boss.id, active: true, erp_profile: 'user', password, grants: { leave: { actions: ['read', 'validate'], scope: 'all' }, expenses: { actions: ['read'], scope: 'reports' } } } })
+  const reviewAuth = await api('collections/core_users/auth-with-password', { identity: 'frise-manager@local.invalid', password })
+  for (const [index, emp] of [alice, benoit, celine].entries()) {
+    const email = `frise-${index}@local.invalid`; await api('horizon/access/users/save', { input: { email, name: emp.first_name, employee: emp.id, active: true, erp_profile: 'user', password, grants: { leave: { actions: ['read', 'write', 'submit'], scope: 'self' } } } })
+    const auth = await api('collections/core_users/auth-with-password', { identity: email, password }), choices = await api('horizon/leave/choices', undefined, auth.token)
+    let sheet = await api('horizon/leave/requests', { creation_key: crypto.randomUUID(), input: { type: choices.types.find((type: { code: string }) => type.code === 'unpaid').id, start_date: ['2026-11-09', '2026-11-12', '2026-11-16'][index], end_date: ['2026-11-20', '2026-11-18', '2026-11-25'][index], start_half: index === 1 ? 'pm' : 'am', end_half: 'pm', reason: 'PRIVATE NOT EXPOSED', manager: reviewer.id } }, auth.token)
+    sheet = await api(`horizon/leave/requests/${sheet.id}/transition`, { updated: sheet.updated, action: 'submit', manager: reviewer.id, reason: '' }, auth.token)
+    if (index !== 1) await api(`horizon/leave/requests/${sheet.id}/transition`, { updated: sheet.updated, action: 'approve', manager: '', reason: '' }, reviewAuth.token)
+  }
+  await page.getByRole('button', { name: 'Menu utilisateur', exact: true }).click(); await page.getByRole('menuitem', { name: 'Se déconnecter', exact: true }).click(); await login(page, 'frise-manager@local.invalid'); await page.goto('/leave?area=calendar&date=2026-11-01&q=Frise')
+  const timeline = page.getByRole('region', { name: 'Absences par collaborateur', exact: true }), scope = page.getByRole('group', { name: 'Périmètre des congés', exact: true })
+  await expect(timeline.locator('tbody tr')).toHaveCount(2); await expect(page.getByRole('searchbox', { name: 'Rechercher un congé', exact: true })).toHaveAttribute('placeholder', 'Rechercher un collaborateur…'); await scope.getByRole('button', { name: 'Entreprise', exact: true }).click(); await expect(timeline.locator('tbody tr')).toHaveCount(3); await expect(timeline.locator('.h-resource-timeline-bar')).toHaveCount(3); await expect(page).toHaveURL(/scope=company/)
+  await expect(timeline.getByRole('img', { name: 'Photo de Alice Frise Congés', exact: true })).toBeVisible(); await expect.poll(() => timeline.getByRole('img', { name: 'Photo de Alice Frise Congés', exact: true }).evaluate((image) => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0)
+  await expect(timeline.locator('tbody tr').filter({ hasText: 'Benoît Frise Congés' }).locator('.hr-initials')).toHaveText('BF'); await expect(timeline).not.toContainText('David Frise Congés'); await expect(timeline.locator('thead [title="11 novembre"]')).toHaveCount(1); await expect(timeline).not.toContainText('PRIVATE NOT EXPOSED')
+  await checkBars(timeline); await checkTotals(timeline); await page.screenshot({ path: '/private/tmp/horizon-leave-company-timeline-light.png', fullPage: true }); await page.getByRole('button', { name: 'Passer en mode sombre', exact: true }).click(); await expect(page.getByRole('button', { name: 'Aujourd’hui', exact: true })).not.toHaveCSS('background-color', 'rgb(255, 255, 255)'); await checkBars(timeline); await checkTotals(timeline); await page.screenshot({ path: '/private/tmp/horizon-leave-company-timeline-dark.png', fullPage: true }); await page.setViewportSize({ width: 390, height: 844 }); await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true); await timeline.evaluate((element) => { element.scrollLeft = 500 }); await expect.poll(() => timeline.locator('thead [rowspan]').evaluate((element) => { const box = element.getBoundingClientRect(); return document.elementFromPoint(box.x + 50, box.y + box.height - 4)?.closest('th')?.textContent })).toBe('Collaborateur'); await page.screenshot({ path: '/private/tmp/horizon-leave-company-timeline-mobile.png', fullPage: true }); await page.setViewportSize({ width: 1600, height: 1000 }); const colorsBefore = await timeline.locator('.h-resource-timeline-bar').evaluateAll((elements) => elements.map((element) => getComputedStyle(element).getPropertyValue('--tag-color'))); await page.reload(); await expect(scope.getByRole('button', { name: 'Entreprise', exact: true })).toHaveAttribute('aria-pressed', 'true'); await expect.poll(() => timeline.locator('.h-resource-timeline-bar').evaluateAll((elements) => elements.map((element) => getComputedStyle(element).getPropertyValue('--tag-color')))).toEqual(colorsBefore)
+  await expect(timeline.locator('tfoot th')).toHaveText('Total')
+  const alignment = await timeline.evaluate((element) => {
+    const header = [...element.querySelectorAll('thead time')].map((node) => node.getBoundingClientRect()), footer = [...element.querySelectorAll('tfoot .h-resource-timeline-count span')].map((node) => node.getBoundingClientRect()), label = element.querySelector('tfoot th')!.getBoundingClientRect()
+    return footer.map((box, index) => ({ horizontal: Math.abs(box.x + box.width / 2 - header[index]!.x - header[index]!.width / 2), vertical: Math.abs(box.y + box.height / 2 - label.y - label.height / 2) }))
+  }); for (const cell of alignment) { expect(cell.horizontal).toBeLessThan(1); expect(cell.vertical).toBeLessThan(2) }
+  await expect(timeline.locator('.h-resource-timeline-bar[data-tentative=true]')).toHaveCount(1)
+  const bar = timeline.getByRole('button').filter({ hasText: 'Alice Frise Congés' }); await expect(bar).toHaveText('Alice Frise Congés · Sans solde · 9 j')
+  const beforePopup = page.url(); await bar.click(); let detail = page.getByRole('dialog', { name: 'Congé · Alice Frise Congés', exact: true }); await expect(detail.getByLabel('Nature du congé', { exact: true })).toHaveValue('Sans solde'); await expect(detail.getByLabel('Manager', { exact: true })).toHaveValue('Manager Frise'); await expect(detail.getByLabel('Commentaire', { exact: true })).toHaveValue('PRIVATE NOT EXPOSED'); await expect(page).toHaveURL(beforePopup); await page.screenshot({ path: '/private/tmp/horizon-leave-bar-popup-dark.png', fullPage: true }); await page.setViewportSize({ width: 390, height: 844 }); await expect.poll(() => detail.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true); await expect(detail.getByRole('link', { name: 'Ouvrir la demande', exact: true })).toBeInViewport(); await page.screenshot({ path: '/private/tmp/horizon-leave-bar-popup-mobile.png', fullPage: true }); await page.setViewportSize({ width: 1600, height: 1000 }); await page.keyboard.press('Escape'); await expect(detail).toHaveCount(0); await expect(bar).toBeFocused(); await page.getByRole('button', { name: 'Passer en mode clair', exact: true }).click(); await bar.click(); detail = page.getByRole('dialog', { name: 'Congé · Alice Frise Congés', exact: true }); await expect(detail.getByLabel('Nature du congé', { exact: true })).toHaveValue('Sans solde'); await page.screenshot({ path: '/private/tmp/horizon-leave-bar-popup-light.png', fullPage: true }); await detail.getByRole('button', { name: 'Fermer', exact: true }).last().click(); await expect(page).toHaveURL(beforePopup)
+  const side = page.getByRole('navigation', { name: 'Navigation principale', exact: true }); await expect(side.getByRole('link', { name: 'Allocations RH', exact: true })).toHaveCount(0); await side.getByRole('button', { name: 'Déplier Notes de frais', exact: true }).click(); await side.getByRole('link', { name: 'Équipe', exact: true }).click(); await expect(page).toHaveURL(/expenses\?area=team/); await expect(side.getByRole('link', { name: 'Équipe', exact: true })).toHaveAttribute('aria-current', 'page'); await page.getByRole('button', { name: 'Menu utilisateur', exact: true }).click(); await page.getByRole('menuitem', { name: 'Se déconnecter', exact: true }).click(); await login(page, 'frise-1@local.invalid'); await page.goto('/leave?area=calendar&date=2026-11-01&q=Alice'); const colleagueBar = page.getByRole('region', { name: 'Absences par collaborateur', exact: true }).getByRole('button'); await expect(colleagueBar).toHaveText('Alice Frise Congés · Absence · 9 j'); const requests: string[] = []; page.on('request', (request) => { if (/\/leave\/requests\//.test(request.url())) requests.push(request.url()) }); await colleagueBar.click(); const restricted = page.getByRole('dialog', { name: 'Congé · Alice Frise Congés', exact: true }); await expect(restricted.getByText(/Seules les informations de disponibilité/)).toBeVisible(); await expect(restricted.getByLabel('Nature du congé', { exact: true })).toHaveCount(0); await expect(restricted.getByRole('link', { name: 'Ouvrir la demande', exact: true })).toHaveCount(0); await expect(restricted).not.toContainText('PRIVATE'); expect(requests).toEqual([]); await page.screenshot({ path: '/private/tmp/horizon-leave-bar-popup-colleague.png', fullPage: true }); await page.keyboard.press('Escape'); expect(errors).toEqual([])
+})

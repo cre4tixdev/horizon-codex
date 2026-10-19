@@ -79,6 +79,24 @@ class SalesTests(unittest.TestCase):
         self.pb.request('PATCH', 'collections/core_users/records/' + self.user['id'], dict(erp_profile='viewer'), self.pb.admin_token)
         self.assertEqual(self.transition('customer-order-reference', waiting, customer_order_number='NO')[0], 403)
 
+    def test_numeric_customer_reference_multipart_preserves_exact_text(self):
+        self.grant_lifecycle(); _, quote = self.quote_save(); _, quote = self.transition('finalize', quote)
+        def send(route, record, value):
+            boundary='numeric-reference-fixture'
+            fields=dict(id=record['id'],updated=record['updated'],customer_order_number=value)
+            if route=='confirm': fields['awaiting_customer_order']='false'
+            data=b''.join(f'--{boundary}\r\nContent-Disposition: form-data; name="{key}"\r\n\r\n{text}\r\n'.encode() for key,text in fields.items())+f'--{boundary}--\r\n'.encode()
+            request=Request(self.pb.url+'/api/horizon/sales/quotes/'+route,data=data,headers={'Authorization':self.token,'Content-Type':'multipart/form-data; boundary='+boundary},method='POST')
+            try:
+                with urlopen(request) as response:return response.status,json.load(response)
+            except HTTPError as error:
+                with error:return error.code,json.load(error)
+        code,quote=send('confirm',quote,'123456'); self.assertEqual(code,200,quote); self.assertEqual(quote['order']['customer_number'],'123456')
+        for value in ['0','000123','123456789012345678901234567890','1e3','true','null','9'*120]:
+            code,quote=send('customer-order-reference',quote,value); self.assertEqual(code,200,quote); self.assertEqual(quote['order']['customer_number'],value)
+        self.assertEqual(send('customer-order-reference',quote,'9'*121)[0],400)
+        self.assertEqual(self.transition('customer-order-reference',quote,customer_order_number=123456)[0],400)
+
     def test_customer_order_attachment_added_after_confirmation(self):
         self.grant_lifecycle(); _, quote = self.quote_save(); _, quote = self.transition('finalize', quote); _, quote = self.transition('confirm', quote)
         original_event = quote['order']['event_id']

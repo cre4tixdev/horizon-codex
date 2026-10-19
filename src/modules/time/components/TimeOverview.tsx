@@ -1,10 +1,10 @@
 import { keepPreviousListData } from '../../../shared/search/keepPreviousListData'
-import { Link, useSearchParams } from 'react-router'
+import { useSearchParams } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
 import { CalendarDays, Clock3, FileClock, FileCheck, CircleAlert } from 'lucide-react'
-import { useFileSource } from '../../../shared/hooks/useFileSource'
+import { HEmployeeAvatar } from '../../../shared/ui/HEmployeeAvatar'
 import { HSummaryCards } from '../../../shared/ui/HSummaryCards'
-import { HDataTable } from '../../../shared/ui/HDataTable'
+import { HPeriodMatrix, HPeriodCell } from '../../../shared/ui/HPeriodMatrix'
 import { TimeStatus } from './TimeStatus'
 import { TimeAgenda } from './TimeAgenda'
 import { HSectionHeading } from '../../../shared/ui/HSectionHeading'
@@ -19,9 +19,7 @@ import { timeService } from '../services/TimeService'
 import { dateLabel, duration, overviewStates, type TimeOverviewCell, type TimeOverviewRow } from '../schemas/time'
 
 function Person({ row }: { row: TimeOverviewRow }) {
-  const photo = useQuery({ queryKey: ['time', 'photo', row.employee, row.photo_revision], queryFn: () => timeService.photo(row.employee), enabled: row.has_photo, staleTime: 60_000, retry: false })
-  const { image } = useFileSource(photo.data || undefined)
-  return <span className="time-matrix-identity"><span className="hr-initials" title={photo.error ? 'Photo indisponible' : undefined}>{photo.data ? <img ref={image} alt={`Photo de ${row.employee_name}`} /> : row.employee_name.split(' ').filter(Boolean).slice(0, 2).map((v) => v[0]).join('')}</span><span className="time-matrix-person"><strong>{row.employee_name}</strong><small>{row.team_name}{row.work_type === 'production' ? ' · PROD' : ''}</small></span></span>
+  return <span className="time-matrix-identity"><HEmployeeAvatar name={row.employee_name} queryKey={['time', 'photo', row.employee, row.photo_revision]} hasPhoto={row.has_photo} load={() => timeService.photo(row.employee)} /><span className="time-matrix-person"><strong>{row.employee_name}</strong><small>{row.team_name}{row.work_type === 'production' ? ' · PROD' : ''}</small></span></span>
 }
 export function TimeOverview({ area, view, date, history = false }: { area: 'own' | 'review'; view: 'week' | 'month' | 'year'; date: string; history?: boolean }) {
   const [params, setParams] = useSearchParams(), review = area === 'review'
@@ -40,11 +38,10 @@ export function TimeOverview({ area, view, date, history = false }: { area: 'own
     <TimeStatus status={cell.status} review={review} />
     {view === 'year' && cell.total_weeks > 0 && <small>{cell.validated_weeks}/{cell.total_weeks} validées</small>}
   </>
-  const table = (rows: TimeOverviewRow[]) => <HDataTable data={rows} columnBorders listSorting={sorting} columns={[
-    { id: 'Employé', header: 'Employé', cell: ({ row }) => <Person row={row.original} /> },
-    ...(data?.periods || []).map((period, index) => ({ id: period.key, header: label(period), cell: ({ row }: { row: { original: TimeOverviewRow } }) => { const cell = row.original.cells[index]!, target = href(cell, period.start); return target ? <Link className="time-matrix-cell" data-state={cell.status} to={target} state={{ timeListQuery: params.toString() }} aria-label={`${row.original.employee_name} · ${label(period)} · ${review && cell.status === 'missing' ? 'Non reçue' : overviewStates[cell.status]}`}>{cellContent(cell)}</Link> : <span className="time-matrix-cell" data-state={cell.status}>{cellContent(cell)}</span> } })),
-    { id: 'Total', header: 'Total', cell: ({ row }) => duration(row.original.total_minutes) },
-  ]} columnAlignments={{ Total: 'right' }} />
+  const table = (rows: TimeOverviewRow[]) => <HPeriodMatrix rows={rows} sorting={sorting} periods={(data?.periods || []).map((period) => ({ key: period.key, label: label(period) }))} identity={(row) => <Person row={row} />} total={(row) => duration(row.total_minutes)} cell={(row, index) => {
+    const period = data!.periods[index]!, cell = row.cells[index]!
+    return <HPeriodCell status={cell.status} href={href(cell, period.start)} state={{ timeListQuery: params.toString() }} label={`${row.employee_name} · ${label(period)} · ${review && cell.status === 'missing' ? 'Non reçue' : overviewStates[cell.status]}`}>{cellContent(cell)}</HPeriodCell>
+  }} />
   const summaryLink = (status: string) => { const next = new URLSearchParams(params); next.set('area', 'review'); next.set('view', view); next.set('date', date); next.set('status', status); next.delete('page'); return `/time-reporting?${next}` }
   const own = data?.items[0]
   return <div className="time-overview" aria-busy={query.isFetching}>

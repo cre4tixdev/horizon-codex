@@ -128,7 +128,11 @@ class QualityMigrationTests(unittest.TestCase):
         supplier=pb.create('contacts_companies',dict(name='Fournisseur avant upgrade',active=True));pb.create('contacts_company_roles',dict(company=supplier['id'],role='supplier',active=True))
         choices=pb.request('GET','horizon/inventory/choices',token=token)[1]
         data=dict(sku='BEFORE-MERGE',name='Produit existant',description='Historique préservé',category=choices['categories'][0]['id'],base_unit=choices['units'][0]['id'],kind='equipment',sale_enabled=True,purchase_enabled=True,stock_policy='stocked',replenishment_policy='manual',tracking='none',manufacturer='Marque upgrade',manufacturer_ref='REF-MIGRATION',barcode='',variant_group='',reference_cost=12,sale_currency='EUR',offers=[dict(supplier=supplier['id'],supplier_sku='SUPPLIER-OLD',list_price=50,discount=10,purchase_quantity=1,currency='EUR',lead_time_days=2,valid_from='',valid_until='',is_preferred=True)])
-        status,product=pb.request('POST','horizon/inventory/products/save',dict(creation_key=str(uuid.uuid4()),input=data),token);self.assertEqual(status,200,product)
+        # Seed the legacy schema directly in this disposable superuser fixture.
+        # Current catalogue services deliberately require the later family classification migration.
+        product=pb.create('inventory_products',dict({key:value for key,value in data.items() if key!='offers'},sale_unit=data['base_unit'],composition_mode='none',active=True,creation_key=str(uuid.uuid4()),created_by=user['id']))
+        offer=pb.create('inventory_product_suppliers',dict(data['offers'][0],product=product['id'],purchase_price=45,active=True))
+        pb.create('inventory_supplier_price_history',dict(product_supplier=offer['id'],price=45,currency='EUR',snapshot=data['offers'][0],effective_at='2026-10-01 00:00:00.000Z',actor=user['id']))
         before={}
         for table in ['inventory_products','inventory_product_suppliers','inventory_supplier_price_history']:
             before[table]=pb.request('GET','collections/'+table+'/records?perPage=100',token=pb.admin_token)[1]['items']

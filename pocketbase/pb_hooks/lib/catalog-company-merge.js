@@ -1,0 +1,1 @@
+module.exports = { apply(app, user, source, target) { require(`${__hooks}/lib/company-merge-drafts.js`)(app, user, app.findRecordsByFilter('inventory_product_suppliers', 'supplier = {:source} && active = true', 'id', 0, 0, { source }), 'supplier', target) } }

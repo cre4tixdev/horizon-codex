@@ -12,14 +12,20 @@ const guard = (e) => {
   if (typeof body.kind !== 'string' || !Object.hasOwn(columns, body.kind) || !/^[a-z0-9]{15}$/.test(body.source || '') || !/^[a-z0-9]{15}$/.test(body.target || '') || body.source === body.target || Object.keys(body).some((key) => !['kind', 'source', 'target', 'fingerprint', 'choices', 'confirmed'].includes(key))) throw new BadRequestError('Choisissez deux fiches distinctes du même type.')
   return body
 }
-const inspect = (app, kind, sourceId, targetId) => {
+const inspect = (app, kind, sourceId, targetId, inspectUser) => {
   const entity = table(kind), source = app.findRecordById(entity, sourceId), target = app.findRecordById(entity, targetId)
   if (!source.getBool('active') || source.getString('merged_into') || !target.getBool('active') || target.getString('merged_into')) throw new BadRequestError('Les deux fiches doivent être actives et non fusionnées.')
   const owned = kind === 'companies' ? ['contacts_people', 'contacts_addresses', 'contacts_company_roles'].map((name) => [name, records(app, name, 'company = {:id}', { id: sourceId }), records(app, name, 'company = {:id}', { id: targetId })]) : []
   const blocks = []
-  const candidates = [source, ...owned.filter(([name]) => name !== 'contacts_company_roles').flatMap(([, rows]) => rows)]
-  const dependencies = incoming(app, candidates, (record, collection, field) => record.id === source.id && kind === 'companies' && owned.some(([name]) => name === collection) && field === 'company')
-  if (dependencies.length) blocks.push('Une fiche à déplacer possède des liens métier, documents ou tâches, ou a déjà absorbé une autre fiche. Conservez-la comme destination ; rapprocher deux historiques métier nécessite un traitement spécifique.')
+  const family = kind === 'companies' ? require(`${__hooks}/lib/company-identity.js`) : null
+  const aliases = family ? family.ids(app, sourceId).slice(1).map((id) => app.findRecordById(entity, id)) : []
+  if (family && family.ids(app, sourceId).length + family.ids(app, targetId).length > 1000) blocks.push('Trop de fiches réunies pour une fusion.')
+  const candidates = [source, ...aliases, ...owned.filter(([name]) => name !== 'contacts_company_roles').flatMap(([, rows]) => rows)]
+  const dependencies = incoming(app, candidates, (record, collection, field) => record.id === source.id && kind === 'companies' && owned.some(([name]) => name === collection) && field === 'company', kind === 'companies')
+  const targetDependencies = family ? incoming(app, family.ids(app, targetId).map((id) => app.findRecordById(entity, id)), () => false, true) : []
+  const plan = kind === 'companies' ? require(`${__hooks}/lib/company-merge-plan.js`).inspect(app, inspectUser, sourceId, targetId, dependencies) : null
+  if (plan) blocks.push(...plan.blockers)
+  if (!plan && dependencies.length) blocks.push('Une fiche à déplacer possède des liens métier, documents ou tâches, ou a déjà absorbé une autre fiche. Conservez-la comme destination ; rapprocher deux historiques métier nécessite un traitement spécifique.')
   if (kind === 'companies') {
     const sourceSiren = source.getString('siren') || source.getString('siret').slice(0, 9)
     const targetSiren = target.getString('siren') || target.getString('siret').slice(0, 9)
@@ -36,11 +42,11 @@ const inspect = (app, kind, sourceId, targetId) => {
   }
   const fields = columns[kind].map((key) => ({ key, source: source.getString(key), target: target.getString(key), source_label: display(source, key), target_label: display(target, key) }))
   const identity = (record) => ({ id: record.id, collectionId: record.collection().id, label: label(record) })
-  const dto = { kind, source: identity(source), target: identity(target), fields, blockers: [...new Set(blocks)], counts: { people: owned.find(([name]) => name === 'contacts_people')?.[1].length || 0, addresses: owned.find(([name]) => name === 'contacts_addresses')?.[1].length || 0, roles: owned.find(([name]) => name === 'contacts_company_roles')?.[1].filter((record) => record.getBool('active')).length || 0, references: refs.references(app, entity, sourceId).length } }
-  dto.fingerprint = $security.sha256(JSON.stringify(canonical([source.publicExport(), target.publicExport(), owned.map(([name, a, b]) => [name, a.map((r) => r.publicExport()), b.map((r) => r.publicExport())]), external.map((r) => r.publicExport()), dependencies])))
+  const dto = { kind, source: identity(source), target: identity(target), fields, blockers: [...new Set(blocks)], counts: { people: owned.find(([name]) => name === 'contacts_people')?.[1].length || 0, addresses: owned.find(([name]) => name === 'contacts_addresses')?.[1].length || 0, roles: owned.find(([name]) => name === 'contacts_company_roles')?.[1].filter((record) => record.getBool('active')).length || 0, references: refs.references(app, entity, sourceId).length, ...(plan?.counts || {}) } }
+  dto.fingerprint = $security.sha256(JSON.stringify(canonical([source.publicExport(), target.publicExport(), owned.map(([name, a, b]) => [name, a.map((r) => r.publicExport()), b.map((r) => r.publicExport())]), external.map((r) => r.publicExport()), dependencies, targetDependencies, aliases.map((r) => r.publicExport())])))
   return { dto, source, target, owned }
 }
-const preview = (e) => { const b = guard(e); return e.json(200, inspect(e.app, b.kind, b.source, b.target).dto) }
+const preview = (e) => { const b = guard(e); return e.json(200, inspect(e.app, b.kind, b.source, b.target, e.auth).dto) }
 const apply = (e) => {
   const b = guard(e)
   if (b.confirmed !== true || typeof b.fingerprint !== 'string' || !b.choices || Array.isArray(b.choices) || typeof b.choices !== 'object' || Object.entries(b.choices).some(([key, value]) => !columns[b.kind].includes(key) || !['source', 'target'].includes(value))) throw new BadRequestError('Confirmez l’aperçu et les valeurs à conserver.')
@@ -48,8 +54,8 @@ const apply = (e) => {
   e.app.runInTransaction((app) => {
     authorize(app, e.auth, 'contacts')
     const existing = app.findRecordById(table(b.kind), b.source)
-    if (existing.getString('merged_into') === b.target) { result = { id: b.target }; return }
-    const { dto, source, target, owned } = inspect(app, b.kind, b.source, b.target)
+    if (existing.getString('merged_into') && (existing.getString('merged_into') === b.target || b.kind === 'companies' && require(`${__hooks}/lib/company-identity.js`).same(app, existing.id, b.target))) { result = { id: b.kind === 'companies' ? require(`${__hooks}/lib/company-identity.js`).resolve(app, b.target) : b.target }; return }
+    const { dto, source, target, owned } = inspect(app, b.kind, b.source, b.target, e.auth)
     if (dto.fingerprint !== b.fingerprint) throw new ApiError(409, 'Les fiches ou leurs liens ont changé. Rechargez l’aperçu avant de confirmer.')
     if (dto.blockers.length) throw new ApiError(409, dto.blockers[0])
     const save = (record) => { record.set('__audit_actor', e.auth.id); app.save(record) }
@@ -71,10 +77,16 @@ const apply = (e) => {
         if (!role) { role = new Record(app.findCollectionByNameOrId(name)); role.set('company', target.id); role.set('role', record.getString('role')); targetRows.push(role) }
         role.set('active', true); save(role)
       } else {
-        record.set('company', target.id)
-        if (name === 'contacts_addresses' && record.getBool('is_primary') && targetRows.some((row) => row.getString('type') === record.getString('type') && row.getBool('is_primary'))) record.set('is_primary', false)
-        save(record); targetRows.push(record)
+        let moved = record
+        if (b.kind === 'companies' && name === 'contacts_addresses') { moved = new Record(app.findCollectionByNameOrId(name)); for (const [key, value] of Object.entries(record.publicExport())) if (!['id', 'collectionId', 'collectionName', 'created', 'updated', 'expand'].includes(key)) moved.set(key, value) }
+        moved.set('company', target.id)
+        if (name === 'contacts_addresses' && moved.getBool('is_primary') && targetRows.some((row) => row.getString('type') === moved.getString('type') && row.getBool('is_primary'))) moved.set('is_primary', false)
+        save(moved); targetRows.push(moved)
       }
+    }
+    if (b.kind === 'companies') {
+      require(`${__hooks}/lib/company-merge-plan.js`).apply(app, e.auth, source.id, target.id)
+      for (const alias of app.findRecordsByFilter('contacts_companies', 'merged_into = {:source}', 'id', 1001, 0, { source: source.id })) { alias.set('merged_into', target.id); alias.set('__merge_operation', true); save(alias) }
     }
     require(`${__hooks}/lib/import-reference-merge.js`).apply(app, table(b.kind), source.id, target.id)
     source.set('active', false); source.set('merged_into', target.id); source.set('merged_at', new Date().toISOString()); source.set('__merge_operation', true); save(source)

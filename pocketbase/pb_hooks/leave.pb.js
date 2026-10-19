@@ -1,3 +1,4 @@
+routerAdd('GET', '/api/horizon/leave/employees/{id}/photo', (e) => require(`${__hooks}/lib/leave.js`).employeePhoto(e), $apis.requireAuth('core_users'))
 routerAdd('GET', '/api/horizon/leave/choices', (e) => require(`${__hooks}/lib/leave.js`).choices(e), $apis.requireAuth('core_users'))
 routerAdd('GET', '/api/horizon/leave/requests', (e) => require(`${__hooks}/lib/leave.js`).list(e), $apis.requireAuth('core_users'))
 routerAdd('GET', '/api/horizon/leave/requests/{id}', (e) => require(`${__hooks}/lib/leave.js`).record(e), $apis.requireAuth('core_users'))

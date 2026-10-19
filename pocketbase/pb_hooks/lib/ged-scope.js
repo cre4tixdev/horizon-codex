@@ -10,29 +10,30 @@ function scope(e, q) {
   const entity = space === 'affairs' ? 'crm_opportunities' : 'contacts_companies'
   c.describe(e, entity, id) // Choosing an object never authorizes its children.
   const affair = space === 'affairs', supplier = space === 'suppliers'
-  const opportunities = supplier ? "SELECT id FROM crm_opportunities WHERE 0" : `SELECT id FROM crm_opportunities WHERE ${affair ? 'id' : 'company'} = {:scope_id}`
+  const family = affair ? '{:scope_id}' : require(`${__hooks}/lib/company-identity.js`).ids(e.app, id).map((value, index) => { params[`family${index}`] = value; return `{:family${index}}` }).join(',')
+  const opportunities = supplier ? "SELECT id FROM crm_opportunities WHERE 0" : `SELECT id FROM crm_opportunities WHERE ${affair ? `id IN (${family})` : `company IN (${family})`}`
   const accounts = `SELECT id FROM accounting_analytic_accounts WHERE opportunity IN (${opportunities}) OR id IN (SELECT analytic_account FROM crm_opportunities WHERE id IN (${opportunities}))`
   const orders = `SELECT id FROM sales_orders WHERE opportunity IN (${opportunities})`
   ids.crm_opportunities = opportunities
   ids.crm_tenders = `SELECT id FROM crm_tenders WHERE opportunity IN (${opportunities})`
-  ids.sales_quotes = `SELECT id FROM sales_quotes WHERE ${supplier ? '0' : `opportunity IN (${opportunities})${affair ? '' : ' OR company = {:scope_id}'}`}`
+  ids.sales_quotes = `SELECT id FROM sales_quotes WHERE ${supplier ? '0' : `opportunity IN (${opportunities})${affair ? '' : ` OR company IN (${family})`}`}`
   for (const [table, line, parent] of [['purchasing_requests', 'request', 'request'], ['purchasing_orders', 'order', 'order']]) {
     const allocations = `SELECT ${line}_line."${parent}" FROM purchasing_${line}_line_allocations a JOIN purchasing_${line}_lines ${line}_line ON ${line}_line.id = a."${line}_line" WHERE a.analytic_account IN (${accounts})`
-    ids[table] = `SELECT id FROM ${table} WHERE ${supplier ? table === 'purchasing_orders' ? 'supplier = {:scope_id}' : '0' : `opportunity IN (${opportunities}) OR source_order IN (${orders}) OR id IN (${allocations})`}`
+    ids[table] = `SELECT id FROM ${table} WHERE ${supplier ? table === 'purchasing_orders' ? `supplier IN (${family})` : '0' : `opportunity IN (${opportunities}) OR source_order IN (${orders}) OR id IN (${allocations})`}`
   }
   ids.inventory_operations = `SELECT id FROM inventory_operations WHERE opportunity IN (${opportunities}) OR sales_quote IN (${ids.sales_quotes}) OR purchase_order IN (${ids.purchasing_orders})`
   for (const table of ['billing_invoices', 'billing_supplier_invoices', 'billing_credit_notes', 'billing_supplier_credit_notes']) {
     const isSupplier = table.includes('supplier'), lines = table.replace(/s$/, '') + '_lines', parent = table.replace(/^billing_/, '').replace(/s$/, '')
     // Actual line tables use credit_note_lines / supplier_credit_note_lines.
     const orderSet = isSupplier ? ids.purchasing_orders : orders
-    const company = !affair && (supplier === isSupplier) ? 'company = {:scope_id} OR ' : ''
+    const company = !affair && (supplier === isSupplier) ? `company IN (${family}) OR ` : ''
     ids[table] = `SELECT id FROM ${table} d WHERE ${company}EXISTS (SELECT 1 FROM json_each(d.source_orders) o WHERE o.value IN (${orderSet})) OR EXISTS (SELECT 1 FROM json_each(d.source_operations) o WHERE o.value IN (${ids.inventory_operations})) OR id IN (SELECT l.${parent} FROM ${lines} l, json_each(l.analytic_allocations) a WHERE json_extract(a.value, '$.analytic_account') IN (${accounts}))`
   }
-  ids.expenses_lines = `SELECT id FROM expenses_lines WHERE ${supplier ? '0' : `opportunity IN (${opportunities}) OR analytic_account IN (${accounts})${affair ? '' : ' OR company = {:scope_id}'}`}`
+  ids.expenses_lines = `SELECT id FROM expenses_lines WHERE ${supplier ? '0' : `opportunity IN (${opportunities}) OR analytic_account IN (${accounts})${affair ? '' : ` OR company IN (${family})`}`}`
   ids.expenses_reports = `SELECT report AS id FROM expenses_lines WHERE id IN (${ids.expenses_lines})`
   ids.leave_requests = 'SELECT id FROM leave_requests WHERE 0'
-  ids.contacts_companies = `SELECT id FROM contacts_companies WHERE ${affair ? '0' : 'id = {:scope_id}'}`
-  ids.contacts_people = `SELECT id FROM contacts_people WHERE ${affair ? '0' : 'company = {:scope_id}'}`
+  ids.contacts_companies = `SELECT id FROM contacts_companies WHERE ${affair ? '0' : `id IN (${family})`}`
+  ids.contacts_people = `SELECT id FROM contacts_people WHERE ${affair ? '0' : `company IN (${family})`}`
   return { space, id, params, ids, allowed, active: true, ready: true }
 }
 function internal(e, table) {

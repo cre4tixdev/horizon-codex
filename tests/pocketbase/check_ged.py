@@ -274,7 +274,7 @@ class GedUpgradeTests(unittest.TestCase):
         pb.args=args;pb.launch_and_authenticate(args)
         self.assertEqual(pb.request('GET','collections/contacts_companies/records/'+company['id'],token=pb.admin_token)[1]['name'],company['name'])
         rights=pb.request('GET','collections/core_roles/records/'+role['id'],token=pb.admin_token)[1]['permissions'];self.assertIn('documents.read',rights);self.assertIn('documents.template.manage',rights)
-        unchanged=pb.request('GET','collections/core_roles/records/'+shared['id'],token=pb.admin_token)[1]['permissions'];self.assertEqual(unchanged,['contacts.read'])
+        unchanged=pb.request('GET','collections/core_roles/records/'+shared['id'],token=pb.admin_token)[1]['permissions'];self.assertIn('contacts.read',unchanged);self.assertFalse(any(right.startswith('documents.') for right in unchanged)) # Later Contacts migrations have their own grants; GED must not broaden this shared role.
         self.assertEqual(pb.request('GET','collections/core_users/records/'+normal['id'],token=pb.admin_token)[1]['role'],shared['id'])
         self.assertEqual(pb.request('GET','collections/documents_categories/records',token=pb.admin_token)[1]['totalItems'],8)
         preserved=pb.request('GET','collections/contacts_companies/records/'+company['id'],token=pb.admin_token)[1];self.assertEqual(preserved['logo'],company['logo'])

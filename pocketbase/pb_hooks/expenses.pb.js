@@ -13,3 +13,5 @@ onRecordDelete(() => { throw new BadRequestError('L’historique des notes de fr
 routerAdd('GET', '/api/horizon/expenses/vehicles', (e) => require(`${__hooks}/lib/expenses.js`).vehicles(e), $apis.requireAuth('core_users'))
 routerAdd('POST', '/api/horizon/expenses/vehicles', (e) => require(`${__hooks}/lib/expenses.js`).vehicle(e), $apis.requireAuth('core_users'))
 onRecordDelete(() => { throw new BadRequestError('Désactivez le véhicule pour préserver les dépenses liées.') }, 'expenses_vehicles')
+
+routerAdd('GET', '/api/horizon/expenses/overview', (e) => require(`${__hooks}/lib/expenses.js`).overview(e), $apis.requireAuth('core_users'))

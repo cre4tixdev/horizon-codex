@@ -4,6 +4,8 @@ module.exports = (event) => {
   const { query, params, conditions } = require(`${__hooks}/lib/crm-list-query.js`)(event)
   const rights = require(`${__hooks}/lib/access-policy.js`).permissions(event.app, event.auth)
   const values = {
+    created: 'o.created', title: 'o.title', expected_date: 'o.expected_date', opportunity_number: 'o.opportunity_number',
+    estimated_value: 'o.estimated_value', probability: 'o.probability',
     type: "CASE o.type WHEN 'tender' THEN 'AO' ELSE 'Directe' END",
     company: rights.includes('contacts.read') ? "COALESCE(c.name, '')" : "''",
     stage: "COALESCE((SELECT label FROM crm_stages WHERE id = o.stage), '')",
@@ -16,6 +18,6 @@ module.exports = (event) => {
   const rows = arrayOf(new DynamicModel({ id: '', value: '' }))
   event.app.db().newQuery(`SELECT o.id, ${values[selected.field]} AS value FROM crm_opportunities o LEFT JOIN contacts_companies c ON c.id = o.company LEFT JOIN crm_tenders t ON t.opportunity = o.id WHERE ${conditions.join(' AND ')} LIMIT 10001`).bind(params).all(rows)
   if (rows.length > 10000) throw new BadRequestError('Affinez les filtres de la liste CRM.')
-  rows.sort((a, b) => require(`${__hooks}/lib/list-sorting.js`).compare(a.value, b.value, selected.descending) || a.id.localeCompare(b.id))
+  rows.sort((a, b) => require(`${__hooks}/lib/list-sorting.js`).compare(['estimated_value', 'probability'].includes(selected.field) ? Number(a.value) : a.value, ['estimated_value', 'probability'].includes(selected.field) ? Number(b.value) : b.value, selected.descending) || a.id.localeCompare(b.id))
   return event.json(200, { items: rows.slice((page - 1) * perPage, page * perPage).map((item) => ({ id: item.id })), totalItems: rows.length, totalPages: Math.ceil(rows.length / perPage), page })
 }

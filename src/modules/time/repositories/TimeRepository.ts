@@ -16,6 +16,7 @@ export function createTimeRepository(url: string) {
     async week(date: string) { return sheetSchema.parse(await get('/week', { date })) },
     async record(id: string) { return sheetSchema.parse(await get(`/sheets/${id}`)) },
     async list(query: Record<string, string>) { return listSchema.parse(await get('/sheets', query)) },
+    async correct(sheet: TimeSheet, input: TimeInput, reason: string) { return sheetSchema.parse(await post(`/sheets/${sheet.id}/correct`, { ...input, reason })) },
     async save(input: TimeInput) { return sheetSchema.parse(await post('/week', input)) },
     async transition(sheet: TimeSheet, action: string, manager: string, reason: string) { return sheetSchema.parse(await post(`/sheets/${sheet.id}/transition`, { revision: sheet.revision, action, manager, reason })) },
     async accounts(q: string) { return accountSchema.array().parse(await get('/accounts', { q })) },

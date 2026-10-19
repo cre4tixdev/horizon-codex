@@ -118,7 +118,7 @@ class CrmTests(unittest.TestCase):
         token = self.pb.login('sequence-settings@local.invalid')[1]['token']
         list_path = 'collections/settings_numbering_sequences/records'
         self.assertEqual(self.pb.request('GET', list_path, token=self.token)[1]['items'], [])
-        record = self.pb.request('GET', list_path, token=token)[1]['items'][0]
+        record = next(row for row in self.pb.request('GET', list_path+'?perPage=100', token=token)[1]['items'] if row['entity_type'] == 'crm_opportunities')
         input = {'start_value': 100, 'next_value': 100, 'prefix': 'CRM-', 'suffix': '', 'padding': 5}
         def change(snapshot, values, actor=token):
             return self.pb.request('POST', 'horizon/settings/sequences/save', {'id': snapshot['id'], 'updated': snapshot['updated'], 'expected_next_value': snapshot['next_value'], 'input': values}, actor)

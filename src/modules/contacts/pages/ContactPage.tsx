@@ -9,7 +9,7 @@ import { HRecordTabs } from '../../../shared/ui/HRecordTabs'
 import { useState, useSyncExternalStore, useId, useEffect } from 'react'
 import { Controller, useForm, useWatch } from 'react-hook-form'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router'
+import { Navigate, Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router'
 import { Building2, UserRound, Phone, MapPin, Fingerprint, SlidersHorizontal, StickyNote, ChevronDown, Mail, Globe, Calculator, Info, NotebookPen, UsersRound, Merge } from 'lucide-react'
 import { sessionService } from '../../../core/auth/services/session'
 import { hasPermission } from '../../../core/auth/types/session'
@@ -167,8 +167,8 @@ function ContactEditor({ kind, record, addresses, accounts, canWrite, duplicateS
     </HRecordPageActions></div>
     {record?.merged_into && <p role="status">Cette fiche a été fusionnée. <Link to={`/contacts/${kind}/${record.merged_into}`}>Ouvrir la fiche conservée</Link>. Son historique reste consultable ci-dessous.</p>}
     {mergedSources.error && <p role="alert" className="field-error">{mergedSources.error.message}</p>}
-    {Boolean(mergedSources.data?.length) && <section className="contact-panel"><HSectionHeading title="Fiches fusionnées · historique conservé" /><ul>{mergedSources.data?.map((source) => <li key={source.id}><Link to={`/contacts/${kind}/${source.id}`}>{source.label}</Link></li>)}</ul></section>}
-    {merging && record && <ContactMergeDialog kind={kind} record={record} onClose={() => setMerging(false)} onMerged={async (id) => { await Promise.all([client.invalidateQueries({ queryKey: ['contacts'] }), client.invalidateQueries({ queryKey: ['activity'] }), client.invalidateQueries({ queryKey: ['crm'] })]); setMerging(false); navigate(`/contacts/${kind}/${id}`, { replace: true }) }} />}
+    {Boolean(mergedSources.data?.length) && <section className="contact-panel"><HSectionHeading title="Fiches fusionnées · historique conservé" /><ul>{mergedSources.data?.map((source) => <li key={source.id}><Link to={`/contacts/${kind}/${source.id}?history=1`}>{source.label}</Link></li>)}</ul></section>}
+    {merging && record && <ContactMergeDialog kind={kind} record={record} onClose={() => setMerging(false)} onMerged={async (id) => { await Promise.all([client.invalidateQueries({ queryKey: ['contacts'] }), ...['sales', 'billing', 'purchasing', 'analysis', 'documents', 'ged', 'inventory'].map((module) => client.invalidateQueries({ queryKey: [module] })), client.invalidateQueries({ queryKey: ['activity'] }), client.invalidateQueries({ queryKey: ['crm'] })]); setMerging(false); navigate(`/contacts/${kind}/${id}`, { replace: true }) }} />}
     {duplicating && record && <HRecordDuplication title={kind === 'companies' ? 'Dupliquer la société' : 'Dupliquer le contact'} itemName={title} onClose={() => setDuplicating(false)} onDuplicate={() => { setDuplicating(false); navigate(`/contacts/${kind}/new?duplicate=${record.id}`, { state: directory ? { contactDirectory: directory } : undefined }) }} />}
     <div className="contact-record-sheet">
     {!embedded && relatedCompany && <CompanyBusinessLinks company={relatedCompany} person={Boolean(person)} busy={busy || changingRecord} />}
@@ -241,6 +241,7 @@ export function ContactPage({ kind }: { kind: ContactKind }) {
   if (sourceId !== 'new' && (record.isPending || (kind === 'companies' && (addresses.isPending || (id !== 'new' && accounts.isPending))))) return <HLoadingIndicator label="Chargement de la fiche…" />
   const error = record.error ?? addresses.error ?? accounts.error
   if (error) return <div className="contact-error" role="alert">{error.message}<HButton onClick={() => { void record.refetch(); if (kind === 'companies') void addresses.refetch(); void accounts.refetch() }}>Réessayer</HButton></div>
+  if (kind === 'companies' && record.data?.merged_into && !embedded && id !== 'new' && searchParams.get('history') !== '1') return <Navigate replace to={`/contacts/companies/${record.data.merged_into}`} />
   const registered = addresses.data?.filter((address) => address.type === 'registered') ?? []
   const primary = registered.find((address) => address.is_primary) ?? (registered.length === 1 ? registered[0] : undefined)
   const addressKey = primary ? `${primary.id}-${primary.updated}` : ''

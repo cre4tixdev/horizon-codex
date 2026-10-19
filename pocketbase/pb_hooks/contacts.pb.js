@@ -57,3 +57,5 @@ onRecordDeleteRequest((event) => {
 }, 'contacts_companies', 'contacts_people')
 onRecordDelete((event) => { require(`${__hooks}/lib/contact-deletion.js`)(event) }, 'contacts_companies', 'contacts_people')
 onRecordDelete((event) => { require(`${__hooks}/lib/audit.js`)(event, 'delete') }, 'contacts_company_roles', 'contacts_addresses', 'accounting_third_party_accounts')
+
+routerAdd('GET', '/api/horizon/contacts/companies/{id}/business-links', (e) => require(`${__hooks}/lib/company-business-links.js`)(e), $apis.requireAuth('core_users'))

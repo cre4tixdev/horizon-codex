@@ -55,8 +55,9 @@ const validateLine = (app, user, r, input, submitting = false, existing = null) 
     if (!result.analytic_account) throw new BadRequestError('Cette affaire ne possède pas de compte analytique.')
   }
   if ((result.company || result.contact || input.guests.length) && !policy.permissions(app, user).includes('contacts.read')) throw new ForbiddenError('Accès Contacts nécessaire pour ces rattachements.')
+  result.company = require(`${__hooks}/lib/company-identity.js`).resolve(app, result.company)
   if (result.company && !get(app, 'contacts_companies', result.company).getBool('active')) throw new BadRequestError('Cette société est archivée.')
-  if (result.contact) { const contact = get(app, 'contacts_people', result.contact); if (!contact.getBool('active')) throw new BadRequestError('Ce contact est archivé.'); if (result.company && contact.getString('company') !== result.company) throw new BadRequestError('Ce contact n’appartient pas à la société choisie.'); if (!result.company) result.company = contact.getString('company') }
+  if (result.contact) { const contact = get(app, 'contacts_people', result.contact); if (!contact.getBool('active')) throw new BadRequestError('Ce contact est archivé.'); if (result.company && !require(`${__hooks}/lib/company-identity.js`).same(app, contact.getString('company'), result.company)) throw new BadRequestError('Ce contact n’appartient pas à la société choisie.'); if (!result.company) result.company = require(`${__hooks}/lib/company-identity.js`).resolve(app, contact.getString('company')) }
   for (const id of input.guests) if (!get(app, 'contacts_people', id).getBool('active')) throw new BadRequestError('Un invité est archivé.')
   result.vehicle_record = text(input.vehicle_record || '', 15)
   if (result.vehicle_record) {
@@ -80,15 +81,16 @@ module.exports = {
     }
     return r
   },
+  overview(e) { return require(`${__hooks}/lib/expenses-overview.js`)(e, { guard, get, statuses, text, today }) },
   choices(e) {
     guard(e.app, e.auth)
     const rights = policy.permissions(e.app, e.auth), owner = e.auth, linked = owner.getString('employee') ? get(e.app, 'hr_employees', owner.getString('employee')) : null
     let principal = ''; try { principal = reviewer(e.app, owner).id } catch (error) { if (!(error instanceof BadRequestError)) throw error }
     const companies = rights.includes('contacts.read') ? e.app.findRecordsByFilter('contacts_companies', 'active = true', 'name', 0, 0).map((r) => ({ id: r.id, label: r.getString('name') })) : []
     const contacts = rights.includes('contacts.read') ? e.app.findRecordsByFilter('contacts_people', 'active = true', 'last_name,first_name', 0, 0).map((r) => ({ id: r.id, company: r.getString('company'), label: name(e.app, 'contacts_people', r.id) })) : []
-    const opportunities = rights.includes('crm.read') ? e.app.findRecordsByFilter('crm_opportunities', 'active = true', 'title', 0, 0).map((r) => ({ id: r.id, label: `${r.getString('opportunity_number')} · ${r.getString('title')}`, number: r.getString('opportunity_number'), company: r.getString('company'), contact: r.getString('contact') })) : []
+    const opportunities = rights.includes('crm.read') ? e.app.findRecordsByFilter('crm_opportunities', 'active = true', 'title', 0, 0).map((r) => ({ id: r.id, label: `${r.getString('opportunity_number')} · ${r.getString('title')}`, number: r.getString('opportunity_number'), company: require(`${__hooks}/lib/company-identity.js`).resolve(e.app, r.getString('company')), contact: r.getString('contact') })) : []
     const validators = e.app.findRecordsByFilter('core_users', 'active = true && role.active = true && id != {:id}', 'name', 0, 0, { id: e.auth.id }).filter((u) => policy.permissions(e.app, u).includes('expenses.validate') && (u.id === principal || u.getString('expenses_scope') === 'all') && u.getString('erp_profile') !== 'viewer').map((u) => ({ id: u.id, label: u.getString('name') }))
-    return e.json(200, { employee: linked?.id || '', employee_name: linked ? name(e.app, 'hr_employees', linked.id) : '', default_validator: principal, validators, categories: e.app.findRecordsByFilter('expenses_categories', '', 'sort_order,label', 0, 0).map((r) => r.publicExport()), companies, contacts, opportunities, can_review: (rights.includes('expenses.validate') || rights.includes('expenses.reimburse')) && ['reports', 'all'].includes(e.auth.getString('expenses_scope')), can_reimburse: rights.includes('expenses.reimburse') && e.auth.getString('expenses_scope') === 'all', global: e.auth.getString('expenses_scope') === 'all', vehicles: linked ? e.app.findRecordsByFilter('expenses_vehicles', 'active = true && employee = {:employee}', 'brand,model,registration', 0, 0, { employee: linked.id }).map((v) => ({ id: v.id, label: vehicleLabel(v) })) : [] })
+    return e.json(200, { employee: linked?.id || '', employee_name: linked ? name(e.app, 'hr_employees', linked.id) : '', default_validator: principal, validators, categories: e.app.findRecordsByFilter('expenses_categories', '', 'sort_order,label', 0, 0).map((r) => r.publicExport()), companies, contacts, opportunities, can_team: ['reports', 'all'].includes(e.auth.getString('expenses_scope')), can_review: (rights.includes('expenses.validate') || rights.includes('expenses.reimburse')) && ['reports', 'all'].includes(e.auth.getString('expenses_scope')), can_reimburse: rights.includes('expenses.reimburse') && e.auth.getString('expenses_scope') === 'all', global: e.auth.getString('expenses_scope') === 'all', vehicles: linked ? e.app.findRecordsByFilter('expenses_vehicles', 'active = true && employee = {:employee}', 'brand,model,registration', 0, 0, { employee: linked.id }).map((v) => ({ id: v.id, label: vehicleLabel(v) })) : [] })
   },
   list(e) {
     const perPage = require(`${__hooks}/lib/list-page-size.js`)(e.requestInfo().query.perPage, 30)

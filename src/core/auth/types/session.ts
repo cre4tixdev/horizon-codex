@@ -5,6 +5,8 @@ export type HorizonUser = {
   presence?: 'available' | 'away' | 'busy' | 'offline'
   avatar?: string
   erpProfile?: 'admin' | 'superuser' | 'user' | 'viewer'
+  leaveScope?: string
+  expensesScope?: string
   accessRevision?: string
   role: { id: string; label: string; permissions: readonly string[] }
 }

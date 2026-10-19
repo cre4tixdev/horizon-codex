@@ -29,3 +29,10 @@
 .expense-line-affair > span:last-child { overflow: hidden; text-overflow: ellipsis; }
 
 .expense-editor-category-details .contact-fields:has(> label:only-child) { grid-template-columns: minmax(0, 1fr); }
+
+.expenses-overview { padding-top:12px; }
+.expenses-period-actions { display:flex; align-items:center; justify-content:flex-end; gap:6px; flex-wrap:wrap; }
+.expenses-period-actions > .h-date-input { width:150px; flex:0 0 150px; }
+.expenses-period-actions > .h-input { width:90px; flex:0 0 90px; }
+.expenses-overview > .contact-muted { margin:12px 0; }
+@media (max-width:700px) { .expenses-overview > .h-section-heading { flex-wrap:wrap; } .expenses-overview .h-section-heading-actions { max-width:100%; margin-left:0; } .expenses-period-actions { justify-content:flex-start; } }

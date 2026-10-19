@@ -14,6 +14,7 @@ const allowed = (app, user, write = false, module = 'contacts') => {
 }
 const source = (app, entity, id, writable = false) => {
   if (!['time_sheets', 'documents_files', 'leave_requests', 'expenses_reports', 'contacts_companies', 'contacts_people', 'crm_opportunities', 'crm_tenders', 'sales_quotes', 'inventory_products', 'inventory_operations', 'inventory_internal_assets', 'purchasing_requests', 'purchasing_orders', 'billing_invoices', 'billing_supplier_invoices', 'billing_credit_notes', 'billing_supplier_credit_notes'].includes(entity) || !/^[a-z0-9]{15}$/.test(id)) throw new BadRequestError('Fiche invalide.')
+  if (writable && entity === 'contacts_companies') id = require(`${__hooks}/lib/company-identity.js`).resolve(app, id)
   let record
   try { record = app.findRecordById(entity, id) } catch { throw new ApiError(404, 'Fiche introuvable.') }
   if (writable && entity === 'crm_tenders') {

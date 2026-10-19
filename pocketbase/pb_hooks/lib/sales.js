@@ -48,7 +48,7 @@ module.exports = {
     const search = String(query.q || '').trim()
     if (search.length > 200) throw new BadRequestError('Recherche trop longue.')
     if (query.opportunity) { opportunity(event.app, query.opportunity, event.auth); conditions.push('opportunity = {:opportunity}'); parameters.opportunity = query.opportunity }
-    if (query.company) { if (!/^[a-z0-9]{15}$/.test(query.company)) throw new BadRequestError('Société invalide.'); conditions.push('company = {:company}'); parameters.company = query.company }
+    if (query.company) { if (!/^[a-z0-9]{15}$/.test(query.company)) throw new BadRequestError('Société invalide.'); conditions.push(require(`${__hooks}/lib/company-identity.js`).condition(event.app, 'company', query.company, parameters, 'company', true)) }
     if (search) { conditions.push('(quote_number LIKE {:q} OR title LIKE {:q} OR company IN (SELECT id FROM contacts_companies WHERE name LIKE {:q}) OR opportunity IN (SELECT id FROM crm_opportunities WHERE title LIKE {:q}) OR id IN (SELECT quote FROM sales_orders WHERE customer_order_number LIKE {:q}))'); parameters.q = `%${search}%` }
     const rows = arrayOf(new DynamicModel({ status: '', count: 0 }))
     event.app.db().newQuery(`SELECT status, COUNT(*) AS count FROM sales_quotes WHERE ${conditions.join(' AND ')} GROUP BY status`).bind(parameters).all(rows)
@@ -92,7 +92,7 @@ module.exports = {
     const search = String(query.get('q') || '').trim()
     if (search.length > 200) throw new BadRequestError('Recherche trop longue.')
     if (query.get('opportunity')) { opportunity(event.app, query.get('opportunity'), event.auth); parameters.opportunity = query.get('opportunity'); conditions.push('opportunity = {:opportunity}') }
-    if (query.get('company')) { if (!/^[a-z0-9]{15}$/.test(query.get('company'))) throw new BadRequestError('Société invalide.'); parameters.company = query.get('company'); conditions.push('company = {:company}') }
+    if (query.get('company')) { if (!/^[a-z0-9]{15}$/.test(query.get('company'))) throw new BadRequestError('Société invalide.'); conditions.push(require(`${__hooks}/lib/company-identity.js`).condition(event.app, 'company', query.get('company'), parameters)) }
     if (query.get('product')) { if (!require(`${__hooks}/lib/catalog.js`).allowed(event.app, event.auth)) throw new ForbiddenError('Accès produit nécessaire.'); parameters.product = query.get('product'); conditions.push('sales_quote_lines_via_quote.product ?= {:product}') }
     conditions.push(...require(`${__hooks}/lib/sales-list-filters.js`)(query, parameters))
     if (search) { conditions.push('(quote_number ~ {:q} || title ~ {:q} || sales_orders_via_quote.current_revision.after_snapshot.header.title ?~ {:q} || company.name ~ {:q} || opportunity.title ~ {:q} || sales_orders_via_quote.customer_order_number ?~ {:q})'); parameters.q = search }
@@ -145,7 +145,7 @@ module.exports = {
         const sequence = Math.max(counter.getInt('last_value'), last[0]?.getInt('quote_sequence') || 0) + 1
         counter.set('opportunity', opp.id); counter.set('last_value', sequence); app.save(counter)
         quote = new Record(app.findCollectionByNameOrId('sales_quotes'))
-        for (const [key, value] of Object.entries({ opportunity: opp.id, quote_sequence: sequence, quote_number: `${opp.getString('opportunity_number')}-${sequence}`, analytic_account: opp.getString('analytic_account'), company: opp.getString('company'), contact: opp.getString('contact'), currency: opp.getString('currency'), owner: event.auth.id, created_by: event.auth.id, creation_key: body.creation_key, status: 'draft', revision: 1, exchange_rate: 0 })) quote.set(key, value)
+        for (const [key, value] of Object.entries({ opportunity: opp.id, quote_sequence: sequence, quote_number: `${opp.getString('opportunity_number')}-${sequence}`, analytic_account: opp.getString('analytic_account'), company: require(`${__hooks}/lib/company-identity.js`).resolve(app, opp.getString('company')), contact: opp.getString('contact'), currency: opp.getString('currency'), owner: event.auth.id, created_by: event.auth.id, creation_key: body.creation_key, status: 'draft', revision: 1, exchange_rate: 0 })) quote.set(key, value)
       }
       const owner = input.owner || quote.getString('owner')
       if (typeof owner !== 'string' || !/^[a-z0-9]{15}$/.test(owner)) throw new BadRequestError('Choisissez un commercial.')

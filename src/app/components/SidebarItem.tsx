@@ -18,7 +18,7 @@ export function SidebarItem({ item }: { item: NavigationItem }) {
       const [path, query = ''] = child.href.split('?')
       const expected = new URLSearchParams(query)
       const current = new URLSearchParams(search)
-      const selected = pathname === path && [...queryKeys].every((key) => current.get(key) === expected.get(key))
+      const selected = pathname === path && [...queryKeys].every((key) => (key === 'area' && ['own'].includes(current.get(key) || '') ? null : current.get(key)) === expected.get(key))
       const ChildIcon = child.icon
       return <Link key={child.href} to={child.href} className={`sidebar-link sidebar-submenu-link${selected ? ' sidebar-submenu-link--active' : ''}`} aria-current={selected ? 'page' : undefined} title={child.label}><ChildIcon size={14} aria-hidden="true" /><span>{child.label}</span></Link>
     })}</div>

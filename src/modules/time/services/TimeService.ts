@@ -12,6 +12,7 @@ export function createTimeService(repository: ReturnType<typeof createTimeReposi
   }
   return {
     photo: (id: string) => run('read', (r) => r.photo(id)), overview: (q: Record<string, string>) => run('read', (r) => r.overview(q)), choices: () => run('read', (r) => r.choices()), week: (date: string) => run('read', (r) => r.week(date)), record: (id: string) => run('read', (r) => r.record(id)), list: (q: Record<string, string>) => run('read', (r) => r.list(q)), accounts: (q: string) => run('read', (r) => r.accounts(q)), sold: (account: string, product: string) => run('read', (r) => r.sold(account, product)), save: (input: TimeInput) => run('write', (r) => r.save(input)),
+    correct: (sheet: TimeSheet, input: TimeInput, reason: string) => run('validate', (r) => r.correct(sheet, input, reason)),
     transition: (sheet: TimeSheet, action: string, manager = '', reason = '') => run(['validate', 'reject', 'reopen_validated'].includes(action) ? 'validate' : action === 'submit' ? 'submit' : 'write', (r) => r.transition(sheet, action, manager, reason)),
     favorite: (input: object) => run('write', (r) => r.favorite(input)), settings: (q = '') => run('settings', (r) => r.settings(q)), saveSettings: (area: 'activities' | 'resources', input: object) => run('settings', (r) => r.saveSettings(area, input)),
   }

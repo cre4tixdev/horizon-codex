@@ -3,6 +3,7 @@ module.exports = (app, user, id, supplier = '', currency = '') => {
   if (!require(`${__hooks}/lib/catalog.js`).allowed(app, user)) throw new ForbiddenError('Accès au catalogue nécessaire.')
   const product = app.findRecordById('inventory_products', id)
   if (!product.getBool('active') || !product.getBool('purchase_enabled')) throw new BadRequestError('Ce produit ne peut pas être acheté.')
+  if (supplier) supplier = require(`${__hooks}/lib/company-identity.js`).resolve(app, supplier)
   const offers = app.findRecordsByFilter('inventory_product_suppliers', 'product = {:id} && active = true', '-is_preferred,created,id', 0, 0, { id })
   const today = new Date().toISOString().slice(0, 10)
   const offer = offers.find((item) => (!supplier || item.getString('supplier') === supplier) && (!currency || item.getString('currency') === currency) && (!item.getString('valid_from') || item.getString('valid_from').slice(0, 10) <= today) && (!item.getString('valid_until') || item.getString('valid_until').slice(0, 10) >= today))

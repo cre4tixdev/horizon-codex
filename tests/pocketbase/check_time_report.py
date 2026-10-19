@@ -27,6 +27,79 @@ class TimeTests(unittest.TestCase):
     def draft(self,day='2026-10-05',minutes=120):
         code,r=self.call('POST','week',dict(week_start=day,revision=0,lines=[self.line(minutes)]));self.assertEqual(code,200,r);return r
     def transition(self,r,action,who='owner',**extra):return self.call('POST','sheets/'+r['id']+'/transition',dict(revision=r['revision'],action=action,manager=self.people['manager']['user']['id'],**({'reason':''}|extra)),who)
+    def correction(self,r,who='manager',reason='Durée corrigée après vérification',minutes=180):
+        line={key:r['lines'][0][key] for key in ['id','product','analytic_account','sales_order_line','context','days']}
+        line['days']=[dict(minutes=minutes if i==0 else 0,description='Plans corrigés' if i==0 else '') for i in range(7)]
+        return self.call('POST','sheets/'+r['id']+'/correct',dict(week_start=r['week_start'],revision=r['revision'],lines=[line],reason=reason),who)
+    def test_manager_can_correct_submitted_sheet_without_personal_write_right(self):
+        r=self.draft(); self.assertEqual(self.correction(r)[0],403)
+        code,r=self.transition(r,'submit'); self.assertEqual(code,200,r)
+        original=r.copy(); self.assertIn('correct',self.call('GET','sheets/'+r['id'],who='manager')[1]['actions'])
+        self.assertEqual(self.correction(r,who='owner')[0],403); self.assertEqual(self.correction(r,who='other')[0],403)
+        self.assertEqual(self.correction(r,reason='')[0],400); self.assertEqual(self.correction(r,minutes=0)[0],400)
+        self.assertEqual(self.correction(r,minutes=1441)[0],400)
+        # Manager neither enters personal hours nor has time.write; these are review corrections.
+        manager=self.people['manager']['employee']; self.pb.request('PATCH','collections/hr_employees/records/'+manager['id'],dict(time_reporting_enabled=False,team=''),self.pb.admin_token)
+        code,changed=self.correction(r); self.assertEqual(code,200,changed); self.assertEqual(changed['status'],'submitted'); self.assertEqual(changed['total_minutes'],180)
+        for key in ['employee','user','manager','week_start']: self.assertEqual(changed[key],original[key])
+        self.assertEqual(changed['revision'],r['revision']+1); self.assertEqual(self.correction(r)[0],409)
+        self.assertEqual(self.transition(r,'validate','manager')[0],409)
+        code,owner=self.call('GET','sheets/'+r['id']); self.assertEqual(code,200,owner); self.assertEqual(owner['total_minutes'],180); self.assertNotIn('edit',owner['actions'])
+        audits=self.pb.request('GET','collections/core_audit/records?filter=entity_id="'+r['id']+'"&sort=-created,-id',token=self.pb.admin_token)[1]['items']
+        change=next(row for row in audits if row['user']==self.people['manager']['user']['id']); self.assertEqual(change['before']['entries'][0]['duration_minutes'],120); self.assertEqual(change['after']['entries'][0]['duration_minutes'],180)
+        feed=self.call('GET','sheets/'+r['id'])[1]; self.assertEqual(feed['total_minutes'],180)
+        events=self.pb.request('GET','horizon/activity/events?entity=time_sheets&id='+r['id'],token=self.people['owner']['token'])[1]['items']; self.assertTrue(any('Durée corrigée après vérification' in event['body'] for event in events))
+        notes=self.pb.request('GET','collections/core_notifications/records',token=self.pb.admin_token)[1]['items']; self.assertTrue(any(row['user']==self.people['owner']['user']['id'] and 'corrigée' in row['title'] for row in notes))
+        code,validated=self.transition(changed,'validate','manager'); self.assertEqual(code,200,validated); self.assertEqual(validated['total_minutes'],180); self.assertEqual(self.correction(validated)[0],403)
+        entries=self.pb.request('GET','collections/time_entries/records',token=self.pb.admin_token)[1]['items']; self.assertTrue(all(e['status']=='validated' for e in entries)); self.assertTrue(all(e['employee']==r['employee'] for e in entries))
+    def test_manager_correction_revoked_scope_source_and_identity_are_guarded(self):
+        r=self.draft(); _,r=self.transition(r,'submit')
+        manager=self.people['manager']['user']
+        self.pb.request('PATCH','collections/core_roles/records/'+manager['role'],dict(permissions=['time.read']),self.pb.admin_token)
+        self.assertEqual(self.correction(r)[0],403)
+        self.pb.request('PATCH','collections/core_roles/records/'+manager['role'],dict(permissions=['time.read','time.validate']),self.pb.admin_token)
+        self.pb.request('PATCH','collections/core_users/records/'+manager['id'],dict(time_scope='self'),self.pb.admin_token); self.assertEqual(self.correction(r)[0],403)
+        self.pb.request('PATCH','collections/core_users/records/'+manager['id'],dict(time_scope='reports'),self.pb.admin_token)
+        import sqlite3
+        with sqlite3.connect(self.pb.data/'data.db') as db: db.execute('UPDATE time_sheets SET source_provider="onsite",work_type="production" WHERE id=?',(r['id'],))
+        self.assertEqual(self.correction(r)[0],403)
+        with sqlite3.connect(self.pb.data/'data.db') as db: db.execute('UPDATE time_sheets SET source_provider="horizon",work_type="be" WHERE id=?',(r['id'],))
+        self.assertEqual(self.correction(r,who='hr')[0],200)
+
+    def test_manager_correction_lines_atomicity_and_self_review(self):
+        import sqlite3
+        r=self.draft(); _,r=self.transition(r,'submit'); original=r.copy()
+        # The same employee through another login cannot review their own hours.
+        manager=self.people['manager']['user']; owner=self.people['owner']['user']; own_employee=self.people['owner']['employee']['id']
+        self.assertEqual(self.pb.request('PATCH','collections/core_users/records/'+owner['id'],dict(employee=''),self.pb.admin_token)[0],200)
+        self.assertEqual(self.pb.request('PATCH','collections/core_users/records/'+manager['id'],dict(employee=own_employee),self.pb.admin_token)[0],200)
+        self.assertEqual(self.correction(r)[0],403)
+        self.pb.request('PATCH','collections/core_users/records/'+manager['id'],dict(employee=self.people['manager']['employee']['id']),self.pb.admin_token)
+        owner=self.people['owner']['user']; self.pb.request('PATCH','collections/core_roles/records/'+owner['role'],dict(permissions=['time.read','time.validate']),self.pb.admin_token)
+        self.pb.request('PATCH','collections/core_users/records/'+owner['id'],dict(employee='',time_scope='all'),self.pb.admin_token)
+        self.assertEqual(self.correction(r,who='owner')[0],403)
+        # Notification failure must roll back all corrected data, revision and audit.
+        tables=['time_sheets','time_sheet_lines','time_entries','core_audit','core_activity_events','core_notifications']
+        with sqlite3.connect(self.pb.data/'data.db') as db:
+            before={t:db.execute('SELECT * FROM '+t+' ORDER BY id').fetchall() for t in tables}
+            db.execute("CREATE TRIGGER fail_time_notice BEFORE INSERT ON core_notifications WHEN NEW.title='Votre feuille de temps a été corrigée' BEGIN SELECT RAISE(ABORT, 'test notification rollback'); END")
+        self.assertGreaterEqual(self.correction(r)[0],400)
+        with sqlite3.connect(self.pb.data/'data.db') as db:
+            for t in tables: self.assertEqual(db.execute('SELECT * FROM '+t+' ORDER BY id').fetchall(),before[t],t)
+            db.execute('DROP TRIGGER fail_time_notice')
+        # Add a second activity, reorder, then remove the old line using the shared saver.
+        keys=['sku','name','description','kind','manufacturer','category','base_unit','sale_currency','sale_enabled','purchase_enabled','stock_policy','replenishment_policy','tracking','manufacturer_ref','barcode','variant_group','reference_cost']
+        product={key:self.product[key] for key in keys}; product.update(sku='TIME-BE-SECOND',name='BE Support',offers=[])
+        code,second=self.pb.request('POST','horizon/inventory/products/save',dict(creation_key='time-second-activity',input=product),self.people['hr']['token']); self.assertEqual(code,200,second)
+        code,activity=self.call('POST','settings',dict(area='activities',input=dict(product=second['id'],active=True,work_types=['be'],valid_from='',valid_to='')),'hr'); self.assertEqual(code,200,activity)
+        first={key:r['lines'][0][key] for key in ['id','product','analytic_account','sales_order_line','context','days']}
+        added=self.line(60); added.update(product=second['id'])
+        body=dict(week_start=r['week_start'],revision=r['revision'],lines=[added,first],reason='Imputation et ordre corrigés')
+        code,r=self.call('POST','sheets/'+r['id']+'/correct',body,'manager'); self.assertEqual(code,200,r); self.assertEqual(r['lines'][0]['product'],second['id']); self.assertEqual(r['total_minutes'],180)
+        body.update(revision=r['revision'],lines=[{key:r['lines'][0][key] for key in ['id','product','analytic_account','sales_order_line','context','days']}])
+        code,r=self.call('POST','sheets/'+r['id']+'/correct',body,'manager'); self.assertEqual(code,200,r); self.assertEqual(len(r['lines']),1); self.assertEqual(r['total_minutes'],60); self.assertEqual(r['status'],'submitted')
+        entries=self.pb.request('GET','collections/time_entries/records',token=self.pb.admin_token)[1]['items']; self.assertEqual(len(entries),1); self.assertEqual(entries[0]['status'],'submitted'); self.assertEqual(entries[0]['employee'],original['employee'])
+
     def test_future_entry_is_refused_without_mutating_history(self):
         from datetime import timedelta
         from zoneinfo import ZoneInfo
@@ -45,14 +118,14 @@ class TimeTests(unittest.TestCase):
         code,current=self.call('POST','week',dict(week_start=current_start.isoformat(),revision=0,lines=[realised]));self.assertEqual(code,200,current);self.assertEqual(current['total_minutes'],60)
 
         # Already stored historical data is readable, but cannot be approved in advance.
-        draft=self.draft('2026-01-05')
+        draft=current if start==current_start else self.draft('2026-01-05')
         import sqlite3
         with sqlite3.connect(self.pb.data/'data.db') as db:
             db.execute('UPDATE time_sheets SET week_start=?,status=?,manager=? WHERE id=?',(start.isoformat(),'submitted',self.people['manager']['user']['id'],draft['id']))
             db.execute('UPDATE time_entries SET date=?,status=? WHERE sheet=?',(tomorrow.isoformat(),'submitted',draft['id']))
         code,result=self.transition(draft,'validate','manager');self.assertEqual(code,400,result)
         code,history=self.call('GET','sheets/'+draft['id'],who='manager');self.assertEqual(code,200,history);self.assertEqual(history['status'],'submitted')
-        with sqlite3.connect(self.pb.data/'data.db') as db:self.assertEqual(db.execute('SELECT date,duration_minutes FROM time_entries WHERE sheet=?',(draft['id'],)).fetchone(),(tomorrow.isoformat(),120))
+        with sqlite3.connect(self.pb.data/'data.db') as db:self.assertEqual(db.execute('SELECT date,duration_minutes FROM time_entries WHERE sheet=?',(draft['id'],)).fetchone(),(tomorrow.isoformat(),draft['total_minutes']))
 
     def test_employee_eligibility_and_history_remain_independent_of_manager_rights(self):
         r=self.draft();code,r=self.transition(r,'submit');self.assertEqual(code,200,r)

@@ -10,6 +10,7 @@ module.exports = {
     return account
   },
   create(app, code, label, company) {
+    company = require(`${__hooks}/lib/company-identity.js`).resolve(app, company)
     const account = new Record(app.findCollectionByNameOrId('accounting_analytic_accounts'))
     for (const [field, value] of Object.entries({ code, label, company, status: 'open', active: true })) account.set(field, value)
     app.save(account)
@@ -18,7 +19,7 @@ module.exports = {
   attach(app, account, opportunity) { account.set('opportunity', opportunity); app.save(account) },
   sync(app, id, opportunity) {
     const account = app.findRecordById('accounting_analytic_accounts', id)
-    account.set('label', opportunity.getString('title')); account.set('company', opportunity.getString('company'))
+    account.set('label', opportunity.getString('title')); account.set('company', require(`${__hooks}/lib/company-identity.js`).resolve(app, opportunity.getString('company')))
     // Archive is not an accounting closure; the account stays available for future pieces.
     app.save(account)
   },

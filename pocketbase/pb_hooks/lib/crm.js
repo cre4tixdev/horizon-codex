@@ -26,6 +26,7 @@ const audit = (app, record, before, actor, action) => {
 const validate = (app, input, before) => {
   if (!input || Array.isArray(input) || typeof input !== 'object' || Object.keys(input).some((key) => !fields.includes(key))) throw new BadRequestError('Champs CRM invalides.')
   for (const key of ['title', 'company', 'contact', 'owner', 'stage', 'currency', 'expected_date', 'description', 'status']) if (typeof input[key] !== 'string') throw new BadRequestError('Champs CRM incomplets.')
+  input.company = require(`${__hooks}/lib/company-identity.js`).resolve(app, input.company)
   input.type = input.type || 'direct'
   if (!['direct', 'tender'].includes(input.type)) throw new BadRequestError('Type d’opportunité invalide.')
   input.market_types = input.market_types || []
@@ -48,7 +49,7 @@ const validate = (app, input, before) => {
     let referenced
     try { referenced = app.findRecordById(collection, input[key]) } catch { throw new BadRequestError('Référence introuvable.') }
     if (!referenced.getBool('active') && (!before || before[key] !== input[key])) throw new BadRequestError('Cette référence est archivée.')
-    if (key === 'contact' && referenced.getString('company') !== input.company) throw new BadRequestError('Le contact doit appartenir à la société choisie.')
+    if (key === 'contact' && !require(`${__hooks}/lib/company-identity.js`).same(app, referenced.getString('company'), input.company)) throw new BadRequestError('Le contact doit appartenir à la société choisie.')
     if (key === 'owner' && !require(`${__hooks}/lib/activity.js`).allowed(app, referenced, false, 'crm') && (!before || before.owner !== input.owner)) throw new BadRequestError('Ce responsable ne peut pas consulter le CRM.')
   }
   input.status = app.findRecordById('crm_stages', input.stage).getString('status')
