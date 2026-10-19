@@ -1975,3 +1975,7 @@ Lint et TypeScript réussis. Chromium ciblé `leave-timeline.spec.ts` : 1 parcou
 ### 19 octobre 2026 — Congés, cohérence des bordures du Total
 
 Lint et TypeScript réussis. Chromium ciblé `leave-timeline.spec.ts` : 1 parcours réussi / 10,2 s. Régression ajoutée : grille et colonnes du pied de même couleur et largeur 1 px, bord haut du pied unique, aucun bord bas doublé sous la dernière ligne ou sur le cadre extérieur. Contrôles exécutés dans les deux thèmes ; captures clair/sombre/mobile inspectées. Pas de modification serveur, aucune nouvelle suite backend ; NAS/Safari/tactile matériel et zooms système non vérifiés.
+
+### 19 octobre 2026 — Fusion, conflits juridiques détaillés
+
+Lint/TypeScript réussis ; suite PocketBase Contacts Merge : 19 tests / 59,710 s. Assertions des trois champs, deux valeurs/noms/rôles, SIREN issu du SIRET, refus apply 409 sans fusion. Chromium ciblé : 1 parcours / 6,4 s, texte exact, bouton désactivé, message visible après défilement et sans débordement mobile ; captures clair/desktop et mobile inspectées. Premier essai corrigé pour attendre la fiche chargée et inclure le SIREN dans le libellé du sélecteur ; aucun changement produit pour cela. Pas de nouvelle recette sombre/Safari/NAS. Pack fusion-identifiants cumulatif contrôlé par ZIP/manifeste/hashes et comparaison des migrations, seul contact-merge.js différent du pack précédent.

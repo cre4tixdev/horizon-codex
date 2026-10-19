@@ -49,6 +49,23 @@ class ContactMergeTests(unittest.TestCase):
         for parent,siren in [(self.source,'123456789'),(self.target,'987654321')]: self.pb.request('PATCH','collections/contacts_companies/records/'+parent['id'],dict(siren=siren),self.pb.admin_token)
         body,preview=self.preview(); self.assertTrue(preview['blockers']); self.assertEqual(self.apply(body,preview)[0],409)
         self.assertTrue(self.record('contacts_companies',self.source['id'])['active'])
+    def test_legal_conflicts_show_each_field_value_and_company(self):
+        source=dict(siren='123456789',vat_number='FR00123456789',lei='11111111111111111111')
+        target=dict(siren='987654321',vat_number='FR00987654321',lei='22222222222222222222')
+        for record,values in [(self.source,source),(self.target,target)]:
+            code,result=self.pb.request('PATCH','collections/contacts_companies/records/'+record['id'],values,self.pb.admin_token)
+            self.assertEqual(code,200,result)
+        body,preview=self.preview()
+        self.assertEqual(len(preview['blockers']),3,preview)
+        for key,field in [('siren','SIREN'),('vat_number','N° TVA'),('lei','LEI')]:
+            messages=[message for message in preview['blockers'] if message.startswith(field+' incompatible')]
+            self.assertEqual(len(messages),1,preview)
+            for value in [source[key],target[key],self.source['name'],self.target['name'],'fiche à fusionner','fiche conservée']:
+                self.assertIn(value,messages[0])
+        status,result=self.apply(body,preview); self.assertEqual(status,409,result)
+        self.assertEqual(result['message'],preview['blockers'][0])
+        self.assertTrue(self.record('contacts_companies',self.source['id'])['active'])
+
     def test_compatible_third_party_account_transferred(self):
         self.pb.create('accounting_third_party_accounts',dict(company=self.source['id'],type='customer',account_code='411TEST',active=True))
         body,preview=self.preview(); self.assertEqual(preview['blockers'],[]); self.assertEqual(self.apply(body,preview)[0],200)
@@ -89,7 +106,9 @@ class ContactMergeTests(unittest.TestCase):
         # A SIRET also identifies the legal entity, even when SIREN is blank.
         self.pb.request('PATCH','collections/contacts_companies/records/'+self.source['id'],dict(siret='12345678900001'),self.pb.admin_token)
         self.pb.request('PATCH','collections/contacts_companies/records/'+self.target['id'],dict(siren='987654321'),self.pb.admin_token)
-        body,preview=self.preview(); self.assertTrue(preview['blockers']); self.assertEqual(self.apply(body,preview)[0],409)
+        body,preview=self.preview(); self.assertEqual(len(preview['blockers']),1,preview)
+        self.assertIn('SIREN incompatible',preview['blockers'][0]); self.assertIn('123456789 (déduit du SIRET 12345678900001)',preview['blockers'][0]); self.assertIn('987654321',preview['blockers'][0])
+        self.assertEqual(self.apply(body,preview)[0],409)
         self.assertEqual(self.record('contacts_people',person['id'])['company'],self.source['id'])
         # Combining two individually valid people can still produce an invalid name.
         a=self.pb.create('contacts_people',dict(last_name='Source',email='rollback@example.invalid',active=True))

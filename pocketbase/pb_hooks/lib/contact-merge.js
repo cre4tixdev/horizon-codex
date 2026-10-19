@@ -27,11 +27,15 @@ const inspect = (app, kind, sourceId, targetId, inspectUser) => {
   if (plan) blocks.push(...plan.blockers)
   if (!plan && dependencies.length) blocks.push('Une fiche à déplacer possède des liens métier, documents ou tâches, ou a déjà absorbé une autre fiche. Conservez-la comme destination ; rapprocher deux historiques métier nécessite un traitement spécifique.')
   if (kind === 'companies') {
-    const sourceSiren = source.getString('siren') || source.getString('siret').slice(0, 9)
-    const targetSiren = target.getString('siren') || target.getString('siret').slice(0, 9)
-    if (sourceSiren && targetSiren && sourceSiren !== targetSiren) blocks.push('Identifiants juridiques incompatibles : vérifiez les deux sociétés avant fusion.')
+    const conflict = (field, sourceValue, targetValue) => `${field} incompatible : fiche à fusionner « ${label(source)} » : ${sourceValue} ; fiche conservée « ${label(target)} » : ${targetValue}. Vérifiez et corrigez les fiches avant fusion.`
+    const siren = (record) => record.getString('siren') || record.getString('siret').slice(0, 9)
+    const sirenDisplay = (record) => record.getString('siren') || `${siren(record)} (déduit du SIRET ${record.getString('siret')})`
+    if (siren(source) && siren(target) && siren(source) !== siren(target)) blocks.push(conflict('SIREN', sirenDisplay(source), sirenDisplay(target)))
+    for (const [key, field] of [['lei', 'LEI'], ['vat_number', 'N° TVA']]) {
+      const sourceValue = source.getString(key), targetValue = target.getString(key)
+      if (sourceValue && targetValue && sourceValue.replace(/\s/g, '').toUpperCase() !== targetValue.replace(/\s/g, '').toUpperCase()) blocks.push(conflict(field, sourceValue, targetValue))
+    }
   }
-  if (kind === 'companies') for (const key of ['siren', 'lei', 'vat_number']) if (source.getString(key) && target.getString(key) && source.getString(key).replace(/\s/g, '').toUpperCase() !== target.getString(key).replace(/\s/g, '').toUpperCase()) blocks.push('Identifiants juridiques incompatibles : vérifiez les deux sociétés avant fusion.')
   const refs = require(`${__hooks}/lib/import-reference-merge.js`), external = [...refs.references(app, entity, sourceId), ...refs.references(app, entity, targetId)]
   const display = (record, key) => {
     const id = record.getString(key)
