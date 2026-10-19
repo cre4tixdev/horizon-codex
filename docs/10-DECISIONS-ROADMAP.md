@@ -3833,4 +3833,4 @@ Complément de recette : les deux parcours TimeReport finaux passent en 23,0 s a
 ### 19 octobre 2026 — Publication du correctif des conflits juridiques
 
 - Commit/push demandés pour les messages de fusion détaillés, tests et documentation associés. Vérification du périmètre : six fichiers attendus, diff --check réussi ; résultats lint/TypeScript, 19 tests serveur et parcours Chromium de l’intervention précédente conservés, aucun changement fonctionnel supplémentaire ni nouvelle exécution des suites. Statuts et compteurs inchangés.
-- Livraison : préparation du commit sur main et du push origin/main ; confirmation Git à consigner après publication. Pack fusion-identifiants inchangé, aucune installation NAS réalisée. Prochaine action : vérifier la synchronisation distante puis recette utilisateur après installation des hooks.
+- Livraison : correctif e86c62f committé sur main et poussé sur origin/main ; espace de travail propre et aucune divergence distante vérifiés. Pack fusion-identifiants inchangé, aucune installation NAS réalisée. Prochaine action : vérifier la synchronisation distante puis recette utilisateur après installation des hooks.
