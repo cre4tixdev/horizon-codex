@@ -1,3 +1,4 @@
+import { HLineAdditions } from '../../../shared/ui/HLineAdditions'
 import { billingService } from '../../billing/services/BillingService'
 import { useBillingAccess } from '../../billing/hooks/useBillingAccess'
 import { isUnusedQuoteLine } from '../services/quoteDefaults'
@@ -7,7 +8,7 @@ import { HTableViewport } from '../../../shared/ui/HTableViewport'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router'
 import { purchasingService, usePurchasingAccess } from '../../purchasing'
-import { QuoteProductPicker, AddProductButton } from './QuoteProductPicker'
+import { QuoteProductPicker } from './QuoteProductPicker'
 import { useCatalogAccess } from '../../inventory'
 import { useEffect, useRef, useState, type RefCallback } from 'react'
 import { useFieldArray, useWatch, type UseFormReturn } from 'react-hook-form'
@@ -117,7 +118,7 @@ export function QuoteLines({ form, editable, currency, settings, taxRate, record
 
     })}</tbody></table></HTableViewport>
     </HSortableRows>
-    {editable && <div className="quote-line-toolbar quote-line-additions"><AddProductButton disabled={array.fields.length >= 200} onClick={() => { const unused = values.length === 1 && isUnusedQuoteLine(values[0]) ? 0 : -1; setProductIndex(unused >= 0 ? unused : array.fields.length) }} />{([['item', 'Ajouter une ligne'], ['section', 'Titre niveau 1'], ['subsection', 'Titre niveau 2'], ['subsection3', 'Titre niveau 3'], ['subtitle', 'Sous-titre'], ['note', 'Note']] as const).map(([kind, label]) => <HButton key={kind} className={`quote-line-add--${kind}`} variant="ghost" size="small" disabled={array.fields.length >= 200} onClick={() => {
+    {editable && <HLineAdditions disabled={array.fields.length >= 200} onProduct={catalogAccess.canRead ? () => { const unused = values.length === 1 && isUnusedQuoteLine(values[0]) ? 0 : -1; setProductIndex(unused >= 0 ? unused : array.fields.length) } : undefined} onAdd={(kind) => {
       const unused = values.length === 1 && isUnusedQuoteLine(values[0]) ? 0 : -1, index = unused >= 0 ? unused : array.fields.length, kinds = [...form.getValues('lines').map((line) => line.kind), kind]
       setFolded((current) => new Set([...current].filter((id) => {
         const parent = array.fields.findIndex((field) => field.id === id)
@@ -125,7 +126,7 @@ export function QuoteLines({ form, editable, currency, settings, taxRate, record
       })))
       if (unused >= 0) { array.update(unused, emptyQuoteLine(kind)); requestAnimationFrame(() => form.setFocus(`lines.${index}.description`)) }
       else array.append(emptyQuoteLine(kind), { focusName: `lines.${index}.description` })
-    }}><Plus size={13} />{label}</HButton>)}</div>}
+    }} />}
     {!array.fields.length && <p className="contact-muted">Ajoutez un article, une section ou une note.</p>}
     <div className="quote-footer-layout"><section className="quote-terms"><HSectionHeading title="Conditions générales de vente" icon={FileText} /><HCombobox label="Conditions générales de vente" value={termsId} options={termsOptions} showCodes={false} disabled={!editable || status === 'accepted'} onChange={(id) => form.setValue('terms_id', id, { shouldDirty: true })} /><div className="quote-terms-content">{selectedTerms?.content || <span className="contact-muted">Sélectionnez des conditions générales de vente.</span>}</div></section><div className="quote-summary">{discount > 0 && <div className="sales-quote-totals"><span>HT avant remise globale</span><strong>{formatAmount(preview.subtotal_before_discount, currency)}</strong></div>}<div className="sales-quote-totals quote-total-ht"><span>Total HT</span><strong>{formatAmount(preview.subtotal, currency)}</strong></div>{(discountVisible || discount > 0) ? <div className="sales-quote-totals quote-footer-discount">
         <span className="quote-discount-label">Remise globale{editable && <HButton className="quote-remove-discount" variant="ghost" size="icon" aria-label="Retirer la remise globale" title="Retirer la remise globale" onClick={() => { form.setValue('discount', 0, { shouldDirty: true }); form.setValue('discount_mode', 'percent', { shouldDirty: true }); setDiscountVisible(false) }}><Trash2 size={13} /></HButton>}</span>

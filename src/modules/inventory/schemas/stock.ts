@@ -8,7 +8,7 @@ export const stockChoicesSchema = z.object({ products: z.array(z.object({ id: z.
 export const reservationChoicesSchema = z.object({ revision: z.string(), lines: z.array(z.object({ source_line: z.string(), description: z.string(), quantity: z.number(), capacity: z.number(), unit: z.string(), reservable: z.boolean(), selected: z.array(z.object({ lot: z.string().default(''), serial: z.string().default(''), location: z.string(), quantity: z.number() })), locations: z.array(balanceSchema.extend({ lot: z.string().default(''), serial: z.string().default(''), id: z.string(), name: z.string() })) })) })
 export type StockRow = z.infer<typeof stockRowSchema>
 export type ReservationChoices = z.infer<typeof reservationChoicesSchema>
-export type StockQuery = { availability?: string; q: string; product: string; location: string; page: number; sort: string; group: string }
+export type StockQuery = { perPage?: number; availability?: string; q: string; product: string; location: string; page: number; sort: string; group: string }
 export type StockAdjustment = { product: string; location: string; physical: number; expected: number; reason: string; operation_key: string }
 
 export const productReservationsSchema = z.object({ items: z.array(z.object({ id: z.string(), quantity: z.number(), actor: z.string(), created: z.string(), order_number: z.string(), affair_code: z.string(), client: z.string(), location: z.string() })) })

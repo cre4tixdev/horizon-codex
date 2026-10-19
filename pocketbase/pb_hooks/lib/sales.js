@@ -86,6 +86,7 @@ module.exports = {
     return event.json(200, { items })
   },
   list(event) {
+    const perPage = require(`${__hooks}/lib/list-page-size.js`)(event.requestInfo().query.perPage, 100)
     permissions(event.app, event.auth)
     const query = event.request.url.query(), conditions = [], parameters = {}
     const search = String(query.get('q') || '').trim()
@@ -103,13 +104,13 @@ module.exports = {
     if (all.length > 10000) throw new BadRequestError('Affinez la recherche des devis.')
     const derived = ['title', 'subtotal', 'kind', 'opportunity', 'company_name', 'status', 'customer_order_number']
     const projected = derived.includes(String(query.get('sort') || '').replace(/^-/, ''))
-    let items = (projected ? all : all.slice((page - 1) * 100, page * 100)).map((quote) => dto(event.app, quote))
+    let items = (projected ? all : all.slice((page - 1) * perPage, page * perPage)).map((quote) => dto(event.app, quote))
     if (projected) {
       const states = { draft: 'Brouillon', validated: 'Finalisé', sent: 'Envoyé', accepted: 'Commande client', rejected: 'Refusé', cancelled: 'Annulé' }, orders = { confirmed: 'Confirmée', in_progress: 'En cours', completed: 'Terminée' }
       require(`${__hooks}/lib/list-sorting.js`).rows(items, query.get('sort'), derived, 'company_name', (item, field) => field === 'kind' ? item.status === 'accepted' ? 'Commande client' : 'Devis' : field === 'opportunity' ? `${item.opportunity_number} · ${item.opportunity_name}` : field === 'customer_order_number' ? item.status === 'accepted' ? item.order?.customer_number || 'Attente Commande' : null : field === 'status' ? item.status === 'accepted' ? orders[item.order?.status] || 'Commande client' : states[item.status] : item[field])
-      items = items.slice((page - 1) * 100, page * 100)
+      items = items.slice((page - 1) * perPage, page * perPage)
     }
-    return event.json(200, { items, totalItems: all.length, totalPages: Math.ceil(all.length / 100), page })
+    return event.json(200, { items, totalItems: all.length, totalPages: Math.ceil(all.length / perPage), page })
   },
   save(event) {
     permissions(event.app, event.auth, true)

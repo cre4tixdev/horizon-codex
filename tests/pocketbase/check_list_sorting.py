@@ -30,6 +30,25 @@ class ListSortingTests(unittest.TestCase):
                     status,result=self.pb.request('GET',path+'?sort='+prefix+field,token=self.token)
                     self.assertEqual(status,200,(path,field,prefix,result))
 
+    def test_page_size_applies_before_projection_and_is_bounded(self):
+        rights=['inventory.read','inventory.write','sales.read','sales.write','purchasing.read','purchasing.write','billing.read','contacts.read','crm.read','expenses.read','leave.read']
+        self.pb.request('PATCH','collections/core_roles/records/'+self.user['role'],{'permissions':rights},self.pb.admin_token)
+        self.pb.request('PATCH','collections/core_users/records/'+self.user['id'],{'leave_scope':'self'},self.pb.admin_token)
+        for i in range(61): self.pb.create('contacts_companies', {'name': f'Pagination {i:03}', 'active': True})
+        for group in ['none', 'country']:
+            path=f'horizon/contacts/groups?kind=companies&group={group}&q=Pagination&perPage=50'
+            status,first=self.pb.request('GET',path,token=self.token); self.assertEqual(status,200,first)
+            status,last=self.pb.request('GET',path+'&page=2',token=self.token); self.assertEqual(status,200,last)
+            self.assertEqual(first['totalItems'],61); self.assertEqual(first['totalPages'],2)
+            self.assertEqual(len(first['items']),50); self.assertEqual(len(last['items']),11)
+            self.assertFalse(set(row['id'] for row in first['items']) & set(row['id'] for row in last['items']))
+        paths=['horizon/sales/quotes','horizon/purchasing/overview','horizon/purchasing/orders','horizon/purchasing/requests','horizon/billing/documents','horizon/billing/payments','horizon/inventory/products','horizon/inventory/stock','horizon/inventory/operations','horizon/crm/list-index','horizon/crm/tenders','horizon/expenses/reports','horizon/leave/requests']
+        for path in paths:
+            status,result=self.pb.request('GET',path+'?perPage=50',token=self.token); self.assertEqual(status,200,(path,result))
+            self.assertLessEqual(len(result['items']),50)
+            for invalid in ['0','101','abc','1.5']:
+                status,result=self.pb.request('GET',path+'?perPage='+invalid,token=self.token); self.assertEqual(status,400,(path,invalid,result))
+
     def test_relations_sort_with_permissions_and_navigation(self):
         company=self.pb.create('contacts_companies',{'name':'Autre société','active':True})
         person=self.pb.create('contacts_people',{'company':company['id'],'first_name':'Marie','last_name':'Tri','active':True})

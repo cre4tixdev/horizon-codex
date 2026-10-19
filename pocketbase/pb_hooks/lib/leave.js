@@ -109,6 +109,7 @@ module.exports = {
   },
   preview(e) { guard(e.app, e.auth); fields(e.requestInfo().body, ['start_date', 'end_date', 'start_half', 'end_half']); return e.json(200, calculate(e.requestInfo().body, policy(e.app))) },
   list(e) {
+    const perPage = require(`${__hooks}/lib/list-page-size.js`)(e.requestInfo().query.perPage, 30)
     guard(e.app, e.auth); const q = e.request.url.query(), u = e.auth, area = q.get('area') || 'own', year = Number(q.get('year') || new Date().getUTCFullYear())
     if (!Number.isInteger(year) || year < 2000 || year > 2200 || !['own', 'review'].includes(area)) throw new BadRequestError('Période ou vue invalide.')
     if (area === 'review' && !['reports', 'all'].includes(u.getString('leave_scope'))) throw new ForbiddenError('Vue manager refusée.')
@@ -120,8 +121,8 @@ module.exports = {
     const search = (q.get('q') || '').trim().toLocaleLowerCase('fr')
     rows = rows.filter((r) => (!chosen.length || chosen.includes(r.status)) && (!types.length || types.includes(get(e.app, 'leave_types', r.type).getString('code'))) && (!search || `${r.employee_name} ${r.type_label} ${r.reason} ${r.start_date} ${r.manager_name}`.toLocaleLowerCase('fr').includes(search)))
     require(`${__hooks}/lib/list-sorting.js`).rows(rows, q.get('sort') || '-start_date', ['employee', 'type', 'start_date', 'end_date', 'duration', 'manager', 'status'], 'start_date', (r, f) => ({ employee: r.employee_name, type: r.type_label, manager: r.manager_name, status: states[r.status] })[f] ?? r[f])
-    const totalItems = rows.length, totalPages = Math.max(1, Math.ceil(totalItems / 30)), page = Math.min(totalPages, Math.max(1, Math.trunc(Number(q.get('page'))) || 1))
-    return e.json(200, { items: rows.slice((page - 1) * 30, page * 30), page, totalItems, totalPages, summary, balances: u.getString('employee') ? balances(e.app, u.getString('employee'), year) : [] })
+    const totalItems = rows.length, totalPages = Math.max(1, Math.ceil(totalItems / perPage)), page = Math.min(totalPages, Math.max(1, Math.trunc(Number(q.get('page'))) || 1))
+    return e.json(200, { items: rows.slice((page - 1) * perPage, page * perPage), page, totalItems, totalPages, summary, balances: u.getString('employee') ? balances(e.app, u.getString('employee'), year) : [] })
   },
   record(e) { return e.json(200, dto(e.app, e.auth, read(e.app, e.auth, e.request.pathValue('id')))) },
   save(e) {

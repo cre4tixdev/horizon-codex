@@ -17,3 +17,5 @@ routerAdd('GET', '/api/horizon/billing/settings', (e) => require(`${__hooks}/lib
 routerAdd('POST', '/api/horizon/billing/settings', (e) => require(`${__hooks}/lib/billing.js`).saveSettings(e), $apis.requireAuth('core_users'))
 onRecordDelete(() => { throw new BadRequestError('Les pièces de facturation et règlements sont conservés.') }, 'billing_invoices', 'billing_supplier_invoices', 'billing_credit_notes', 'billing_supplier_credit_notes', 'billing_payments')
 routerAdd('GET', '/api/horizon/billing/related/{kind}/{id}', (e) => require(`${__hooks}/lib/billing.js`).related(e), $apis.requireAuth('core_users'))
+
+routerAdd('POST', '/api/horizon/billing/documents/calculate', (e) => require(`${__hooks}/lib/billing.js`).calculate(e), $apis.requireAuth('core_users'))

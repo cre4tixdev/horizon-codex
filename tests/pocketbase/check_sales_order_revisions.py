@@ -215,6 +215,23 @@ class BillingOrderRevisionTests(check_billing.BillingTests):
         final_invoice = self.validated(self.prepared_input(future))
         self.assertEqual(original['subtotal'] + final_invoice['subtotal'], saved['subtotal'])
 
+    def test_pending_deposit_credit_does_not_cover_invoiced_units(self):
+        quote = self.order()
+        status, prepared = self.prepare(quote, 'deposit'); self.assertEqual(status, 200, prepared)
+        deposit = self.validated(self.prepared_input(prepared))
+        status, prepared_credit = self.call('documents/credit', dict(kind='customer', id=deposit['id'])); self.assertEqual(status, 200, prepared_credit)
+        status, pending = self.save(self.prepared_input(prepared_credit), 'customer_credit'); self.assertEqual(status, 200, pending)
+        status, prepared = self.prepare(quote); self.assertEqual(status, 200, prepared)
+        invoice = self.validated(self.prepared_input(prepared))
+        body = self.revision_input(quote); body['input']['lines'][0]['quantity'] = 3
+        status, preview = self.preview_revision(body); self.assertEqual(status, 200, preview); self.assertEqual(preview['blocks'], [])
+        self.assertTrue(any('avoir brouillon' in item['message'] for item in preview['impacts']))
+        status, _ = self.save_revision(body, preview); self.assertEqual(status, 200)
+        credits = self.get('documents?kind=customer_credit&source_order=' + quote['id'])['items']
+        self.assertEqual(len(credits), 2)
+        regular = next(item for item in credits if item['source_invoice'] == invoice['id'])
+        self.assertEqual(self.get('record/customer_credit/' + regular['id'])['lines'][0]['quantity'], 1)
+
     def test_reducing_invoiced_quantity_prepares_one_draft_credit_and_reuses_it(self):
         quote = self.order()
         status, prepared = self.prepare(quote); self.assertEqual(status, 200, prepared)

@@ -67,9 +67,10 @@ module.exports = {
   availableByProduct(app, user, ids) { return new Map([...this.balancesByProduct(app, user, ids)].map(([id, value]) => [id, value.available])) },
   choices(event) { guard(event.app, event.auth); const app = event.app; return event.json(200, { locations: app.findRecordsByFilter('inventory_locations', 'active = true && warehouse.active = true', 'warehouse.name,name', 500, 0).map((item) => ({ id: item.id, name: `${c.get(app, 'inventory_warehouses', item.getString('warehouse')).getString('name')} · ${item.getString('name')}` })), warehouses: app.findRecordsByFilter('inventory_warehouses', 'active = true', 'name', 500, 0).map((item) => ({ id: item.id, name: item.getString('name') })), products: app.findRecordsByFilter('inventory_products', 'active = true && stock_policy != "none"', 'name', 500, 0).map((item) => ({ id: item.id, name: `${item.getString('manufacturer')} · ${item.getString('sku')} · ${item.getString('name')}` })) }) },
   list(event) {
+    const perPage = require(`${__hooks}/lib/list-page-size.js`)(event.requestInfo().query.perPage)
     guard(event.app, event.auth)
     const app = event.app, query = event.requestInfo().query
-    c.exact(query, ['q', 'product', 'location', 'availability', 'page', 'sort', 'group'])
+    c.exact(query, ['q', 'product', 'location', 'availability', 'page', 'perPage', 'sort', 'group'])
     const availability = require(`${__hooks}/lib/stock-list-filters.js`).values(query.availability, ['physical', 'reserved', 'available'], 'Disponibilité')
     const params = { q: String(query.q || '').slice(0, 200), product: query.product || '' }
     const filter = 'active = true && stock_policy != "none"' + (query.product ? ' && id = {:product}' : '')
@@ -121,7 +122,7 @@ module.exports = {
     require(`${__hooks}/lib/list-sorting.js`).rows(items, query.sort, ['name', 'sku', 'brand', 'location_name', 'physical', 'reserved', 'available', 'incoming', 'unit', 'valuation'], 'name', (item, field) => field === 'sku' ? item.reference : field === 'incoming' ? incomingFor(item.product) : field === 'valuation' ? valuationFor(item).valuation : item[field])
 
     const total = items.length
-    return event.json(200, { items: items.slice((page - 1) * 30, page * 30).map((item) => ({ ...item, ...valuationFor(item), incoming: incomingFor(item.product) })), page, totalItems: total, totalPages: Math.max(1, Math.ceil(total / 30)), summary })
+    return event.json(200, { items: items.slice((page - 1) * perPage, page * perPage).map((item) => ({ ...item, ...valuationFor(item), incoming: incomingFor(item.product) })), page, totalItems: total, totalPages: Math.max(1, Math.ceil(total / perPage)), summary })
   },
   adjust(event) { guard(event.app, event.auth, 'adjust'); const body = event.requestInfo().body; c.exact(body, ['product', 'location', 'physical', 'expected', 'reason', 'operation_key']); let result
     event.app.runInTransaction((app) => { guard(app, event.auth, 'adjust'); const product = productAt(app, body.product, body.location); if (product.getString('tracking') !== 'none') throw new BadRequestError('Corrigez un produit tracé avec un inventaire détaillé par identité.'); c.number(body.physical, 0, 1000000); c.number(body.expected, 0, 1000000); c.text(body.reason, 2000, true); if (!/^[a-zA-Z0-9-]{16,100}$/.test(body.operation_key || '')) throw new BadRequestError('Clé d’opération invalide.'); const previous = app.findRecordsByFilter('inventory_moves', 'operation_key = {:key}', '', 1, 0, { key: body.operation_key })[0]; if (previous) { if (previous.getString('actor') !== event.auth.id || previous.getString('product') !== body.product || previous.getString('location') !== body.location || Math.abs(previous.getFloat('quantity') - (body.physical - body.expected)) > 0.000001 || previous.getString('reason') !== body.reason.trim()) throw new ApiError(409, 'Cette opération existe avec d’autres valeurs.'); result = balance(app, body.product, body.location); return }

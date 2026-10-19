@@ -1,6 +1,7 @@
 module.exports = (event, navigation = false) => {
   if (!require(`${__hooks}/lib/activity.js`).allowed(event.app, event.auth)) throw new ForbiddenError('Accès refusé.')
   const query = event.request.url.query()
+  const perPage = require(`${__hooks}/lib/list-page-size.js`)(event.requestInfo().query.perPage, 25)
   const kind = query.get('kind'); const grouping = query.get('group') || 'none'; const state = query.get('state') || 'active'; const role = query.get('role') || 'all'
   const people = kind === 'people'
   const sorts = people ? ['last_name', 'email', 'phone', 'company', 'roles', 'status', 'job_title'] : ['name', 'email', 'legal_name', 'phone', 'roles', 'status']
@@ -12,7 +13,7 @@ module.exports = (event, navigation = false) => {
   const country = `COALESCE((SELECT a.country FROM contacts_addresses a WHERE a.company = ${companyId} AND a.type = 'registered' AND (a.is_primary = 1 OR (SELECT COUNT(*) FROM contacts_addresses ax WHERE ax.company = ${companyId} AND ax.type = 'registered') = 1) ORDER BY a.is_primary DESC, a.created, a.id LIMIT 1), '')`
   const key = grouping === 'none' ? "''" : grouping === 'company' ? "COALESCE(c.id, '')" : country
   const label = grouping === 'none' ? "''" : grouping === 'company' ? "COALESCE(c.name, '')" : `COALESCE((SELECT label FROM settings_countries WHERE code = ${country}), ${country})`
-  const params = { active: state === 'active', role, limit: 25, offset: (page - 1) * 25 }
+  const params = { active: state === 'active', role, limit: perPage, offset: (page - 1) * perPage }
   const conditions = [`${alias}.active = {:active}`]
   if (query.get('company')) { if (!people || !/^[a-z0-9]{15}$/.test(query.get('company'))) throw new BadRequestError('Société invalide.'); params.company = query.get('company'); conditions.push('p.company = {:company}') }
   if (role !== 'all') conditions.push(`EXISTS (SELECT 1 FROM contacts_company_roles r WHERE r.company = ${companyId} AND r.role = {:role} AND r.active = 1)`)
@@ -44,12 +45,12 @@ module.exports = (event, navigation = false) => {
   }
   const rows = arrayOf(new DynamicModel({ id: '', group_key: '', group_label: '' }))
   const counts = arrayOf(new DynamicModel({ group_key: '', group_label: '', total: 0 }))
-  // Counts and page come from the same snapshot; only 25 record ids leave the server.
+  // Counts and page come from the same snapshot; at most 100 record ids leave the server.
   event.app.runInTransaction((app) => {
     app.db().newQuery(`WITH matched AS (${base}) SELECT group_key, group_label, COUNT(*) AS total FROM matched GROUP BY group_key ORDER BY group_label COLLATE NOCASE, group_key`).bind(params).all(counts)
     app.db().newQuery(`WITH matched AS (${base}) SELECT id, group_key, group_label FROM matched ORDER BY group_label COLLATE NOCASE, group_key, sort_value COLLATE NOCASE ${direction.toUpperCase()}, id LIMIT {:limit} OFFSET {:offset}`).bind(params).all(rows)
   })
   const totalItems = counts.reduce((sum, group) => sum + group.total, 0)
   const visibleKeys = new Set(rows.map((row) => row.group_key))
-  return event.json(200, { items: rows, groups: counts.filter((group) => visibleKeys.has(group.group_key)), totalItems, totalPages: Math.ceil(totalItems / 25) })
+  return event.json(200, { items: rows, groups: counts.filter((group) => visibleKeys.has(group.group_key)), totalItems, totalPages: Math.ceil(totalItems / perPage) })
 }

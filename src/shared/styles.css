@@ -2734,3 +2734,13 @@ button.contact-card-title { padding: 0; border: 0; background: transparent; text
 
 .h-data-table[data-configurable][data-manual-sizing=true] { table-layout: fixed; }
 .h-data-table th .h-table-column-resizer:is(:disabled, [aria-disabled=true]) { cursor: wait; }
+
+/* Structured deposit heading shares the line grid and form control tokens. */
+.billing-deposit-heading { display: flex; align-items: center; gap: 6px; color: var(--theme-text, #091c3a); }
+.billing-deposit-heading .h-input, .billing-line-title { font-weight: 700; }
+
+.list-page-size { width: 126px; flex-shrink: 0; }
+.list-page-size .h-input { height: 30px; font-size: 11px; }
+@media (max-width: 700px) {
+  .page-breadcrumb-row:has(.list-page-size) .page-breadcrumb-controls { flex-wrap: wrap; justify-content: flex-end; }
+}

@@ -22,12 +22,14 @@ module.exports = {
     fields['invoice.reference'] = [snapshot.origin ? `Facture d’origine : ${snapshot.origin.number}${snapshot.origin.supplier_reference ? ` · ${snapshot.origin.supplier_reference}` : ''} du ${snapshot.origin.date.split('-').reverse().join('/')}` : '', stored.customer_order_number ? `Commande client : ${stored.customer_order_number}` : '', stored.supplier_invoice_number ? `Référence fournisseur : ${stored.supplier_invoice_number}` : ''].filter(Boolean).join('\n')
     fields['invoice.supplier_reference'] = stored.supplier_invoice_number || '—'
     fields['invoice.sources'] = snapshot.sources?.length ? snapshot.sources.map((source) => source.label.replace(/attente commande/gi, 'Attente Commande')).join(' · ') : snapshot.lines.filter((line) => line.source_order).map((line) => line.reference || line.description).filter((value, index, all) => all.indexOf(value) === index).join(' · ')
+    if (snapshot.deposit_heading) fields['invoice.sources'] = `${snapshot.deposit_heading}\n${fields['invoice.sources']}`
     fields['invoice.issuer'] = [issuer.name, issuer.address, `${issuer.postal_code} ${issuer.city}`, issuer.country, issuer.siret ? `SIRET ${issuer.siret}` : '', issuer.vat_number ? `TVA ${issuer.vat_number}` : '', issuer.email, issuer.phone].filter(Boolean).join('\n')
     fields['invoice.legal_notice'] = [issuer.legal_notice, issuer.discount_notice, issuer.late_payment_notice, issuer.recovery_notice].filter(Boolean).join('\n')
     fields['invoice.bank'] = [issuer.iban ? `IBAN ${issuer.iban}` : '', issuer.bic ? `BIC ${issuer.bic}` : ''].filter(Boolean).join(' · ')
     const taxes = new Map()
     for (const line of snapshot.lines.filter((line) => line.kind === 'item')) { const current = taxes.get(line.tax_code) || { base: 0, tax: 0, rate: line.tax_rate }; current.base += b.cents(line.line_total); current.tax += b.cents(line.tax_amount); taxes.set(line.tax_code, current) }
     fields['invoice.tax_breakdown'] = [...taxes].map(([code, value]) => `TVA ${value.rate} % : base ${formatted(value.base / 100)} · ${formatted(value.tax / 100)}${snapshot.tax_codes?.find((item) => item.code === code)?.mention ? ` · ${snapshot.tax_codes.find((item) => item.code === code).mention}` : ''}`).join('\n')
-    return { fields, lines: snapshot.lines, warnings: snapshot.warnings || [] }
+    const lines = snapshot.deposit_presentation === 2 ? [{ kind: 'subtitle', description: require(`${__hooks}/lib/billing-deposit.js`).label(stored.deposit_percent) }, ...snapshot.lines] : snapshot.lines
+    return { fields, lines, warnings: snapshot.warnings || [] }
   },
 }

@@ -52,6 +52,7 @@ module.exports = {
   get, linked, project, decide, filters,
   record(event) { authorize(event); return event.json(200, project(event.app, get(event.app, event.request.pathValue('id')))) },
   list(event) {
+    const perPage = require(`${__hooks}/lib/list-page-size.js`)(event.requestInfo().query.perPage, 100)
     authorize(event)
     const query = event.request.url.query(), { filter, parameters } = filters(query)
     const requestedPage = Number(query.get('page') || 1)
@@ -66,13 +67,13 @@ module.exports = {
     const field = sort.replace(/^-/, ''), direction = sort.startsWith('-') ? -1 : 1
     const ordered = matches.map((record) => { const source = ['title', 'estimated_value'].includes(field) ? linked(event.app, record) || record : record; return { record, value: field === 'estimated_value' ? source.getFloat(field) : source.getString(field) } }).sort((a, b) => direction * (typeof a.value === 'number' ? a.value - b.value : String(a.value).localeCompare(String(b.value))) || a.record.id.localeCompare(b.record.id))
     const projected = derived.includes(field)
-    let items = (projected ? ordered : ordered.slice((page - 1) * 100, page * 100)).map(({ record }) => project(event.app, record))
+    let items = (projected ? ordered : ordered.slice((page - 1) * perPage, page * perPage)).map(({ record }) => project(event.app, record))
     if (projected) {
       const label = (collection, id) => id ? event.app.findRecordById(collection, id).getString('label') : ''
       require(`${__hooks}/lib/list-sorting.js`).rows(items, sort, derived, 'company', (item, key) => key === 'company' ? item.expand.company?.name : key === 'owner' ? item.expand.owner?.name : key === 'visits' ? item.visit_count : key === 'documents' ? item.document_count : key === 'preparation' ? label('crm_tender_statuses', item.tender.status) : require(`${__hooks}/lib/list-sorting.js`).text([...(item.market_types || []).map((id) => label('crm_market_types', id)), ...(item.tender.tags || []).map((id) => label('crm_tender_tags', id))]))
-      items = items.slice((page - 1) * 100, page * 100)
+      items = items.slice((page - 1) * perPage, page * perPage)
     }
-    return event.json(200, { items, totalItems, totalPages: Math.ceil(totalItems / 100), page })
+    return event.json(200, { items, totalItems, totalPages: Math.ceil(totalItems / perPage), page })
   },
   summary(event) {
     authorize(event); const { filter, parameters } = filters(event.request.url.query())

@@ -2,7 +2,7 @@ import type { Layout } from '../../documents/schemas/templates'
 import { sendPdf } from '../../../core/pocketbase/pdf'
 import { z } from 'zod'
 import { createPocketBaseClient } from '../../../core/pocketbase/client'
-import { billSchema, pageSchema, choicesSchema, preparedSchema, dashboardSchema, paymentsSchema, settingsSchema, previewSchema, type BillKind, type BillInput, type PaymentInput, type BillingSettings, type Bill } from '../schemas/billing'
+import { billSchema, calculationSchema, pageSchema, choicesSchema, preparedSchema, dashboardSchema, paymentsSchema, settingsSchema, previewSchema, type BillKind, type BillInput, type PaymentInput, type BillingSettings, type Bill } from '../schemas/billing'
 export function createBillingRepository(url: string) {
   const client = createPocketBaseClient(url), base = '/api/horizon/billing'
   const post = (path: string, body: object) => client.send(base + path, { method: 'POST', body, requestKey: null })
@@ -14,6 +14,7 @@ export function createBillingRepository(url: string) {
     async list(query: Record<string, string | number>) { return pageSchema.parse(await client.send(base + '/documents', { query, requestKey: null })) },
     async record(kind: BillKind, id: string) { return billSchema.parse(await client.send(`${base}/record/${kind}/${id}`, { requestKey: null })) },
     async save(kind: BillKind, input: BillInput, creation_key: string, record?: Bill) { return billSchema.parse(await post('/documents/save', { kind, input, creation_key, ...(record ? { id: record.id, updated: record.updated } : {}) })) },
+    async calculate(kind: BillKind, input: BillInput, record?: Bill) { return calculationSchema.parse(await post('/documents/calculate', { kind, input, ...(record ? { id: record.id, updated: record.updated } : {}) })) },
     async prepare(kind: BillKind, source_type: 'order' | 'operation', source_ids: string[], mode: 'standard' | 'deposit' | 'balance', deposit_percent: number) { return preparedSchema.parse(await post('/documents/prepare', { kind, source_type, source_ids, mode, deposit_percent })) },
     async credit(kind: BillKind, id: string) { return preparedSchema.parse(await post('/documents/credit', { kind, id })) },
     async transition(record: Bill, action: string) { return billSchema.parse(await post('/documents/transition', { kind: record.kind, id: record.id, updated: record.updated, action })) },

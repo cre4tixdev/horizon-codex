@@ -102,7 +102,7 @@ class BillingTests(unittest.TestCase):
         status, result = self.action(draft); self.assertEqual(status, 200, result); return result
     def prepared_input(self, prepared):
         data = copy.deepcopy(self.input)
-        for key in ['company', 'invoice_kind', 'title', 'lines', 'source_orders', 'source_operations', 'deduction_ids', 'source_invoice']:
+        for key in ['company', 'invoice_kind', 'deposit_percent', 'title', 'lines', 'source_orders', 'source_operations', 'deduction_ids', 'source_invoice']:
             if key in prepared: data[key] = prepared[key]
         return data
     def prepare(self, order, mode='standard', percent=30):
@@ -152,6 +152,58 @@ class BillingTests(unittest.TestCase):
         response = blocked()
         self.assertTrue(all(not doc['href'] and not doc['label'] for doc in response['data']['documents']))
         self.assertNotIn(invoice['id'], json.dumps(response))
+
+    def test_deposit_heading_and_legacy_draft_preserve_validated_snapshot(self):
+        order = self.order()
+        status, prepared = self.prepare(order, 'deposit'); self.assertEqual(status, 200, prepared)
+        self.assertEqual(prepared['deposit_percent'], 30)
+        self.assertEqual(prepared['lines'][0]['description'], 'Installation')
+        self.assertEqual(prepared['lines'][0]['quantity'], 4)
+        status, draft = self.save(self.prepared_input(prepared)); self.assertEqual(status, 200, draft)
+        preview = self.call('preview', dict(kind='customer', id=draft['id'], format='html'))[1]
+        self.assertIn('Acompte de 30 %', preview['html']); self.assertNotIn('Acompte 30 % · Installation', preview['html'])
+        # Simulate an older preparation already on the NAS, without touching production.
+        row = self.pb.request('GET', 'collections/billing_invoice_lines/records', token=self.pb.admin_token)[1]['items'][0]
+        self.pb.request('PATCH', 'collections/billing_invoice_lines/records/' + row['id'], dict(description='Acompte 30 % · Installation', quantity=1.2), self.pb.admin_token)
+        self.pb.request('PATCH', 'collections/billing_invoices/records/' + draft['id'], dict(title='Ancienne préparation', deposit_percent=0), self.pb.admin_token)
+        draft = self.get('record/customer/' + draft['id'])
+        legacy_preview = self.call('preview', dict(kind='customer', id=draft['id'], format='html'))[1]
+        self.assertIn('Acompte de 30 %', legacy_preview['html']); self.assertNotIn('Acompte 30 % · Installation', legacy_preview['html'])
+        self.assertEqual(draft['title'], 'Ancienne préparation'); self.assertEqual(draft['deposit_percent'], 30); self.assertEqual(draft['lines'][0]['quantity'], 4); self.assertEqual(draft['lines'][0]['description'], 'Installation')
+        status, invoice = self.action(draft); self.assertEqual(status, 200, invoice)
+        self.assertEqual(invoice['total'], 144); self.assertEqual(invoice['lines'][0]['description'], 'Installation')
+        before = self.pb.request('GET', 'collections/billing_invoices/records/' + invoice['id'], token=self.pb.admin_token)[1]['document_snapshot']
+        self.get('record/customer/' + invoice['id']); self.call('preview', dict(kind='customer', id=invoice['id'], format='html'))
+        after = self.pb.request('GET', 'collections/billing_invoices/records/' + invoice['id'], token=self.pb.admin_token)[1]['document_snapshot']
+        self.assertEqual(before, after); self.assertEqual(after['deposit_presentation'], 2); self.assertEqual(after['fields']['deposit_percent'], 30)
+
+    def test_deposit_percentage_calculation_validation_and_credit(self):
+        order = self.order()
+        status, prepared = self.prepare(order, 'deposit'); self.assertEqual(status, 200, prepared)
+        data = self.prepared_input(prepared)
+        status, draft = self.save(data); self.assertEqual(status, 200, draft)
+        data['deposit_percent'] = 40
+        body = dict(kind='customer', id=draft['id'], updated=draft['updated'], input=data)
+        status, calculated = self.call('documents/calculate', body); self.assertEqual(status, 200, calculated)
+        self.assertEqual(calculated['total'], 192); self.assertEqual(calculated['lines'][0]['quantity'], 4); self.assertEqual(calculated['lines'][0]['base_total'], 160)
+        unchanged = self.get('record/customer/' + draft['id']); self.assertEqual(unchanged['deposit_percent'], 30); self.assertEqual(unchanged['updated'], draft['updated'])
+        modified = copy.deepcopy(data); modified['lines'][0]['quantity'] = 1
+        self.assertEqual(self.call('documents/calculate', dict(body, input=modified))[0], 400)
+        for invalid in [0, -1, 101]:
+            self.assertEqual(self.call('documents/calculate', dict(body, input=dict(data, deposit_percent=invalid)))[0], 400)
+        status, draft = self.save(data, record=draft); self.assertEqual(status, 200, draft)
+        self.assertEqual(draft['deposit_percent'], 40); self.assertEqual(draft['total'], 192)
+        status, invoice = self.action(draft); self.assertEqual(status, 200, invoice)
+        self.assertEqual(self.save(data, record=invoice)[0], 400)
+        self.assertEqual(self.call('documents/calculate', dict(body, updated=invoice['updated']))[0], 400)
+        status, credit = self.call('documents/credit', dict(kind='customer', id=invoice['id'])); self.assertEqual(status, 200, credit)
+        credit['lines'][0]['quantity'] = 1
+        credit_input = self.prepared_input(credit); credit_input['deposit_percent'] = 99
+        result = self.validated(credit_input, 'customer_credit')
+        self.assertEqual(result['deposit_percent'], 40); self.assertEqual(result['total'], 48)
+        self.assertEqual(result['lines'][0]['quantity'], 1)
+        self.pb.request('PATCH', 'collections/core_roles/records/' + self.user['role'], dict(permissions=['billing.read']), self.pb.admin_token)
+        self.assertEqual(self.call('documents/calculate', body)[0], 403)
 
     def test_partial_order_deposit_balance_and_duplicate_prevention(self):
         order = self.order()
@@ -268,6 +320,17 @@ class SupplierBillingTests(unittest.TestCase):
         data = f'--{boundary}\r\nContent-Disposition: form-data; name="updated"\r\n\r\n{invoice["updated"]}\r\n--{boundary}\r\nContent-Disposition: form-data; name="attachments"; filename="original.pdf"\r\nContent-Type: application/pdf\r\n\r\n%PDF-1.7\nOriginal test\n%%EOF\r\n--{boundary}--\r\n'.encode()
         request = Request(self.pb.url + '/api/horizon/billing/files/' + invoice['kind'] + '/' + invoice['id'], method='POST', data=data, headers={'Authorization': self.token, 'Content-Type': f'multipart/form-data; boundary={boundary}'})
         with urlopen(request, timeout=10) as response: return json.load(response)
+    def test_supplier_deposit_keeps_quantities_and_percentage(self):
+        status, order = self.pb.request('POST', 'horizon/purchasing/orders/save', dict(creation_key=str(uuid.uuid4()), input=dict(self.fixture.input, supplier=self.fixture.supplier['id'])), self.token); self.assertEqual(status, 200, order)
+        status, order = check_purchasing.PurchasingTests.transition(self.fixture, 'orders', order); self.assertEqual(status, 200, order)
+        status, prepared = self.call('documents/prepare', dict(kind='supplier', source_type='order', source_ids=[order['id']], mode='deposit', deposit_percent=12.5)); self.assertEqual(status, 200, prepared)
+        self.assertEqual(prepared['deposit_percent'], 12.5); self.assertEqual(prepared['lines'][0]['quantity'], order['lines'][0]['quantity'])
+        status, draft = self.save(self.prepared_input(prepared), 'supplier'); self.assertEqual(status, 200, draft)
+        self.assertGreater(draft['total'], 0); self.assertEqual(draft['issues'], [])
+        draft = self.attach(draft)
+        status, invoice = self.action(draft); self.assertEqual(status, 200, invoice)
+        self.assertEqual(invoice['deposit_percent'], 12.5); self.assertEqual(invoice['lines'][0]['quantity'], order['lines'][0]['quantity'])
+
     def test_supplier_order_matching_original_differences_and_duplicates(self):
         status, order = self.pb.request('POST', 'horizon/purchasing/orders/save', dict(creation_key=str(uuid.uuid4()), input=dict(self.fixture.input, supplier=self.fixture.supplier['id'])), self.token); self.assertEqual(status, 200, order)
         status, order = check_purchasing.PurchasingTests.transition(self.fixture, 'orders', order); self.assertEqual(status, 200, order)

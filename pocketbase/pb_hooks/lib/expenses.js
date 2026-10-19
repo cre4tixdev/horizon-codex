@@ -91,6 +91,7 @@ module.exports = {
     return e.json(200, { employee: linked?.id || '', employee_name: linked ? name(e.app, 'hr_employees', linked.id) : '', default_validator: principal, validators, categories: e.app.findRecordsByFilter('expenses_categories', '', 'sort_order,label', 0, 0).map((r) => r.publicExport()), companies, contacts, opportunities, can_review: (rights.includes('expenses.validate') || rights.includes('expenses.reimburse')) && ['reports', 'all'].includes(e.auth.getString('expenses_scope')), can_reimburse: rights.includes('expenses.reimburse') && e.auth.getString('expenses_scope') === 'all', global: e.auth.getString('expenses_scope') === 'all', vehicles: linked ? e.app.findRecordsByFilter('expenses_vehicles', 'active = true && employee = {:employee}', 'brand,model,registration', 0, 0, { employee: linked.id }).map((v) => ({ id: v.id, label: vehicleLabel(v) })) : [] })
   },
   list(e) {
+    const perPage = require(`${__hooks}/lib/list-page-size.js`)(e.requestInfo().query.perPage, 30)
     guard(e.app, e.auth)
     const q = e.request.url.query(), area = q.get('area') || 'own'
     if (!['own', 'review'].includes(area)) throw new BadRequestError('Vue invalide.')
@@ -107,9 +108,9 @@ module.exports = {
     const derived = ['validator', 'status'].includes(String(q.get('sort') || '').replace(/^-/, ''))
     if (!sort && !derived) throw new BadRequestError('Tri invalide.')
     const records = e.app.findRecordsByFilter('expenses_reports', filter, sort || '-month,id', 0, 0, params), summary = Object.fromEntries(Object.keys(statuses).map((s) => [s, records.filter((r) => r.getString('status') === s).length])), selectedRecords = records.filter((r) => !selected.length || selected.includes(r.getString('status')))
-    const totalItems = selectedRecords.length, totalPages = Math.max(1, Math.ceil(totalItems / 30)), page = Math.min(totalPages, Math.max(1, Math.trunc(Number(q.get('page'))) || 1))
-    let items = (derived ? selectedRecords : selectedRecords.slice((page - 1) * 30, page * 30)).map((r) => dto(e.app, r, false))
-    if (derived) { require(`${__hooks}/lib/list-sorting.js`).rows(items, q.get('sort'), ['validator', 'status'], 'status', (item, field) => field === 'validator' ? item.validator_name : statuses[item.status]); items = items.slice((page - 1) * 30, page * 30) }
+    const totalItems = selectedRecords.length, totalPages = Math.max(1, Math.ceil(totalItems / perPage)), page = Math.min(totalPages, Math.max(1, Math.trunc(Number(q.get('page'))) || 1))
+    let items = (derived ? selectedRecords : selectedRecords.slice((page - 1) * perPage, page * perPage)).map((r) => dto(e.app, r, false))
+    if (derived) { require(`${__hooks}/lib/list-sorting.js`).rows(items, q.get('sort'), ['validator', 'status'], 'status', (item, field) => field === 'validator' ? item.validator_name : statuses[item.status]); items = items.slice((page - 1) * perPage, page * perPage) }
     return e.json(200, { items, page, totalItems, totalPages, summary })
   },
   record(e) { return e.json(200, dto(e.app, read(e.app, e.auth, e.request.pathValue('id')))) },

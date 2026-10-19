@@ -92,7 +92,8 @@ const prepareOrders = (app, user, selections, creationKey) => {
 const sortField = (sort, kind) => require(`${__hooks}/lib/list-sorting.js`).sql(String(sort || '').replace(/^(-?)number$/, '$1' + kind + '_number'), ['created', 'title', kind + '_number', 'document_date', 'needed_date'], '-created')
 const listValues = (input, allowed, label) => { if (!input) return []; const result = String(input).split(','); if (result.length > allowed.length || new Set(result).size !== result.length || result.some((value) => !allowed.includes(value))) throw new BadRequestError(`${label} invalide.`); return result }
 const readList = (event, kind, query = event.requestInfo().query, overview = false) => {
-  c.guard(event.app, event.auth); const app = event.app, filters = [], params = {}; c.exact(query, ['q', 'kind', 'status', 'state', 'supplier', 'opportunity', 'product', 'source_order', 'source_line', 'request_line', 'request', 'order', 'page', 'sort', 'group'])
+  const perPage = require(`${__hooks}/lib/list-page-size.js`)(query.perPage)
+  c.guard(event.app, event.auth); const app = event.app, filters = [], params = {}; c.exact(query, ['q', 'kind', 'status', 'state', 'supplier', 'opportunity', 'product', 'source_order', 'source_line', 'request_line', 'request', 'order', 'page', 'perPage', 'sort', 'group'])
   const state = query.state || (query.status === 'archived' ? 'archived' : 'active')
   if (!['active', 'archived'].includes(state)) throw new BadRequestError('Archives invalides.')
   const archiveFilter = state === 'archived' ? 'archived_at != ""' : 'archived_at = ""', statusFilters = [archiveFilter]
@@ -122,7 +123,7 @@ const readList = (event, kind, query = event.requestInfo().query, overview = fal
   for (const record of summaryRecords) { const status = record.getString('status'); summary[status] = (summary[status] || 0) + 1 }
   const filter = [...statusFilters, ...filters].join(' && '), page = Math.max(1, Number(query.page) || 1), records = app.findRecordsByFilter(table(kind), filter, sortField(query.sort, kind) + ',id', 10001, 0, params), total = records.length
   if (total > 10000) throw new BadRequestError('Affinez les filtres pour limiter la liste à 10 000 pièces.');
-  return { records, page, totalItems: total, totalPages: Math.max(1, Math.ceil(total / 30)), summary }
+  return { records, page, totalItems: total, totalPages: Math.max(1, Math.ceil(total / perPage)), summary }
 }
 const projectedFields = ['kind', 'supplier_name', 'affairs', 'amount', 'status']
 const projectedValue = (item, field) => {
@@ -140,13 +141,15 @@ module.exports = {
   choices(event) { c.guard(event.app, event.auth); const app = event.app, rights = c.policy.permissions(app, event.auth); return event.json(200, { fixed_accounts: require(`${__hooks}/lib/analytic-fixed.js`).choices(app), commands: rights.includes('sales.read') && rights.includes('crm.read') ? app.findRecordsByFilter('sales_orders', 'status = "confirmed"', '-created,id', 0, 0).map((order) => ({ id: order.id, quote: order.getString('quote'), opportunity: order.getString('opportunity'), code: c.get(app, 'sales_quotes', order.getString('quote')).getString('quote_number') })) : [], suppliers: app.findRecordsByFilter('contacts_companies', 'active = true && contacts_company_roles_via_company.role ?= "supplier" && contacts_company_roles_via_company.active ?= true', 'name,id', 500, 0).map((item) => ({ id: item.id, name: item.getString('name'), vat_number: require(`${__hooks}/lib/contacts-document-context.js`).supplierIdentity(item).vat_number || '' })), buyers: app.findRecordsByFilter('core_users', 'active = true', 'name,id', 0, 0).filter((user) => c.allowed(app, user, 'write')).map((user) => ({ id: user.id, name: user.getString('name') })), warehouses: require(`${__hooks}/lib/stock.js`).deliveryChoices(app, event.auth), default_owner: event.auth.id, default_warehouse: require(`${__hooks}/lib/stock.js`).defaultDeliveryWarehouse(app, event.auth), products: rights.includes('inventory.read') ? app.findRecordsByFilter('inventory_products', 'active = true && purchase_enabled = true', 'name,id', 500, 0).map((item) => ({ id: item.id, name: `${item.getString('manufacturer')} · ${item.getString('sku')} · ${item.getString('name')}` })) : [], opportunities: rights.includes('crm.read') ? app.findRecordsByFilter('crm_opportunities', 'active = true', '-created', 500, 0).map((item) => ({ id: item.id, code: item.getString('opportunity_number'), client: rights.includes('contacts.read') && item.getString('company') ? c.get(app, 'contacts_companies', item.getString('company')).getString('name') : '', name: `${item.getString('opportunity_number')} · ${item.getString('title')}`, allocation_label: [item.getString('opportunity_number'), rights.includes('contacts.read') && item.getString('company') ? c.get(app, 'contacts_companies', item.getString('company')).getString('name') : '', item.getString('title')].filter(Boolean).join(' · '), currency: item.getString('currency') })) : [], units: app.findRecordsByFilter('inventory_units', 'active = true', 'label', 500, 0).map((item) => ({ code: item.getString('code'), label: item.getString('label') })), currencies: app.findRecordsByFilter('accounting_currencies', 'active = true', 'code', 100, 0).map((item) => item.getString('code')), settings: app.findAllRecords('settings_purchasing')[0].publicExport() }) },
   product(event) { c.guard(event.app, event.auth); return event.json(200, require(`${__hooks}/lib/catalog-procurement.js`)(event.app, event.auth, event.request.pathValue('id'), event.requestInfo().query.supplier || '', event.requestInfo().query.currency || '')) },
   list(event, kind) {
+    const perPage = require(`${__hooks}/lib/list-page-size.js`)(event.requestInfo().query.perPage)
     const { records, ...data } = readList(event, kind)
     const sort = event.requestInfo().query.sort, projected = projectedFields.includes(String(sort || '').replace(/^-/, ''))
-    let items = (projected ? records : records.slice((data.page - 1) * 30, data.page * 30)).map((record) => ({ ...c.dto(event.app, event.auth, kind, record), kind: kind === 'order' ? 'orders' : 'requests' }))
-    if (projected) { require(`${__hooks}/lib/list-sorting.js`).rows(items, sort, projectedFields, 'status', projectedValue); items = items.slice((data.page - 1) * 30, data.page * 30) }
+    let items = (projected ? records : records.slice((data.page - 1) * perPage, data.page * perPage)).map((record) => ({ ...c.dto(event.app, event.auth, kind, record), kind: kind === 'order' ? 'orders' : 'requests' }))
+    if (projected) { require(`${__hooks}/lib/list-sorting.js`).rows(items, sort, projectedFields, 'status', projectedValue); items = items.slice((data.page - 1) * perPage, data.page * perPage) }
     return event.json(200, { ...data, items })
   },
   overview(event) {
+    const perPage = require(`${__hooks}/lib/list-page-size.js`)(event.requestInfo().query.perPage)
     const query = event.requestInfo().query, scope = String(query.status || ''), data = {}, selectedKinds = listValues(query.kind || (['requests', 'orders'].includes(scope) ? scope : ''), ['requests', 'orders'], 'Types de pièces Achats')
     // Virtual filters select a document type; they never change a document status.
     for (const kind of ['request', 'order']) data[kind] = readList(event, kind, { ...query, status: ['requests', 'orders'].includes(scope) ? scope === 'requests' ? 'pending' : '' : scope }, true)
@@ -161,9 +164,9 @@ module.exports = {
     const page = data.request.page, requests = data.request.summary, orders = data.order.summary
     const summary = { requests: ['draft', 'validated', 'partially_ordered'].reduce((total, state) => total + (requests[state] || 0), 0), orders: Object.values(orders).reduce((total, count) => total + count, 0), draft: (!selectedKinds.length || selectedKinds.includes('requests') ? requests.draft || 0 : 0) + (!selectedKinds.length || selectedKinds.includes('orders') ? orders.draft || 0 : 0), validated: (!selectedKinds.length || selectedKinds.includes('requests') ? requests.validated || 0 : 0) + (!selectedKinds.length || selectedKinds.includes('orders') ? orders.validated || 0 : 0) }
     const projected = projectedFields.includes(String(query.sort || '').replace(/^-/, ''))
-    let items = (projected ? rows : rows.slice((page - 1) * 30, page * 30)).map(({ kind, record }) => ({ ...c.dto(event.app, event.auth, kind, record), kind: kind === 'request' ? 'requests' : 'orders' }))
-    if (projected) { require(`${__hooks}/lib/list-sorting.js`).rows(items, query.sort, projectedFields, 'status', projectedValue); items = items.slice((page - 1) * 30, page * 30) }
-    return event.json(200, { items, page, totalItems: rows.length, totalPages: Math.max(1, Math.ceil(rows.length / 30)), summary })
+    let items = (projected ? rows : rows.slice((page - 1) * perPage, page * perPage)).map(({ kind, record }) => ({ ...c.dto(event.app, event.auth, kind, record), kind: kind === 'request' ? 'requests' : 'orders' }))
+    if (projected) { require(`${__hooks}/lib/list-sorting.js`).rows(items, query.sort, projectedFields, 'status', projectedValue); items = items.slice((page - 1) * perPage, page * perPage) }
+    return event.json(200, { items, page, totalItems: rows.length, totalPages: Math.max(1, Math.ceil(rows.length / perPage)), summary })
   },
   record(event, kind) { c.guard(event.app, event.auth); return event.json(200, c.dto(event.app, event.auth, kind, c.get(event.app, table(kind), event.request.pathValue('id')))) },
   needs(event) { return event.json(200, needsFor(event.app, event.auth, event.request.pathValue('id'), event.requestInfo().query.preview === 'true')) },

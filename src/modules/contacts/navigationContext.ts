@@ -3,7 +3,7 @@ import { filterValue } from '../../shared/search/filters'
 import { contactStateFilter, contactRoleFilter, contactGroupingFilter, contactSortFilter } from './searchFilters'
 import type { ContactKind, ListOptions } from './types/contacts'
 
-const contextSchema = z.object({ kind: z.enum(['companies', 'people']), query: z.string().max(2000), page: z.number().int().min(1).max(100000) })
+const contextSchema = z.object({ kind: z.enum(['companies', 'people']), query: z.string().max(2000), page: z.number().int().min(1).max(100000), perPage: z.number().int().min(1).max(100).optional() })
 export type ContactDirectoryContext = z.infer<typeof contextSchema>
 
 export function directoryContext(state: unknown, kind: ContactKind): ContactDirectoryContext | undefined {

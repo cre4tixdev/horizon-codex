@@ -1,3 +1,4 @@
+import { useListPageSize } from '../../../shared/hooks/useListPageSize'
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { Link, useLocation, useSearchParams, useNavigate } from 'react-router'
 import type { ColumnDef, SortingState } from '@tanstack/react-table'
@@ -44,11 +45,12 @@ export function ContactsPage({ kind = 'companies' }: { kind?: ContactKind }) {
     const value = next[0] ? `${next[0].id}:${next[0].desc ? 'desc' : 'asc'}` : sortDefinition.defaultValue
     setSearchParams((current) => { const params = new URLSearchParams(current); if (value === sortDefinition.defaultValue) params.delete('sort'); else params.set('sort', value); return params })
   }
-  const [pagination, setPagination] = useState({ search, kind, archived, role, group, selectedSort, page: returnedDirectory?.query === searchParams.toString() ? returnedDirectory.page : 1 })
-  const sameContext = pagination.search === search && pagination.kind === kind && pagination.archived === archived && pagination.role === role && pagination.group === group && pagination.selectedSort === selectedSort
+  const { onMount: listRoot, perPage, control: pageSizeControl } = useListPageSize(view === 'cards' ? 'cards' : 'list', true, returnedDirectory?.perPage)
+  const [pagination, setPagination] = useState({ search, kind, archived, role, group, selectedSort, perPage: perPage, sizeMode: searchParams.get('perPage'), view, page: returnedDirectory?.query === searchParams.toString() ? returnedDirectory.page : 1 })
+  const sameContext = pagination.sizeMode === searchParams.get('perPage') && pagination.view === view && pagination.perPage === perPage && pagination.search === search && pagination.kind === kind && pagination.archived === archived && pagination.role === role && pagination.group === group && pagination.selectedSort === selectedSort
   const page = sameContext ? pagination.page : 1
-  if (!sameContext) setPagination({ search, kind, archived, role, group, selectedSort, page: 1 })
-  const setPage = (next: number) => setPagination({ search, kind, archived, role, group, selectedSort, page: next })
+  if (!sameContext) setPagination({ search, kind, archived, role, group, selectedSort, perPage: perPage, sizeMode: searchParams.get('perPage'), view, page: 1 })
+  const setPage = (next: number) => setPagination({ search, kind, archived, role, group, selectedSort, perPage: perPage, sizeMode: searchParams.get('perPage'), view, page: next })
   function tabHref(target: ContactKind) {
     const params = new URLSearchParams(searchParams)
     if (params.get('q')) params.set('scope', target); else params.delete('scope')
@@ -59,9 +61,9 @@ export function ContactsPage({ kind = 'companies' }: { kind?: ContactKind }) {
     if (sort?.startsWith('last_name:') && target === 'companies') params.set('sort', sort.replace('last_name:', 'name:'))
     return `${target === 'companies' ? '/contacts' : '/contacts/people'}${params.size ? `?${params}` : ''}`
   }
-  const directory = { kind, query: searchParams.toString(), page }
+  const directory = { kind, query: searchParams.toString(), page, perPage: perPage }
   const linkState = { contactDirectory: directory }
-  const records = useContactList(kind, { search, archived, role, group, page, sort: sortId, descending: sortDirection === 'desc' }, canRead)
+  const records = useContactList(kind, { search, archived, role, group, page, perPage: perPage, sort: sortId, descending: sortDirection === 'desc' }, canRead)
   const otherKind = kind === 'companies' ? 'people' : 'companies'
   const autoSearch = canRead && Boolean(search.trim()) && !['companies', 'people'].includes(searchParams.get('scope') ?? '')
   const otherRecords = useContactList(otherKind, { search, archived, role, page: 1 }, autoSearch)
@@ -101,8 +103,8 @@ export function ContactsPage({ kind = 'companies' }: { kind?: ContactKind }) {
   const renderRecords = (items: (Company | Person)[]) => view === 'cards' ? <ContactCards records={items} directory={directory} /> : kind === 'companies'
     ? <HDataTable columnSettings={{ id: `contacts.${kind}`, defaultHidden: ['city', 'country', 'vat_number', 'siren', 'siret', 'website', 'billing_email'] }} columnBorders columnAlignments={{ status: 'center' }} getRowLink={(company) => ({ href: `/contacts/companies/${company.id}`, state: linkState, label: `Ouvrir la fiche de ${company.name}` })} data={items.filter((item): item is Company => 'name' in item)} columns={companyColumns} sorting={sorting} onSortingChange={setSorting} />
     : <HDataTable columnSettings={{ id: `contacts.${kind}`, defaultHidden: ['mobile'] }} columnBorders columnAlignments={{ status: 'center' }} getRowLink={(person) => ({ href: `/contacts/people/${person.id}`, state: linkState, label: `Ouvrir la fiche de ${[person.first_name, person.last_name].filter(Boolean).join(' ')}` })} data={items.filter((item): item is Person => 'first_name' in item)} columns={personColumns} sorting={sorting} onSortingChange={setSorting} />
-  return <div className="contact-directory" aria-busy={records.isFetching}>
-    {canRead && <HListPagination page={page} totalPages={records.data?.totalPages} label="Pagination des contacts" busy={records.isFetching} onPageChange={(nextPage) => setPage(nextPage)} />}
+  return <div ref={listRoot} className="contact-directory" aria-busy={records.isFetching}>
+    {canRead && <HListPagination pageSize={pageSizeControl} page={page} totalPages={records.data?.totalPages} label="Pagination des contacts" busy={records.isFetching} onPageChange={(nextPage) => setPage(nextPage)} />}
     <HPageHeader title="Contacts" description="Votre référentiel de sociétés et de personnes." actions={canWrite && <HButton asChild variant="primary"><Link to={`/contacts/${kind}/new`}><Plus size={15} />{kind === 'companies' ? 'Nouvelle société' : 'Nouveau contact'}</Link></HButton>} />
     {canRead && <ContactSummary />}
     <nav className="contact-tabs" aria-label="Référentiel Contacts"><Link className={kind === 'companies' ? 'selected' : ''} to={tabHref('companies')}><Building2 size={15} />Sociétés</Link><Link className={kind === 'people' ? 'selected' : ''} to={tabHref('people')}><UsersRound size={15} />Personnes</Link></nav>

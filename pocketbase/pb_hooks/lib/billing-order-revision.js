@@ -9,7 +9,7 @@ module.exports.plan = (app, user, order, previous, next) => {
     if (!linked.length) continue
     const value = next.find((line) => line.id === old.id), balance = require(`${__hooks}/lib/billing-order-balance.js`).context(app, old.record_id)
     const relatedCredits = creditLines.filter((line) => line.getString('source_line') === old.record_id)
-    const pending = relatedCredits.filter((line) => creditParents.get(line.getString('credit_note')).getString('status') === 'draft')
+    const pending = relatedCredits.filter((line) => { const credit = creditParents.get(line.getString('credit_note')); return credit.getString('status') === 'draft' && b.get(app, 'billing_invoices', credit.getString('source_invoice')).getString('invoice_kind') !== 'deposit' })
     const pendingQuantity = pending.reduce((sum, line) => sum + line.getFloat('quantity'), 0), pendingAmount = pending.reduce((sum, line) => sum + b.cents(line.getFloat('base_total')), 0)
     const depositAmount = [...deposits].filter(([key]) => key.endsWith('/' + old.record_id)).reduce((sum, [, amount]) => sum + Math.max(0, amount), 0)
     versions.push({ line: old.record_id, balance, depositAmount, credits: relatedCredits.map((line) => ({ line: line.publicExport(), parent: creditParents.get(line.getString('credit_note')).publicExport() })) })

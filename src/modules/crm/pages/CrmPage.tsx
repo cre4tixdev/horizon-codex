@@ -1,3 +1,5 @@
+import { keepPreviousListData } from '../../../shared/search/keepPreviousListData'
+import { useListPageSize } from '../../../shared/hooks/useListPageSize'
 import { useListTableSorting } from '../../../shared/search/useListTableSorting'
 import { HViewSwitch } from '../../../shared/ui/HViewSwitch'
 import { useCrmRealtime } from '../hooks/useCrmRealtime'
@@ -50,6 +52,7 @@ export function CrmPage() {
   const { preferredView, rememberView } = usePreferredView(userId)
   const defaultView = settings.data?.default_view === 'last' ? preferredView || 'kanban' : settings.data?.default_view || 'kanban'
   const view = requestedView === 'calendar' || requestedView === 'list' || requestedView === 'kanban' ? requestedView : defaultView
+  const { onMount: listRoot, perPage, control: pageSizeControl } = useListPageSize('list', view === 'list')
   const ao = params.get('area') === 'ao'
   const aoStages = useReferences('crm_tender_statuses', canRead && ao)
   const aoTags = useReferences('crm_tender_tags', canRead && ao)
@@ -57,7 +60,7 @@ export function CrmPage() {
   const archived = params.get('state') === 'archived'
   const status = params.get('status') || ''
   const sort = params.get('sort') || '-created'
-  const records = useQuery({ queryKey: ['crm', 'opportunities', listQuery], queryFn: () => (ao ? tenderService : crmService).list({ search: params.get('q') || '', archived, status, company: params.get('company') || '', owner: params.get('owner') || '', sort, page, type, preparationStatus: params.get('preparation') || '', tag: params.get('tag') || '' }), enabled: canRead, retry: false })
+  const records = useQuery({ queryKey: ['crm', 'opportunities', listQuery, view === 'list' ? perPage : 100], queryFn: () => (ao ? tenderService : crmService).list({ search: params.get('q') || '', archived, status, company: params.get('company') || '', owner: params.get('owner') || '', sort, page, perPage: view === 'list' ? perPage : 100, type, preparationStatus: params.get('preparation') || '', tag: params.get('tag') || '' }), enabled: canRead, retry: false, placeholderData: keepPreviousListData(['crm', 'opportunities']) })
   const summary = useQuery({ queryKey: ['crm', 'summary', listQuery], queryFn: () => (ao ? tenderService : crmService).summary({ search: params.get('q') || '', archived, status, company: params.get('company') || '', owner: params.get('owner') || '', sort, page, type, preparation: ao, preparationStatus: params.get('preparation') || '', tag: params.get('tag') || '' }), enabled: canRead && view === 'kanban', retry: false })
   const [dragBusy, setDragBusy] = useState(false)
   const [drafts, setDrafts] = useState<Record<string, StageChange>>({})
@@ -113,8 +116,8 @@ export function CrmPage() {
   )
   const renderTable = (items: Opportunity[]) => <HDataTable columnSettings={{ id: ao ? 'crm.tenders' : 'crm.opportunities', required: ['title'], defaultHidden: ['contact', 'currency'] }} columnBorders columnAlignments={{ type: 'center', stage: 'center', estimated_value: 'right', probability: 'right', expected_date: 'center', publication_date: 'center', visits: 'center', preparation: 'center', submission_deadline: 'center', documents: 'center' }} data={items} columns={[...columns, { id: 'contact', header: 'Contact', cell: ({ row }) => [row.original.expand?.contact?.first_name, row.original.expand?.contact?.last_name].filter(Boolean).join(' ') || '—' }, { accessorKey: 'currency', header: 'Devise' }]} listSorting={listSorting} getRowLink={(record) => ({ href: crmRecordHref(record), label: `Ouvrir l’opportunité ${record.title}`, state: { crmListQuery: listQuery } })} />
   if (!canRead) return <HEmptyState icon={Target} title="CRM" description="Vous ne disposez pas de la permission de consulter les opportunités." />
-  return <div className="crm-directory"><HPageBreadcrumb items={[{ label: 'Accueil', href: '/' }, ...(ao ? [{ label: 'CRM', href: '/crm' }, { label: 'Appels d’offres' }] : [{ label: 'CRM' }])]} />
-    <HListPagination page={page} totalPages={records.data?.totalPages} label="Pagination des opportunités" busy={records.isFetching || moving.isPending || dragBusy} onPageChange={(nextPage) => changeParam('page', String(nextPage))} />
+  return <div ref={listRoot} className="crm-directory"><HPageBreadcrumb items={[{ label: 'Accueil', href: '/' }, ...(ao ? [{ label: 'CRM', href: '/crm' }, { label: 'Appels d’offres' }] : [{ label: 'CRM' }])]} />
+    <HListPagination pageSize={view === 'list' ? pageSizeControl : undefined} page={page} totalPages={records.data?.totalPages} label="Pagination des opportunités" busy={records.isFetching || moving.isPending || dragBusy} onPageChange={(nextPage) => changeParam('page', String(nextPage))} />
     <HPageHeader title={ao ? 'Appels d’offres' : 'CRM'} description={ao ? "Vos consultations, réponses et échéances d’appels d’offres." : "Vos opportunités commerciales, de la qualification à la conclusion."} actions={canWrite && <><HButton asChild variant="primary"><Link to={`/crm/${ao ? 'tenders' : 'opportunities'}/new?${new URLSearchParams({ ...(params.get('company') ? { company: params.get('company')! } : {}), ...(ao ? { type: 'tender' } : {}) })}`}  state={{ crmListQuery: listQuery }}><Plus size={14} /> {ao ? 'Nouvel appel d’offres' : 'Nouvelle opportunité'}</Link></HButton></>} />
     <div className="crm-list-toolbar"><span>{records.data?.totalItems ?? 0} {ao ? 'appel(s) d’offres' : 'opportunité(s)'}{records.data && records.data.totalItems > rows.length ? ` · ${rows.length} sur cette page` : ''}</span><HViewSwitch label="Présentation des opportunités" value={view} onChange={(value) => changeParam('view', value)} items={[{ value: 'kanban', label: 'Kanban', icon: Columns3, disabled: dragBusy }, { value: 'list', label: 'Liste', icon: List, disabled: dragBusy }, ...(ao ? [{ value: 'calendar', label: 'Planning', icon: CalendarDays }] : [])]} /></div>
     {realtimeError && <p className="field-error" role="alert">{realtimeError}</p>}
