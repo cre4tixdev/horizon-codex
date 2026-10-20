@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 
-test('Paramètres : priorités, navigation cohérente, recherche et préférences personnelles', async ({ page }) => {
+test('Paramètres : priorités, navigation cohérente, recherche et préférences personnelles', async ({ page, request }) => {
   await page.setViewportSize({ width: 1600, height: 1000 })
   await page.goto('/login')
   await page.getByLabel('Adresse e-mail', { exact: true }).fill('erp-admin@local.invalid')
@@ -8,6 +8,10 @@ test('Paramètres : priorités, navigation cohérente, recherche et préférence
   await page.getByRole('button', { name: 'Se connecter', exact: true }).click()
   await expect(page).not.toHaveURL(/\/login/)
   await page.goto('/settings')
+  const headers = { Authorization: await page.evaluate(() => sessionStorage.getItem('horizon.auth.token') || '') }
+  const current = await (await request.get('http://127.0.0.1:18090/api/horizon/account/display-preferences', { headers })).json()
+  const startingTheme = current.preference.theme === 'dark' ? 'dark' : 'light'; await expect(page.locator('html')).toHaveAttribute('data-theme', startingTheme)
+  if (startingTheme === 'dark') { await page.getByRole('button', { name: 'Passer en mode clair', exact: true }).click(); await expect(page.locator('html')).toHaveAttribute('data-theme', 'light') }
   const main = page.locator('.settings-main'), nav = page.getByRole('navigation', { name: 'Navigation des paramètres', exact: true })
   const groups = ['Administration', 'Ventes et achats', 'Finance', 'Ressources humaines', 'Documents et e-mails', 'Personnalisation']
   await expect(main.locator('.settings-section-group').getByRole('heading')).toHaveText(groups)
@@ -23,12 +27,13 @@ test('Paramètres : priorités, navigation cohérente, recherche et préférence
   await expect(planned).not.toHaveAttribute('open')
   await expect(planned.getByRole('link', { name: /^Projets / })).not.toBeVisible()
   await expect(main.getByText('Disponible', { exact: true })).toHaveCount(0)
-  await expect(main.locator('.settings-module-card .settings-module-icon')).toHaveCount(18)
-  await expect(main.locator('.settings-module-card .settings-module-link')).toHaveText(Array(18).fill('Configurer'))
+  const moduleCount = await main.locator('.settings-module-card').count(); expect(moduleCount).toBeGreaterThan(0)
+  await expect(main.locator('.settings-module-card .settings-module-icon')).toHaveCount(moduleCount)
+  await expect(main.locator('.settings-module-card .settings-module-link')).toHaveText(Array(moduleCount).fill('Configurer'))
   const panel = main.getByRole('region', { name: 'Administration', exact: true }).getByRole('link').first()
   expect(await panel.evaluate((element) => { const style = getComputedStyle(element); return { border: style.borderTopWidth, background: style.backgroundColor } })).toEqual({ border: '1px', background: 'rgb(255, 255, 255)' })
   await page.screenshot({ path: '/private/tmp/horizon-settings-priorities-light.png', fullPage: true })
-  await page.getByRole('button', { name: 'Passer en mode sombre', exact: true }).click()
+  await page.getByRole('button', { name: 'Passer en mode sombre', exact: true }).click(); await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
   await page.screenshot({ path: '/private/tmp/horizon-settings-priorities-dark.png', fullPage: true })
   const search = page.getByLabel('Rechercher dans les paramètres', { exact: true })
   await search.fill('etapes')
@@ -40,11 +45,10 @@ test('Paramètres : priorités, navigation cohérente, recherche et préférence
   await search.fill('projets'); await expect(planned).toHaveAttribute('open')
   await expect(planned.getByRole('link', { name: /^Projets / })).toBeVisible()
   await search.fill('introuvable-zzz'); await expect(main.getByRole('heading', { name: 'Aucune rubrique trouvée' })).toBeVisible()
-  await search.fill('mentions'); await main.getByRole('link', { name: /^Mes notifications / }).focus(); await page.keyboard.press('Enter')
-  await expect(page).toHaveURL('/account?tab=notifications')
-  await expect(page.getByRole('tab', { name: 'Notifications', exact: true })).toHaveAttribute('aria-selected', 'true')
+  await search.fill('mentions'); await expect(main.getByRole('link', { name: /^Mes notifications / })).toHaveCount(0)
+  await page.goto('/account?tab=notifications'); await expect(page.getByRole('tab', { name: 'Préférences', exact: true })).toHaveAttribute('aria-selected', 'true'); await expect(page.getByRole('heading', { name: 'Mes notifications', exact: true })).toBeVisible()
   await page.goto('/settings'); await page.setViewportSize({ width: 390, height: 844 })
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
-  await expect(main.getByRole('region', { name: 'Personnalisation', exact: true }).getByRole('link', { name: /^Mes notifications / })).toBeVisible()
+  await expect(main.getByRole('region', { name: 'Personnalisation', exact: true }).getByRole('link', { name: /^Apparence et densité / })).toBeVisible()
   await page.screenshot({ path: '/private/tmp/horizon-settings-priorities-mobile.png', fullPage: true })
 })

@@ -58,6 +58,10 @@ Paramètres → Apparence et densité centralise les réglages UX communs avec a
 
 **Assistant de fusion — 18 octobre 2026, local :** Paramètres → Qualité des données permet de rapprocher des sociétés, personnes et produits déjà enregistrés, avec sélection manuelle ou suggestions à la demande, comparaison et confirmation. Le même comparateur est accessible depuis les fiches. Nécessite les hooks et la migration additive `1791840029_product_merge.js`, puis reconnexion pour les droits ; installation NAS non confirmée. Extension Sociétés du 19 octobre : fusion de deux historiques avec adaptateurs propriétaires, anciens alias, pièces et fil regroupés sous leurs permissions ; aucun document finalisé ou stock n’est réécrit. Les restrictions Personnes / Produits restent appliquées. Voir [le périmètre livré](04-FUNCTIONAL-SPECS.md#assistant-transversal-de-fusion--livraison-locale-du-18-octobre-2026).
 
+**Compteurs personnels — 20 octobre 2026, local :** Mon compte → Préférences regroupe compteurs, thème, confort personnel (recherche/menu/densité), signatures e-mail individuelles et notifications ; les valeurs administrateur restent les défauts partagés. Préférences par compte, communes aux navigateurs ; hooks complets et migration additive `1791840041_display_preferences.js` requis. Installation NAS non confirmée.
+
+**Dashboard configurable — 20 octobre 2026, local :** instances indépendantes de widgets, grille en unités horizontales/verticales avec destination prévisualisée, sources et filtres propres, pages de carrousel configurables, nouveaux widgets Temps/Absences/À valider/Raccourcis. Anciennes dispositions conservées ; pack cumulatif dashboards-widgets-20261020 et frontend cohérent requis, sans nouvelle migration après 0041. Installation NAS non confirmée. Voir le contrat fonctionnel dans 04 et le pack dans 06.
+
 ## Démarrage local du frontend
 
 Préférer Node 24 LTS (`.node-version`) et pnpm 12.9.1 (`packageManager` dans `package.json`). Les contraintes exactes sont déclarées dans `engines`.

@@ -38,3 +38,5 @@ onRecordCreateRequest(() => { throw new ForbiddenError('Utilisez la relève des 
 onRecordUpdateRequest(() => { throw new ForbiddenError('Utilisez la relève des réponses Horizon.') }, 'messaging_email_threads', 'messaging_email_replies')
 onRecordDelete(() => { throw new BadRequestError('L’historique des réponses doit être conservé.') }, 'messaging_email_threads', 'messaging_email_replies')
 onRecordUpdate(() => { throw new BadRequestError('Une réponse reçue est immuable.') }, 'messaging_email_replies')
+routerAdd('GET', '/api/horizon/messaging/personal-signatures', (e) => require(`${__hooks}/lib/messaging-personal-signatures.js`).read(e), $apis.requireAuth('core_users'))
+routerAdd('POST', '/api/horizon/messaging/personal-signatures', (e) => require(`${__hooks}/lib/messaging-personal-signatures.js`).save(e), $apis.requireAuth('core_users'))

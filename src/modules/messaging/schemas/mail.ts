@@ -23,3 +23,5 @@ export type MailInput = Pick<MailMessage, 'mailbox' | 'subject' | 'to' | 'cc' | 
 export type SettingInput = Omit<MailTemplate, 'id' | 'updated'> | Omit<MailSignature, 'id' | 'updated'> | Omit<Mailbox, 'id' | 'updated' | 'connection'>
 export type SettingKind = 'templates' | 'mailboxes' | 'signatures'
 export const mailTone = (s: MailMessage['status']) => ({ draft: 'violet', pending: 'amber', processing: 'amber', sent: 'green', failed: 'pink', uncertain: 'amber', cancelled: 'navy' } as const)[s]
+
+export type PersonalSignatureInput = Omit<MailSignature, 'id' | 'updated' | 'user'>

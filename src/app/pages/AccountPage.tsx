@@ -1,8 +1,10 @@
+import { PersonalSignaturePreferences } from '../../modules/messaging/components/PersonalSignaturePreferences'
+import { DisplayPreferencesEditor } from '../../core/preferences/DisplayPreferencesEditor'
 import { useId, useState, useSyncExternalStore } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useForm, useWatch } from 'react-hook-form'
-import { Bell, KeyRound, Mail, ShieldCheck, Undo2, UserRound } from 'lucide-react'
+import { SlidersHorizontal, KeyRound, Mail, ShieldCheck, Undo2, UserRound } from 'lucide-react'
 import { hasPermission } from '../../core/auth/types/session'
 import { sessionService } from '../../core/auth/services/session'
 import { accountService } from '../../core/auth/services/AccountService'
@@ -27,16 +29,16 @@ export function AccountPage() {
   const session = useSyncExternalStore(sessionService.subscribe, sessionService.getSnapshot)
   const profile = useQuery({ queryKey: ['account', 'profile', session.status === 'authenticated' ? session.user.id : ''], queryFn: accountService.read, enabled: session.status === 'authenticated', retry: false })
   const [notice, setNotice] = useState('')
-  const [params, setParams] = useSearchParams(), tab = params.get('tab') === 'notifications' ? 'notifications' : 'profile'
+  const [params, setParams] = useSearchParams(), tab = ['notifications', 'preferences', 'display'].includes(params.get('tab') || '') ? 'preferences' : 'profile'
   return <div className="contact-directory account-page">
     <HPageBreadcrumb items={[{ label: 'Accueil', href: '/' }, { label: 'Mon compte' }]} />
-    <HPageHeader title="Mon compte" description="Votre profil, la sécurité de votre connexion et vos préférences de notifications." />
-    <HRecordTabs idPrefix="account-tab" label="Mon compte" value={tab} onChange={(value) => setParams({ tab: value }, { flushSync: true })} items={[{ value: 'profile', label: 'Profil et sécurité', icon: UserRound, panel: 'account-profile-panel' }, { value: 'notifications', label: 'Notifications', icon: Bell, panel: 'account-notifications-panel' }]} />
+    <HPageHeader title="Mon compte" description="Votre profil, la sécurité de votre connexion et vos préférences d’affichage et de notifications." />
+    <HRecordTabs idPrefix="account-tab" label="Mon compte" value={tab} onChange={(value) => setParams({ tab: value }, { flushSync: true })} items={[{ value: 'profile', label: 'Profil et sécurité', icon: UserRound, panel: 'account-profile-panel' }, { value: 'preferences', label: 'Préférences', icon: SlidersHorizontal, panel: 'account-preferences-panel' }]} />
     {notice && <p role="status" className="account-saved">{notice}</p>}
     {profile.isPending && <HLoadingIndicator label="Chargement du compte" />}
     {profile.error && <p role="alert" className="field-error">{profile.error.message}<HButton onClick={() => void profile.refetch()}>Réessayer</HButton></p>}
     {profile.data && <AccountEditor key={profile.data.updated} active={tab === 'profile'} account={profile.data} onSaved={() => setNotice('Votre profil est enregistré.')} />}
-    {profile.data && <div id="account-notifications-panel" role="tabpanel" aria-labelledby="account-tab-notifications" hidden={tab !== 'notifications'}><NotificationPreferences userId={profile.data.id} active={tab === 'notifications'} /></div>}
+    {profile.data && <div id="account-preferences-panel" role="tabpanel" aria-labelledby="account-tab-preferences" hidden={tab !== 'preferences'}><div className="account-preferences-sections"><DisplayPreferencesEditor userId={profile.data.id} active={tab === 'preferences'} /><PersonalSignaturePreferences active={tab === 'preferences'} /><NotificationPreferences userId={profile.data.id} active={tab === 'preferences'} /></div></div>}
   </div>
 }
 

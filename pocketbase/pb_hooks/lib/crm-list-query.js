@@ -22,6 +22,8 @@ module.exports = (event) => {
   if (query.get('preparation_status') || query.get('tag')) conditions.push('o.type = "tender" AND t.archived_at = ""')
   if (query.get('preparation_status')) { if (!/^[a-z0-9]{15}$/.test(query.get('preparation_status'))) throw new BadRequestError('Étape AO invalide.'); params.preparation = query.get('preparation_status'); conditions.push('t.status = {:preparation}') }
   if (query.get('tag')) { if (!/^[a-z0-9]{15}$/.test(query.get('tag'))) throw new BadRequestError('Tag AO invalide.'); params.tag = query.get('tag'); conditions.push('EXISTS (SELECT 1 FROM json_each(t.tags) WHERE value = {:tag})') }
+  const range = require(`${__hooks}/lib/list-date-range.js`)(query.get('from'), query.get('to'))
+  if (range) { params.from = range.from; params.to = range.to; conditions.push('o.expected_date >= {:from} AND o.expected_date <= {:to}') }
   const preparation = query.get('preparation') === 'true'
   if (preparation && type !== 'tender') throw new BadRequestError('La préparation concerne les AO.')
   return { query, params, conditions, preparation }

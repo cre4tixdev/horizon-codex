@@ -234,6 +234,8 @@ class TimeTests(unittest.TestCase):
         def overview(view='month',who='owner',date='2026-01-05',extra=''):
             code,result=self.call('GET',f'overview?area={"own" if who=="owner" else "review"}&view={view}&date={date}'+extra,who=who);self.assertEqual(code,200,result);return result
         own=overview();self.assertEqual(own['items'][0]['total_minutes'],120)
+        quarter=overview(view='quarter');self.assertEqual(quarter['start'],'2026-01-01');self.assertEqual(quarter['end'],'2026-03-31');self.assertEqual(len(quarter['periods']),3);self.assertEqual(quarter['items'][0]['total_minutes'],120)
+        quarter_private=overview(view='quarter',who='manager');self.assertNotIn(draft['id'],str(quarter_private));self.assertEqual(quarter_private['summary']['minutes'],0)
         self.assertEqual(len(own['items'][0]['days']),31);self.assertEqual(next(day for day in own['items'][0]['days'] if day['date']=='2026-01-05')['minutes'],120);self.assertEqual(len(own['periods']),5);self.assertEqual(own['items'][0]['cells'][1]['status'],'draft')
         manager=overview(who='manager');self.assertEqual(len(manager['items']),1)
         self.assertEqual(manager['items'][0]['days'],[]);cell=manager['items'][0]['cells'][1];self.assertEqual(cell['status'],'missing');self.assertIsNone(cell['minutes']);self.assertEqual(cell['sheets'],[])

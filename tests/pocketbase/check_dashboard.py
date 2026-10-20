@@ -14,8 +14,8 @@ class DashboardTests(unittest.TestCase):
     def tearDown(self): self.pb.close()
     def metrics(self, start='2026-10-01', end='2026-10-31', token=None):
         return self.pb.request('GET', f'horizon/dashboard/metrics?from={start}&to={end}', token=token or self.token)
-    def order(self, number, amount, cost, currency='EUR', date='2026-10-10T12:00:00Z', status='confirmed'):
-        return self.pb.create('sales_orders', dict(order_number=number, quote=self.quote_record['id'], opportunity=self.opp['id'], analytic_account=self.opp['analytic_account'], company=self.company['id'], owner=self.user['id'], status=status, order_date=date, subtotal=amount, currency=currency, exchange_rate=1, quote_snapshot=dict(subtotal=amount, cost_total=cost)))
+    def order(self, number, amount, cost, currency='EUR', date='2026-10-10T12:00:00Z', status='confirmed', owner=None):
+        return self.pb.create('sales_orders', dict(order_number=number, quote=self.quote_record['id'], opportunity=self.opp['id'], analytic_account=self.opp['analytic_account'], company=self.company['id'], owner=owner or self.user['id'], status=status, order_date=date, subtotal=amount, currency=currency, exchange_rate=1, quote_snapshot=dict(subtotal=amount, cost_total=cost)))
     def test_period_currency_snapshots_and_permission_boundaries(self):
         status, self.quote_record = self.quote_save(); self.assertEqual(status, 200, self.quote_record)
         self.order('EUR-1', 100, 60)
@@ -85,5 +85,28 @@ class DashboardTests(unittest.TestCase):
         self.assertEqual(status, 200, result)
         self.assertTrue(all(item['id'] != orphan for item in result['items']))
         self.assertEqual(self.pb.request('GET', 'horizon/dashboard/metrics?from=2026-01-01&to=2026-12-31')[0], 401)
+
+    def test_widget_sales_owner_dates_and_crm_date_filters(self):
+        _, quote = self.quote_save()
+        def listing(query):
+            status, result = self.pb.request('GET', 'horizon/sales/quotes?' + query, token=self.token)
+            self.assertEqual(status, 200, result); return result
+        own = 'kind=quote&owner=' + self.user['id'] + '&from=2026-10-01&to=2026-10-31&perPage=3'
+        self.assertEqual(listing(own)['totalItems'], 1)
+        self.assertEqual(listing(own.replace(self.user['id'], self.reader['id']))['totalItems'], 0)
+        self.assertEqual(listing(own.replace('2026-10-01', '2026-11-01').replace('2026-10-31', '2026-11-30'))['totalItems'], 0)
+        self.assertEqual(self.pb.request('GET', 'horizon/sales/quotes?from=2026-02-30&to=2026-03-31', token=self.token)[0], 400)
+        self.assertEqual(self.pb.request('GET', 'horizon/sales/quotes?owner=invalid', token=self.token)[0], 400)
+        self.assertEqual(self.pb.request('GET', 'horizon/sales/quotes?' + own, token=self.reader_token)[0], 403)
+        self.quote_record = quote
+        self.order('WIDGET-ORDER', 100, 60, owner=self.reader['id'])
+        self.pb.request('PATCH', 'collections/sales_quotes/records/' + quote['id'], {'status': 'accepted'}, self.pb.admin_token)
+        self.assertEqual(listing('kind=order&from=2026-10-01&to=2026-10-31')['totalItems'], 1)
+        self.assertEqual(listing('kind=order&from=2026-11-01&to=2026-11-30')['totalItems'], 0)
+        self.assertEqual(listing('kind=order&owner=' + self.user['id'])['totalItems'], 0)
+        self.assertEqual(listing('kind=order&owner=' + self.reader['id'])['totalItems'], 1)
+        for month, count in [('10', 0), ('12', 1)]:
+            status, index = self.pb.request('GET', f'horizon/crm/list-index?from=2026-{month}-01&to=2026-{month}-31', token=self.token)
+            self.assertEqual(status, 200, index); self.assertEqual(index['totalItems'], count)
 
 if __name__ == '__main__': unittest.main(verbosity=2)

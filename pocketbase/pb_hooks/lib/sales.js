@@ -95,6 +95,10 @@ module.exports = {
     if (query.get('company')) { if (!/^[a-z0-9]{15}$/.test(query.get('company'))) throw new BadRequestError('Société invalide.'); conditions.push(require(`${__hooks}/lib/company-identity.js`).condition(event.app, 'company', query.get('company'), parameters)) }
     if (query.get('product')) { if (!require(`${__hooks}/lib/catalog.js`).allowed(event.app, event.auth)) throw new ForbiddenError('Accès produit nécessaire.'); parameters.product = query.get('product'); conditions.push('sales_quote_lines_via_quote.product ?= {:product}') }
     conditions.push(...require(`${__hooks}/lib/sales-list-filters.js`)(query, parameters))
+    if (query.get('owner')) { if (!/^[a-z0-9]{15}$/.test(query.get('owner'))) throw new BadRequestError('Responsable invalide.'); parameters.owner = query.get('owner'); conditions.push(query.get('kind') === 'order' ? 'sales_orders_via_quote.owner ?= {:owner}' : 'owner = {:owner}') }
+    const range = require(`${__hooks}/lib/list-date-range.js`)(query.get('from'), query.get('to'))
+    if (range) { parameters.from = range.from; parameters.to = range.to; conditions.push(query.get('kind') === 'order' ? 'sales_orders_via_quote.order_date ?>= {:from} && sales_orders_via_quote.order_date ?<= {:to}' : 'quote_date >= {:from} && quote_date <= {:to}') }
+
     if (search) { conditions.push('(quote_number ~ {:q} || title ~ {:q} || sales_orders_via_quote.current_revision.after_snapshot.header.title ?~ {:q} || company.name ~ {:q} || opportunity.title ~ {:q} || sales_orders_via_quote.customer_order_number ?~ {:q})'); parameters.q = search }
     const page = Number(query.get('page') || 1)
     if (!Number.isSafeInteger(page) || page < 1) throw new BadRequestError('Page invalide.')

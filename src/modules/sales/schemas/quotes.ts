@@ -10,7 +10,7 @@ export const opportunityChoiceSchema = z.object({ id: z.string(), number: z.stri
 export const relatedSalesSchema = z.object({ quoteCount: z.number(), orderCount: z.number(), revenue: z.array(z.object({ currency: z.string(), amount: z.number() })) })
 export type Quote = z.infer<typeof quoteSchema>
 export type QuoteInput = z.infer<typeof quoteInputSchema>
-export type QuoteListOptions = { perPage?: number; kind?: string; state?: string; order_status?: string; customer_number?: string; product?: string; q: string; opportunity: string; company: string; status: string; sort: string; page: number }
+export type QuoteListOptions = { owner?: string; from?: string; to?: string; perPage?: number; kind?: string; state?: string; order_status?: string; customer_number?: string; product?: string; q: string; opportunity: string; company: string; status: string; sort: string; page: number }
 
 export const quoteColumns = [
   ['position', '#', 52], ['description', 'Description', 280], ['brand', 'Marque', 100], ['reference', 'Référence', 110], ['quantity', 'Qté', 65], ['unit', 'Unité', 60], ['unit_cost', 'Coût', 110], ['margin_percent', 'Marge %', 75], ['unit_price', 'PUV', 110], ['discount', 'Remise %', 75], ['line_total', 'PTV', 110], ['is_option', 'Option', 52], ['actions', 'Actions', 64], ['purchase', 'Achats', 90], ['receipt', 'Réceptions', 80], ['delivery', 'Livraisons', 80], ['invoiced', 'Facturé', 80],

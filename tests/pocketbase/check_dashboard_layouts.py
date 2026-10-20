@@ -41,13 +41,44 @@ class DashboardLayoutTests(unittest.TestCase):
 
     def test_bounds_and_default_consistency(self):
         invalid = []
-        for change in [{'id': 'horizon'}, {'name': ''}, {'name': 'x' * 81}, {'name': '\nunsafe'}, {'widgets': [{'type': 'activity', 'width': 3, 'height': 2}]}, {'widgets': [{'type': 'business', 'width': 6, 'height': 3}]}, {'widgets': [{'type': 'other', 'width': 6, 'height': 4}]}, {'widgets': [{'type': ['forecast'], 'width': 3, 'height': 2}]}, {'widgets': [{'type': 'forecast', 'width': 5, 'height': 2}]}, {'widgets': [{'type': 'forecast', 'width': 3, 'height': 9}]}, {'widgets': [{'type': 'forecast', 'width': 3, 'height': 2, 'source': 'private'}]}, {'widgets': self.preference['dashboards'][0]['widgets'] * 2}]:
+        for change in [{'id': 'horizon'}, {'name': ''}, {'name': 'x' * 81}, {'name': '\nunsafe'}, {'widgets': [{'type': 'activity', 'width': 1, 'height': 2}]}, {'widgets': [{'type': 'business', 'width': 6, 'height': 1}]}, {'widgets': [{'type': 'other', 'width': 6, 'height': 4}]}, {'widgets': [{'type': ['forecast'], 'width': 3, 'height': 2}]}, {'widgets': [{'type': 'forecast', 'width': 1.5, 'height': 2}]}, {'widgets': [{'type': 'forecast', 'width': 3, 'height': 13}]}, {'widgets': [{'type': 'forecast', 'width': 3, 'height': 2, 'source': 'private'}]}, {'widgets': self.preference['dashboards'][0]['widgets'] * 2}]:
             invalid.append({'defaultId': 'work', 'dashboards': [{**self.preference['dashboards'][0], **change}]})
         invalid.extend([{'defaultId': 'missing', 'dashboards': []}, {**self.preference, 'sql': ''}, {'defaultId': 'work', 'dashboards': self.preference['dashboards'] * 2}, {'defaultId': 'horizon', 'dashboards': [{**self.preference['dashboards'][0], 'id': 'work' + str(i)} for i in range(13)]}])
         for pref in invalid:
             self.assertEqual(self.save(preference=pref)[0], 400, pref)
         self.assertEqual(self.save()[0], 200)
         self.assertEqual(self.save(1, {'defaultId': 'horizon', 'dashboards': []})[0], 200)
+
+    def test_widget_instances_configuration_positions_and_carousel_validation(self):
+        import copy
+        data = dict(title='Mes devis', source='quotes', scope='own', status='sent', search='', company='', companyLabel='', period='dashboard', presentation='list', limit=5)
+        config = dict(title='Commercial', period='dashboard', data=data, pages=[data], automatic=False, interval=15, scope='own', links=['quotes', 'crm'])
+        widget = dict(id='instance-a', type='business', width=2, height=2, x=10, y=4, config=config)
+        pref = copy.deepcopy(self.preference)
+        pref['dashboards'][0]['widgets'] = [widget, dict(widget, id='instance-b', x=0)]
+        status, saved = self.save(preference=pref); self.assertEqual(status, 200, saved)
+        self.assertEqual(saved['preference']['dashboards'][0]['widgets'][0]['config']['pages'][0]['source'], 'quotes')
+        self.assertFalse(saved['preference']['dashboards'][0]['widgets'][0]['config']['automatic'])
+        self.assertEqual(self.pb.request('GET', self.path, token=self.token)[1], saved)
+        changes = [dict(widget, id='instance-b'), dict(widget, x=11), dict(widget, y=1001), dict(widget, config=dict(config, pages=[])), dict(widget, config=dict(config, interval=2)), dict(widget, config=dict(config, sql='select *')), dict(widget, config=dict(config, pages=[dict(data, source='orders')])), dict(widget, config=dict(config, data=dict(data, source='invoices')))]
+        for invalid in changes:
+            bad = copy.deepcopy(pref); bad['dashboards'][0]['widgets'][0] = invalid
+            self.assertEqual(self.save(1, bad)[0], 400, invalid)
+        self.assertEqual(self.pb.request('GET', self.path, token=self.token)[1]['revision'], 1)
+        self.assertEqual(self.save(1, saved['preference'])[0], 200)
+
+    def test_twelve_default_dashboards_fit_the_existing_json_budget(self):
+        import json
+        data = dict(title='', source='opportunities', scope='accessible', status='', search='', company='', companyLabel='', period='all', presentation='list', limit=7)
+        pages = [dict(data, title=title, source=source) for title, source in [('Opportunités', 'opportunities'), ('Devis', 'quotes'), ('Commandes clients', 'orders'), ('Factures', 'invoices')]]
+        config = dict(title='', period='dashboard', data=data, pages=pages, automatic=True, interval=10, scope='own', links=['crm', 'quotes', 'calendar'])
+        widgets = [dict(id='instance-' + str(i), type='forecast', width=2, height=1, config=config) for i in range(8)]
+        pref = dict(defaultId='work-0', dashboards=[dict(id='work-' + str(i), name='Travail', widgets=widgets) for i in range(12)])
+        self.assertGreater(len(json.dumps(pref)), 60000)
+        status, result = self.save(preference=pref); self.assertEqual(status, 200, result)
+        self.assertLess(len(json.dumps(result['preference'])), 60000)
+        self.assertEqual(len(result['preference']['dashboards']), 12)
+        self.assertEqual(self.save(1, result['preference'])[0], 200)
 
     def test_inactive_user_or_role_is_denied(self):
         self.pb.request('PATCH', 'collections/core_users/records/' + self.pb.user['id'], {'active': False}, self.pb.admin_token)

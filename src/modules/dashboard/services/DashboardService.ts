@@ -11,7 +11,7 @@ export class DashboardService {
       if (error instanceof ClientResponseError && error.isAbort) throw error
       const status = error instanceof ClientResponseError ? error.status : 0
       console.error('[dashboard] Data unavailable', { status, reason: error instanceof ZodError ? 'invalid-response' : 'request-failed' })
-      throw new Error(error instanceof ZodError ? 'Le format des données du dashboard est incompatible. Mettez Horizon à jour.' : status === 409 ? 'Vos dashboards ont été modifiés ailleurs. Rechargez les dispositions avant de réessayer ; vos modifications restent affichées.' : status === 400 ? 'Vérifiez le nom et les dimensions de vos widgets.' : status === 404 ? 'Mettez à jour les hooks PocketBase du dashboard.' : status === 403 ? 'Vous ne disposez pas des droits de consultation nécessaires.' : 'Les données du dashboard sont indisponibles. Réessayez.', { cause: error })
+      throw new Error(error instanceof ZodError ? 'Le format des données du dashboard est incompatible. Mettez Horizon à jour.' : status === 409 ? 'Vos dashboards ont été modifiés ailleurs. Rechargez les dispositions avant de réessayer ; vos modifications restent affichées.' : status === 400 ? error instanceof ClientResponseError ? error.response.message || 'Vérifiez la configuration des widgets.' : 'Vérifiez la configuration des widgets.' : status === 404 ? 'Mettez à jour les hooks PocketBase du dashboard.' : status === 403 ? 'Vous ne disposez pas des droits de consultation nécessaires.' : 'Les données du dashboard sont indisponibles. Réessayez.', { cause: error })
     }
   }
   metrics(from: string, to: string) { return this.run((repo) => repo.metrics(from, to)) }

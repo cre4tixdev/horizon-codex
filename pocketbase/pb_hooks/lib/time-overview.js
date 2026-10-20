@@ -7,13 +7,15 @@ const states = ['missing', 'draft', 'submitted', 'validated', 'rejected', 'mixed
 module.exports = (e) => {
   c.guard(e.app, e.auth)
   const app = e.app, u = e.auth, q = e.request.url.query(), area = q.get('area') || 'own', view = q.get('view') || 'month', date = q.get('date'), today = c.today()
-  if (!['own', 'review'].includes(area) || !['week', 'month', 'year'].includes(view) || !c.math.valid(date || '') || !/^20\d{2}-/.test(date)) throw new BadRequestError('Période TimeReport invalide.')
+  if (!['own', 'review'].includes(area) || !['week', 'month', 'quarter', 'year'].includes(view) || !c.math.valid(date || '') || !/^20\d{2}-/.test(date)) throw new BadRequestError('Période TimeReport invalide.')
   if (area === 'review' && !['reports', 'all'].includes(u.getString('time_scope'))) throw new ForbiddenError('Vue équipe refusée.')
-  const start = view === 'week' ? week(date) : view === 'year' ? date.slice(0, 4) + '-01-01' : date.slice(0, 7) + '-01', end = view === 'week' ? c.math.addDays(start, 6) : view === 'year' ? date.slice(0, 4) + '-12-31' : endOfMonth(date)
+  const quarterStart = `${date.slice(0, 4)}-${String(Math.floor((Number(date.slice(5, 7)) - 1) / 3) * 3 + 1).padStart(2, '0')}-01`
+  const quarterEnd = endOfMonth(new Date(Date.UTC(Number(quarterStart.slice(0, 4)), Number(quarterStart.slice(5, 7)) + 1, 1)).toISOString().slice(0, 10))
+  const start = view === 'quarter' ? quarterStart : view === 'week' ? week(date) : view === 'year' ? date.slice(0, 4) + '-01-01' : date.slice(0, 7) + '-01', end = view === 'quarter' ? quarterEnd : view === 'week' ? c.math.addDays(start, 6) : view === 'year' ? date.slice(0, 4) + '-12-31' : endOfMonth(date)
   const periods = []
   if (view === 'week') for (let day = start; day <= end; day = c.math.addDays(day, 1)) periods.push({ key: day, start: day, end: day })
   if (view === 'month') for (let day = week(start); day <= end; day = c.math.addDays(day, 7)) periods.push({ key: day, start: day < start ? start : day, end: c.math.addDays(day, 6) > end ? end : c.math.addDays(day, 6) })
-  if (view === 'year') for (let month = 1; month <= 12; month++) { const first = start.slice(0, 4) + '-' + String(month).padStart(2, '0') + '-01'; periods.push({ key: first.slice(0, 7), start: first, end: endOfMonth(first) }) }
+  if (view === 'year' || view === 'quarter') for (let month = Number(start.slice(5, 7)); month <= Number(end.slice(5, 7)); month++) { const first = start.slice(0, 4) + '-' + String(month).padStart(2, '0') + '-01'; periods.push({ key: first.slice(0, 7), start: first, end: endOfMonth(first) }) }
   const scope = area === 'own' ? 'user = {:user}' : u.getString('time_scope') === 'all' ? 'user != {:user} && status != "draft"' : 'manager = {:user} && user != {:user} && status != "draft"'
   const sheets = c.all(app, 'time_sheets', `(${scope}) && week_start >= {:start} && week_start <= {:end}`, { user: u.id, start: week(start), end }, 'week_start,id')
   const employees = new Map()

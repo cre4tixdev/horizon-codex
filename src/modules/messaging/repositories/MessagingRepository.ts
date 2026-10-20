@@ -1,3 +1,4 @@
+import { signatureSchema, type PersonalSignatureInput } from '../schemas/mail'
 import { z } from 'zod'
 import { createPocketBaseClient } from '../../../core/pocketbase/client'
 import { sendPdf } from '../../../core/pocketbase/pdf'
@@ -5,6 +6,8 @@ import { choicesSchema, messageSchema, listSchema, renderedSchema, settingsSchem
 export function createMessagingRepository(url: string) {
   const client = createPocketBaseClient(url), get = (path: string, query?: Record<string, string>) => client.send('/api/horizon/messaging' + path, { method: 'GET', ...(query ? { query } : {}), requestKey: null }), post = (path: string, body: object | FormData) => client.send('/api/horizon/messaging' + path, { method: 'POST', body, requestKey: null })
   return {
+    async personalSignatures() { return z.object({ items: z.array(signatureSchema), variables: z.array(z.string()) }).parse(await get('/personal-signatures')) },
+    async savePersonalSignature(input: PersonalSignatureInput, id?: string, updated?: string) { return signatureSchema.parse(await post('/personal-signatures', { input, ...(id ? { id, updated } : {}) })) },
     async choices(context: EmailContext, source: string, message = '') { return choicesSchema.parse(await get('/choices', { context, source, message })) },
     async render(context: EmailContext, source: string, template: string, mailbox: string, signature: string) { return renderedSchema.parse(await post('/render', { context, source, template, mailbox, signature })) },
     async record(id: string) { return messageSchema.parse(await get('/messages/' + id)) },

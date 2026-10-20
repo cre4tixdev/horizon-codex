@@ -4,3 +4,5 @@ routerAdd('POST', '/api/horizon/account/password', (event) => require(`${__hooks
 routerAdd('POST', '/api/horizon/account/presence', (event) => require(`${__hooks}/lib/account.js`).presence(event), $apis.requireAuth('core_users'))
 
 routerAdd('GET', '/api/horizon/account/avatar/{id}', (event) => require(`${__hooks}/lib/account.js`).avatar(event), $apis.requireAuth('core_users'))
+routerAdd('GET', '/api/horizon/account/display-preferences', (event) => require(`${__hooks}/lib/display-preferences.js`).read(event), $apis.requireAuth('core_users'))
+routerAdd('POST', '/api/horizon/account/display-preferences', (event) => require(`${__hooks}/lib/display-preferences.js`).save(event), $apis.requireAuth('core_users'))

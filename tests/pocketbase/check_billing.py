@@ -39,6 +39,13 @@ class BillingTests(unittest.TestCase):
         if record: body.update(id=record['id'], updated=record['updated'])
         return self.call('documents/save', body)
     def action(self, record, action='validate'): return self.call('documents/transition', dict(kind=record['kind'], id=record['id'], updated=record['updated'], action=action))
+    def test_widget_invoice_date_filter(self):
+        status, invoice = self.save(); self.assertEqual(status, 200, invoice)
+        for month, count in [('10', 1), ('12', 0)]:
+            result = self.get(f'documents?kind=customer&from=2026-{month}-01&to=2026-{month}-31&perPage=3')
+            self.assertEqual(result['totalItems'], count)
+        self.assertEqual(self.pb.request('GET', 'horizon/billing/documents?from=2026-02-30&to=2026-03-31', token=self.token)[0], 400)
+
     def test_payment_terms_client_defaults_override_and_archival(self):
         settings = self.get('settings'); terms = settings['payment_conditions']
         self.assertGreaterEqual(len(terms), 4)

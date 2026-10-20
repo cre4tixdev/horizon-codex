@@ -1,3 +1,4 @@
+import { linkedDateRange } from '../../../shared/search/linkedListFilters'
 import { keepPreviousListData } from '../../../shared/search/keepPreviousListData'
 import { useListPageSize } from '../../../shared/hooks/useListPageSize'
 import { useListTableSorting } from '../../../shared/search/useListTableSorting'
@@ -60,8 +61,8 @@ export function CrmPage() {
   const archived = params.get('state') === 'archived'
   const status = params.get('status') || ''
   const sort = params.get('sort') || '-created'
-  const records = useQuery({ queryKey: ['crm', 'opportunities', listQuery, view === 'list' ? perPage : 100], queryFn: () => (ao ? tenderService : crmService).list({ search: params.get('q') || '', archived, status, company: params.get('company') || '', owner: params.get('owner') || '', sort, page, perPage: view === 'list' ? perPage : 100, type, preparationStatus: params.get('preparation') || '', tag: params.get('tag') || '' }), enabled: canRead, retry: false, placeholderData: keepPreviousListData(['crm', 'opportunities']) })
-  const summary = useQuery({ queryKey: ['crm', 'summary', listQuery], queryFn: () => (ao ? tenderService : crmService).summary({ search: params.get('q') || '', archived, status, company: params.get('company') || '', owner: params.get('owner') || '', sort, page, type, preparation: ao, preparationStatus: params.get('preparation') || '', tag: params.get('tag') || '' }), enabled: canRead && view === 'kanban', retry: false })
+  const records = useQuery({ queryKey: ['crm', 'opportunities', listQuery, view === 'list' ? perPage : 100], queryFn: () => (ao ? tenderService : crmService).list({ ...linkedDateRange(params), search: params.get('q') || '', archived, status, company: params.get('company') || '', owner: params.get('owner') || '', sort, page, perPage: view === 'list' ? perPage : 100, type, preparationStatus: params.get('preparation') || '', tag: params.get('tag') || '' }), enabled: canRead, retry: false, placeholderData: keepPreviousListData(['crm', 'opportunities']) })
+  const summary = useQuery({ queryKey: ['crm', 'summary', listQuery], queryFn: () => (ao ? tenderService : crmService).summary({ ...linkedDateRange(params), search: params.get('q') || '', archived, status, company: params.get('company') || '', owner: params.get('owner') || '', sort, page, type, preparation: ao, preparationStatus: params.get('preparation') || '', tag: params.get('tag') || '' }), enabled: canRead && view === 'kanban', retry: false })
   const [dragBusy, setDragBusy] = useState(false)
   const [drafts, setDrafts] = useState<Record<string, StageChange>>({})
   const moveLock = useRef(false)

@@ -2651,7 +2651,7 @@ button.contact-card-title { padding: 0; border: 0; background: transparent; text
 .notification-item-actions { display: flex; flex-shrink: 0; gap: 2px; }
 .notification-preferences { padding: var(--hz-panel-padding-block, 16px) var(--hz-panel-padding-inline, 20px); }
 .notification-preferences td p { margin: 4px 0 0; font-size: 12px; }
-.notification-preferences input[type=checkbox] { accent-color: var(--theme-magenta, #f52f96); width: 15px; height: 15px; vertical-align: middle; }
+.notification-preferences input[type=checkbox], .account-preferences input[type=checkbox] { accent-color: var(--theme-magenta, #f52f96); width: 15px; height: 15px; vertical-align: middle; }
 .notification-preferences .settings-actions-cell { width: 120px; text-align: center; vertical-align: middle; }
 .ux-topbar-preview { overflow: hidden; border: 1px solid var(--theme-border); border-radius: 6px; margin-bottom: 18px; }
 .ux-topbar-preview .topbar { position: static; padding: 0 8px; --hz-search-reserved: 120px; grid-template-columns: minmax(0, 1fr) minmax(0, min(var(--hz-search-width), calc(100% - 120px))) minmax(0, 1fr); }
@@ -2749,3 +2749,12 @@ button.contact-card-title { padding: 0; border: 0; background: transparent; text
 /* Shared, paginated links to business records (Contacts and Billing). */
 .dialog-content.related-records-dialog { top: 50%; transform: translate(-50%, -50%); width: min(800px, calc(100vw - var(--workspace-sidebar-width) - 32px)); max-height: calc(100dvh - 32px); }
 .related-records-dialog td:first-child { white-space: normal; overflow-wrap: anywhere; }
+
+/* Only smart buttons opt into personal counter coloring; cards keep their own colors. */
+.h-counter[data-highlight=false] { color:var(--theme-text-muted,#7b8794); }
+.h-counter[data-highlight=true] { color:var(--theme-rose-text,#c90063); }
+
+.account-preferences-sections { display:grid; grid-template-columns:minmax(0,1fr); gap:var(--hz-section-gap,16px); }
+.account-preferences-sections > *, .account-preferences-sections .contact-panel { min-width:0; }
+.account-comfort-table { table-layout:fixed; }
+.account-comfort-table th:last-child { width:44%; }

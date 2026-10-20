@@ -1,3 +1,4 @@
+import { DisplayPreferencesProvider } from '../../core/preferences/DisplayPreferencesProvider'
 import { UxPreferences } from '../../modules/settings/components/UxPreferences'
 import { RecordEditors } from './RecordEditors'
 import { useEffect, useState, useSyncExternalStore } from 'react'
@@ -19,7 +20,8 @@ import { isLayoutPreview, sessionService } from '../../core/auth/services/sessio
 import { AuthError } from '../../core/auth/services/AuthError'
 import { canAccessNavigation } from '../navigationAccess'
 
-export function AppFrame() {
+export function AppFrame() { return <DisplayPreferencesProvider><AppFrameContent /></DisplayPreferencesProvider> }
+function AppFrameContent() {
   const session = useSyncExternalStore(sessionService.subscribe, sessionService.getSnapshot)
   const user = session.status === 'authenticated' ? session.user : undefined
   const [workflowActions, setWorkflowActions] = useState<HTMLDivElement | null>(null)
