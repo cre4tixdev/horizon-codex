@@ -1,3 +1,4 @@
+import { quoteTemplateInputSchema, type QuoteTemplateInput, type QuoteTemplateQuery, type QuoteTemplatePreviewInput } from '../schemas/quoteTemplates'
 import type { PurchasePreparationSelection } from '../../purchasing/schemas/purchasing'
 import type { StockSelection } from '../../inventory/schemas/stock'
 import { ClientResponseError } from 'pocketbase'
@@ -32,6 +33,11 @@ async function settingsRun(write: boolean, action: (repo: ReturnType<typeof crea
   try { return await action(repository) } catch (error) { console.error('[sales-settings] Operation failed', { status: error instanceof ClientResponseError ? error.status : 0 }); throw new Error(error instanceof ClientResponseError && [400, 403, 409].includes(error.status) ? error.response.message : 'Paramètres Ventes indisponibles.', { cause: error }) }
 }
 export const salesService = {
+  templates: (query: QuoteTemplateQuery) => run(false, (repo) => repo.templates(query)),
+  template: (id: string) => run(false, (repo) => repo.template(id)),
+  saveTemplate: (input: QuoteTemplateInput, key: string, id?: string, updated?: string) => run(false, (repo) => repo.saveTemplate(quoteTemplateInputSchema.parse(input), key, id, updated)),
+  templateState: (id: string, updated: string, active: boolean) => run(false, (repo) => repo.templateState(id, updated, active)),
+  templatePreview: (input: QuoteTemplatePreviewInput) => run(true, (repo) => repo.templatePreview(input)),
   costPreview: (input: CostRefreshInput) => run(true, (repo) => repo.costPreview(input)),
   previewOrderRevision: (id: string, updated: string, input: QuoteInput, number: string) => run(true, (repo) => repo.previewOrderRevision(id, updated, orderInputSchema.parse(input), number)),
   reviseOrder: (id: string, updated: string, input: QuoteInput, number: string, token: string) => run(true, (repo) => repo.reviseOrder(id, updated, orderInputSchema.parse(input), number, token)),

@@ -1,3 +1,4 @@
+import { quoteTemplateSchema, quoteTemplatePageSchema, quoteTemplatePreviewSchema, type QuoteTemplateInput, type QuoteTemplateQuery, type QuoteTemplatePreviewInput } from '../schemas/quoteTemplates'
 import type { PurchasePreparationSelection } from '../../purchasing/schemas/purchasing'
 import type { StockSelection } from '../../inventory/schemas/stock'
 import { z } from 'zod'
@@ -6,6 +7,11 @@ import { costRefreshSchema, type CostRefreshInput, orderRevisionPreviewSchema, o
 export function createSalesRepository(url: string) {
   const client = createPocketBaseClient(url)
   return {
+    async templates(query: QuoteTemplateQuery) { return quoteTemplatePageSchema.parse(await client.send('/api/horizon/sales/quote-templates', { method: 'GET', query, requestKey: null })) },
+    async template(id: string) { return quoteTemplateSchema.parse(await client.send(`/api/horizon/sales/quote-templates/${id}`, { method: 'GET', requestKey: null })) },
+    async saveTemplate(input: QuoteTemplateInput, creation_key: string, id?: string, updated?: string) { return quoteTemplateSchema.parse(await client.send('/api/horizon/sales/quote-templates/save', { method: 'POST', body: { input, creation_key, ...(id ? { id, updated } : {}) }, requestKey: null })) },
+    async templateState(id: string, updated: string, active: boolean) { return quoteTemplateSchema.parse(await client.send('/api/horizon/sales/quote-templates/state', { method: 'POST', body: { id, updated, active }, requestKey: null })) },
+    async templatePreview(input: QuoteTemplatePreviewInput) { return quoteTemplatePreviewSchema.parse(await client.send('/api/horizon/sales/quote-templates/preview', { method: 'POST', body: input, requestKey: null })) },
     async costPreview(input: CostRefreshInput) { return costRefreshSchema.parse(await client.send('/api/horizon/sales/quotes/cost-preview', { method: 'POST', body: input, requestKey: null })) },
     async previewOrderRevision(id: string, updated: string, input: QuoteInput, customer_order_number: string) { return orderRevisionPreviewSchema.parse(await client.send('/api/horizon/sales/orders/revision-preview', { method: 'POST', body: { id, updated, input, customer_order_number }, requestKey: null })) },
     async reviseOrder(id: string, updated: string, input: QuoteInput, customer_order_number: string, preview_token: string) { return quoteSchema.parse(await client.send('/api/horizon/sales/orders/revise', { method: 'POST', body: { id, updated, input, customer_order_number, preview_token }, requestKey: null })) },

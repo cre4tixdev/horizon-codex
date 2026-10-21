@@ -52,3 +52,9 @@ onRecordDelete(() => { throw new BadRequestError('Les commandes doivent être co
 
 routerAdd('POST', '/api/horizon/sales/quotes/customer-order-reference', (event) => require(`${__hooks}/lib/sales-lifecycle.js`).customerOrderReference(event), $apis.requireAuth('core_users'))
 routerAdd('POST', '/api/horizon/sales/quotes/cost-preview', (event) => require(`${__hooks}/lib/sales-cost-refresh.js`).preview(event), $apis.requireAuth('core_users'))
+
+routerAdd('GET', '/api/horizon/sales/quote-templates', (e) => require(`${__hooks}/lib/sales-quote-templates.js`).list(e), $apis.requireAuth('core_users'))
+routerAdd('GET', '/api/horizon/sales/quote-templates/{id}', (e) => require(`${__hooks}/lib/sales-quote-templates.js`).read(e), $apis.requireAuth('core_users'))
+routerAdd('POST', '/api/horizon/sales/quote-templates/save', (e) => require(`${__hooks}/lib/sales-quote-templates.js`).save(e), $apis.requireAuth('core_users'))
+routerAdd('POST', '/api/horizon/sales/quote-templates/state', (e) => require(`${__hooks}/lib/sales-quote-templates.js`).state(e), $apis.requireAuth('core_users'))
+routerAdd('POST', '/api/horizon/sales/quote-templates/preview', (e) => require(`${__hooks}/lib/sales-quote-templates.js`).preview(e), $apis.requireAuth('core_users'))

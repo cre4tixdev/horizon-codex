@@ -48,7 +48,7 @@ function ColumnCaption({ name, label, currency }: { name: string; label: string;
   const suffix = ['unit_cost', 'unit_price', 'line_total'].includes(name) ? currencySymbol(currency) : ['margin_percent', 'discount'].includes(name) ? '%' : ''
   return <span className="quote-column-caption">{name === 'unit' ? 'u.' : suffix ? label.replace(' %', '') : label}{suffix && <small>{suffix}</small>}</span>
 }
-export function QuoteLines({ quoteUpdated, form, editable, currency, settings, taxRate, recordTerms, status, quoteId, lineIds }: { quoteUpdated?: string | undefined; quoteId?: string | undefined; lineIds?: readonly string[] | undefined; status?: Quote['status'] | undefined; recordTerms?: { id: string; label: string; content: string } | undefined; taxRate: number; form: UseFormReturn<QuoteInput>; editable: boolean; currency: string; settings: SalesSettings }) {
+export function QuoteLines({ template = false, quoteUpdated, form, editable, currency, settings, taxRate, recordTerms, status, quoteId, lineIds }: { quoteUpdated?: string | undefined; quoteId?: string | undefined; lineIds?: readonly string[] | undefined; status?: Quote['status'] | undefined; recordTerms?: { id: string; label: string; content: string } | undefined; taxRate: number; form: UseFormReturn<QuoteInput>; editable: boolean; currency: string; settings: SalesSettings; template?: boolean }) {
   const billingAccess = useBillingAccess()
   const billing = useQuery({ queryKey: ['billing', 'tracking', quoteId], queryFn: () => billingService.tracking('customer', quoteId!), enabled: billingAccess.canRead && status === 'accepted' && Boolean(quoteId), retry: false })
   const purchaseAccess = usePurchasingAccess()
@@ -57,7 +57,7 @@ export function QuoteLines({ quoteUpdated, form, editable, currency, settings, t
   const openRecord = useRecordWorkspace()
   const catalogAccess = useCatalogAccess()
   const [costScope, setCostScope] = useState<number | 'all'>()
-  const canRefresh = editable && status !== 'accepted' && catalogAccess.canRead
+  const canRefresh = !template && editable && status !== 'accepted' && catalogAccess.canRead
   const [productIndex, setProductIndex] = useState<number>()
   const array = useFieldArray({ control: form.control, name: 'lines' })
   const values = useWatch({ control: form.control, name: 'lines' })

@@ -3,3 +3,5 @@ export { quoteFilters, quoteSortFilter, quoteGroupingFilter } from './searchFilt
 export { useSalesAccess } from './hooks/useSalesAccess'
 export { salesRoutes } from './routes/salesRoutes'
 export { quoteColumns, type SalesSettings } from './schemas/quotes'
+
+export { QuoteTemplatesSettings } from './components/QuoteTemplatesSettings'

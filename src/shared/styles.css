@@ -2799,3 +2799,21 @@ button.contact-card-title { padding: 0; border: 0; background: transparent; text
 }
 
 .quote-cost-header > .quote-column-caption { flex:1; }
+
+.dialog-content.quote-template-editor { width:min(1400px,calc(100vw - var(--workspace-sidebar-width) - 24px)); max-width:none; }
+.dialog-content.quote-template-preview-dialog { width:min(1000px,calc(100vw - var(--workspace-sidebar-width) - 24px)); max-width:none; }
+.quote-template-editor .dialog-form > *, .quote-template-preview-dialog .dialog-form > * { flex-shrink:0; }
+.quote-template-editor .sales-quote-lines { margin-top:16px; }
+.quote-template-editor .dialog-form-footer > .contact-muted { margin-right:auto; max-width:75%; font-size:11px; }
+.quote-template-toolbar { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:12px; }
+.quote-template-toolbar > .h-input { max-width:320px; }
+.quote-template-section { font-weight:600; }
+.quote-template-notes { white-space:pre-wrap; }
+@media (max-width:700px) { .quote-template-toolbar { flex-wrap:wrap; } }
+
+.quote-template-preview-meta { display:flex; flex-wrap:wrap; gap:12px 24px; margin:0; font-size:12px; }
+.quote-template-preview-meta dt { color:var(--theme-text-muted,#7b8794); font-size:11px; }
+.quote-template-preview-meta dd { margin:2px 0 0; }
+
+.quote-template-selector { grid-column:1 / -1; }
+@media (min-width:701px) { .quote-template-selector > .h-combobox-with-actions { max-width:calc(50% - 7px); } }

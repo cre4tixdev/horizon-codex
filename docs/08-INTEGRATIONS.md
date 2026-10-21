@@ -696,3 +696,8 @@ Devis / contact modifiable — 21 octobre 2026 : le contact du brouillon est dé
 ### 21 octobre 2026 — Coûts de devis actualisés depuis Inventory
 
 Sales consulte une projection Inventory interne (`catalog-quote-cost`) fondée sur le pricing catalogue existant : coût manuel du produit s’il est activé, sinon offre du fournisseur favori actuel, sinon coût de référence. La provenance du coût est distincte du fournisseur de la ligne et du snapshot d’identité, qui ne sont pas réécrits. Aucun appel externe, mouvement de stock, écriture Sage ou changement des historiques comptables/factures. Pricing recalcule côté serveur les deux simulations : prix effectifs conservés ou taux de marge sur coût conservés. Le devis reste une source historique autonome après enregistrement ; ses données d’identité catalogue ne sont pas remplacées par le catalogue courant.
+
+
+### Modèles de contenu de devis — 21 octobre 2026
+
+Sales possède les modèles commerciaux ; ils ne sont pas des templates de documents PDF. Application via projection Inventory du coût effectif courant et Pricing serveur (prix fixes ou marges sur coût). Aucun accès à Sage, SUPER PDP, Microsoft ou Gotenberg pendant la préparation ; ni stock, analytique réel, commande ou facture créé. Le devis sauvegardé reprend ensuite le circuit standard, sa TVA et ses snapshots, son compte analytique d’opportunité et ses permissions. Documents continue à lire uniquement le devis réel pour l’aperçu/PDF.

@@ -1,3 +1,4 @@
+import { QuoteTemplatesSettings } from '../../sales'
 import { HSettingsTable } from '../../../shared/ui/HSettingsTable'
 import { useState, useSyncExternalStore } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -18,13 +19,13 @@ import { HDialogFooter } from '../../../shared/ui/HDialogFooter'
 import { HButton } from '../../../shared/ui/HButton'
 export function SalesSettingsPage() {
   const [params, setParams] = useSearchParams()
-  const tab = ['columns', 'defaults', 'terms'].includes(params.get('tab') || '') ? params.get('tab')! : 'columns'
+  const tab = ['columns', 'defaults', 'terms', 'templates'].includes(params.get('tab') || '') ? params.get('tab')! : 'columns'
   const session = useSyncExternalStore(sessionService.subscribe, sessionService.getSnapshot)
   const editable = session.status === 'authenticated' && hasPermission(session.user, 'settings.references')
   const allowed = editable || session.status === 'authenticated' && hasPermission(session.user, 'sales.read')
   const query = useQuery({ queryKey: ['settings', 'sales'], queryFn: () => salesService.settings(), enabled: allowed, retry: false })
   if (!allowed) return <HEmptyState title="Paramètres Ventes" icon={FileText} description="Vous ne disposez pas des droits de consultation de ces paramètres." />
-  return <div className="settings-sales"><HSectionHeading title="Devis" icon={FileText} description="Présentation, validité et conditions générales de vente." />{query.data ? <SalesPresentation key={query.data.updated} record={query.data} editable={editable} tab={tab} onTabChange={(tab) => setParams({ tab }, { replace: true })} /> : query.error ? <p role="alert" className="field-error">{query.error.message}<HButton onClick={() => void query.refetch()}>Réessayer</HButton></p> : <HLoadingIndicator label="Chargement des paramètres Ventes" />}</div>
+  return <div className="settings-sales"><HSectionHeading title="Devis" icon={FileText} description="Présentation, modèles de contenu, validité et conditions de vente." />{query.data ? <SalesPresentation key={query.data.updated} record={query.data} editable={editable} tab={tab} onTabChange={(tab) => setParams({ tab }, { replace: true })} /> : query.error ? <p role="alert" className="field-error">{query.error.message}<HButton onClick={() => void query.refetch()}>Réessayer</HButton></p> : <HLoadingIndicator label="Chargement des paramètres Ventes" />}</div>
 }
 function SalesPresentation({ record, editable, tab, onTabChange }: { record: SalesSettings; editable: boolean; tab: string; onTabChange: (tab: string) => void }) {
   const [terms, setTerms] = useState(record.terms)
@@ -34,7 +35,7 @@ function SalesPresentation({ record, editable, tab, onTabChange }: { record: Sal
   const client = useQueryClient()
   const save = useMutation({ mutationFn: () => salesService.saveSettings({ ...record, column_widths: widths, validity_days: days, default_tax_rate: tax, terms }), onSuccess: (saved) => client.setQueryData(['settings', 'sales'], saved) })
   const dirty = JSON.stringify(terms) !== JSON.stringify(record.terms) || JSON.stringify(widths) !== JSON.stringify(record.column_widths) || days !== record.validity_days || tax !== record.default_tax_rate
-  return <form onSubmit={(event) => { event.preventDefault(); if (editable && dirty) save.mutate() }}><HRecordTabs label="Paramètres Ventes" idPrefix="sales-settings-tab" value={tab} onChange={onTabChange} items={[{ value: 'columns', label: 'Colonnes des devis', icon: Columns3, panel: 'sales-settings-columns' }, { value: 'defaults', label: 'Valeurs par défaut', icon: SlidersHorizontal, panel: 'sales-settings-defaults' }, { value: 'terms', label: 'Conditions de vente', icon: ScrollText, panel: 'sales-settings-terms' }]} />
+  return <><HRecordTabs label="Paramètres Ventes" idPrefix="sales-settings-tab" value={tab} onChange={onTabChange} items={[{ value: 'templates', label: 'Modèles de devis', icon: FileText, panel: 'sales-settings-templates' }, { value: 'columns', label: 'Colonnes des devis', icon: Columns3, panel: 'sales-settings-columns' }, { value: 'defaults', label: 'Valeurs par défaut', icon: SlidersHorizontal, panel: 'sales-settings-defaults' }, { value: 'terms', label: 'Conditions de vente', icon: ScrollText, panel: 'sales-settings-terms' }]} />{tab === 'templates' ? <div role="tabpanel" id="sales-settings-templates" aria-labelledby="sales-settings-tab-templates"><QuoteTemplatesSettings settings={record} editable={editable} /></div> : <form onSubmit={(event) => { event.preventDefault(); if (editable && dirty) save.mutate() }}>
     <fieldset className="access-fieldset" disabled={!editable || save.isPending}>
       <section className="contact-panel" role="tabpanel" id={`sales-settings-${tab}`} aria-labelledby={`sales-settings-tab-${tab}`}>
         <HSectionHeading
@@ -77,5 +78,5 @@ function SalesPresentation({ record, editable, tab, onTabChange }: { record: Sal
       <HDialogFooter><HButton variant="primary" size="small" disabled={!editingTerm.label.trim() || !editingTerm.content.trim()} onClick={() => { setTerms((current) => current.some((term) => term.id === editingTerm.id) ? current.map((term) => term.id === editingTerm.id ? editingTerm : editingTerm.is_default ? { ...term, is_default: false } : term) : [...current.map((term) => editingTerm.is_default ? { ...term, is_default: false } : term), editingTerm]); setEditingTerm(undefined) }}><Check size={14} />Appliquer</HButton></HDialogFooter>
     </HDialog>}
 
-  </form>
+  </form>}</>
 }
