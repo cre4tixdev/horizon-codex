@@ -40,6 +40,8 @@ export function useQuoteColumns(settings: SalesSettings, columns: ReadonlyArray<
         const textWidth = Math.max(...texts.map((text) => context.measureText(text).width + [...text].reduce((sum, character) => sum + (/[0-9]/.test(character) ? digitWidth - context.measureText(character).width : 0), 0)))
         let required = textWidth + parseFloat(cellStyle.paddingLeft) + parseFloat(cellStyle.paddingRight) + 3
         if (element instanceof HTMLInputElement) required += parseFloat(style.paddingLeft) + parseFloat(style.paddingRight) + parseFloat(style.borderLeftWidth) + parseFloat(style.borderRightWidth)
+        const refresh = cell.querySelector('.quote-cost-refresh')
+        if (refresh) required += refresh.getBoundingClientRect().width + 2
         const toggle = cell.querySelector('.quote-section-total-toggle')
         if (toggle) required += toggle.getBoundingClientRect().width + parseFloat(getComputedStyle(toggle.parentElement!).columnGap)
         next[key] = Math.max(next[key] || 0, Math.ceil(required))

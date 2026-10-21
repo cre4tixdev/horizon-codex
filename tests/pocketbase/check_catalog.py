@@ -27,6 +27,87 @@ class CatalogTests(unittest.TestCase):
 
     quote_save = check_sales.SalesTests.quote_save
 
+    def test_quote_cost_refresh_selection_prices_provenance_and_concurrency(self):
+        code,product=self.create_product(reference_cost=100,offers=[]);self.assertEqual(code,200,product)
+        code,line=self.pb.request('POST','horizon/inventory/quote-line',dict(product=product['id'],offer='reference',currency='EUR'),self.token);self.assertEqual(code,200,line)
+        code,quote=self.quote_save(lines=[{**line,'quantity':2,'price_source':'margin'}, {**line,'quantity':1,'unit_cost':110,'unit_price':300,'price_source':'manual'}, {**self.quote['lines'][0],'unit_cost':20}],discount=10);self.assertEqual(code,200,quote)
+        self.assertEqual(quote['lines'][0]['catalog_snapshot']['cost_origin'],'catalog');self.assertEqual(quote['lines'][1]['catalog_snapshot']['cost_origin'],'manual')
+        def change_cost(value, current=product):
+            code,result=self.pb.request('POST','horizon/inventory/products/save',dict(id=current['id'],updated=current['updated'],input={**self.product,'reference_cost':value,'offers':[]}),self.token);self.assertEqual(code,200,result);return result
+        product=change_cost(120)
+        def payload(current=quote, **changes):
+            return dict(id=current['id'],updated=current['updated'],opportunity=self.opp['id'],lines=current['lines'],discount=10,discount_mode='percent',mode='price',**changes)
+        def preview(body):return self.pb.request('POST','horizon/sales/quotes/cost-preview',body,self.token)
+        body=payload();code,result=preview(body);self.assertEqual(code,200,result)
+        self.assertEqual(result['selected'],[0],result);self.assertEqual(len(result['rows']),2);self.assertTrue(result['rows'][1]['manual'])
+        self.assertEqual(result['before']['subtotal'],result['after']['subtotal']);self.assertEqual(result['after']['cost_total']-result['before']['cost_total'],40)
+        self.assertEqual(result['lines'][0]['price_source'],'manual');self.assertEqual(result['lines'][0]['unit_price'],quote['lines'][0]['unit_price'])
+        self.assertEqual(self.pb.request('GET','horizon/sales/quotes/'+quote['id'],token=self.token)[1]['cost_total'],quote['cost_total'])
+        code,margin=preview({**body,'mode':'margin','selected':[0]});self.assertEqual(code,200,margin)
+        self.assertAlmostEqual(margin['lines'][0]['unit_price'],quote['lines'][0]['unit_price']*1.2,places=6)
+        code,both=preview({**body,'selected':[0,1]});self.assertEqual(code,200,both);self.assertEqual(both['lines'][1]['unit_cost'],120)
+        self.assertEqual(both['lines'][1]['unit_price'],300);self.assertEqual(both['lines'][2],quote['lines'][2])
+        code,single=preview({**body,'scope':1});self.assertEqual(code,200,single);self.assertEqual([row['index'] for row in single['rows']],[1])
+        versions={str(row['index']):row['token'] for row in result['rows']}
+        code,applied=preview({**body,'selected':[0],'versions':versions});self.assertEqual(code,200,applied)
+        code,saved=self.pb.request('POST','horizon/sales/quotes/save',dict(id=quote['id'],updated=quote['updated'],input={**self.quote,'discount':10,'lines':applied['lines']}),self.token);self.assertEqual(code,200,saved)
+        self.assertEqual(saved['lines'][0]['unit_cost'],120);self.assertEqual(saved['lines'][1]['unit_cost'],110)
+        self.assertEqual(saved['lines'][0]['catalog_snapshot']['reference_cost'],100)
+        self.assertEqual(saved['lines'][0]['catalog_snapshot']['cost_unit_value'],120)
+        self.assertIn('cost_refreshed_at',saved['lines'][0]['catalog_snapshot']);self.assertNotIn('cost_refresh',saved['lines'][0])
+        product=change_cost(130,product)
+        self.assertEqual(preview({**payload(saved),'selected':[0],'versions':versions})[0],409)
+        pending=[{**row} for row in saved['lines']];pending[0]['cost_refresh']=versions['0']
+        self.assertEqual(self.pb.request('POST','horizon/sales/quotes/save',dict(id=saved['id'],updated=saved['updated'],input={**self.quote,'lines':pending}),self.token)[0],409)
+        code,unchanged=self.pb.request('POST','horizon/sales/quotes/save',dict(id=saved['id'],updated=saved['updated'],input={**self.quote,'lines':saved['lines']}),self.token);self.assertEqual(code,200,unchanged);self.assertEqual(unchanged['lines'][0]['unit_cost'],120)
+        rights=['inventory.read','inventory.write','sales.read','sales.write','crm.read','crm.write','contacts.read']
+        self.pb.request('PATCH','collections/core_roles/records/'+self.user['role'],dict(permissions=[p for p in rights if p!='inventory.read']),self.pb.admin_token)
+        self.assertEqual(preview(payload(unchanged))[0],403)
+        self.pb.request('PATCH','collections/core_roles/records/'+self.user['role'],dict(permissions=rights+['sales.quote.validate']),self.pb.admin_token)
+        code,finalized=self.pb.request('POST','horizon/sales/quotes/finalize',dict(id=unchanged['id'],updated=unchanged['updated']),self.token);self.assertEqual(code,200,finalized)
+        self.assertEqual(preview(payload(finalized))[0],400)
+
+    def test_quote_cost_refresh_supplier_unavailable_and_legacy(self):
+        code,product=self.create_product(reference_cost=50);self.assertEqual(code,200,product)
+        code,line=self.pb.request('POST','horizon/inventory/quote-line',dict(product=product['id'],offer='',currency='EUR'),self.token);self.assertEqual(code,200,line)
+        code,quote=self.quote_save(lines=[{**line,'quantity':1}]);self.assertEqual(code,200,quote)
+        offers=[{**self.offer,'id':product['offers'][0]['id'],'list_price':1200}]
+        code,product=self.pb.request('POST','horizon/inventory/products/save',dict(id=product['id'],updated=product['updated'],input={**self.product,'reference_cost':50,'offers':offers}),self.token);self.assertEqual(code,200,product)
+        body=dict(id=quote['id'],updated=quote['updated'],opportunity=self.opp['id'],lines=quote['lines'],discount=0,discount_mode='percent',mode='price')
+        path='horizon/sales/quotes/cost-preview'
+        code,result=self.pb.request('POST',path,body,self.token);self.assertEqual(code,200,result)
+        self.assertIn('Fournisseur principal',result['rows'][0]['old_source']);self.assertAlmostEqual(result['rows'][0]['new_cost'],0.96);self.assertIn('Fournisseur principal',result['rows'][0]['source'])
+        # Refresh follows the effective product cost, including a new manual override.
+        code,product=self.pb.request('POST','horizon/inventory/products/save',dict(id=product['id'],updated=product['updated'],input={**self.product,'reference_cost':7,'cost_override':True,'offers':offers}),self.token);self.assertEqual(code,200,product)
+        code,result=self.pb.request('POST',path,body,self.token);self.assertEqual(code,200,result)
+        self.assertEqual(result['rows'][0]['new_cost'],7);self.assertIn('Coût manuel',result['rows'][0]['source'])
+        code,product=self.pb.request('POST','horizon/inventory/products/save',dict(id=product['id'],updated=product['updated'],input={**self.product,'reference_cost':50,'cost_override':False,'offers':offers}),self.token);self.assertEqual(code,200,product)
+        # Legacy snapshot: preserve it and require explicit selection, never guess its origin.
+        import sqlite3
+        snapshot={k:v for k,v in quote['lines'][0]['catalog_snapshot'].items() if not k.startswith('cost_')}
+        with sqlite3.connect(self.pb.data/'data.db') as db:db.execute('UPDATE sales_quote_lines SET catalog_snapshot = ? WHERE id = ?',(json.dumps(snapshot),quote['lines'][0]['id']))
+        code,result=self.pb.request('POST',path,body,self.token);self.assertEqual(code,200,result);self.assertTrue(result['rows'][0]['manual']);self.assertEqual(result['selected'],[])
+        offers[0]['valid_until']='2020-01-01'
+        code,product=self.pb.request('POST','horizon/inventory/products/save',dict(id=product['id'],updated=product['updated'],input={**self.product,'reference_cost':50,'offers':offers}),self.token);self.assertEqual(code,200,product)
+        code,result=self.pb.request('POST',path,body,self.token);self.assertEqual(code,200,result);self.assertIsNone(result['rows'][0]['new_cost']);self.assertTrue(result['rows'][0]['reason']);self.assertEqual(result['selected'],[])
+
+    def test_quote_cost_refresh_uses_current_preferred_offer_without_rewriting_identity(self):
+        code,product=self.create_product(reference_cost=5,offers=[]);self.assertEqual(code,200,product)
+        code,line=self.pb.request('POST','horizon/inventory/quote-line',dict(product=product['id'],offer='',currency='EUR'),self.token);self.assertEqual(code,200,line)
+        code,quote=self.quote_save(lines=[{**line,'quantity':1}]);self.assertEqual(code,200,quote)
+        code,product=self.pb.request('POST','horizon/inventory/products/save',dict(id=product['id'],updated=product['updated'],input={**self.product,'reference_cost':5}),self.token);self.assertEqual(code,200,product)
+        body=dict(id=quote['id'],updated=quote['updated'],opportunity=self.opp['id'],lines=quote['lines'],discount=0,discount_mode='percent',mode='price')
+        code,result=self.pb.request('POST','horizon/sales/quotes/cost-preview',body,self.token);self.assertEqual(code,200,result)
+        self.assertAlmostEqual(result['rows'][0]['new_cost'],.8);self.assertIn('Tarif fournisseur',result['rows'][0]['source'])
+        code,saved=self.pb.request('POST','horizon/sales/quotes/save',dict(id=quote['id'],updated=quote['updated'],input={**self.quote,'lines':result['lines']}),self.token);self.assertEqual(code,200,saved)
+        self.assertEqual(saved['lines'][0]['product_supplier'],'')
+        self.assertEqual(saved['lines'][0]['catalog_snapshot']['source'],'reference')
+        self.assertEqual(saved['lines'][0]['catalog_snapshot']['cost_reference']['product_supplier'],product['offers'][0]['id'])
+        self.assertAlmostEqual(saved['lines'][0]['unit_cost'],.8)
+        body.update(updated=saved['updated'],lines=saved['lines'])
+        code,result=self.pb.request('POST','horizon/sales/quotes/cost-preview',body,self.token);self.assertEqual(code,200,result)
+        self.assertIn('Fournisseur principal',result['rows'][0]['old_source'])
+
     def test_multiple_families_and_independent_archive(self):
         status, first = self.create_product(); self.assertEqual(status, 200, first)
         category = next(item['id'] for item in self.categories if item['id'] != first['category'])

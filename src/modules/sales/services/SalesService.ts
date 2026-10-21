@@ -6,7 +6,7 @@ import { environment } from '../../../core/config/environment'
 import { hasPermission } from '../../../core/auth/types/session'
 import { sessionService } from '../../../core/auth/services/session'
 import { createSalesRepository } from '../repositories/SalesRepository'
-import { salesDocumentErrorSchema, type SalesDocumentNotice, orderInputSchema, quoteInputSchema, type QuoteInput, type QuoteListOptions, type SalesSettings } from '../schemas/quotes'
+import { type CostRefreshInput, salesDocumentErrorSchema, type SalesDocumentNotice, orderInputSchema, quoteInputSchema, type QuoteInput, type QuoteListOptions, type SalesSettings } from '../schemas/quotes'
 export class SalesDocumentError extends Error {
   constructor(message: string, readonly documents: SalesDocumentNotice[]) { super(message) }
 }
@@ -32,6 +32,7 @@ async function settingsRun(write: boolean, action: (repo: ReturnType<typeof crea
   try { return await action(repository) } catch (error) { console.error('[sales-settings] Operation failed', { status: error instanceof ClientResponseError ? error.status : 0 }); throw new Error(error instanceof ClientResponseError && [400, 403, 409].includes(error.status) ? error.response.message : 'Paramètres Ventes indisponibles.', { cause: error }) }
 }
 export const salesService = {
+  costPreview: (input: CostRefreshInput) => run(true, (repo) => repo.costPreview(input)),
   previewOrderRevision: (id: string, updated: string, input: QuoteInput, number: string) => run(true, (repo) => repo.previewOrderRevision(id, updated, orderInputSchema.parse(input), number)),
   reviseOrder: (id: string, updated: string, input: QuoteInput, number: string, token: string) => run(true, (repo) => repo.reviseOrder(id, updated, orderInputSchema.parse(input), number, token)),
   orderRevisions: (id: string) => run(false, (repo) => repo.orderRevisions(id)),

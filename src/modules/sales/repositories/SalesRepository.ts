@@ -2,10 +2,11 @@ import type { PurchasePreparationSelection } from '../../purchasing/schemas/purc
 import type { StockSelection } from '../../inventory/schemas/stock'
 import { z } from 'zod'
 import { createPocketBaseClient } from '../../../core/pocketbase/client'
-import { orderRevisionPreviewSchema, orderRevisionHistorySchema, salesSettingsSchema, type SalesSettings, opportunityChoiceSchema, quotePageSchema, quoteSchema, relatedSalesSchema, type QuoteInput, type QuoteListOptions } from '../schemas/quotes'
+import { costRefreshSchema, type CostRefreshInput, orderRevisionPreviewSchema, orderRevisionHistorySchema, salesSettingsSchema, type SalesSettings, opportunityChoiceSchema, quotePageSchema, quoteSchema, relatedSalesSchema, type QuoteInput, type QuoteListOptions } from '../schemas/quotes'
 export function createSalesRepository(url: string) {
   const client = createPocketBaseClient(url)
   return {
+    async costPreview(input: CostRefreshInput) { return costRefreshSchema.parse(await client.send('/api/horizon/sales/quotes/cost-preview', { method: 'POST', body: input, requestKey: null })) },
     async previewOrderRevision(id: string, updated: string, input: QuoteInput, customer_order_number: string) { return orderRevisionPreviewSchema.parse(await client.send('/api/horizon/sales/orders/revision-preview', { method: 'POST', body: { id, updated, input, customer_order_number }, requestKey: null })) },
     async reviseOrder(id: string, updated: string, input: QuoteInput, customer_order_number: string, preview_token: string) { return quoteSchema.parse(await client.send('/api/horizon/sales/orders/revise', { method: 'POST', body: { id, updated, input, customer_order_number, preview_token }, requestKey: null })) },
     async orderRevisions(id: string) { return orderRevisionHistorySchema.parse(await client.send(`/api/horizon/sales/orders/${id}/revisions`, { method: 'GET', requestKey: null })) },

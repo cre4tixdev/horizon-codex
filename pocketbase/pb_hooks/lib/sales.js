@@ -135,7 +135,7 @@ module.exports = {
       permissions(app, event.auth, true)
       let quote, before = null, previousLines = []
       if (body.id) {
-        quote = get(app, body.id); before = quote.publicExport(); previousLines = app.findRecordsByFilter('sales_quote_lines', 'quote = {:id}', 'position', 0, 0, { id: quote.id }).map((line) => line.publicExport())
+        quote = get(app, body.id); before = quote.publicExport(); previousLines = app.findRecordsByFilter('sales_quote_lines', 'quote = {:id}', 'position', 0, 0, { id: quote.id }).map((line) => ({ ...line.publicExport(), catalog_snapshot: JSON.parse(line.getString('catalog_snapshot') || 'null') }))
         if (quote.getString('updated') !== body.updated) throw new ApiError(409, 'Le devis a été modifié. Rechargez la fiche.')
         if (quote.getString('status') !== 'draft' || quote.getString('archived_at')) throw new BadRequestError('Seul un brouillon actif est modifiable.')
         if (quote.getString('opportunity') !== input.opportunity) throw new BadRequestError('Le rattachement du devis est immuable.')
@@ -168,7 +168,7 @@ module.exports = {
           quote.set('contact', input.contact)
         }
       }
-      require(`${__hooks}/lib/sales-line-catalog.js`)(app, event.auth, quote.getString('currency'), priced, previousLines)
+      require(`${__hooks}/lib/sales-line-catalog.js`)(app, event.auth, quote.getString('currency'), priced, previousLines, input.lines)
       const settings = app.findFirstRecordByData('settings_sales', 'key', 'default')
       const termsId = input.terms_id === undefined ? quote.getString('terms_id') : input.terms_id
       if (typeof termsId !== 'string' || termsId.length > 100) throw new BadRequestError('Conditions générales invalides.')

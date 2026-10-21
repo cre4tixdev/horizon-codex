@@ -51,3 +51,4 @@ routerAdd('GET', '/api/horizon/sales/orders/{id}/revisions', (event) => require(
 onRecordDelete(() => { throw new BadRequestError('Les commandes doivent être conservées dans l’historique.') }, 'sales_orders')
 
 routerAdd('POST', '/api/horizon/sales/quotes/customer-order-reference', (event) => require(`${__hooks}/lib/sales-lifecycle.js`).customerOrderReference(event), $apis.requireAuth('core_users'))
+routerAdd('POST', '/api/horizon/sales/quotes/cost-preview', (event) => require(`${__hooks}/lib/sales-cost-refresh.js`).preview(event), $apis.requireAuth('core_users'))

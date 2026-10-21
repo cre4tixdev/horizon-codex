@@ -2074,3 +2074,33 @@ Lint et TypeScript réussis, `git diff --check` réussi. Chromium six parcours e
 - PocketBase 0.40.4 éphémère : nouveau scénario Contact (3,135 s), deux régressions de cycle/snapshots (6,180 s), puis révision de commande via unittest (3,112 s) réussis. Défaut de l’opportunité, substitution/effacement, conservation pour anciens clients, opportunité intacte, contact d’une autre société/inactif et changement sans contacts.read refusés, devis finalisé protégé ; état et identité des pièces conservés.
 - Chromium : nouveau parcours Contact/alignement (7,9 s avec démarrage) réussi, révision de commande (8,6 s), puis deux parcours cycle devis et contact / 21,1 s réussis. Position Contact/Commercial et dates, valeur initiale/changée, enregistrement/rechargement/API, texte simple 26 px/interligne 18 px, croissance multiligne sans rognage, clair/sombre/mobile vérifiés ; captures inspectées. Première régression stoppée sur une ancienne assertion du cadre portée par le viewport : assertion adaptée à la table partagée, conformément au contrat UX existant, puis parcours réussi. Le test de révision sans main a d’abord été invoqué directement sans exécuter de test ; seul le résultat unittest effectif est compté.
 - Pack cumulatif ZIP/manifeste/empreintes vérifiés, aucune migration modifiée. Pas de suite serveur/E2E complète, de nouvelle conversion Gotenberg réelle, de recette NAS/Safari/tactile matériel. Le backend Contact des devis et les variables existantes PDF/e-mail sont relus ; aucun envoi réel effectué.
+
+
+### 21 octobre 2026 — Devis : actualisation des coûts à la demande
+
+- `pnpm check` réussi : lint, TypeScript, 451 tests / 97 fichiers, build ; avertissement Vite préexistant de taille de bundle.
+- PocketBase 0.40.4 éphémère : trois tests catalogue / coûts / snapshots réussis (9,680 s). Coûts personnalisés et historiques non présélectionnés, doublons produit, fournisseur conservé, offre expirée sans repli zéro, prix/marges et sources concurrentes, absence d’écriture avant sauvegarde, provenance et identité historique conservées, permissions et brouillon vérifiés. Régression révision de commande : un test unittest réussi (2,839 s). Lecture explicite du JSON PocketBase pour la provenance testée.
+- Chromium avec backend réel : parcours Actualisation et Contact/alignement, deux scénarios réussis (10,6 s). Comparaison, sélection/modes, annulation, actualisation unitaire, application sans écriture, sauvegarde, conflit 409 puis nouvelle vérification, annulation des modifications ordinaires ; clair/sombre/mobile et largeur du popup vérifiés, captures inspectées. Ajustement de largeur mobile et résumé empilé pour conserver les actions visibles ; tableau défilable horizontalement. Logs 409 attendus et status 0 à la navigation de fixture observés.
+- Pack cumulatif ZIP/manifeste/empreintes vérifiés ; aucune nouvelle migration. Pas de recette NAS/Safari/tactile matériel, ni de suite serveur/E2E complète.
+
+
+### 21 octobre 2026 — Visibilité de l’actualisation des coûts
+
+Lint ciblé et TypeScript réussis. Chromium/backend réel : scénario coûts enrichi réussi (7,2 s), opacité positive du bouton sans survol, comparaison sans écart affichée, fermeture puis changement catalogue et réouverture relisant le nouveau coût ; parcours sélection/application/sauvegarde/conflit et captures clair/sombre/mobile conservés. Premier essai du test sans écart utilisait le devis entier avec une autre ligne personnalisée différente ; périmètre corrigé à la ligne testée. Test PocketBase fournisseur/historique/indisponibilité réussi (2,791 s), relecture du prix d’achat confirmé. Aucun changement serveur ni nouvelle recette NAS.
+
+
+### 21 octobre 2026 — Reprendre le coût effectif de la fiche produit
+
+- Trois tests PocketBase catalogue/coûts/historique réussis (8,451 s), dont ajout du passage d’un tarif fournisseur au coût manuel produit. Nouvelle régression référence → favori actuel puis sauvegarde réussie (2,858 s) : coût courant repris, fournisseur de ligne et identité historique conservés, offre source enregistrée dans la provenance du coût. Première invocation de ce dernier test utilisait le helper de création pour une mise à jour : payload corrigé sans assouplissement serveur.
+- Chromium réel : scénario coûts complet réussi (7,1 s), captures clair/sombre/mobile et parcours comparaison/sélection/application/enregistrement/conflit conservés. Aucune modification visuelle supplémentaire pour ce correctif serveur.
+- ZIP/manifeste/empreintes et git diff --check vérifiés. Pas de nouvelle suite complète lint/TS/unit/build (correctif JS serveur et tests Python uniquement), ni de recette NAS.
+
+
+### 21 octobre 2026 — Comparatif compact avec ancien fournisseur
+
+Lint ciblé et TypeScript réussis ; deux tests PocketBase provenance/fournisseur réussis (6,038 s), incluant ancienne source puis provenance du dernier coût actualisé distincte de l’identité initiale. Chromium réel : scénario coûts complet réussi (7,6 s), message supprimé, source sous la colonne ancien coût, hauteur ≤42 px pour la ligne nominale. Captures clair/sombre/mobile générées ; clair/mobile inspectés, tableau horizontalement défilable sur mobile. ZIP/manifeste/empreintes et git diff --check vérifiés. Pas de suite complète ni recette NAS.
+
+
+### 21 octobre 2026 — Présentation du récapitulatif d’impact
+
+Lint ciblé/TypeScript réussis ; scénario Chromium réel coûts réussi (7,3 s), état sans sélection et compteur vérifiés, parcours sélection/modes/application/sauvegarde/conflit conservé. Captures clair/sombre/mobile inspectées. Correction de compression du tableau mobile avec régression sur sa hauteur (>70 px), formulaire défilable et actions accessibles. Pas de suite complète ni recette NAS ; aucune modification serveur/calcul métier. git diff --check réussi.

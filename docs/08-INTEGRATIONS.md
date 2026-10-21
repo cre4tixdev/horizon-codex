@@ -691,3 +691,8 @@ Dashboard configurable — 20 octobre 2026 : les sources de widgets sont des lec
 
 
 Devis / contact modifiable — 21 octobre 2026 : le contact du brouillon est désormais sélectionnable dans la fiche. Les contrats existants sales-document-context et sales-mail continuent de lire sales_quotes.contact pour les variables de contact et le destinataire proposé (adresse société en repli). Aucun appel Graph, modification d’envoi déjà figé ou changement de signature/template ; le changement ne concerne pas le contact du CRM.
+
+
+### 21 octobre 2026 — Coûts de devis actualisés depuis Inventory
+
+Sales consulte une projection Inventory interne (`catalog-quote-cost`) fondée sur le pricing catalogue existant : coût manuel du produit s’il est activé, sinon offre du fournisseur favori actuel, sinon coût de référence. La provenance du coût est distincte du fournisseur de la ligne et du snapshot d’identité, qui ne sont pas réécrits. Aucun appel externe, mouvement de stock, écriture Sage ou changement des historiques comptables/factures. Pricing recalcule côté serveur les deux simulations : prix effectifs conservés ou taux de marge sur coût conservés. Le devis reste une source historique autonome après enregistrement ; ses données d’identité catalogue ne sont pas remplacées par le catalogue courant.
