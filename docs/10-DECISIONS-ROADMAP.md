@@ -4091,3 +4091,9 @@ Complément de recette : les deux parcours TimeReport finaux passent en 23,0 s a
 - Publication demandée par l’utilisateur : actualisation unitaire/globale, coût effectif de la fiche produit, comparaison avec ancien fournisseur, provenance/concurrence serveur, action globale alignée dans Coût et récapitulatif visuel. Ensemble du travail local depuis feedf63 ; pas de changement de dépendance ni migration.
 - pnpm check relancé et réussi : lint, TypeScript, 451 tests / 97 fichiers, build ; avertissement Vite préexistant de taille de bundle. git diff --check réussi. Tests PocketBase et Chromium ciblés exécutés durant les interventions ci-dessus, non relancés inutilement pour cette publication.
 - État à rédaction : local, commit/push main en cours. Dernier pack cumulatif comparatif-couts-20261021 préparé et vérifié, installation NAS non effectuée/non confirmée ; le push ne déploie pas PocketBase. Statuts/compteurs inchangés. Prochaine action : confirmer la publication Git puis recette NAS avec les hooks et le frontend correspondants.
+
+
+### 21 octobre 2026 — Publication confirmée : coûts de devis
+
+- Commit fonctionnel `11ce098` poussé avec succès sur origin/main depuis feedf63 : actualisation volontaire des coûts et comparatif, ancien fournisseur/provenance, contrôles de concurrence et présentation compacte. Vérifications de la préparation ci-dessus réussies ; aucun changement applicatif après celles-ci.
+- Livraison : code committé/poussé, pack cumulatif comparatif-couts-20261021 disponible localement, installation NAS non effectuée/non confirmée. Le push ne déploie pas PocketBase ; prochaine action : installer le pack, redémarrer et recetter avec le frontend correspondant. Statuts/compteurs inchangés.
