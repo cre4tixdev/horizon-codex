@@ -4119,3 +4119,9 @@ Complément de recette : les deux parcours TimeReport finaux passent en 23,0 s a
 - Cadrage utilisateur complété : appellation Kit retenue, Pack commercial écarté ; préfixe de référence modifiable dans Paramètres → Catalogue → Kits (KIT- proposé), sans renommage des références existantes. Aperçu à la sélection, ligne dépliable éditable localement au devis et deux choix d’impression proposés. Cadrage consigné dans 04 ; aucune implémentation/migration Kit annoncée.
 - Publication demandée : modèles de contenu des devis (code, migration 0042, tests, docs) et cadrage Kit depuis 69ae98d. pnpm check de publication réussi (lint/TypeScript, 453 tests / 98 fichiers, build ; avertissement Vite de taille préexistant) et git diff --check réussi ; tests PocketBase/Chromium et pack vérifié documentés dans la livraison Modèles, non relancés pour le seul Git. Statuts/compteurs inchangés.
 - État à rédaction : local, commit/push main en préparation. Pack modeles-devis-20261021 déjà préparé ; installation NAS non effectuée/non confirmée, le push ne déploie pas PocketBase. Prochaine action : confirmer contrôles/publication puis recette des modèles et reprise du développement Kits sur décision explicite.
+
+
+### 21 octobre 2026 — Publication confirmée : modèles de devis
+
+- Commit `a580290` poussé avec succès sur origin/main depuis 69ae98d : modèles de contenu des devis, migration 0042, tests et documentation, incluant le cadrage des Kits sans leur implémentation. pnpm check et git diff --check réussis avant publication, aucun changement applicatif après ces contrôles.
+- Livraison : code committé/poussé, pack modeles-devis-20261021 préparé et vérifié ; installation NAS non effectuée/non confirmée. Le push ne déploie pas PocketBase. Statuts/compteurs inchangés ; prochaine action : installer les hooks/migration des modèles et recetter, puis reprendre les Kits après décision explicite de développement.
