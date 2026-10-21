@@ -25,3 +25,8 @@ export type SettingKind = 'templates' | 'mailboxes' | 'signatures'
 export const mailTone = (s: MailMessage['status']) => ({ draft: 'violet', pending: 'amber', processing: 'amber', sent: 'green', failed: 'pink', uncertain: 'amber', cancelled: 'navy' } as const)[s]
 
 export type PersonalSignatureInput = Omit<MailSignature, 'id' | 'updated' | 'user'>
+
+export const replySummarySchema = z.object({ id: z.string(), message: z.string(), sender_address: z.string(), sender_name: z.string(), subject: z.string(), received_at: z.string(), source_context: z.enum(['sales_quote', 'purchase_order']), source_id: z.string(), source_label: z.string(), to_address: z.string() })
+export const replySchema = replySummarySchema.extend({ body_text: z.string(), attachments: z.array(z.string()), warnings: z.array(z.string()) })
+export const repliesSchema = z.object({ items: z.array(replySummarySchema), totalItems: z.number(), totalPages: z.number(), page: z.number() })
+export type MailReplySummary = z.infer<typeof replySummarySchema>

@@ -33,7 +33,7 @@ function Description({ value, onChange, label, name, inputRef, required = true }
   useEffect(() => {
     const node = ref.current
     if (!node) return
-    const resize = () => { node.style.height = 'auto'; node.style.height = `${node.scrollHeight + 2}px` }
+    const resize = () => { node.style.height = 'auto'; const style = getComputedStyle(node); node.style.height = `${node.scrollHeight + parseFloat(style.borderTopWidth) + parseFloat(style.borderBottomWidth)}px` }
     resize()
     let lastWidth = node.clientWidth
     let frame = 0

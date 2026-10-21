@@ -11,6 +11,9 @@ async function run<T>(action: string, call: (r: ReturnType<typeof createMessagin
   try { return await call(repository) } catch (error) { console.error('[messaging] Operation failed', { status: error instanceof ClientResponseError ? error.status : 0 }); throw new Error(error instanceof ClientResponseError && [400, 403, 404, 409, 503].includes(error.status) ? error.response.message : 'Messagerie indisponible. Réessayez.', { cause: error }) }
 }
 export const messagingService = {
+  replies: (query: Record<string, string>) => run('read', (r) => r.replies(query)),
+  reply: (id: string) => run('read', (r) => r.reply(id)),
+  replyAttachment: (id: string, filename: string) => run('read', (r) => r.replyAttachment(id, filename)),
   personalSignatures: () => run('read', (r) => r.personalSignatures()),
   savePersonalSignature: (input: PersonalSignatureInput, id?: string, updated?: string) => run('write', (r) => r.savePersonalSignature(input, id, updated)),
   syncReplies: (mailbox: string) => run('settings', (r) => r.syncReplies(mailbox)),

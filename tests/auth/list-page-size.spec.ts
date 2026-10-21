@@ -9,9 +9,15 @@ test('Pagination : auto selon écran, choix manuel, groupes et navigation', asyn
     const results = await Promise.all(Array.from({ length: 15 }, (_, offset) => request.post('http://127.0.0.1:18090/api/collections/contacts_companies/records', { headers: { Authorization: token }, data: { name: `Adaptive Company ${String(start + offset).padStart(3, '0')}`, active: true } })))
     for (const result of results) expect(result.ok(), await result.text()).toBe(true)
   }
+  let requestedSize = 0
+  page.on('request', (request) => {
+    const url = new URL(request.url())
+    if (request.method() === 'GET' && url.pathname === '/api/collections/contacts_companies/records' && url.searchParams.get('filter')?.includes('Adaptive')) requestedSize = Number(url.searchParams.get('perPage') || 0)
+  })
   await page.goto('/contacts?view=list&q=Adaptive')
   const table = page.locator('.h-data-table'), size = page.getByRole('combobox', { name: 'Résultats par page', exact: true })
-  const automatic = async () => Number((await size.innerText()).match(/Auto · (\d+)/)?.[1] || 0)
+  const automatic = async () => requestedSize
+  await expect(size).toHaveText('Auto')
   await expect.poll(automatic).toBeGreaterThan(25)
   await expect.poll(async () => table.locator('tbody tr').count()).toBe(await automatic())
   const tall = await automatic()
@@ -27,7 +33,7 @@ test('Pagination : auto selon écran, choix manuel, groupes et navigation', asyn
   await expect(page.locator('.h-data-table tbody tr')).toHaveCount(50)
   await page.getByRole('button', { name: 'Page suivante', exact: true }).click(); await expect(page.locator('.h-data-table tbody tr')).toHaveCount(40)
   await page.goto('/contacts?view=cards&q=Adaptive')
-  await expect(size).toContainText('Auto')
+  await expect(size).toHaveText('Auto')
   await expect.poll(automatic).toBeLessThan(25)
   await expect.poll(async () => page.locator('.contact-card-grid > *').count()).toBe(await automatic())
   await page.getByRole('button', { name: 'Passer en mode sombre', exact: true }).click()

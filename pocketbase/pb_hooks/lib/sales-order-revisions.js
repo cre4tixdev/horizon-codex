@@ -18,7 +18,8 @@ const context = (app, user, body) => {
   const order = app.findRecordsByFilter('sales_orders', 'quote = {:id} && status != "cancelled"', '-order_sequence,id', 1, 0, { id: quote.id })[0]
   if (!order || order.getString('status') !== 'confirmed') throw new BadRequestError('Cette commande ne peut pas être révisée dans son état actuel.')
   const before = current(app, quote, order), input = body.input
-  c.exact(input, ['opportunity', 'title', 'quote_date', 'valid_until', 'notes', 'lines', 'discount', 'discount_mode', 'terms_id', 'owner'])
+  c.exact(input, ['opportunity', 'title', 'quote_date', 'valid_until', 'notes', 'lines', 'discount', 'discount_mode', 'terms_id', 'owner', 'contact'])
+  if (input.contact !== undefined && input.contact !== quote.getString('contact')) throw new BadRequestError('Le contact du devis accepté est conservé.')
   if (input.opportunity !== quote.getString('opportunity')) throw new BadRequestError('L’affaire et le client de la commande sont conservés.')
   const title = c.text(input.title, 200, true), notes = input.notes || '', owner = input.owner || order.getString('owner')
   c.text(notes, 10000)

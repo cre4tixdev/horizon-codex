@@ -14,3 +14,9 @@
 .mail-settings-users { display: flex; flex-wrap: wrap; gap: 12px; }
 
 @media (max-width: 700px) { .dialog-content.mail-composer-dialog { width: calc(100vw - var(--workspace-sidebar-width) - 24px); } .mail-composer-content, .mail-composer-files { padding-inline: 12px; } }
+
+.mail-reply-details { display:grid; gap:8px; margin:0; }
+.mail-reply-details > div { display:grid; grid-template-columns:72px minmax(0,1fr); gap:12px; }
+.mail-reply-details dt { color:var(--theme-text-muted,#7b8794); }
+.mail-reply-details dd { margin:0; overflow-wrap:anywhere; }
+.mail-reply-body { white-space:pre-wrap; overflow-wrap:anywhere; border-top:1px solid var(--theme-border,#dfe7f3); padding-top:12px; }

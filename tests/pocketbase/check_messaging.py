@@ -435,6 +435,50 @@ class MessagingTests(unittest.TestCase):
         self.assertEqual(self.pb.request('GET',path,token=token)[0],403)
         self.assertEqual(self.pb.request('GET',route+'/'+sent['id'],token=token)[0],403)
 
+    def test_reply_inbox_private_paginated_and_source_scoped(self):
+        _,message,_=self.reply_setup()
+        self.reply_sync();self.assertEqual(self.reply_sync()['received'],1)
+        code,inbox=self.call('GET','replies');self.assertEqual(code,200,inbox);self.assertEqual(inbox['totalItems'],1)
+        reply=inbox['items'][0];self.assertEqual(reply['message'],message['id']);self.assertNotIn('body_text',reply);self.assertNotIn('provider_id',reply)
+        code,detail=self.call('GET','replies/'+reply['id']);self.assertEqual(code,200,detail);self.assertIn('<script>',detail['body_text']);self.assertEqual(len(detail['attachments']),1)
+        self.assertNotIn('bcc',detail);self.assertNotIn('internet_message_id',detail)
+        path='horizon/messaging/replies/'+reply['id']+'/attachment?'+urlencode(dict(filename=detail['attachments'][0]))
+        with urlopen(Request(self.pb.url+'/api/'+path,headers={'Authorization':self.token})) as response:
+            self.assertEqual(response.read(),self.reply_bytes);self.assertEqual(response.headers['Cache-Control'],'no-store')
+        self.assertEqual(self.call('GET','replies?'+urlencode(dict(q='Camille'))) [1]['totalItems'],1)
+        self.assertEqual(self.call('GET','replies?'+urlencode(dict(q='%'))) [1]['totalItems'],0)
+        self.assertEqual(self.call('GET','replies?context=purchase_order')[1]['totalItems'],0)
+        self.assertEqual(self.call('GET','replies?sort=provider_id')[0],400)
+        # Same role and shared mailbox do not confer access to another sender's inbox.
+        other=self.pb.create_user('inbox-colleague@local.invalid',self.role['id'],'admin');other_token=self.pb.login(other['email'])[1]['token']
+        self.assertEqual(self.call('GET','replies',token=other_token)[1]['totalItems'],0)
+        self.assertEqual(self.call('GET','replies/'+reply['id'],token=other_token)[0],404)
+        self.assertEqual(self.pb.request('GET',path,token=other_token)[0],404)
+        self.assertEqual(self.pb.request('GET',path,token='')[0],401)
+        self.assertEqual(self.pb.request('GET','horizon/messaging/replies/'+reply['id']+'/attachment?filename=missing.pdf',token=self.token)[0],404)
+        rights=self.pb.request('GET','collections/core_roles/records/'+self.role['id'],token=self.pb.admin_token)[1]['permissions']
+        self.pb.request('PATCH','collections/core_roles/records/'+self.role['id'],dict(permissions=[p for p in rights if p!='sales.read']),self.pb.admin_token)
+        self.assertEqual(self.call('GET','replies')[1]['totalItems'],0)
+        self.assertEqual(self.call('GET','replies/'+reply['id'])[0],404)
+        self.assertEqual(self.pb.request('GET',path,token=self.token)[0],404)
+        self.pb.request('PATCH','collections/core_roles/records/'+self.role['id'],dict(permissions=rights),self.pb.admin_token)
+        # Import 31 distinct actual provider replies through the real worker.
+        original_graph=self.graph
+        replies={}
+        for i in range(31):
+            item=json.loads(json.dumps(self.reply_detail));item.update(id='page-reply-'+str(i),internetMessageId='<page-'+str(i)+'@example.invalid>',subject='Page '+str(i),hasAttachments=False,receivedDateTime='2026-10-17T12:%02d:00Z'%i)
+            replies[item['id']]=item
+        def graph(path):
+            parsed=urlparse(path)
+            if parsed.path=='/me/messages':return 200,dict(value=list(replies.values()))
+            if parsed.path.startswith('/me/messages/page-reply-'):return 200,replies[parsed.path.split('/')[-1]]
+            return original_graph(path)
+        self.graph=graph;self.reply_due();self.assertEqual(self.reply_sync()['received'],31)
+        code,first=self.call('GET','replies');self.assertEqual(code,200,first);self.assertEqual(first['totalItems'],32);self.assertEqual(len(first['items']),30);self.assertEqual(first['totalPages'],2)
+        code,second=self.call('GET','replies?page=2');self.assertEqual(code,200,second);self.assertEqual(len(second['items']),2)
+        self.assertFalse(set(r['id'] for r in first['items']) & set(r['id'] for r in second['items']))
+        self.assertEqual(self.call('GET','replies?sort=received_at')[1]['items'][0]['id'],reply['id'])
+
     def test_reply_import_idempotent_source_permissions_and_files(self):
         thread,message,_=self.reply_setup()
         self.assertEqual(self.reply_sync()['received'],0)
@@ -494,6 +538,7 @@ class MessagingTests(unittest.TestCase):
         events=self.pb.request('GET','collections/core_activity_events/records',token=self.pb.admin_token)[1]['items']
         event=next(e for e in events if e['metadata'].get('email_reply_id')==reply['id'])
         self.assert_reply_notification_visible(event['id'],'purchasing')
+        code,inbox=self.call('GET','replies?context=purchase_order');self.assertEqual(code,200,inbox);self.assertEqual(inbox['totalItems'],1);self.assertEqual(inbox['items'][0]['source_context'],'purchase_order')
 
     def test_reply_opt_in_mail_read_and_existing_send_connection(self):
         self.assertFalse(self.call('GET','settings')[1]['mailboxes'][0]['receive_enabled'])

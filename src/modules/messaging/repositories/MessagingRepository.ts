@@ -1,11 +1,19 @@
-import { signatureSchema, type PersonalSignatureInput } from '../schemas/mail'
+import { replySchema, repliesSchema, signatureSchema, type PersonalSignatureInput } from '../schemas/mail'
 import { z } from 'zod'
+import { ClientResponseError } from 'pocketbase'
 import { createPocketBaseClient } from '../../../core/pocketbase/client'
 import { sendPdf } from '../../../core/pocketbase/pdf'
 import { choicesSchema, messageSchema, listSchema, renderedSchema, settingsSchema, type EmailContext, type MailInput, type MailMessage, type SettingInput, type SettingKind } from '../schemas/mail'
 export function createMessagingRepository(url: string) {
   const client = createPocketBaseClient(url), get = (path: string, query?: Record<string, string>) => client.send('/api/horizon/messaging' + path, { method: 'GET', ...(query ? { query } : {}), requestKey: null }), post = (path: string, body: object | FormData) => client.send('/api/horizon/messaging' + path, { method: 'POST', body, requestKey: null })
   return {
+    async replies(query: Record<string, string>) { return repliesSchema.parse(await get('/replies', query)) },
+    async reply(id: string) { return replySchema.parse(await get('/replies/' + id)) },
+    async replyAttachment(id: string, filename: string) {
+      const response = await fetch(client.buildURL(`/api/horizon/messaging/replies/${id}/attachment?filename=${encodeURIComponent(filename)}`), { headers: { Authorization: client.authStore.token }, cache: 'no-store' })
+      if (!response.ok) throw new ClientResponseError({ status: response.status })
+      return response.blob()
+    },
     async personalSignatures() { return z.object({ items: z.array(signatureSchema), variables: z.array(z.string()) }).parse(await get('/personal-signatures')) },
     async savePersonalSignature(input: PersonalSignatureInput, id?: string, updated?: string) { return signatureSchema.parse(await post('/personal-signatures', { input, ...(id ? { id, updated } : {}) })) },
     async choices(context: EmailContext, source: string, message = '') { return choicesSchema.parse(await get('/choices', { context, source, message })) },

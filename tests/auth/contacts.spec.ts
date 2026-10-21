@@ -1943,3 +1943,27 @@ test('recherche : croix de réinitialisation intégrée aux filtres, sans efface
   await expect(reset).toHaveCount(0)
   await expect(page).toHaveURL(/view=cards/)
 })
+
+
+test('menu partagé : roue de fiche et confirmation d’archivage conservées', async ({ page, request }) => {
+  await login(page, 'writer@local.invalid')
+  const headers = { Authorization: await page.evaluate(() => sessionStorage.getItem('horizon.auth.token') || '') }
+  const created = await request.post('http://127.0.0.1:18090/api/collections/contacts_companies/records', { headers, data: { name: 'Société menu partagé', active: true } })
+  expect(created.ok()).toBe(true)
+  const company = await created.json()
+  await page.goto(`/contacts/companies/${company.id}`)
+  const gear = page.getByRole('button', { name: 'Actions de la fiche', exact: true })
+  await gear.click()
+  await expect(page.getByRole('menuitem', { name: 'Dupliquer', exact: true })).toBeVisible()
+  await page.getByRole('menuitem', { name: 'Archiver', exact: true }).click()
+  const dialog = page.getByRole('alertdialog', { name: 'Confirmer l’archivage', exact: true })
+  await expect(dialog).toBeVisible()
+  await dialog.getByRole('button', { name: 'Annuler', exact: true }).click()
+  await expect(gear).toBeFocused()
+  await gear.click()
+  await page.getByRole('menuitem', { name: 'Archiver', exact: true }).click()
+  await dialog.getByRole('textbox').fill('ARCHIVER')
+  await dialog.getByRole('button', { name: 'Archiver', exact: true }).click()
+  await expect(dialog).toHaveCount(0)
+  await expect.poll(async () => (await (await request.get(`http://127.0.0.1:18090/api/collections/contacts_companies/records/${company.id}`, { headers })).json()).active).toBe(false)
+})

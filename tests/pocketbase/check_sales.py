@@ -32,6 +32,29 @@ class SalesTests(unittest.TestCase):
             values.setdefault('awaiting_customer_order', True)
         return self.pb.request('POST', 'horizon/sales/quotes/' + route, {'id': quote['id'], 'updated': quote['updated'], **values}, self.token)
 
+    def test_quote_contact_default_override_clear_and_permissions(self):
+        code,quote=self.quote_save();self.assertEqual(code,200,quote);self.assertEqual(quote['contact'],self.person['id'])
+        selected=self.pb.request('GET','horizon/sales/choices?selected='+self.opp['id'],token=self.token)[1]
+        self.assertEqual(selected['contact'],self.person['id']);self.assertEqual(selected['company'],self.company['id'])
+        other=self.pb.create('contacts_people',dict(first_name='Jean',last_name='Devis',company=self.company['id'],active=True))
+        foreign_company=self.pb.create('contacts_companies',dict(name='Autre client',active=True))
+        foreign=self.pb.create('contacts_people',dict(first_name='Autre',last_name='Client',company=foreign_company['id'],active=True))
+        inactive=self.pb.create('contacts_people',dict(first_name='Archivé',last_name='Client',company=self.company['id'],active=False))
+        def update(contact, value=quote):
+            return self.pb.request('POST','horizon/sales/quotes/save',dict(id=value['id'],updated=value['updated'],input={**self.quote,'contact':contact}),self.token)
+        self.assertEqual(update(foreign['id'])[0],400);self.assertEqual(update(inactive['id'])[0],400)
+        code,changed=update(other['id']);self.assertEqual(code,200,changed);self.assertEqual(changed['contact'],other['id'])
+        self.assertEqual(self.pb.request('GET','collections/crm_opportunities/records/'+self.opp['id'],token=self.pb.admin_token)[1]['contact'],self.person['id'])
+        # An old client omitting contact preserves the override.
+        code,preserved=self.pb.request('POST','horizon/sales/quotes/save',dict(id=changed['id'],updated=changed['updated'],input=self.quote),self.token);self.assertEqual(code,200,preserved);self.assertEqual(preserved['contact'],other['id'])
+        code,cleared=update('',preserved);self.assertEqual(code,200,cleared);self.assertEqual(cleared['contact'],'')
+        self.pb.request('PATCH','collections/core_roles/records/'+self.user['role'],dict(permissions=['crm.read','crm.write','sales.read','sales.write']),self.pb.admin_token)
+        self.assertEqual(update(other['id'],cleared)[0],403)
+        self.pb.request('PATCH','collections/core_roles/records/'+self.user['role'],dict(permissions=['crm.read','crm.write','sales.read','sales.write','contacts.read','sales.quote.validate']),self.pb.admin_token)
+        code,override=self.quote_save('quote-contact-custom-00002',contact=other['id']);self.assertEqual(code,200,override);self.assertEqual(override['contact'],other['id'])
+        code,finalized=self.transition('finalize',override);self.assertEqual(code,200,finalized)
+        self.assertEqual(update(self.person['id'],finalized)[0],400)
+
     def test_list_combines_types_states_and_archives(self):
         self.grant_lifecycle()
         _, draft = self.quote_save(key='filter-draft-creation-key', title='Cible Brouillon')

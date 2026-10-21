@@ -17,8 +17,8 @@ function PreviewContent({ widget }: { widget: DashboardWidget }) {
     return <MetricCard title={title} icon={Icon} metric={widget.type === 'invoiced' ? null : metricExample} caption={widget.type === 'invoiced' ? 'Indicateur à raccorder' : 'Exemple d’évolution sur la période'} detail="Octobre 2026 · exemple" />
   }
   if (widget.type === 'economic') return <EconomicCard title={title} period="Octobre 2026" forecast={metricExample} committed={metricExample} />
-  if (widget.type === 'records') return <WidgetRecordsView data={{ ...widget.config.data, title: 'Devis à suivre', source: 'quotes' }} items={exampleRecords('quotes')} totalItems={3} period="Octobre 2026" />
-  if (widget.type === 'business') return <BusinessCarousel instanceId="catalog-preview" config={widget.config} range={dashboardPeriodRange('month', '2026-10-20')} user={undefined} editing renderPage={(data) => <WidgetRecordsView data={data} items={exampleRecords(data.source)} totalItems={3} period="Octobre 2026" embedded />} />
+  if (widget.type === 'records') return <WidgetRecordsView data={{ ...widget.config.data, title: 'Devis à suivre', source: 'quotes' }} items={exampleRecords('quotes')} totalItems={3} />
+  if (widget.type === 'business') return <BusinessCarousel instanceId="catalog-preview" config={widget.config} range={dashboardPeriodRange('month', '2026-10-20')} user={undefined} editing renderPage={(data) => <WidgetRecordsView data={data} items={exampleRecords(data.source)} totalItems={3} embedded />} />
   if (widget.type === 'time') return <WidgetFrame title={title}><TimeWidgetTable data={timeExample} /></WidgetFrame>
   if (widget.type === 'leave') return <WidgetFrame title={title}><LeaveWidgetTimeline result={leaveExample} first="2026-10-05" /></WidgetFrame>
   if (widget.type === 'shortcuts') return <WidgetFrame title={title}><ShortcutLinks links={widget.config.links.map((key) => shortcutCatalog[key])} /></WidgetFrame>

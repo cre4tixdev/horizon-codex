@@ -1,7 +1,8 @@
+import { manageDashboards, closeDashboardManagement, dashboardChoices } from './dashboard-helpers'
 import { dashboardLayoutsSchema } from '../../src/modules/dashboard/schemas/layouts'
 import { expect, test, type Page } from '@playwright/test'
 async function login(page: Page, email = 'erp-admin@local.invalid') {
-  await page.goto('/login'); await page.getByLabel('Adresse e-mail', { exact: true }).fill(email); await page.getByLabel('Mot de passe', { exact: true }).fill('Local-Horizon-test-only-2026!'); await page.getByRole('button', { name: 'Se connecter', exact: true }).click(); await expect(page.getByRole('button', { name: 'Modifier', exact: true })).toBeEnabled()
+  await page.goto('/login'); await page.getByLabel('Adresse e-mail', { exact: true }).fill(email); await page.getByLabel('Mot de passe', { exact: true }).fill('Local-Horizon-test-only-2026!'); await page.getByRole('button', { name: 'Se connecter', exact: true }).click(); await expect(page.getByRole('button', { name: 'Gérer les dashboards', exact: true })).toBeEnabled()
 }
 test('Widgets : instances indépendantes, pages de carrousel, filtres et reprise multi-navigateurs', async ({ page, browser, request }) => {
   test.setTimeout(120_000)
@@ -14,9 +15,9 @@ test('Widgets : instances indépendantes, pages de carrousel, filtres et reprise
   for (let index = 0; index < 5; index++) {
     const response = await request.post('http://127.0.0.1:18090/api/horizon/crm/save', { headers, data: { creation_key: crypto.randomUUID(), input: { title: `Widget studio ${index + 1}`, company: company.id, contact: '', owner: session.record.id, stage: stages.items[0].id, type: 'direct', estimated_value: 100, estimated_cost: 0, currency: 'EUR', probability: 0, expected_date: new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Paris' }), description: '', status: 'open', market_types: [] } } }); expect(response.ok()).toBe(true)
   }
-  await page.getByRole('button', { name: 'Modifier', exact: true }).click(); await page.getByLabel('Nom du dashboard').fill('Mon atelier widgets')
+  await manageDashboards(page); await page.getByRole('menuitem', { name: 'Modifier ce dashboard', exact: true }).click(); await page.getByLabel('Nom du dashboard').fill('Mon atelier widgets')
   async function add(label: string) {
-    await page.locator('.dashboard-workspace-toolbar').getByRole('button', { name: 'Ajouter un widget', exact: true }).click()
+    await page.locator('.dashboard-header-edit-actions').getByRole('button', { name: 'Ajouter un widget', exact: true }).click()
     const picker = page.getByRole('dialog', { name: 'Ajouter un widget', exact: true })
     await picker.getByRole('button', { name: `Aperçu : ${label}`, exact: true }).click()
     await expect(picker.getByRole('region', { name: `Aperçu : ${label}`, exact: true })).toBeVisible()
@@ -67,6 +68,7 @@ test('Widgets : instances indépendantes, pages de carrousel, filtres et reprise
   expect(records[0]!.config.data).toMatchObject({ source: 'opportunities', search: 'Widget studio', limit: 3 })
   expect(records[1]!.config.data).toMatchObject({ source: 'quotes', scope: 'own', status: 'sent' })
   expect(widgets.find((widget: { type: string }) => widget.type === 'business')!.config).toMatchObject({ automatic: false, interval: 15, pages: expect.arrayContaining([expect.objectContaining({ title: 'Commandes terminées', source: 'orders', status: 'completed' })]) })
+  await page.locator('.dashboard-widget[data-kind=records]').first().scrollIntoViewIfNeeded()
   const affairs = page.getByRole('region', { name: 'Affaires du studio', exact: true }); await affairs.scrollIntoViewIfNeeded()
   await expect(affairs).toContainText('5 résultat(s)'); await expect(affairs.locator('tbody tr')).toHaveCount(3)
   await affairs.getByRole('button', { name: 'Résultats suivants', exact: true }).click(); await expect(affairs.locator('tbody tr')).toHaveCount(2)
@@ -75,19 +77,19 @@ test('Widgets : instances indépendantes, pages de carrousel, filtres et reprise
   await expect(page.getByRole('button', { name: /^Retirer le filtre Période : Du / })).toBeVisible()
   await page.getByRole('button', { name: /^Retirer le filtre Période : Du / }).click(); await expect(page).not.toHaveURL(/date_range=/)
   await page.goto('/')
-  await page.getByRole('combobox', { name: 'Dashboard à afficher', exact: true }).click(); await page.getByRole('option', { name: 'Mon atelier widgets', exact: true }).click()
+  await dashboardChoices(page); await page.getByRole('menuitemradio', { name: 'Mon atelier widgets', exact: true }).click()
   const carousel = page.getByRole('region', { name: 'Suivi commercial', exact: true }); await carousel.scrollIntoViewIfNeeded()
   await carousel.getByRole('button', { name: 'Afficher Commandes terminées', exact: true }).click(); await expect(carousel).toContainText('5 / 5'); await expect(carousel).toContainText('Aucun résultat')
-  await page.getByRole('button', { name: 'Définir comme dashboard par défaut', exact: true }).click(); await expect(page.getByRole('button', { name: 'Définir comme dashboard par défaut', exact: true })).toBeDisabled()
+  await manageDashboards(page); await page.getByRole('menuitem', { name: 'Définir comme dashboard par défaut', exact: true }).click(); await expect(page.getByRole('menuitem', { name: 'Définir comme dashboard par défaut', exact: true })).toBeDisabled(); await closeDashboardManagement(page)
   const other = await browser.newContext(); try {
     const fresh = await other.newPage(); await login(fresh)
-    await expect(fresh.getByRole('combobox', { name: 'Dashboard à afficher', exact: true })).toContainText('Mon atelier widgets')
+    await dashboardChoices(fresh); await expect(fresh.getByRole('menuitemradio', { checked: true })).toContainText('Mon atelier widgets'); await closeDashboardManagement(fresh)
     const carouselAgain = fresh.getByRole('region', { name: 'Suivi commercial', exact: true }); await carouselAgain.scrollIntoViewIfNeeded(); await expect(carouselAgain).toContainText('1 / 5')
   } finally { await other.close() }
   await page.getByRole('button', { name: 'Passer en mode sombre', exact: true }).click(); await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark'); await page.screenshot({ path: '/private/tmp/horizon-widgets-data-dark.png', fullPage: true })
   await page.setViewportSize({ width: 390, height: 844 }); await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true); await page.screenshot({ path: '/private/tmp/horizon-widgets-data-mobile.png', fullPage: true })
   await page.getByRole('button', { name: 'Passer en mode clair', exact: true }).click(); await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
-  await page.getByRole('button', { name: 'Supprimer ce dashboard', exact: true }).click(); await page.getByRole('dialog', { name: 'Supprimer ce dashboard ?', exact: true }).getByRole('button', { name: 'Supprimer', exact: true }).click()
+  await manageDashboards(page); await page.getByRole('menuitem', { name: 'Supprimer ce dashboard', exact: true }).click(); await page.getByRole('dialog', { name: 'Supprimer ce dashboard ?', exact: true }).getByRole('button', { name: 'Supprimer', exact: true }).click()
   expect(errors).toEqual([])
 })
 
@@ -95,10 +97,10 @@ test('Widgets RH et raccourcis : données autorisées, période et présentation
   test.setTimeout(90_000)
   const errors: string[] = []; page.on('pageerror', (error) => errors.push(error.message))
   await page.setViewportSize({ width: 1600, height: 1000 }); await login(page)
-  await page.getByRole('button', { name: 'Modifier', exact: true }).click(); await page.getByLabel('Nom du dashboard').fill('Suivi RH')
+  await manageDashboards(page); await page.getByRole('menuitem', { name: 'Modifier ce dashboard', exact: true }).click(); await page.getByLabel('Nom du dashboard').fill('Suivi RH')
   for (const label of ['Chiffre d’affaires prévu', 'Commandé', 'Facturé', 'Marge prévisionnelle', 'Suivi commercial', 'Pilotage économique', 'Mon planning', 'Mon activité récente']) await page.getByRole('button', { name: `Retirer ${label}`, exact: true }).click()
   for (const label of ['Suivi des temps', 'Absences', 'À valider', 'Mes raccourcis']) {
-    await page.locator('.dashboard-workspace-toolbar').getByRole('button', { name: 'Ajouter un widget', exact: true }).click()
+    await page.locator('.dashboard-header-edit-actions').getByRole('button', { name: 'Ajouter un widget', exact: true }).click()
     const picker = page.getByRole('dialog', { name: 'Ajouter un widget', exact: true })
     await picker.getByRole('button', { name: `Aperçu : ${label}`, exact: true }).click()
     await expect(picker.getByRole('region', { name: `Aperçu : ${label}`, exact: true })).toBeVisible()
@@ -125,6 +127,6 @@ test('Widgets RH et raccourcis : données autorisées, période et présentation
   await page.setViewportSize({ width: 390, height: 844 }); await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   await page.screenshot({ path: '/private/tmp/horizon-widgets-hr-mobile.png', fullPage: true })
   await page.getByRole('button', { name: 'Passer en mode clair', exact: true }).click(); await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
-  await page.getByRole('button', { name: 'Supprimer ce dashboard', exact: true }).click(); await page.getByRole('dialog', { name: 'Supprimer ce dashboard ?', exact: true }).getByRole('button', { name: 'Supprimer', exact: true }).click()
+  await manageDashboards(page); await page.getByRole('menuitem', { name: 'Supprimer ce dashboard', exact: true }).click(); await page.getByRole('dialog', { name: 'Supprimer ce dashboard ?', exact: true }).getByRole('button', { name: 'Supprimer', exact: true }).click()
   expect(errors).toEqual([])
 })

@@ -97,3 +97,61 @@ test('Envoi immédiat : le compositeur affiche directement le résultat accepté
   await expect(sent.getByText('Envoyé', { exact: true })).toBeVisible(); await expect(sent.getByText(/Accepté par Microsoft 365 le/)).toBeVisible()
   await expect(sent.getByRole('button', { name: 'Envoyer', exact: true })).toHaveCount(0); expect(submissions).toBe(1)
 })
+
+test('Réponses reçues : recherche, lecture sûre, pièce jointe et navigation', async ({ page }) => {
+  const errors: string[] = []; page.on('pageerror', (error) => errors.push(error.message))
+  await page.setViewportSize({ width: 1600, height: 1000 })
+  await page.goto('/login')
+  await page.getByLabel('Adresse e-mail', { exact: true }).fill('erp-admin@local.invalid'); await page.getByLabel('Mot de passe', { exact: true }).fill('Local-Horizon-test-only-2026!'); await page.getByRole('button', { name: 'Se connecter', exact: true }).click(); await expect(page).not.toHaveURL(/\/login/)
+  const lightToggle = page.getByRole('button', { name: 'Passer en mode clair', exact: true })
+  if (await lightToggle.isVisible()) await lightToggle.click()
+  // Inbox presentation fixture. Real receipt, rights and files have separate PocketBase coverage.
+  const reply = { id: 'replylocal00001', message: 'messagelocal001', sender_address: 'client@example.invalid', sender_name: 'Camille Client', subject: 'Accord sur le devis', received_at: '2026-10-21T09:30:00Z', source_context: 'sales_quote', source_id: 'quotelocal000001', source_label: '11450-1', to_address: 'commercial@example.invalid', body_text: 'Bonjour, bon pour accord. <script>window.inboxExecuted = true</script>', attachments: ['accord.png'], warnings: ['Une pièce trop volumineuse reste consultable dans Outlook.'] }
+  const queries: string[] = []
+  let unavailable = false
+  await page.route('**/api/horizon/messaging/replies**', async (route) => {
+    const url = new URL(route.request().url())
+    if (url.pathname.endsWith('/attachment')) { await route.fulfill({ contentType: 'image/png', body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=', 'base64') }); return }
+    if (url.pathname.endsWith('/' + reply.id)) { await route.fulfill({ json: reply }); return }
+    queries.push(url.search)
+    if (unavailable) { unavailable = false; await route.fulfill({ status: 503, json: { message: 'Relève indisponible pour ce test.' } }); return }
+    const pageNumber = Number(url.searchParams.get('page') || 1), found = url.searchParams.get('q') !== 'inexistant'
+    await route.fulfill({ json: { items: found ? [{ ...reply, subject: pageNumber === 2 ? 'Deuxième réponse' : reply.subject }] : [], totalItems: found ? 31 : 0, totalPages: found ? 2 : 1, page: pageNumber } })
+  })
+  await page.goto('/messaging')
+  await page.getByRole('tab', { name: 'Reçus', exact: true }).click()
+  await expect(page).toHaveURL(/folder=received/)
+  await expect(page.getByRole('columnheader', { name: 'Expéditeur' })).toBeVisible()
+  await expect(page.getByRole('cell', { name: /Camille Client/ })).toBeVisible()
+  await page.getByRole('link', { name: 'Ouvrir la réponse Accord sur le devis', exact: true }).click()
+  const dialog = page.getByRole('dialog', { name: reply.subject, exact: true })
+  await expect(dialog).toContainText(reply.body_text)
+  await expect(dialog.getByText('commercial@example.invalid', { exact: true })).toBeVisible()
+  await expect(dialog.getByRole('link', { name: 'Ouvrir le devis', exact: true })).toHaveAttribute('href', '/sales/quotes/' + reply.source_id)
+  expect(await page.evaluate(() => 'inboxExecuted' in window)).toBe(false)
+  await page.screenshot({ path: '/private/tmp/horizon-inbox-message-light.png', animations: 'disabled' })
+  await dialog.getByRole('tab', { name: /Pièces jointes/ }).click()
+  await expect(dialog.getByRole('img', { name: 'Aperçu accord.png', exact: true })).toBeVisible()
+  await page.screenshot({ path: '/private/tmp/horizon-inbox-attachment-light.png', animations: 'disabled' })
+  await dialog.getByRole('button', { name: 'Fermer', exact: true }).last().click()
+  await page.reload(); await expect(page.getByRole('cell', { name: /Camille Client/ })).toBeVisible()
+  await page.getByRole('button', { name: 'Page suivante', exact: true }).click()
+  await expect(page.getByText('Deuxième réponse', { exact: true })).toBeVisible()
+  await page.getByRole('searchbox', { name: 'Rechercher dans les e-mails', exact: true }).fill('inexistant'); await expect(page.getByText('Aucune réponse pour cette sélection', { exact: true })).toBeVisible()
+  await expect(page).toHaveURL(/folder=received/)
+  unavailable = true
+  await page.goto('/messaging?folder=received&q=accord'); await expect(page.getByRole('alert')).toContainText('Relève indisponible')
+  await page.getByRole('button', { name: 'Réessayer', exact: true }).click(); await expect(page.getByRole('cell', { name: /Camille Client/ })).toBeVisible()
+  await page.getByRole('button', { name: 'Passer en mode sombre', exact: true }).click()
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
+  await page.screenshot({ path: '/private/tmp/horizon-inbox-list-dark.png', animations: 'disabled' })
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.getByRole('link', { name: 'Ouvrir la réponse Accord sur le devis', exact: true }).click()
+  await expect(dialog).toContainText(reply.body_text)
+  await page.screenshot({ path: '/private/tmp/horizon-inbox-message-mobile.png', animations: 'disabled' })
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await dialog.getByRole('button', { name: 'Fermer', exact: true }).last().click()
+  await page.getByRole('button', { name: 'Passer en mode clair', exact: true }).click()
+  expect(queries.some((query) => query.includes('page=2'))).toBe(true)
+  expect(errors).toEqual([])
+})

@@ -1803,7 +1803,7 @@
 .sales-quote-lines .quote-edit-table td:first-child { width: auto; }
 .sales-quote-lines .quote-edit-table .h-input { min-width: 0; width: 100%; font-size: 12px; }
 .sales-quote-lines .quote-edit-table .h-amount-input { min-width: 0; }
-.sales-quote-lines .quote-edit-table .quote-line-description { min-height: 26px; padding: 4px 6px; height: auto; resize: none; overflow: hidden; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 16px; border-color: transparent; background: transparent; }
+.sales-quote-lines .quote-edit-table .quote-line-description { min-height: 26px; padding: 4px 6px; height: auto; resize: none; overflow: hidden; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 18px; border-color: transparent; background: transparent; }
 .sales-quote-lines .quote-edit-table .quote-line-description:focus-visible { border-color: var(--theme-border); }
 .quote-line-toolbar { display: flex; gap: 5px; flex-wrap: wrap; }
 .quote-line-number, .quote-purchase-status { color: var(--theme-text-muted); font-size: 11px; }
@@ -1848,7 +1848,7 @@
 .sales-quote-lines .quote-edit-table td { height: var(--hz-table-row-height); }
 .sales-quote-lines .quote-edit-table :is(th, td):last-child { border-right: 0; }
 .sales-quote-lines .quote-edit-table .h-input { height: 26px; text-align: center; padding-left: 3px; padding-right: 3px; }
-.sales-quote-lines .quote-edit-table .quote-line-description { height: auto; padding: 4px 6px; text-align: left; }
+.sales-quote-lines .quote-edit-table .quote-line-description { height: auto; padding: 4px 7px; text-align: left; }
 .sales-quote-lines .quote-edit-table .h-amount-input > .h-input { padding-right: 23px; text-align: right; }
 .sales-quote-lines .quote-edit-table .quote-line-total { text-align: right; }
 .quote-purchase-status { text-align: center; }
@@ -2740,7 +2740,8 @@ button.contact-card-title { padding: 0; border: 0; background: transparent; text
 .billing-deposit-heading { display: flex; align-items: center; gap: 6px; color: var(--theme-text, #091c3a); }
 .billing-deposit-heading .h-input, .billing-line-title { font-weight: 700; }
 
-.list-page-size { width: 126px; flex-shrink: 0; }
+.list-page-size { width: 104px; flex-shrink: 0; }
+.list-page-size[data-auto=true] { width:76px; }
 .list-page-size .h-input { height: 30px; font-size: 11px; }
 @media (max-width: 700px) {
   .page-breadcrumb-row:has(.list-page-size) .page-breadcrumb-controls { flex-wrap: wrap; justify-content: flex-end; }
@@ -2758,3 +2759,7 @@ button.contact-card-title { padding: 0; border: 0; background: transparent; text
 .account-preferences-sections > *, .account-preferences-sections .contact-panel { min-width:0; }
 .account-comfort-table { table-layout:fixed; }
 .account-comfort-table th:last-child { width:44%; }
+
+.h-action-menu-label { padding:6px 8px; font-size:11px; font-weight:600; color:var(--theme-text-muted,#7b8794); }
+.record-actions-menu { max-height:var(--radix-dropdown-menu-content-available-height); overflow-y:auto; }
+.record-actions-menu [data-disabled] { opacity:.5; cursor:default; }

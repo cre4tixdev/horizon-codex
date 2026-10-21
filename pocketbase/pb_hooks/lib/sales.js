@@ -23,10 +23,11 @@ const audit = (app, record, before, actor, action, previousLines) => {
   for (const [key, value] of Object.entries({ user: actor, module: 'sales', entity: 'sales_quotes', entity_id: record.id, action, before, after: record.publicExport(), metadata: { source: 'server', ...(previousLines ? { lines_before: previousLines, lines_after: app.findRecordsByFilter('sales_quote_lines', 'quote = {:id}', 'position', 0, 0, { id: record.id }).map((line) => line.publicExport()) } : {}) } })) item.set(key, value)
   app.save(item)
   const activity = require(`${__hooks}/lib/activity.js`)
-  const fields = { owner: 'Commercial', title: 'Titre', status: 'État', subtotal: 'Total HT', discount: 'Remise globale', discount_mode: 'Mode de remise', terms_label: 'Conditions générales de vente', discount_amount: 'Remise globale', cost_total: 'Total achats HT', margin_amount: 'Marge globale', margin_percent: 'Marge sur coût (%)', tax_rate: 'TVA (%)', tax: 'TVA', total: 'Total TTC', options_total: 'Total options HT', quote_date: 'Date du devis', valid_until: 'Validité', notes: 'Notes' }
+  const fields = { contact: 'Contact', owner: 'Commercial', title: 'Titre', status: 'État', subtotal: 'Total HT', discount: 'Remise globale', discount_mode: 'Mode de remise', terms_label: 'Conditions générales de vente', discount_amount: 'Remise globale', cost_total: 'Total achats HT', margin_amount: 'Marge globale', margin_percent: 'Marge sur coût (%)', tax_rate: 'TVA (%)', tax: 'TVA', total: 'Total TTC', options_total: 'Total options HT', quote_date: 'Date du devis', valid_until: 'Validité', notes: 'Notes' }
   const after = record.publicExport()
   const display = (field, value) => {
     if (value === undefined || value === null || value === '') return ''
+    if (field === 'contact') { const person = app.findRecordById('contacts_people', value); return [person.getString('first_name'), person.getString('last_name')].filter(Boolean).join(' ') }
     if (field === 'owner') return value ? app.findRecordById('core_users', value).getString('name') : ''
     if (field === 'discount_mode') return value === 'amount' ? 'Montant' : 'Pourcentage'
     if (field === 'status') return ({ draft: 'Brouillon', validated: 'Devis', sent: 'Envoyé', accepted: 'Commande client', rejected: 'Refusé', cancelled: 'Annulé' })[value] || String(value)
@@ -79,10 +80,10 @@ module.exports = {
   choices(event) {
     permissions(event.app, event.auth); opportunityAccess(event.app, event.auth)
     const selected = event.request.url.query().get('selected')
-    if (selected) { const record = opportunity(event.app, selected, event.auth); return event.json(200, { id: record.id, number: record.getString('opportunity_number'), title: record.getString('title'), currency: record.getString('currency') }) }
+    if (selected) { const record = opportunity(event.app, selected, event.auth); return event.json(200, { id: record.id, number: record.getString('opportunity_number'), title: record.getString('title'), currency: record.getString('currency'), company: require(`${__hooks}/lib/company-identity.js`).resolve(event.app, record.getString('company')), contact: record.getString('contact') }) }
     const query = String(event.request.url.query().get('q') || '').trim()
     if (query.length > 200) throw new BadRequestError('Recherche trop longue.')
-    const items = event.app.findRecordsByFilter('crm_opportunities', 'active = true && (title ~ {:q} || opportunity_number ~ {:q} || company.name ~ {:q})', '-created', 50, 0, { q: query }).map((record) => ({ id: record.id, number: record.getString('opportunity_number'), title: record.getString('title'), currency: record.getString('currency') }))
+    const items = event.app.findRecordsByFilter('crm_opportunities', 'active = true && (title ~ {:q} || opportunity_number ~ {:q} || company.name ~ {:q})', '-created', 50, 0, { q: query }).map((record) => ({ id: record.id, number: record.getString('opportunity_number'), title: record.getString('title'), currency: record.getString('currency'), company: require(`${__hooks}/lib/company-identity.js`).resolve(event.app, record.getString('company')), contact: record.getString('contact') }))
     return event.json(200, { items })
   },
   list(event) {
@@ -121,7 +122,7 @@ module.exports = {
     const body = event.requestInfo().body
     if (Object.keys(body).some((key) => !['id', 'updated', 'creation_key', 'input'].includes(key))) throw new BadRequestError('Champs non autorisés.')
     const input = body.input || {}
-    if (Object.keys(input).some((key) => !['opportunity', 'title', 'quote_date', 'valid_until', 'notes', 'lines', 'discount', 'discount_mode', 'terms_id', 'owner'].includes(key))) throw new BadRequestError('Champs du devis non autorisés.')
+    if (Object.keys(input).some((key) => !['opportunity', 'title', 'quote_date', 'valid_until', 'notes', 'lines', 'discount', 'discount_mode', 'terms_id', 'owner', 'contact'].includes(key))) throw new BadRequestError('Champs du devis non autorisés.')
     const title = String(input.title || '').trim(), notes = String(input.notes || '')
     if (!title || title.length > 200 || notes.length > 10000) throw new BadRequestError('Titre obligatoire (200 caractères maximum).')
     for (const name of ['quote_date', 'valid_until']) if (input[name] && !/^\d{4}-\d{2}-\d{2}$/.test(input[name])) throw new BadRequestError('Date invalide.')
@@ -156,6 +157,17 @@ module.exports = {
       const salesperson = app.findRecordById('core_users', owner)
       if (owner !== quote.getString('owner') && !require(`${__hooks}/lib/activity.js`).allowed(app, salesperson, false, 'sales')) throw new BadRequestError('Choisissez un commercial actif habilité aux ventes.')
       quote.set('owner', owner)
+      if (input.contact !== undefined) {
+        if (typeof input.contact !== 'string' || input.contact && !/^[a-z0-9]{15}$/.test(input.contact)) throw new BadRequestError('Contact du devis invalide.')
+        if (input.contact !== quote.getString('contact')) {
+          if (!require(`${__hooks}/lib/activity.js`).allowed(app, event.auth, false, 'contacts')) throw new ForbiddenError('Accès aux contacts nécessaire pour changer le contact du devis.')
+          if (input.contact) {
+            const person = app.findRecordById('contacts_people', input.contact)
+            if (!person.getBool('active') || !person.getString('company') || require(`${__hooks}/lib/company-identity.js`).resolve(app, person.getString('company')) !== quote.getString('company')) throw new BadRequestError('Choisissez un contact actif de la société du devis.')
+          }
+          quote.set('contact', input.contact)
+        }
+      }
       require(`${__hooks}/lib/sales-line-catalog.js`)(app, event.auth, quote.getString('currency'), priced, previousLines)
       const settings = app.findFirstRecordByData('settings_sales', 'key', 'default')
       const termsId = input.terms_id === undefined ? quote.getString('terms_id') : input.terms_id

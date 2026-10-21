@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { HRecordPageActions } from './HRecordPageActions'
 
-export function HPageHeader({ title, description, actions, titleAccessory, actionsPlacement = 'breadcrumb' }: { title: string; description?: string; actions?: ReactNode; titleAccessory?: ReactNode; actionsPlacement?: 'breadcrumb' | 'inline' }) {
+export function HPageHeader({ title, description, actions, titleAccessory, actionsPlacement = 'breadcrumb' }: { title: ReactNode; description?: string; actions?: ReactNode; titleAccessory?: ReactNode; actionsPlacement?: 'breadcrumb' | 'inline' }) {
   return (
     <div className="page-header">
       <div><h1>{title}</h1>{titleAccessory}{description && <p>{description}</p>}</div>

@@ -40,3 +40,6 @@ onRecordDelete(() => { throw new BadRequestError('L’historique des réponses d
 onRecordUpdate(() => { throw new BadRequestError('Une réponse reçue est immuable.') }, 'messaging_email_replies')
 routerAdd('GET', '/api/horizon/messaging/personal-signatures', (e) => require(`${__hooks}/lib/messaging-personal-signatures.js`).read(e), $apis.requireAuth('core_users'))
 routerAdd('POST', '/api/horizon/messaging/personal-signatures', (e) => require(`${__hooks}/lib/messaging-personal-signatures.js`).save(e), $apis.requireAuth('core_users'))
+routerAdd('GET', '/api/horizon/messaging/replies', (e) => require(`${__hooks}/lib/messaging-replies.js`).list(e), $apis.requireAuth('core_users'))
+routerAdd('GET', '/api/horizon/messaging/replies/{id}', (e) => require(`${__hooks}/lib/messaging-replies.js`).record(e), $apis.requireAuth('core_users'))
+routerAdd('GET', '/api/horizon/messaging/replies/{id}/attachment', (e) => require(`${__hooks}/lib/messaging-replies.js`).file(e), $apis.requireAuth('core_users'))

@@ -848,6 +848,8 @@ Création de brouillons rattachés à une opportunité active, numéros serveur 
 
 ## `sales_quotes`
 
+Complément du 21 octobre 2026, sans changement de schéma : la relation contact existante est désormais acceptée dans l’entrée de sauvegarde du brouillon (champ optionnel pour compatibilité). Si absent : héritage de crm_opportunities.contact à la création, conservation en mise à jour ; chaîne vide = choix explicite Sans contact. Changement vers un contact actif rattaché à la même société canonique, contrôlé serveur avec contacts.read. Aucune propagation vers l’opportunité. Contact accepté conservé par les révisions de commande ; aucune migration ni backfill des documents historiques. Le choix d’opportunité projette également company/contact pour le préremplissage UI.
+
 ```text
 quote_number
 quote_sequence
@@ -4118,6 +4120,9 @@ Les fichiers restent dans messaging_email_messages.attachments, sans copie dans 
 
 
 ### Réponses e-mail liées — migration 1791840020 (16 octobre 2026)
+
+Consultation privée du 21 octobre 2026, sans changement de schéma : GET `/api/horizon/messaging/replies`, `/replies/{id}` et `/replies/{id}/attachment?filename=…`. Collections toujours sans CRUD natif. Liste filtrée avant comptage/pagination sur message.owner et les contextes métier lisibles, message d’origine sent ; DTO allowlisté (identité de réponse, expéditeur, date, destinataire d’origine, pièce liée), corps/avertissements/fichiers uniquement au détail. Aucun identifiant de fournisseur Microsoft, secret ou Cc/Cci exposé. Historique immuable et pas d’état Lu/Archivé ajouté à la réponse.
+
 
 Messaging reste propriétaire. Réception opt-in par messaging_mailboxes.receive_enabled (false pour les boîtes existantes) ; messaging_oauth_connections.granted_scopes permet de demander Mail.Read sans interrompre l’envoi des connexions antérieures. OAuth states fige receive_enabled pour le consentement.
 
