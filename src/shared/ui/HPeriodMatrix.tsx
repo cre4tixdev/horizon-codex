@@ -13,7 +13,7 @@ export function HPeriodMatrix<T>({ rows, periods, identity, cell, total, totalLa
     { id: 'Total', header: totalLabel, cell: ({ row }) => total(row.original) },
   ]} /></div>
 }
-export function HPeriodCell({ children, status, label, href, state, onClick }: { children: ReactNode; status: string; label: string; href?: string | undefined; state?: unknown; onClick?: (() => void) | undefined }) {
-  const props = { className: 'h-period-cell', 'data-state': status, 'aria-label': label }
+export function HPeriodCell({ children, status, label, href, state, onClick, compact = false }: { children: ReactNode; status: string; label: string; compact?: boolean; href?: string | undefined; state?: unknown; onClick?: (() => void) | undefined }) {
+  const props = { className: 'h-period-cell', 'data-state': status, 'data-density': compact ? 'compact' : undefined, 'aria-label': label }
   return href ? <Link {...props} to={href} state={state}>{children}</Link> : onClick ? <button {...props} type="button" onClick={onClick}>{children}</button> : <span {...props}>{children}</span>
 }

@@ -2851,3 +2851,7 @@ button.contact-card-title { padding: 0; border: 0; background: transparent; text
 
 [data-theme=dark] .quote-kit-tools { --kit-box-border:var(--hz-quote-kit-border-dark,#364860); --kit-box-background:var(--hz-quote-kit-background-dark,#071d35); --kit-box-text:var(--hz-quote-kit-text-dark,#FFFFFF); --kit-box-active:var(--hz-quote-kit-active-dark,#FF5AAE); }
 .ux-preview[data-theme=light] .quote-kit-tools { --kit-box-border:var(--hz-quote-kit-border-light,#dce5ef); --kit-box-background:var(--hz-quote-kit-background-light,#071d35); --kit-box-text:var(--hz-quote-kit-text-light,#FFFFFF); --kit-box-active:var(--hz-quote-kit-active-light,#FF5AAE); }
+
+.h-combobox-icon-label { display:flex; align-items:center; gap:7px; min-width:0; }
+.h-combobox-icon-label > :first-child { display:flex; flex-shrink:0; color:var(--theme-text-muted,#7b8794); }
+.h-combobox-icon-label > :last-child { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }

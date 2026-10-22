@@ -38,6 +38,49 @@ class ExpensesTests(unittest.TestCase):
             with urlopen(req) as res:return res.status,json.loads(res.read())
         except HTTPError as err:return err.code,json.loads(err.read())
     def transition(self,r,action,who='owner',**extra):return self.call('POST','reports/'+r['id']+'/transition',dict(updated=r['updated'],action=action,**extra),self.people[who]['token'])
+    def test_internal_participants_directory_validation_and_snapshot(self):
+        choices = self.call('GET','choices')[1]
+        owner = self.people['owner']['employee']
+        self.assertIn({'id':owner['id'], 'label':'owner Fixture'}, choices['employees'])
+        self.assertTrue(all(set(employee) == {'id','label'} for employee in choices['employees']))
+        inactive = self.pb.create('hr_employees', {'first_name':'Inactif','last_name':'Participant','status':'inactive','employment_type':'employee'})
+        self.assertNotIn(inactive['id'], [employee['id'] for employee in self.call('GET','choices')[1]['employees']])
+        report = self.report()
+        for ids in [[owner['id'],owner['id']], [inactive['id']], [owner['id']] * 31]:
+            self.assertEqual(self.line(report,files=False,internal_participants=ids)[0],400)
+        participant = self.people['other']['employee']
+        meal = next(category for category in self.categories if category['mode']=='meal')
+        status, report = self.line(report, category=meal['id'], internal_participants=[participant['id']], guests=[], internal_guests='')
+        self.assertEqual(status,200,report)
+        self.assertEqual(report['lines'][0]['internal_participants'],[participant['id']])
+        self.pb.request('PATCH','collections/hr_employees/records/'+participant['id'],{'first_name':'Nom avant validation','status':'inactive'},self.pb.admin_token)
+        status, report = self.transition(report,'submit'); self.assertEqual(status,200,report)
+        status, report = self.transition(report,'validate','manager'); self.assertEqual(status,200,report)
+        self.pb.request('PATCH','collections/hr_employees/records/'+participant['id'],{'first_name':'Nom modifié après validation','status':'inactive'},self.pb.admin_token)
+        record = self.call('GET','reports/'+report['id'])[1]
+        self.assertEqual(record['lines'][0]['internal_participants_names'],[{'id':participant['id'],'label':'Nom avant validation Fixture'}])
+        self.assertEqual(record['lines'][0]['snapshot']['internal_participants_names'],record['lines'][0]['internal_participants_names'])
+
+    def test_tax_rate_choice_calculation_and_historical_snapshot(self):
+        choices = self.call('GET', 'choices')[1]
+        self.assertIn({'code': 'VAT20', 'label': 'TVA 20 %', 'rate': 20}, choices['tax_codes'])
+        self.assertEqual(set(choices['tax_codes'][0]), {'code', 'label', 'rate'})
+        report = self.report()
+        for changes in [{'tax_code':'UNKNOWN','tax_rate':20,'amount':120,'tax_amount':20}, {'tax_code':'VAT20','tax_rate':10,'amount':120,'tax_amount':20}, {'tax_code':'VAT20','tax_rate':20,'amount':120,'tax_amount':21}, {'tax_code':'','tax_rate':20}]:
+            self.assertEqual(self.line(report, files=False, **changes)[0], 400)
+        status, report = self.line(report, tax_code='VAT20', tax_rate=20, amount=120, tax_amount=20)
+        self.assertEqual(status, 200, report)
+        self.assertEqual(report['lines'][0]['tax_rate'], 20)
+        settings = self.pb.request('GET', 'collections/settings_billing/records', token=self.pb.admin_token)[1]['items'][0]
+        self.pb.request('PATCH', 'collections/settings_billing/records/' + settings['id'], {'tax_codes':[{'code':'VAT20','label':'Taux modifié','rate':10,'mention':''}]}, self.pb.admin_token)
+        self.assertEqual(self.line(report, files=False, tax_code='VAT20', tax_rate=20, amount=120, tax_amount=20)[0], 400)
+        status, report = self.transition(report, 'submit'); self.assertEqual(status, 200, report)
+        status, report = self.transition(report, 'validate', 'manager'); self.assertEqual(status, 200, report)
+        line = report['lines'][0]
+        self.assertEqual((line['amount'], line['tax_amount'], line['tax_code'], line['tax_rate']), (120,20,'VAT20',20))
+        self.assertEqual(line['snapshot']['tax_rate'], 20)
+        self.assertEqual(self.line(report, files=False, tax_code='VAT20', tax_rate=10, amount=110, tax_amount=10)[0], 403)
+
     def test_team_overview_roster_private_drafts_and_scopes(self):
         note = self.report()
         self.pb.request('PATCH', 'collections/expenses_reports/records/' + note['id'], {'total': 999.99}, self.pb.admin_token)

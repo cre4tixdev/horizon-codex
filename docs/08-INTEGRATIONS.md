@@ -715,3 +715,5 @@ Inventory possède la composition courante et projette parent/composants vers Sa
 
 
 22 octobre 2026 — Le sélecteur Ventes transmet composition_mode à Inventory via CatalogService/Repository ; le serveur filtre avant comptage/pagination. Aucun accès PocketBase direct depuis la UI ni nouvelle intégration externe.
+
+22 octobre 2026 — Notes de frais : le TaxService existant projette les taux de settings_billing sans appel réseau externe. Aide à la saisie HT/TTC et calcul/validation serveur de TVA justificative, code/taux snapshotés ; aucune déductibilité, écriture Sage ou transmission SUPER PDP déduite du choix de taux. Aucun historique recalculé avec les taux courants.

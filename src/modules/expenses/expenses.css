@@ -13,14 +13,13 @@
 .expenses-editor-files { display: flex; overflow: hidden; }
 .expenses-editor-form > .contact-record-navigation { margin: 0; padding-inline: var(--hz-panel-padding-inline); flex-shrink: 0; }
 .expenses-editor-form[data-receipts=true] [aria-controls=expense-editor-files] svg { color: var(--theme-rose-text, #F52F96); }
-.expense-editor-zones { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-areas: 'primary category' 'allocation category'; align-items: start; }
+.expense-editor-zones { grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr); grid-template-areas: 'primary allocation'; align-items: start; }
 .expense-editor-primary { grid-area: primary; }
-.expense-editor-category { grid-area: category; }
-.expense-editor-category > .contact-fields { grid-template-columns: minmax(0, 1fr); }
 .expense-editor-category-details { margin-top: var(--hz-record-section-gap); padding-top: var(--hz-record-section-gap); border-top: 1px solid var(--theme-border); }
 .expense-editor-affair { display: flex; align-items: center; gap: 8px; margin-top: var(--hz-record-section-gap); }
-.expense-editor-allocation { grid-area: allocation; }
-@media (max-width: 700px) { .expense-editor-zones { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'primary' 'category' 'allocation'; } }
+.expense-editor-allocation { grid-area: allocation; --theme-panel-background:var(--theme-surface-soft,#f4f5f7); }
+.expense-editor-allocation > .contact-fields { grid-template-columns:minmax(0,1fr); }
+@media (max-width: 700px) { .expense-editor-zones { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'primary' 'allocation'; } }
 
 .contact-record .contact-fields.contact-fields--three.access-fieldset > label.expenses-description { grid-column: 1 / -1; }
 .expenses-line-dialog:has(.expenses-editor-form[data-section=details]) { height: auto; }
@@ -36,3 +35,8 @@
 .expenses-period-actions > .h-input { width:90px; flex:0 0 90px; }
 .expenses-overview > .contact-muted { margin:12px 0; }
 @media (max-width:700px) { .expenses-overview > .h-section-heading { flex-wrap:wrap; } .expenses-overview .h-section-heading-actions { max-width:100%; margin-left:0; } .expenses-period-actions { justify-content:flex-start; } }
+
+.expense-category-label { display:flex; align-items:center; gap:6px; min-width:0; }
+.expense-category-label > svg { flex-shrink:0; color:var(--theme-text-muted,#7b8794); }
+.expense-category-label > span { overflow:hidden; text-overflow:ellipsis; }
+.expenses-lines .h-button[data-missing=true] { color:var(--theme-amber-text,#a15b12); }

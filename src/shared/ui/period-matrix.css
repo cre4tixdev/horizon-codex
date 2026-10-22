@@ -14,3 +14,5 @@ button.h-period-cell { cursor:pointer; }
 .h-period-person { display:flex; flex-direction:column; gap:3px; }
 
 .h-period-cell small { white-space:normal; text-align:center; }
+
+.h-period-cell[data-density=compact] { flex-direction:row; flex-wrap:wrap; gap:4px 6px; min-height:24px; padding:2px 0; }
