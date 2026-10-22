@@ -12,9 +12,11 @@ async function run<T>(permission: string, action: (repo: NonNullable<typeof repo
   const session = sessionService.getSnapshot()
   if (session.status !== 'authenticated' || !hasPermission(session.user, permission)) throw new Error('Accès au catalogue refusé.')
   if (!repository) throw new Error('Le catalogue n’est pas configuré.')
-  try { return await action(repository) } catch (error) { console.error('[catalogue] Operation failed', { status: error instanceof ClientResponseError ? error.status : 0, ...(error instanceof ZodError ? { fields: error.issues.map((issue) => ({ path: issue.path.join('.'), code: issue.code })) } : {}) }); throw new Error(error instanceof ClientResponseError && [400, 403, 404, 409].includes(error.status) ? error.response.message : 'Catalogue indisponible. Réessayez.', { cause: error }) }
+  try { return await action(repository) } catch (error) { console.error('[catalogue] Operation failed', { status: error instanceof ClientResponseError ? error.status : 0, reason: error instanceof ClientResponseError ? error.isAbort ? 'request-cancelled' : error.originalError instanceof Error ? error.originalError.name : 'http-error' : error instanceof ZodError ? 'invalid-response' : error instanceof Error ? error.name : 'unknown', ...(error instanceof ZodError ? { fields: error.issues.map((issue) => ({ path: issue.path.join('.'), code: issue.code })) } : {}) }); throw new Error(error instanceof ClientResponseError && [400, 403, 404, 409].includes(error.status) ? error.response.message : 'Catalogue indisponible. Réessayez.', { cause: error }) }
 }
 export const catalogService = {
+  kitSettings: () => { const session = sessionService.getSnapshot(); return run(session.status === 'authenticated' && hasPermission(session.user, 'settings.references') ? 'settings.references' : 'inventory.read', (repo) => repo.kitSettings()) },
+  saveKitSettings: (input: { prefix: string; updated: string }) => run('settings.references', (repo) => repo.saveKitSettings(input)),
   mergeChoices: (q: string) => run('inventory.merge', (repo) => repo.mergeChoices(q)),
   mergePreview: (input: MergeSelection) => run('inventory.merge', (repo) => repo.mergePreview(input)),
   mergeApply: (input: MergeApplication) => run('inventory.merge', (repo) => repo.mergeApply(input)),
@@ -27,7 +29,7 @@ export const catalogService = {
       throw error
     }
   },
-  duplicateDraft: (id: string, includeSuppliers: boolean) => run('inventory.write', async (repo) => { const source = await repo.record(id); return { input: productDuplicate(source, includeSuppliers), files: { primary: await repo.duplicatePhoto(source), images: [], removePrimary: false, removeImages: [] } satisfies ProductFiles } }),
+  duplicateDraft: (id: string, includeSuppliers: boolean) => run('inventory.write', async (repo) => { const source = await repo.record(id); const input = productDuplicate(source, includeSuppliers); if (input.composition_mode === 'kit') input.sku = (await repo.kitSettings()).prefix; return { input, files: { primary: await repo.duplicatePhoto(source), images: [], removePrimary: false, removeImages: [] } satisfies ProductFiles } }),
   createBrand: (name: string) => run('inventory.write', (repo) => repo.createBrand(name.trim())),
   list: (query: Record<string, string | number>) => run('inventory.read', (repo) => repo.list(query)),
   record: (id: string) => run('inventory.read', (repo) => repo.record(id)),

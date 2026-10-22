@@ -1,6 +1,6 @@
 const policy = require(`${__hooks}/lib/access-policy.js`), common = require(`${__hooks}/lib/messaging-common.js`)
 const pricing = require(`${__hooks}/lib/pricing.js`)
-const fields = ['product', 'product_supplier', 'price_source', 'margin_percent', 'kind', 'brand', 'reference', 'unit_cost', 'discount', 'is_option', 'show_total', 'description', 'quantity', 'unit', 'unit_price']
+const fields = ['kit_key', 'kit_parent', 'kit_quantity', 'kit_print_details', 'product', 'product_supplier', 'price_source', 'margin_percent', 'kind', 'brand', 'reference', 'unit_cost', 'discount', 'is_option', 'show_total', 'description', 'quantity', 'unit', 'unit_price']
 const lineInput = (line) => Object.fromEntries(fields.map((field) => [field, line[field]]))
 const guard = (app, user, write = false) => {
   if (!require(`${__hooks}/lib/activity.js`).allowed(app, user, false, 'sales') || write && !policy.settings(app, user)) throw new ForbiddenError('Accès aux modèles de devis refusé.')
@@ -81,7 +81,7 @@ module.exports = {
     if (typeof b.quote_date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(b.quote_date) || !Number.isFinite(Date.parse(b.quote_date)) || new Date(b.quote_date).toISOString().slice(0, 10) !== b.quote_date) throw new BadRequestError('Date du devis invalide.')
     const content = JSON.parse(record.getString('content')), issues = [], sources = new Map()
     const lines = content.lines.map((line, index) => {
-      if (!line.product) return line
+      if (!line.product || line.kit_key) return line
       const sourceKey = JSON.stringify([line.product, line.unit])
       if (!sources.has(sourceKey)) sources.set(sourceKey, require(`${__hooks}/lib/catalog-quote-cost.js`)(e.app, e.auth, record.getString('currency'), line))
       const price = sources.get(sourceKey)

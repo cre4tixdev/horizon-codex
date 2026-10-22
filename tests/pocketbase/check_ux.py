@@ -18,6 +18,46 @@ class UxTests(unittest.TestCase):
     def save(self, config=None, updated=None, token=None):
         return self.pb.request('POST', 'horizon/settings/ux', {'updated': updated or self.record['updated'], 'config': config or self.record['config']}, token or self.admin_token)
 
+    def test_quote_kit_border_migrate_validate_and_persist(self):
+        self.assertEqual(self.record['config']['quote_kit_border_width'], 0)
+        for value in [-1, 4, 1.5, '1px']:
+            self.assertEqual(self.save({**self.record['config'], 'quote_kit_border_width': value})[0], 400)
+        self.assertEqual(self.save({**self.record['config'], 'quote_kit_border_dark': 'url(evil)'})[0], 400)
+        self.assertEqual(self.save(token=self.token)[0], 403)
+        code, saved = self.save({**self.record['config'], 'quote_kit_border_width': 2, 'quote_kit_border_light': '#123456', 'quote_kit_border_dark': '#ABCDEF'})
+        self.assertEqual(code, 200, saved)
+        self.assertEqual(saved['config']['quote_kit_border_dark'], '#ABCDEF')
+        self.pb.process.terminate(); self.pb.process.wait(timeout=5)
+        with sqlite3.connect(self.pb.data / 'data.db') as connection:
+            config=json.loads(connection.execute('SELECT config FROM settings_ux').fetchone()[0]); config.pop('quote_kit_border_dark')
+            connection.execute('UPDATE settings_ux SET config = ?', (json.dumps(config),))
+            connection.execute('DELETE FROM _migrations WHERE file = ?', ('1791840045_ux_quote_kit_border.js',))
+        for _ in range(2): subprocess.run(self.pb.args + ['migrate','up'], check=True, stdout=subprocess.DEVNULL)
+        self.pb.launch_and_authenticate(self.pb.args)
+        config = self.pb.request('GET', 'horizon/settings/ux', token=self.token)[1]['config']
+        self.assertEqual(config['quote_kit_border_width'], 2)
+        self.assertEqual(config['quote_kit_border_light'], '#123456')
+        self.assertEqual(config['quote_kit_border_dark'], '#364860')
+
+    def test_quote_kit_colors_migrate_validate_and_persist(self):
+        self.assertEqual(self.record['config']['quote_kit_background_light'], '#071D35')
+        self.assertEqual(self.record['config']['quote_kit_background_dark'], '#071D35')
+        self.assertEqual(self.save({**self.record['config'], 'quote_kit_background_light':'url(evil)'})[0],400)
+        self.assertEqual(self.save(token=self.token)[0],403)
+        code,saved=self.save({**self.record['config'], 'quote_kit_background_light':'#FFFFFF', 'quote_kit_background_dark':'#123456'})
+        self.assertEqual(code,200,saved)
+        self.assertEqual(saved['config']['sidebar_background_middle'],self.record['config']['sidebar_background_middle'])
+        self.assertEqual(saved['config']['quote_kit_background_dark'],'#123456')
+        self.pb.process.terminate(); self.pb.process.wait(timeout=5)
+        with sqlite3.connect(self.pb.data / 'data.db') as connection:
+            config=json.loads(connection.execute('SELECT config FROM settings_ux').fetchone()[0]);config.pop('quote_kit_background_dark')
+            connection.execute('UPDATE settings_ux SET config = ?', (json.dumps(config),))
+            connection.execute('DELETE FROM _migrations WHERE file = ?', ('1791840044_ux_quote_kit_colors.js',))
+        for _ in range(2): subprocess.run(self.pb.args + ['migrate','up'],check=True,stdout=subprocess.DEVNULL)
+        self.pb.launch_and_authenticate(self.pb.args)
+        config=self.pb.request('GET','horizon/settings/ux',token=self.token)[1]['config']
+        self.assertEqual(config['quote_kit_background_light'],'#FFFFFF');self.assertEqual(config['quote_kit_background_dark'],'#071D35')
+
     def test_activity_gap_bounds_persistence_and_additive_migration(self):
         self.assertEqual(self.record['config']['activity_gap'], 32)
         for value in [-1, 129, 1.5, '32px']:

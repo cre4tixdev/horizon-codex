@@ -46,6 +46,13 @@ export function useQuoteColumns(settings: SalesSettings, columns: ReadonlyArray<
         if (toggle) required += toggle.getBoundingClientRect().width + parseFloat(getComputedStyle(toggle.parentElement!).columnGap)
         next[key] = Math.max(next[key] || 0, Math.ceil(required))
       }
+      for (const actions of container.querySelectorAll<HTMLElement>('.quote-action-icons')) {
+        const cell = actions.closest('td')
+        if (!cell || !actions.children.length) continue
+        const cellStyle = getComputedStyle(cell), gap = parseFloat(getComputedStyle(actions).columnGap) || 0
+        const required = [...actions.children].reduce((sum, button) => sum + button.getBoundingClientRect().width, 0) + gap * (actions.children.length - 1) + parseFloat(cellStyle.paddingLeft) + parseFloat(cellStyle.paddingRight) + 2
+        next.actions = Math.max(next.actions || 0, Math.ceil(required))
+      }
       setContentMinimums((previous) => JSON.stringify(previous) === JSON.stringify(next) ? previous : next)
     }
     measure()

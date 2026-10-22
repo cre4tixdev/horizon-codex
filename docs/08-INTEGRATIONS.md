@@ -701,3 +701,17 @@ Sales consulte une projection Inventory interne (`catalog-quote-cost`) fondée s
 ### Modèles de contenu de devis — 21 octobre 2026
 
 Sales possède les modèles commerciaux ; ils ne sont pas des templates de documents PDF. Application via projection Inventory du coût effectif courant et Pricing serveur (prix fixes ou marges sur coût). Aucun accès à Sage, SUPER PDP, Microsoft ou Gotenberg pendant la préparation ; ni stock, analytique réel, commande ou facture créé. Le devis sauvegardé reprend ensuite le circuit standard, sa TVA et ses snapshots, son compte analytique d’opportunité et ses permissions. Documents continue à lire uniquement le devis réel pour l’aperçu/PDF.
+
+
+### Kits — frontières des services, 21 octobre 2026
+
+Inventory possède la composition courante et projette parent/composants vers Sales. Sales conserve ses propres lignes snapshotées ; les mises à jour du catalogue ne réécrivent pas un devis enregistré. Pricing serveur porte les totaux parent uniquement. La conversion en commande conserve les identifiants opérationnels et les quantités réelles des composants : les services Purchasing/Stock consomment ces lignes avec leurs permissions et politiques existantes. Les services internes n’entraînent pas de besoin d’achat, les services n’entraînent pas de livraison physique. Billing projette les seuls parents pour une facture depuis commande ; une facture depuis un BL de composants de kit est bloquée explicitement en attendant une répartition commerciale dédiée. Documents conserve le choix d’impression et rend les composants sans prix via son contexte métier. Aucune nouvelle intégration externe ni connexion directe depuis React.
+
+
+22 octobre 2026 — Sales cost-preview étend un scope parent Kit aux seules lignes enfants de la composition locale snapshotée. Catalogue fournit leurs coûts courants ; Pricing recalcule le parent, sans relire ni remplacer la composition du produit catalogue. Flux UI → SalesService/Repository → route serveur inchangé.
+
+
+22 octobre 2026 — Documents : rendu kit en arborescence et italique appliqué dans document-renderer.js, commun aux sources HTML d’aperçu et de conversion Gotenberg. Aucun appel externe ajouté, aucune donnée commerciale recalculée ni fichier finalisé réécrit. Les composants restent filtrés en amont selon kit_print_details.
+
+
+22 octobre 2026 — Le sélecteur Ventes transmet composition_mode à Inventory via CatalogService/Repository ; le serveur filtre avant comptage/pagination. Aucun accès PocketBase direct depuis la UI ni nouvelle intégration externe.

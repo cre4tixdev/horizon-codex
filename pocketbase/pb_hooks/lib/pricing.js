@@ -3,6 +3,7 @@ module.exports = {
   quoteLines(input, discount = 0, mode = 'percent', allowZero = false) {
     if (typeof discount !== 'number' || !Number.isFinite(discount) || discount < 0 || !['percent', 'amount'].includes(mode) || mode === 'percent' && discount > 100 || discount > 1000000000) throw new BadRequestError('Remise globale invalide.')
     if (!Array.isArray(input) || input.length > 200) throw new BadRequestError('Maximum 200 lignes par devis.')
+    if (input.some((line) => line.kit_key || line.kit_parent)) input = require(`${__hooks}/lib/sales-kits.js`).prepare(input)
     let cents = 0, options = 0, costs = 0
     const optionSections = []
     const lines = input.map((line, index) => {
@@ -14,14 +15,15 @@ module.exports = {
       if (level) while (optionSections.length && optionSections[optionSections.length - 1].level >= level) optionSections.pop()
       const isOption = Boolean(line.is_option) || optionSections.some((section) => section.is_option)
       if (level) optionSections.push({ level, is_option: isOption })
-      const base = { product: '', product_supplier: '', catalog_snapshot: null, position: index + 1, kind, description, unit: '', brand: '', reference: '', quantity: 0, unit_price: 0, unit_cost: 0, margin_percent: 0, discount: 0, line_total: 0, cost_total: 0, section_total: 0, section_options_total: 0, is_option: isOption, show_total: ['section', 'subsection', 'subsection3'].includes(kind) && Boolean(line.show_total), price_source: 'manual' }
+      const kit = { kit_key: line.kit_key || '', kit_parent: line.kit_parent || '', kit_quantity: line.kit_parent ? line.kit_quantity : 0, kit_print_details: line.kit_key ? Boolean(line.kit_print_details) : false }
+      const base = { ...kit, product: '', product_supplier: '', catalog_snapshot: null, position: index + 1, kind, description, unit: '', brand: '', reference: '', quantity: 0, unit_price: 0, unit_cost: 0, margin_percent: 0, discount: 0, line_total: 0, cost_total: 0, section_total: 0, section_options_total: 0, is_option: isOption, show_total: ['section', 'subsection', 'subsection3'].includes(kind) && Boolean(line.show_total), price_source: 'manual' }
       if (kind !== 'item') return base
       const quantity = Number(line.quantity), cost = Number(line.unit_cost || 0), discount = Number(line.discount || 0)
       const source = line.price_source || 'manual', margin = Number(line.margin_percent || 0)
       if (!['manual', 'margin'].includes(source) || !Number.isFinite(margin) || margin < -100 || margin > 10000000000000 || source === 'margin' && cost <= 0) throw new BadRequestError('Marge invalide ou coût absent.')
       const price = source === 'margin' ? cost * (1 + margin / 100) : Number(line.unit_price)
-      if (!Number.isFinite(quantity) || quantity < (allowZero ? 0 : 0.001) || quantity > 1000000 || !Number.isFinite(price) || price < 0 || price > 1000000000 || !Number.isFinite(cost) || cost < 0 || cost > 1000000000 || !Number.isFinite(discount) || discount < 0 || discount > 100) throw new BadRequestError('Quantité, coût, prix ou remise de ligne invalide.')
-      const unitPrice = Math.round(price * 1e6) / 1e6, unitCost = Math.round(cost * 1e6) / 1e6, lineCents = Math.round(quantity * unitPrice * 100 * (1 - discount / 100)), lineCost = Math.round(quantity * unitCost * 100)
+      if (!Number.isFinite(quantity) || quantity < (allowZero ? 0 : line.kit_parent ? 0.000001 : 0.001) || quantity > 1000000 || !Number.isFinite(price) || price < 0 || price > 1000000000 || !Number.isFinite(cost) || cost < 0 || cost > 1000000000 || !Number.isFinite(discount) || discount < 0 || discount > 100) throw new BadRequestError('Quantité, coût, prix ou remise de ligne invalide.')
+      const unitPrice = Math.round(price * 1e6) / 1e6, unitCost = Math.round(cost * 1e6) / 1e6, lineCents = Math.round(quantity * unitPrice * 100 * (1 - discount / 100)), lineCost = line.kit_parent ? 0 : Math.round(quantity * unitCost * 100)
       if (![lineCents, lineCost, cents + lineCents, options + lineCents, costs + lineCost].every(Number.isSafeInteger)) throw new BadRequestError('Montant hors limites.')
       if (isOption) options += lineCents; else { cents += lineCents; costs += lineCost }
       if (typeof (line.product || '') !== 'string' || typeof (line.product_supplier || '') !== 'string' || line.product_supplier && !line.product) throw new BadRequestError('Produit fournisseur invalide.')

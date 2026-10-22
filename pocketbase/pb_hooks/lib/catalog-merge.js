@@ -12,6 +12,7 @@ const guard = (e) => {
 const inspect = (app, sourceId, targetId) => {
   const source = app.findRecordById('inventory_products', sourceId), target = app.findRecordById('inventory_products', targetId), blockers = []
   if (!source.getBool('active') || source.getString('merged_into') || !target.getBool('active') || target.getString('merged_into')) throw new BadRequestError('Choisissez deux produits actifs et non fusionnés.')
+  if (source.getString('composition_mode') === 'kit' || target.getString('composition_mode') === 'kit') blockers.push('La fusion des kits nécessite de choisir leur composition ; conservez les deux références ou archivez le kit inutilisé.')
   const offers = rows(app, 'inventory_product_suppliers', sourceId), targetOffers = rows(app, 'inventory_product_suppliers', targetId)
   const histories = offers.flatMap((offer) => app.findRecordsByFilter('inventory_supplier_price_history', 'product_supplier = {:id}', 'id', 0, 0, { id: offer.id }))
   const dependencies = incoming(app, [source, ...offers], (record, collection, field) => record.id === sourceId && collection === 'inventory_product_suppliers' && field === 'product' || record.collection().name === 'inventory_product_suppliers' && collection === 'inventory_supplier_price_history' && field === 'product_supplier')

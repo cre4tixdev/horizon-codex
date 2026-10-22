@@ -17,3 +17,6 @@ onRecordDelete(() => { throw new BadRequestError('Les marques liées au catalogu
 routerAdd('GET', '/api/horizon/inventory/products/{id}/quotes', (event) => require(`${__hooks}/lib/sales.js`).productQuotes(event), $apis.requireAuth('core_users'))
 
 routerAdd('GET', '/api/horizon/inventory/barcode-preview', (event) => require(`${__hooks}/lib/catalog.js`).barcodePreview(event), $apis.requireAuth('core_users'))
+
+routerAdd('GET', '/api/horizon/inventory/kits/settings', (e) => require(`${__hooks}/lib/catalog-kits.js`).readSettings(e), $apis.requireAuth('core_users'))
+routerAdd('POST', '/api/horizon/inventory/kits/settings', (e) => require(`${__hooks}/lib/catalog-kits.js`).saveSettings(e), $apis.requireAuth('core_users'))

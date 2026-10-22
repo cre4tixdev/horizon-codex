@@ -92,4 +92,18 @@ test('Coûts du devis : comparatif, sélection, marge, application puis sauvegar
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   await dialog.getByRole('button', { name: 'Annuler', exact: true }).click()
   await page.getByRole('button', { name: 'Passer en mode clair', exact: true }).click()
+  await page.setViewportSize({ width: 1600, height: 1100 })
+  const supplierName = 'Fournisseur audiovisuel international avec un nom particulièrement long pour vérifier la troncature dans le comparatif'
+  const supplier = await post('collections/contacts_companies/records', { name: supplierName, active: true })
+  await post('collections/contacts_company_roles/records', { company: supplier.id, role: 'supplier', active: true })
+  await post('horizon/inventory/products/save', { id: product.id, updated: product.updated, input: { ...productInput, offers: [{ supplier: supplier.id, supplier_sku: 'LONG-SUPPLIER', currency: 'EUR', list_price: 160, discount: 0, purchase_quantity: 1, lead_time_days: 0, is_preferred: true, valid_from: '', valid_until: '' }] } })
+  await refreshLine.click()
+  const supplierHint = dialog.locator('.quote-cost-hint').filter({ hasText: supplierName }).first()
+  await expect(supplierHint).toHaveAttribute('title', `Tarif fournisseur · ${supplierName}`)
+  expect(await supplierHint.evaluate((node) => ({ ellipsis: getComputedStyle(node).textOverflow, truncated: node.scrollWidth > node.clientWidth, wraps: getComputedStyle(node).whiteSpace }))).toEqual({ ellipsis: 'ellipsis', truncated: true, wraps: 'nowrap' })
+  const tableBounds = (await dialog.locator('table').boundingBox())!, viewportBounds = (await dialog.locator('[data-table-viewport]').boundingBox())!
+  expect(tableBounds.width).toBeLessThanOrEqual(viewportBounds.width)
+  await page.screenshot({ path: '/private/tmp/horizon-cost-supplier-ellipsis.png', animations: 'disabled' })
+  await dialog.getByRole('button', { name: 'Annuler', exact: true }).click()
+
 })

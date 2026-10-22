@@ -19,7 +19,8 @@ module.exports = (app, user, id) => {
     fields['contact.name'] = [contact.getString('first_name'), contact.getString('last_name')].filter(Boolean).join(' ')
     for (const key of ['email', 'phone']) fields[`contact.${key}`] = contact.getString(key)
   } else for (const key of ['name', 'email', 'phone']) fields[`contact.${key}`] = ''
-  const columns = ['kind', 'description', 'brand', 'reference', 'quantity', 'unit', 'unit_price', 'discount', 'line_total', 'is_option', 'show_total', 'section_total', 'section_options_total']
+  const columns = ['kind', 'description', 'brand', 'reference', 'quantity', 'unit', 'unit_price', 'discount', 'line_total', 'is_option', 'show_total', 'section_total', 'section_options_total', 'kit_key', 'kit_parent', 'kit_print_details']
   const lines = effective ? effective.lines.map((line) => Object.fromEntries(columns.map((key) => [key, line[key]]))) : app.findRecordsByFilter('sales_quote_lines', 'quote = {:id}', 'position', 0, 0, { id }).map((line) => Object.fromEntries(columns.map((key) => [key, line.get(key)])))
-  return { fields, lines, warnings: client.warnings }
+  const visible = new Set(lines.filter((line) => line.kit_key && line.kit_print_details).map((line) => line.kit_key))
+  return { fields, lines: lines.filter((line) => !line.kit_parent || visible.has(line.kit_parent)), warnings: client.warnings }
 }

@@ -1,3 +1,4 @@
+import { KitControls } from '../../../shared/catalog/KitControls'
 import { HCounter } from '../../../shared/ui/HCounter'
 import { HWorkspaceSearchField } from '../../../shared/ui/HWorkspaceSearchField'
 import { HSearchResult } from '../../../shared/ui/HSearchResult'
@@ -100,6 +101,8 @@ const themeColors = [
 
   { tab: 'general', group: 'Fonds de page et du fil', label: 'Fond général', light: 'background_light', dark: 'background_dark' },
   { tab: 'general', group: 'Fonds de page et du fil', label: 'Fond du fil d’actualité', light: 'activity_light', dark: 'activity_dark' },
+  { tab: 'tables', group: 'Kits dans les devis', label: 'Fond du groupe Kit', light: 'quote_kit_background_light', dark: 'quote_kit_background_dark' },
+  { tab: 'tables', group: 'Kits dans les devis', label: 'Bordure du groupe Kit', light: 'quote_kit_border_light', dark: 'quote_kit_border_dark' },
   { tab: 'tables', group: 'En-têtes et bordures', label: 'Bordures des tableaux', light: 'table_border_light', dark: 'table_border_dark' },
   { tab: 'tables', group: 'En-têtes et bordures', label: 'En-tête des tableaux', light: 'header_light', dark: 'header_dark' },
   { tab: 'tables', group: 'En-têtes et bordures', label: 'Texte des en-têtes', light: 'table_header_text_light', dark: 'table_header_text_dark' },
@@ -118,6 +121,7 @@ const groups: typeof dimensionGroups = [...dimensionGroups,
   { tab: 'general', title: 'Fonds de page et du fil', icon: Palette, fields: [] },
   { tab: 'tables', title: 'En-têtes et bordures', icon: Table2, fields: [] },
   { tab: 'tables', title: 'Lignes du tableau', icon: Table2, fields: [] },
+  { tab: 'tables', title: 'Kits dans les devis', icon: Palette, fields: [{ key: 'quote_kit_border_width', label: 'Épaisseur de la bordure du Kit (0 : aucune)' }] },
   { tab: 'tables', title: 'Suivi des commandes', icon: ShoppingCart, fields: [] },
   { tab: 'filters', title: 'Aspect des filtres', icon: Palette, fields: [] },
   { tab: 'filters', title: 'Sélection des filtres', icon: Check, fields: [] },
@@ -191,7 +195,7 @@ function Preview({ values, theme, tab }: { values: UxInput; theme: 'light' | 'da
     {tab === 'search' && <SearchPreview values={values} />}
     {tab === 'navigation' && <SidebarPreview />}
     {tab === 'launcher' && <LauncherPreview />}
-    {tab === 'tables' && <><HSectionHeading title="Tableau d’exemple" icon={Table2} /><HDataTable data={previewRows} columns={previewColumns} columnBorders columnAlignments={{ Coût: 'right', PUV: 'right', Qté: 'center' }} /><section className="h-record-lines"><HSectionHeading title="Suivi de commande" /><HDataTable data={previewRows.slice(0, 2)} columns={trackingPreviewColumns} columnBorders columnClasses={trackingPreviewClasses} columnAlignments={{ purchase: 'center', receipt: 'center', delivery: 'center', invoiced: 'center' }} /></section></>}
+    {tab === 'tables' && <><HSectionHeading title="Tableau d’exemple" icon={Table2} /><HDataTable data={previewRows} columns={previewColumns} columnBorders columnAlignments={{ Coût: 'right', PUV: 'right', Qté: 'center' }} /><KitPreview /><section className="h-record-lines"><HSectionHeading title="Suivi de commande" /><HDataTable data={previewRows.slice(0, 2)} columns={trackingPreviewColumns} columnBorders columnClasses={trackingPreviewClasses} columnAlignments={{ purchase: 'center', receipt: 'center', delivery: 'center', invoiced: 'center' }} /></section></>}
     {tab === 'fields' && <><div className="contact-page-heading"><h1>Titre d’une fiche</h1></div><div className="contact-panel"><HSectionHeading title="Champs et libellés" icon={Type} /><div className="ux-preview-fields"><label><HFieldLabel>Titre</HFieldLabel><HInput readOnly value="Installation audiovisuelle" /></label><label><HFieldLabel>Fournisseur</HFieldLabel><HCombobox label="Fournisseur d’exemple UX" value="cvs" clearable={false} showCodes={false} options={[{ value: 'cvs', label: 'CVS Engineering' }]} onChange={() => {}} /></label></div></div></>}
     {tab === 'buttons' && <><HSectionHeading title="Actions et boutons" icon={Square} /><div className="ux-preview-buttons"><HButton>Classique</HButton><HButton variant="primary"><Check size={14} />Valider</HButton><HButton size="small">Compact</HButton><HButton size="icon" aria-label="Exemple d’action"><Plus size={14} /></HButton></div><HSectionHeading title="Smart boutons" icon={ShoppingCart} /><div className="record-links ux-preview-smart"><HButton><ShoppingCart size={13} />Achats<HCounter highlight count={3} className="record-link-count" /></HButton><HButton><FileText size={13} />Devis<HCounter highlight count={2} className="record-link-count" /></HButton></div></>}
     {tab === 'general' && <><HSectionHeading title="Recherche en barre supérieure" icon={TextCursorInput} description={`Largeur maximale : ${values.search_width} px, limitée par l’espace disponible.`} /><div className="ux-topbar-preview"><HTopbar navigation={<HButton size="icon" variant="ghost" aria-label="Navigation d’exemple"><PanelLeft size={16} /></HButton>} search={<HWorkspaceSearchField><Search size={16} aria-hidden="true" /><span className="workspace-search-scope">Contacts</span><HInput aria-label="Recherche d’exemple" readOnly placeholder="Rechercher…" /></HWorkspaceSearchField>} actions={<HButton variant="ghost" size="icon" aria-label="Compte d’exemple"><Users size={16} /></HButton>} /></div><div className="contact-page-heading"><h1>Fiche d’exemple</h1><HTag tone="violet">Aperçu</HTag></div><HProgressSteps label="Frise d’exemple UX" steps={[{ id: 'draft', label: 'Brouillon', icon: FileText, state: 'done' }, { id: 'validated', label: 'Validée', icon: Check, state: 'current' }, { id: 'done', label: 'Terminée', icon: Check, state: 'pending' }]} /><div className="contact-panel"><HSectionHeading title="Une première section" icon={Square} /><p className="contact-muted">Marges, arrondis et espaces entre les sections.</p></div><div className="contact-panel"><HSectionHeading title="Une seconde section" icon={Square} /><p className="contact-muted">Un cadre commun aux fiches Horizon.</p></div><ActivityPanelFrame className="ux-preview-activity"><div className="activity-composer"><p className="ux-preview-message">Une note ou un échange lié à la fiche.</p></div></ActivityPanelFrame></>}
@@ -222,4 +226,9 @@ function CardsPreview() {
 }
 function SearchPreview({ values }: { values: UxInput }) {
   return <><HSectionHeading title="Recherche en barre supérieure" icon={Search} description={`Largeur maximale : ${values.search_width} px, limitée par l’espace disponible.`} /><div className="ux-topbar-preview"><HTopbar navigation={<HButton size="icon" variant="ghost" aria-label="Navigation d’exemple"><PanelLeft size={16} /></HButton>} search={<HWorkspaceSearchField><Search size={16} aria-hidden="true" /><span className="workspace-search-scope">Contacts</span><HInput aria-label="Recherche d’exemple" placeholder="Rechercher…" /></HWorkspaceSearchField>} actions={<HButton variant="ghost" size="icon" aria-label="Compte d’exemple"><Users size={16} /></HButton>} /></div><HSectionHeading title="Résultats de recherche" icon={Search} /><div className="search-results"><HSearchResult href="#" label="Contacts" description="Sociétés et personnes" icon={Building2} /><HSearchResult href="#" label="Ventes" description="Devis et commandes clients" icon={FileText} /></div></>
+}
+
+function KitPreview() {
+  const [expanded, setExpanded] = useState(true), [printing, setPrinting] = useState(true)
+  return <section aria-label="Aperçu du groupe Kit"><HSectionHeading title="Kits dans les devis" /><div className="ux-preview-buttons"><KitControls label="kit d’exemple" expanded={expanded} printDetails={printing} onToggle={() => setExpanded(!expanded)} onAdd={() => setExpanded(true)} onPrint={() => setPrinting(!printing)} /><span>Régie mobile</span></div>{expanded && <p className="contact-muted">Composants du kit{printing ? ' · imprimés' : ' · masqués à l’impression'}</p>}</section>
 }

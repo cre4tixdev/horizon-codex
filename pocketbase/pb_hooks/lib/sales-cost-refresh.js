@@ -49,9 +49,10 @@ module.exports = {
     }
     const pricing = require(`${__hooks}/lib/pricing.js`), before = pricing.quoteLines(b.lines, b.discount || 0, b.discount_mode || 'percent')
     if (b.scope !== undefined && (!Number.isInteger(b.scope) || b.scope < 0 || b.scope >= before.lines.length)) throw new BadRequestError('Ligne invalide.')
+    const scopedKit = b.scope === undefined ? '' : before.lines[b.scope].kit_key
     const costCache = new Map()
     const rows = before.lines.flatMap((line, index) => {
-      if (!line.product || line.kind !== 'item' || b.scope !== undefined && b.scope !== index) return []
+      if (!line.product || line.kit_key || line.kind !== 'item' || b.scope !== undefined && b.scope !== index && !(scopedKit && line.kit_parent === scopedKit)) return []
       const key = JSON.stringify([line.product, line.product_supplier, line.unit])
       if (!costCache.has(key)) costCache.set(key, cost(e.app, e.auth, currency, line))
       const value = costCache.get(key), previous = previousLineFor(index)
@@ -74,8 +75,11 @@ module.exports = {
       const row = rows.find((row) => row.index === index), original = before.lines[index]
       return { ...raw, unit_cost: row.new_cost, unit_price: original.unit_price, price_source: b.mode === 'price' ? 'manual' : 'margin', margin_percent: original.margin_percent, cost_refresh: row.token }
     })
+    for (const [index, raw] of lines.entries()) if (raw.kit_key && lines.some((child, childIndex) => child.kit_parent === raw.kit_key && selected.includes(childIndex))) {
+      lines[index] = { ...raw, price_source: b.mode === 'price' ? 'manual' : 'margin', unit_price: before.lines[index].unit_price, margin_percent: before.lines[index].margin_percent }
+    }
     const after = pricing.quoteLines(lines, b.discount || 0, b.discount_mode || 'percent')
-    for (const index of selected) { lines[index].unit_price = after.lines[index].unit_price; lines[index].margin_percent = after.lines[index].margin_percent }
+    for (const index of lines.map((line, index) => selected.includes(index) || line.kit_key ? index : -1).filter((index) => index >= 0)) { lines[index].unit_cost = after.lines[index].unit_cost; lines[index].unit_price = after.lines[index].unit_price; lines[index].margin_percent = after.lines[index].margin_percent }
     const totals = (value) => ({ cost_total: value.cost_total, subtotal: value.subtotal, margin_amount: value.margin_amount, margin_percent: value.margin_percent, options_total: value.options_total })
     return e.json(200, { rows, selected, lines, before: totals(before), after: totals(after), currency })
   },

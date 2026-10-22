@@ -140,7 +140,7 @@ module.exports = {
       let position = 0
       for (const source of details.filter((line) => !line.getBool('is_option'))) {
         const line = new Record(app.findCollectionByNameOrId('sales_order_lines'))
-        for (const key of ['kind', 'product', 'description', 'quantity', 'unit', 'unit_price', 'unit_cost', 'line_total', 'tax_base', 'tax_rate', 'tax_amount']) line.set(key, source.get(key))
+        for (const key of ['kind', 'product', 'description', 'quantity', 'unit', 'unit_price', 'unit_cost', 'line_total', 'tax_base', 'tax_rate', 'tax_amount', 'kit_key', 'kit_parent', 'kit_quantity', 'kit_print_details']) line.set(key, source.get(key))
         line.set('position', ++position); line.set('order', order.id); line.set('source_line', source.id); line.set('snapshot', source.publicExport()); app.save(line)
       }
       require(`${__hooks}/lib/stock.js`).reserve(app, event.auth, order, reservations)

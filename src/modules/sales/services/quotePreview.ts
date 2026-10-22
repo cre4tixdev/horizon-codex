@@ -1,8 +1,9 @@
+import { previewKitRows } from './quoteKits'
 import { emptyQuoteLine, type QuoteLineInput } from '../schemas/quotes'
 // Display preview only. PocketBase Pricing always recomputes persisted amounts.
 export function quotePreview(input: readonly Partial<QuoteLineInput>[], discount = 0, mode: 'percent' | 'amount' = 'percent') {
   const optionSections: { level: number; is_option: boolean }[] = []
-  const lines = input.map((input) => {
+  const lines = previewKitRows(input).map((input) => {
     const line = { ...emptyQuoteLine(input.kind), ...input }
     const level = ['section', 'subsection', 'subsection3'].indexOf(line.kind) + 1
     if (level) while (optionSections.length && optionSections[optionSections.length - 1]!.level >= level) optionSections.pop()
@@ -26,7 +27,7 @@ export function quotePreview(input: readonly Partial<QuoteLineInput>[], discount
   }
   const items = lines.filter((line) => line.kind === 'item' && !line.is_option)
   const cents = items.reduce((sum, line) => sum + Math.round(line.line_total * 100), 0)
-  const costs = items.reduce((sum, line) => sum + Math.round((line.quantity || 0) * (Math.round((line.unit_cost || 0) * 1e6) / 1e6 * 100)), 0)
+  const costs = items.filter((line) => !line.kit_parent).reduce((sum, line) => sum + Math.round((line.quantity || 0) * (Math.round((line.unit_cost || 0) * 1e6) / 1e6 * 100)), 0)
   const discountCents = mode === 'amount' ? Math.round((Number.isFinite(discount) ? discount : 0) * 100) : Math.round(cents * (Number.isFinite(discount) ? discount : 0) / 100), net = cents - discountCents
   let cumulative = 0, allocated = 0
   for (const line of items) {

@@ -2,6 +2,7 @@ import { z } from 'zod'
 import type { CSSProperties } from 'react'
 const color = z.string().regex(/^#[a-f0-9]{6}$/i)
 export const uxLimits = {
+  quote_kit_border_width: { min: 0, max: 3 },
   directory_width: { min: 240, max: 440 },
   directory_height: { min: 112, max: 180 },
   directory_gap: { min: 4, max: 24 },
@@ -84,6 +85,11 @@ export const uxInputSchema = z.object({
   search_result_font: bounded('search_result_font').default(12),
   search_result_padding_y: bounded('search_result_padding_y').default(10),
   control_radius: bounded('control_radius').default(5),
+  quote_kit_border_width: bounded('quote_kit_border_width').default(0),
+  quote_kit_border_light: color.default('#DCE5EF'),
+  quote_kit_border_dark: color.default('#364860'),
+  quote_kit_background_light: color.default('#071D35'),
+  quote_kit_background_dark: color.default('#071D35'),
   card_background_light: color.default('#FFFFFF'),
   card_background_dark: color.default('#162236'),
   card_border_light: color.default('#DCE5EF'),
@@ -230,6 +236,11 @@ export const uxDefaults: UxInput = {
   search_result_font: 12,
   search_result_padding_y: 10,
   control_radius: 5,
+  quote_kit_border_width: 0,
+  quote_kit_border_light: '#DCE5EF',
+  quote_kit_border_dark: '#364860',
+  quote_kit_background_light: '#071D35',
+  quote_kit_background_dark: '#071D35',
   card_background_light: '#FFFFFF',
   card_background_dark: '#162236',
   card_border_light: '#DCE5EF',
@@ -356,6 +367,15 @@ export const uxDefaults: UxInput = {
   smart_text_light: '#091C3A',
   smart_text_dark: '#E8EEF8',
 }
+const luminance = (color: string) => [0.2126, 0.7152, 0.0722].reduce((sum, weight, index) => {
+  const value = parseInt(color.slice(1 + index * 2, 3 + index * 2), 16) / 255
+  return sum + weight * (value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4)
+}, 0)
+const contrastColor = (background: string, first: string, second: string) => {
+  const base = luminance(background)
+  const contrast = (color: string) => { const value = luminance(color); return (Math.max(base, value) + 0.05) / (Math.min(base, value) + 0.05) }
+  return contrast(first) >= contrast(second) ? first : second
+}
 export function uxStyle(values: UxInput): CSSProperties & { [key: `--${string}`]: string } {
   return {
     '--hz-directory-width': `${values.directory_width}px`,
@@ -376,6 +396,15 @@ export function uxStyle(values: UxInput): CSSProperties & { [key: `--${string}`]
     '--hz-search-result-font': `${values.search_result_font}px`,
     '--hz-search-result-padding-y': `${values.search_result_padding_y}px`,
     '--hz-control-radius': `${values.control_radius}px`,
+    '--hz-quote-kit-border-width': `${values.quote_kit_border_width}px`,
+    '--hz-quote-kit-border-light': values.quote_kit_border_light,
+    '--hz-quote-kit-border-dark': values.quote_kit_border_dark,
+    '--hz-quote-kit-background-light': values.quote_kit_background_light,
+    '--hz-quote-kit-background-dark': values.quote_kit_background_dark,
+    '--hz-quote-kit-text-light': contrastColor(values.quote_kit_background_light, '#FFFFFF', '#091C3A'),
+    '--hz-quote-kit-text-dark': contrastColor(values.quote_kit_background_dark, '#FFFFFF', '#091C3A'),
+    '--hz-quote-kit-active-light': contrastColor(values.quote_kit_background_light, '#FF5AAE', '#E90072'),
+    '--hz-quote-kit-active-dark': contrastColor(values.quote_kit_background_dark, '#FF5AAE', '#E90072'),
     '--hz-card-background-light': values.card_background_light,
     '--hz-card-background-dark': values.card_background_dark,
     '--hz-card-border-light': values.card_border_light,

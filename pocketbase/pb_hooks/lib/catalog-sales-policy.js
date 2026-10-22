@@ -5,6 +5,7 @@ const policy = (app, line) => {
   if (!id) return { purchase_applicable: true, stock_applicable: true }
   const product = app.findRecordById('inventory_products', id)
   const snapshot = JSON.parse(line.getString('catalog_snapshot') || 'null') || JSON.parse(line.getString('snapshot') || 'null')?.catalog_snapshot || {}
+  if ((snapshot.composition_mode || product.getString('composition_mode')) === 'kit') return { purchase_applicable: false, stock_applicable: false }
   const kind = snapshot.kind || product.getString('kind')
   const brand = snapshot.manufacturer ?? product.getString('manufacturer')
   const internal = isInternalService(kind, brand)

@@ -8,7 +8,7 @@ const guard = (app, user) => {
 const current = (app, quote, order) => {
   const revision = order.getString('current_revision') ? c.get(app, 'sales_order_revisions', order.getString('current_revision')) : null
   const saved = revision ? json(revision, 'after_snapshot') : null
-  return { order_updated: order.getString('updated'), header: saved?.header || quote.publicExport(), order: { owner: order.getString('owner'), subtotal: order.getFloat('subtotal'), tax: order.getFloat('tax'), total: order.getFloat('total'), customer_order_number: order.getString('customer_order_number') }, lines: rows(app, order).map((line) => ({ ...json(line, 'snapshot'), ...Object.fromEntries(['kind', 'product', 'description', 'quantity', 'unit', 'unit_price', 'unit_cost', 'line_total', 'tax_base', 'tax_rate', 'tax_amount', 'position', 'source_line'].map((key) => [key, line.get(key)])), record_id: line.id, id: line.getString('source_line') })) }
+  return { order_updated: order.getString('updated'), header: saved?.header || quote.publicExport(), order: { owner: order.getString('owner'), subtotal: order.getFloat('subtotal'), tax: order.getFloat('tax'), total: order.getFloat('total'), customer_order_number: order.getString('customer_order_number') }, lines: rows(app, order).map((line) => ({ ...json(line, 'snapshot'), ...Object.fromEntries(['kind', 'product', 'description', 'quantity', 'unit', 'unit_price', 'unit_cost', 'line_total', 'tax_base', 'tax_rate', 'tax_amount', 'position', 'source_line', 'kit_key', 'kit_parent', 'kit_quantity', 'kit_print_details'].map((key) => [key, line.get(key)])), record_id: line.id, id: line.getString('source_line') })) }
 }
 const context = (app, user, body) => {
   guard(app, user); c.exact(body, ['id', 'updated', 'input', 'customer_order_number', 'preview_token'])
@@ -50,7 +50,7 @@ const context = (app, user, body) => {
   for (const old of before.lines) {
     const next = after.lines.find((line) => line.id === old.id)
     if (!next) changes.push({ label: `Ligne ${old.position} · ${old.description}`, before: 'Présente', after: 'Supprimée' })
-    else if (['position', 'description', 'quantity', 'unit_price', 'unit_cost', 'discount', 'product', 'kind', 'brand', 'reference', 'show_total', 'unit', 'product_supplier', 'price_source', 'margin_percent'].some((key) => JSON.stringify(old[key] ?? '') !== JSON.stringify(next[key] ?? ''))) changes.push({ label: `Ligne ${old.position} · ${old.description}`, before: `${old.quantity} ${old.unit} · ${old.unit_price} HT`, after: `${next.description} · ${next.quantity} ${next.unit} · ${next.unit_price} HT` })
+    else if (['position', 'description', 'quantity', 'unit_price', 'unit_cost', 'discount', 'product', 'kind', 'brand', 'reference', 'show_total', 'unit', 'product_supplier', 'price_source', 'margin_percent', 'kit_key', 'kit_parent', 'kit_quantity', 'kit_print_details'].some((key) => JSON.stringify(old[key] ?? '') !== JSON.stringify(next[key] ?? ''))) changes.push({ label: `Ligne ${old.position} · ${old.description}`, before: `${old.quantity} ${old.unit} · ${old.unit_price} HT`, after: `${next.description} · ${next.quantity} ${next.unit} · ${next.unit_price} HT` })
   }
   for (const line of after.lines.filter((item) => !item.id)) changes.push({ label: 'Nouvelle ligne', before: '', after: line.description })
   // A new catalogue snapshot is captured again on save; its clock is not an engagement.
@@ -86,7 +86,7 @@ module.exports = {
       for (const value of after.lines) {
         const record = existing.find((line) => line.id === value.record_id) || new Record(app.findCollectionByNameOrId('sales_order_lines'))
         record.set('id', value.record_id); record.set('order', order.id)
-        for (const key of ['kind', 'product', 'description', 'quantity', 'unit', 'unit_price', 'unit_cost', 'line_total', 'tax_base', 'tax_rate', 'tax_amount', 'position', 'source_line']) record.set(key, value[key])
+        for (const key of ['kind', 'product', 'description', 'quantity', 'unit', 'unit_price', 'unit_cost', 'line_total', 'tax_base', 'tax_rate', 'tax_amount', 'position', 'source_line', 'kit_key', 'kit_parent', 'kit_quantity', 'kit_print_details']) record.set(key, value[key])
         record.set('snapshot', value); app.save(record)
       }
       require(`${__hooks}/lib/stock-order-revision.js`).apply(app, event.auth, plan.stock)

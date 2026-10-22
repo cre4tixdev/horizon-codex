@@ -1,6 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import { uxDefaults, uxLimits, uxInputSchema, uxStyle } from './ux'
 describe('Shared UX configuration', () => {
+  it('complète les couleurs Kit et conserve le contraste sans changer la sidebar', () => {
+    const legacy = Object.fromEntries(Object.entries(uxDefaults).filter(([key]) => !key.startsWith('quote_kit_')))
+    expect(uxInputSchema.parse(legacy)).toEqual(uxDefaults)
+    const style = uxStyle({ ...uxDefaults, quote_kit_background_light: '#FFFFFF', quote_kit_background_dark: '#071D35' })
+    expect(style).toMatchObject({ '--hz-quote-kit-background-light': '#FFFFFF', '--hz-quote-kit-text-light': '#091C3A', '--hz-quote-kit-text-dark': '#FFFFFF', '--hz-quote-kit-active-light': '#E90072', '--hz-quote-kit-active-dark': '#FF5AAE' })
+    expect(uxStyle({ ...uxDefaults, quote_kit_border_width: 2, quote_kit_border_light: '#123456' })).toMatchObject({ '--hz-quote-kit-border-width': '2px', '--hz-quote-kit-border-light': '#123456' })
+    for (const quote_kit_border_width of [-1, 4, 1.5]) expect(uxInputSchema.safeParse({ ...uxDefaults, quote_kit_border_width }).success).toBe(false)
+    expect(uxInputSchema.safeParse({ ...uxDefaults, quote_kit_border_dark: 'url(evil)' }).success).toBe(false)
+    expect(style['--hz-sidebar-background']).toBe(uxStyle(uxDefaults)['--hz-sidebar-background'])
+    expect(uxInputSchema.safeParse({ ...uxDefaults, quote_kit_background_light: 'url(evil)' }).success).toBe(false)
+  })
   it('borne la largeur de recherche et complète les anciens réglages sans les réinitialiser', () => {
     const legacy = Object.fromEntries(Object.entries(uxDefaults).filter(([key]) => key !== 'search_width'))
     expect(uxInputSchema.parse(legacy).search_width).toBe(840)

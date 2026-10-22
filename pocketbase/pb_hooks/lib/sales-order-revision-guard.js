@@ -11,7 +11,7 @@ const revision = (app, order) => {
   if (record.getString('order') !== order.id || record.getString('status') !== 'validated' || record.getInt('number') !== order.getInt('revision_number')) throw new BadRequestError('Révision de commande invalide.')
   return record
 }
-const fields = ['kind', 'product', 'description', 'quantity', 'unit', 'unit_price', 'unit_cost', 'line_total', 'tax_base', 'tax_rate', 'tax_amount', 'position', 'source_line', 'snapshot']
+const fields = ['kit_key', 'kit_parent', 'kit_quantity', 'kit_print_details', 'kind', 'product', 'description', 'quantity', 'unit', 'unit_price', 'unit_cost', 'line_total', 'tax_base', 'tax_rate', 'tax_amount', 'position', 'source_line', 'snapshot']
 module.exports = {
   order(app, record) {
     const proof = revision(app, record), before = record.original(), after = json(proof, 'after_snapshot')

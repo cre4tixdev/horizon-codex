@@ -1,0 +1,4 @@
+import { z } from 'zod'
+export const kitLineFields = { kit_key: z.string().max(64).optional(), kit_parent: z.string().max(64).optional(), kit_quantity: z.number().min(0).max(1000000).optional(), kit_print_details: z.boolean().optional() }
+export const kitComponentSchema = z.object({ product: z.string().min(1), quantity: z.number().positive().max(1000000) })
+export const kitQuoteComponentSchema = z.object({ ...kitLineFields, product: z.string(), product_supplier: z.string(), description: z.string(), brand: z.string(), reference: z.string(), unit: z.string(), unit_cost: z.number(), unit_price: z.number(), margin_percent: z.number(), price_source: z.enum(['manual', 'margin']), quantity: z.number(), kind: z.literal('item'), discount: z.number(), is_option: z.boolean(), show_total: z.boolean() })

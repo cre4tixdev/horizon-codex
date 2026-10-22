@@ -3842,3 +3842,30 @@ Utiliser ce modèle remplace la saisie commerciale, sans créer de devis ni chan
 Vocabulaire utilisateur : Kit, sans appellation Pack commercial. Option de composition sur le produit existant, sans nouvelle famille/nature. Préfixe de référence configurable dans Paramètres → Catalogue → Kits, KIT- proposé par défaut ; suffixe libre et aucun renommage des références existantes lors d’un changement de paramètre. Nom produit libre sans préfixe imposé.
 
 Parcours proposé : kit repérable dans le sélecteur de produits par nom/référence et badge Kit, aperçu de composition/prix puis Ajouter au devis. Ligne parent dépliable, composants avec quantités par kit et coût ; modification locale au devis sans écraser le catalogue. Impression réglable par ligne : Kit seul ou Kit avec ses composants (quantités sans prix individuels), indépendamment du repli à l’écran. Valeurs commerciales comptées une fois au parent, achats/stock/livraisons sur composants, instantanés conservés. Périmètre détaillé et adaptations Sales/Inventory/Documents à finaliser avant développement ; aucune fonctionnalité Kit livrée à ce stade.
+
+
+### Kits — livraison locale du 21 octobre 2026
+
+Un produit du catalogue peut être déclaré **Produit composé · Kit**, indépendamment de sa famille et de sa nature. L’onglet Composition rassemble jusqu’à 50 produits simples actifs, dans leur unité de base, avec quantité par kit et déplacement par poignée. Les kits imbriqués sont interdits. Le coût est la somme des composants ; le prix est fixe ou calculé avec le coefficient. Le préfixe des nouvelles références est administré dans Paramètres → Catalogue → Kits (KIT- initialement), sans renommage des anciennes références.
+
+Le sélecteur de produit présente un aperçu avant ajout au devis. La ligne commerciale dépliable rassemble les composants, modifiables dans ce seul brouillon ; quantité du parent × quantité par kit donne la quantité opérationnelle. Copie et déplacement conservent le groupe. Le bouton d’impression choisit kit seul ou kit avec composants ; le repli écran n’agit pas sur ce choix. Les composants imprimés montrent description, quantité et unité, sans prix individuel. Le total et la marge sont comptés une seule fois sur le parent. L’actualisation explicite des coûts relit les composants et recalcule le parent. Les modèles de devis conservent ces groupes.
+
+Les commandes et leurs révisions conservent les lignes opérationnelles des composants pour achats, réservations et livraisons. Le parent n’a pas de stock ni d’achat propre. Les services ne sont pas des lignes physiques à livrer. La facturation depuis la commande utilise uniquement les lignes commerciales parentes ; préparer une facture depuis un BL contenant des composants de kit est explicitement refusé dans ce premier lot. Assemblage avec stock propre, kits imbriqués, conversions d’unités et fusion de références de kit restent hors périmètre. Aucune composition historique n’est remplacée par une modification du catalogue.
+
+
+22 octobre 2026 — Actualiser les coûts depuis une ligne Kit ouvre le comparatif existant, limité aux composants actuellement présents dans ce kit du devis, y compris si le groupe est replié. Les coûts courants de chaque fiche produit sont relus ; les composants modifiés manuellement restent soumis à sélection explicite. Application aux composants sélectionnés, coût parent recalculé, prix de vente conservé par défaut ou taux de marge conservé sur choix. Les autres kits et la composition/les quantités restent inchangés ; aucune resynchronisation de composition catalogue. Enregistrer reste nécessaire.
+
+
+22 octobre 2026 — Présentation des kits en document : les composants visibles sont rendus en italique, avec une arborescence fine et des raccords vers chaque description, sans flèche textuelle. Même hiérarchie dans l’aperçu de sélection et le document imprimé. Prix portés uniquement par le parent, quantités inchangées ; le choix Kit seul masque les composants et leur arborescence. Aucun PDF déjà figé n’est régénéré.
+
+
+22 octobre 2026 — Ajout au devis : le sélecteur partagé propose deux onglets Produits et Kits. Produits exclut les kits, Kits ne liste que les références composées actives vendables. Recherche conservée au changement d’onglet et page remise à 1 ; compteur/pagination calculés côté serveur sur le périmètre, pas de filtrage d’une seule page côté navigateur. Choisir un kit ouvre l’aperçu de composition avant ajout. Les sélecteurs de composants simples, achats, stock et factures conservent leur parcours existant.
+
+
+22 octobre 2026 — Couleur du groupe Kit : réglage partagé administrateur dans Apparence et densité → Tableaux → Kits dans les devis, couleur de fond propre aux modes clair et sombre (#071D35 par défaut). Texte et variante rose adaptés automatiquement au contraste ; aperçu interactif réel. Le réglage concerne les commandes du groupe dans le devis et ses éditeurs partagés, pas la sidebar, l’arborescence ou le PDF.
+
+22 octobre 2026 — Composition de kit : chaque composant affiche sa marque et propose une ouverture de sa fiche produit canonique en popup. La sauvegarde d’un composant rafraîchit ses données/coûts dans le kit, sans sauvegarde implicite de ce dernier ni perte de sa composition en cours. Aucun changement du modèle de données ou des permissions.
+
+22 octobre 2026 — Composition du kit : renvoi vers la fiche du composant placé à droite de la description, dans sa cellule Produit, avec le même segment de bouton que le devis ; Actions reste réservée au retrait.
+
+22 octobre 2026 — Box Kit du devis : dans Apparence et densité → Tableaux → Kits dans les devis, bordure extérieure réglable de 0 à 3 px (0 initialement pour conserver le rendu sans bordure), couleurs distinctes clair/sombre. Même KitControls dans le devis et l’aperçu des paramètres, séparateurs internes conservés indépendamment. Réglage partagé administrateur.

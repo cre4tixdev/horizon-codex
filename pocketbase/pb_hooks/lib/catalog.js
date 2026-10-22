@@ -5,11 +5,12 @@ const guard = (app, user, write = false) => { if (!allowed(app, user, write)) th
 const parseJson = (value) => { try { return JSON.parse(value) } catch { throw new BadRequestError('Données de formulaire invalides.') } }
 const exact = (input, keys) => { if (!input || Array.isArray(input) || typeof input !== 'object' || Object.keys(input).some((key) => !keys.includes(key))) throw new BadRequestError('Champs non autorisés.') }
 const get = (app, name, id) => { if (!/^[a-z0-9]{15}$/.test(id || '')) throw new BadRequestError('Référence invalide.'); try { return app.findRecordById(name, id) } catch { throw new ApiError(404, 'Élément introuvable.') } }
-const audit = (app, actor, record, before, action) => policy.audit(app, record.collection().name, record.id, actor.id, before, record.publicExport(), action)
+const audit = (app, actor, record, before, action) => policy.audit(app, record.collection().name, record.id, actor.id, before, { ...record.publicExport(), ...(record.collection().name === 'inventory_products' && record.getString('composition_mode') === 'kit' ? { components: require(`${__hooks}/lib/catalog-kits.js`).components(app, record.id) } : {}) }, action)
 const offers = (app, id) => app.findRecordsByFilter('inventory_product_suppliers', 'product = {:id}', '-is_preferred,created,id', 0, 0, { id })
 const valid = (offer) => { const today = new Date().toISOString().slice(0, 10); return offer.getBool('active') && (!offer.getString('valid_from') || offer.getString('valid_from').slice(0, 10) <= today) && (!offer.getString('valid_until') || offer.getString('valid_until').slice(0, 10) >= today) }
 const projectOffer = (app, offer) => ({ ...offer.publicExport(), supplier_name: get(app, 'contacts_companies', offer.getString('supplier')).getString('name'), ...pricing.offer({ list_price: offer.getFloat('list_price'), discount: offer.getFloat('discount'), purchase_quantity: offer.getFloat('purchase_quantity') }) })
 const productPrice = (app, product, offerId = '') => {
+  if (product.getString('composition_mode') === 'kit') return require(`${__hooks}/lib/catalog-kits.js`).price(app, product)
   const family = get(app, 'inventory_product_categories', product.getString('category'))
   const preferred = offerId === 'reference' || !offerId && product.getBool('cost_override') ? null : offerId ? get(app, 'inventory_product_suppliers', offerId) : offers(app, product.id).find((item) => item.getBool('is_preferred') && item.getBool('active'))
   if (preferred && preferred.getString('product') !== product.id) throw new BadRequestError('Cette offre ne correspond pas au produit.')
@@ -19,8 +20,8 @@ const productPrice = (app, product, offerId = '') => {
   return { unit_cost: cost, unit_price: warning ? null : pricing.sale(cost, coefficient), margin_rate: warning ? null : pricing.marginRate(cost, pricing.sale(cost, coefficient)), coefficient, currency: product.getString('sale_currency'), supplier: preferred?.getString('supplier') || '', product_supplier: preferred?.id || '', warning, source: preferred ? 'supplier' : 'reference' }
 }
 const publicProduct = (record) => { const value = record.publicExport(); delete value.creation_key; return value }
-const dto = (app, record, detail = true) => ({ ...publicProduct(record), category_label: get(app, 'inventory_product_categories', record.getString('category')).getString('label'), unit_code: get(app, 'inventory_units', record.getString('base_unit')).getString('code'), unit_locked: offers(app, record.id).length > 0, pricing: productPrice(app, record), last_purchase: null, ...(detail ? { offers: offers(app, record.id).filter((item) => item.getBool('active')).map((offer) => projectOffer(app, offer)), price_history: app.findRecordsByFilter('inventory_supplier_price_history', 'product_supplier.product = {:id}', '-effective_at,id', 100, 0, { id: record.id }).map((item) => ({ ...item.publicExport(), supplier_name: get(app, 'contacts_companies', JSON.parse(item.getString('snapshot')).supplier).getString('name') })) } : {}) })
-const fields = ['sku', 'name', 'description', 'category', 'kind', 'sale_enabled', 'purchase_enabled', 'stock_policy', 'replenishment_policy', 'tracking', 'base_unit', 'brand', 'cost_override', 'coefficient_override', 'manual_coefficient', 'weight_kg', 'volume_m3', 'hs_code', 'origin_country', 'manufacturer', 'manufacturer_ref', 'barcode', 'variant_group', 'reference_cost', 'sale_currency']
+const dto = (app, record, detail = true) => ({ ...publicProduct(record), category_label: get(app, 'inventory_product_categories', record.getString('category')).getString('label'), unit_code: get(app, 'inventory_units', record.getString('base_unit')).getString('code'), unit_locked: offers(app, record.id).length > 0, pricing: productPrice(app, record), last_purchase: null, ...(detail ? { components: require(`${__hooks}/lib/catalog-kits.js`).components(app, record.id), offers: offers(app, record.id).filter((item) => item.getBool('active')).map((offer) => projectOffer(app, offer)), price_history: app.findRecordsByFilter('inventory_supplier_price_history', 'product_supplier.product = {:id}', '-effective_at,id', 100, 0, { id: record.id }).map((item) => ({ ...item.publicExport(), supplier_name: get(app, 'contacts_companies', JSON.parse(item.getString('snapshot')).supplier).getString('name') })) } : {}) })
+const fields = ['composition_mode', 'kit_price_mode', 'kit_sale_price', 'kit_print_details', 'sku', 'name', 'description', 'category', 'kind', 'sale_enabled', 'purchase_enabled', 'stock_policy', 'replenishment_policy', 'tracking', 'base_unit', 'brand', 'cost_override', 'coefficient_override', 'manual_coefficient', 'weight_kg', 'volume_m3', 'hs_code', 'origin_country', 'manufacturer', 'manufacturer_ref', 'barcode', 'variant_group', 'reference_cost', 'sale_currency']
 const offerFields = ['supplier', 'supplier_sku', 'list_price', 'discount', 'purchase_quantity', 'currency', 'lead_time_days', 'valid_from', 'valid_until', 'is_preferred']
 const brandName = (value) => value.trim().replace(/\s+/g, ' ')
 const resolveBrand = (app, name, actor) => {
@@ -30,8 +31,8 @@ const resolveBrand = (app, name, actor) => {
   const record = new Record(app.findCollectionByNameOrId('inventory_brands')); record.set('name', normalized); record.set('name_key', key); record.set('active', true); app.save(record); audit(app, actor, record, null, 'create'); return record
 }
 const normalizeInput = (app, input, actor, previous) => {
-  exact(input, [...fields, 'offers'])
-  const value = { brand: '', cost_override: false, coefficient_override: false, manual_coefficient: 1, weight_kg: 0, volume_m3: 0, hs_code: '', origin_country: '', ...input }
+  exact(input, [...fields, 'offers', 'components'])
+  const value = { composition_mode: previous?.getString('composition_mode') || 'none', kit_price_mode: previous?.getString('kit_price_mode') || 'margin', kit_sale_price: previous?.getFloat('kit_sale_price') || 0, kit_print_details: previous?.getBool('kit_print_details') || false, components: previous ? require(`${__hooks}/lib/catalog-kits.js`).components(app, previous.id) : [], brand: '', cost_override: false, coefficient_override: false, manual_coefficient: 1, weight_kg: 0, volume_m3: 0, hs_code: '', origin_country: '', ...input }
   if (input.brand === undefined && typeof input.manufacturer === 'string' && input.manufacturer.trim()) value.brand = resolveBrand(app, input.manufacturer, actor).id
   if (value.brand) value.manufacturer = get(app, 'inventory_brands', value.brand).getString('name')
   if (!['equipment', 'consumable', 'service'].includes(value.kind)) throw new BadRequestError('Classification produit invalide.')
@@ -45,7 +46,9 @@ const normalizeInput = (app, input, actor, previous) => {
   return value
 }
 function validateProduct(app, input, previous) {
-  exact(input, [...fields, 'offers'])
+  input.composition_mode ||= 'none'; input.kit_price_mode ||= 'margin'; input.kit_sale_price ??= 0; input.kit_print_details ??= false; input.components ??= previous ? require(`${__hooks}/lib/catalog-kits.js`).components(app, previous.id) : []
+  require(`${__hooks}/lib/catalog-kits.js`).validate(app, input, previous)
+  exact(input, [...fields, 'offers', 'components'])
   for (const [key, max, required] of [['sku', 80, true], ['name', 200, true], ['description', 2000, false], ['manufacturer', 160, false], ['manufacturer_ref', 160, false], ['barcode', 100, false], ['variant_group', 120, false]]) if (typeof input[key] !== 'string' || input[key].length > max || required && !input[key].trim()) throw new BadRequestError('Référence et nom obligatoires ; vérifiez les textes du produit.')
   for (const [key, values] of [['kind', ['equipment', 'consumable', 'service']], ['stock_policy', ['none', 'stocked', 'on_demand']], ['replenishment_policy', ['manual', 'on_demand', 'min_max']], ['tracking', ['none', 'lot', 'serial']]]) if (!values.includes(input[key])) throw new BadRequestError('Politique produit invalide.')
   for (const key of ['sale_enabled', 'purchase_enabled', 'cost_override', 'coefficient_override']) if (typeof input[key] !== 'boolean') throw new BadRequestError('Usage produit invalide.')
@@ -98,6 +101,7 @@ module.exports = {
     for (const [index, word] of String(query.q || '').slice(0, 200).split(/\s+/).filter(Boolean).entries()) { params['q' + index] = word; filters.push(`(name ~ {:q${index}} || sku ~ {:q${index}} || manufacturer ~ {:q${index}} || manufacturer_ref ~ {:q${index}} || barcode ~ {:q${index}} || inventory_products_via_merged_into.sku ?~ {:q${index}} || inventory_products_via_merged_into.barcode ?~ {:q${index}} || description ~ {:q${index}})` ) }
     if (query.sale_enabled !== undefined) { if (!['true', 'false'].includes(query.sale_enabled)) throw new BadRequestError('Critère de vente invalide.'); params.sale = query.sale_enabled === 'true'; filters.push('sale_enabled = {:sale}') }
     if (query.purchase_enabled !== undefined) { if (!['true', 'false'].includes(query.purchase_enabled)) throw new BadRequestError('Critère d’achat invalide.'); params.purchase = query.purchase_enabled === 'true'; filters.push('purchase_enabled = {:purchase}') }
+    if (query.composition_mode !== undefined) { if (!['none', 'kit'].includes(query.composition_mode)) throw new BadRequestError('Critère de composition invalide.'); params.composition = 'kit'; filters.push(query.composition_mode === 'kit' ? 'composition_mode = {:composition}' : 'composition_mode != {:composition}') }
     if (query.kind) { params.kind = query.kind; filters.push('kind = {:kind}') }
     if (query.state && !['active', 'archived'].includes(query.state)) throw new BadRequestError('Archives invalides.')
     const selectedCategories = require(`${__hooks}/lib/stock-list-filters.js`).values(query.category, (id) => /^[a-z0-9]{15}$/.test(id), 'Familles')
@@ -151,18 +155,18 @@ module.exports = {
       const currentProduct = body.id ? get(app, 'inventory_products', body.id) : null
       input = normalizeInput(app, input, event.auth, currentProduct)
       if (!body.id && !/^[a-zA-Z0-9-]{16,100}$/.test(body.creation_key || '')) throw new BadRequestError('Clé de création invalide.')
-      if (!body.id) { const existing = app.findRecordsByFilter('inventory_products', 'creation_key = {:key} && created_by = {:actor}', '', 1, 0, { key: body.creation_key, actor: event.auth.id })[0]; if (existing) { exact(input, [...fields, 'offers']); if (fields.some((key) => (key === 'barcode' ? ![existing.getString('barcode'), existing.getString('barcode_requested')].includes(input.barcode.trim()) : existing.get(key) !== (typeof input[key] === 'string' ? input[key].trim() : input[key])))) throw new ApiError(409, 'Cette création existe déjà avec d’autres valeurs.'); result = dto(app, existing); return } }
+      if (!body.id) { const existing = app.findRecordsByFilter('inventory_products', 'creation_key = {:key} && created_by = {:actor}', '', 1, 0, { key: body.creation_key, actor: event.auth.id })[0]; if (existing) { exact(input, [...fields, 'offers', 'components']); if (fields.some((key) => (key === 'barcode' ? ![existing.getString('barcode'), existing.getString('barcode_requested')].includes(input.barcode.trim()) : existing.get(key) !== (typeof input[key] === 'string' ? input[key].trim() : input[key])))) throw new ApiError(409, 'Cette création existe déjà avec d’autres valeurs.'); result = dto(app, existing); return } }
       const record = currentProduct || new Record(app.findCollectionByNameOrId('inventory_products'))
       if (body.id && record.getString('updated') !== body.updated) throw new ApiError(409, 'Le produit a changé. Rechargez sa fiche.')
       if (body.id && !record.getBool('active')) throw new BadRequestError('Réactivez le produit avant de le modifier.')
       validateProduct(app, input, body.id ? record : null)
-      const before = body.id ? record.publicExport() : null
+      const before = body.id ? { ...record.publicExport(), ...(record.getString('composition_mode') === 'kit' ? { components: require(`${__hooks}/lib/catalog-kits.js`).components(app, record.id) } : {}) } : null
       for (const key of fields) record.set(key, typeof input[key] === 'string' ? input[key].trim() : input[key])
       const requestedBarcode = input.barcode.trim(), barcodes = require(`${__hooks}/lib/catalog-barcode.js`)
       const barcode = requestedBarcode || (!body.id ? barcodes.base(input.manufacturer, input.sku) : '')
       if (barcode) record.set('barcode', barcodes.allocate(barcode, (candidate) => app.findRecordsByFilter('inventory_products', 'barcode = {:barcode} && id != {:id}', '', 1, 0, { barcode: candidate, id: record.id }).length > 0))
       if (!body.id) record.set('barcode_requested', requestedBarcode)
-      record.set('sale_unit', input.base_unit); record.set('composition_mode', 'none')
+      record.set('sale_unit', input.base_unit)
       if (!body.id) { record.set('active', true); record.set('created_by', event.auth.id); record.set('creation_key', body.creation_key) }
       if (body.remove_image === true || body.remove_image === 'true') record.set('primary_image', '')
       if (primary.length) record.set('primary_image', primary)
@@ -171,6 +175,7 @@ module.exports = {
       if (removed.length) record.set('images-', removed)
       if (images.length) record.set('images+', images)
       app.save(record)
+      require(`${__hooks}/lib/catalog-kits.js`).save(app, record, input)
       const previous = offers(app, record.id), beforeOffers = new Map(previous.map((offer) => [offer.id, offer.publicExport()]))
       for (const offer of previous) if (offer.getBool('is_preferred')) { offer.set('is_preferred', false); app.save(offer) }
       const seen = new Set()
@@ -189,7 +194,7 @@ module.exports = {
     return event.json(200, { ...result, purchase_history: require(`${__hooks}/lib/purchasing.js`).productHistory(event.app, event.auth, result.id) })
   },
   state(event) { guard(event.app, event.auth, true); const body = event.requestInfo().body; exact(body, ['id', 'updated', 'active']); if (typeof body.active !== 'boolean') throw new BadRequestError('État invalide.'); let saved; event.app.runInTransaction((app) => { guard(app, event.auth, true); const record = get(app, 'inventory_products', body.id); if (record.getString('updated') !== body.updated) throw new ApiError(409, 'Le produit a changé. Rechargez sa fiche.'); const before = record.publicExport(); record.set('active', body.active); app.save(record); audit(app, event.auth, record, before, body.active ? 'restore' : 'archive'); saved = dto(app, record); require(`${__hooks}/lib/activity.js`).publish(app, record, event.auth.id, 'status_change', body.active ? 'Produit réactivé' : 'Produit archivé', { action: body.active ? 'restore' : 'archive' }) }); return event.json(200, saved) },
-  quoteLine(event) { guard(event.app, event.auth); if (!policy.permissions(event.app, event.auth).includes('sales.read')) throw new ForbiddenError('Accès aux devis refusé.'); const body = event.requestInfo().body; exact(body, ['product', 'offer', 'currency']); const product = get(event.app, 'inventory_products', body.product); if (!product.getBool('active') || !product.getBool('sale_enabled')) throw new BadRequestError('Ce produit ne peut pas être vendu.'); if (!get(event.app, 'inventory_units', product.getString('base_unit')).getBool('active')) throw new BadRequestError('L’unité du produit est archivée.'); const price = productPrice(event.app, product, body.offer || ''); if (price.warning || body.currency !== price.currency) throw new BadRequestError(price.warning || 'La devise du produit est différente de celle du devis.'); return event.json(200, { product: product.id, product_supplier: price.product_supplier, description: product.getString('description') || product.getString('name'), brand: product.getString('manufacturer'), reference: product.getString('sku'), unit: get(event.app, 'inventory_units', product.getString('base_unit')).getString('code'), unit_cost: price.unit_cost, unit_price: price.unit_price, margin_percent: (price.coefficient - 1) * 100 }) },
+  quoteLine(event) { guard(event.app, event.auth); if (!policy.permissions(event.app, event.auth).includes('sales.read')) throw new ForbiddenError('Accès aux devis refusé.'); const body = event.requestInfo().body; exact(body, ['product', 'offer', 'currency']); const product = get(event.app, 'inventory_products', body.product); if (!product.getBool('active') || !product.getBool('sale_enabled')) throw new BadRequestError('Ce produit ne peut pas être vendu.'); if (!get(event.app, 'inventory_units', product.getString('base_unit')).getBool('active')) throw new BadRequestError('L’unité du produit est archivée.'); if (product.getString('composition_mode') === 'kit') return event.json(200, require(`${__hooks}/lib/catalog-kits.js`).quote(event.app, product, body.currency)); const price = productPrice(event.app, product, body.offer || ''); if (price.warning || body.currency !== price.currency) throw new BadRequestError(price.warning || 'La devise du produit est différente de celle du devis.'); return event.json(200, { product: product.id, product_supplier: price.product_supplier, description: product.getString('description') || product.getString('name'), brand: product.getString('manufacturer'), reference: product.getString('sku'), unit: get(event.app, 'inventory_units', product.getString('base_unit')).getString('code'), unit_cost: price.unit_cost, unit_price: price.unit_price, margin_percent: (price.coefficient - 1) * 100 }) },
 }
 
 // Initial suggestion only: Inventory freezes its own standard cost thereafter.

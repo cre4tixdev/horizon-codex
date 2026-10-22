@@ -41,6 +41,7 @@ module.exports = {
     if (first.currency !== 'EUR') throw new BadRequestError('La validation hors EUR attend le raccordement BCE.')
     const operationCovered = module.exports.operationCoverage(app, type.direction), covered = module.exports.coverage(app, type.direction), codes = b.json(b.settings(app), 'tax_codes'), selected = new Map()
     for (const operation of operations) for (const line of b.json(operation, 'lines')) { const id = line.sales_line || line.source_line; selected.set(id, (selected.get(id) || 0) + line.quantity) }
+    if (operations.length && sources.some((item) => (item.kit_component_ids || []).some((id) => selected.has(id)))) throw new BadRequestError('Cette livraison contient des composants de kit. Préparez la facture depuis la commande pour conserver le prix du kit.')
     const lines = sources.flatMap((item) => item.lines.flatMap((line) => {
       if (line.kind !== 'item') return body.mode === 'deposit' || operations.length ? [] : [{ ...line, key: `line-${line.id}`, source_type: '', source_line: '', source_order: '', source_operation: '', source_operation_line: '', credit_source_line: '', discount: 0, tax_code: '', quantity: 0, unit_price: 0 }]
       let quantity = Math.max(0, line.quantity - (covered.get(line.id) || 0)); if (operations.length) quantity = Math.min(quantity, selected.get(line.id) || 0)
